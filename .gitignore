@@ -1,0 +1,115 @@
+# ==============================
+# .NET / Visual Studio
+# ==============================
+
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Rider
+.idea/
+
+# ==============================
+# .NET Build / Test
+# ==============================
+
+TestResults/
+*.trx
+*.log
+
+# ==============================
+# Python
+# ==============================
+
+__pycache__/
+*.py[cod]
+*.pyo
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.mypy_cache/
+
+# ==============================
+# Python Environment / Secrets
+# ==============================
+
+.env
+.env.*
+!.env.example
+
+# ==============================
+# RSA / Security Secrets
+# ==============================
+
+**/private_key.pem
+**/*private*.pem
+**/*private*.key
+**/*.pfx
+**/*.p12
+
+# ==============================
+# Certificates / Local Secrets
+# ==============================
+
+*.cer
+*.crt
+*.key
+secrets.json
+appsettings.Local.json
+appsettings.Development.local.json
+
+# ==============================
+# Local Database Files
+# ==============================
+
+*.mdf
+*.ldf
+*.ndf
+*.db
+*.sqlite
+*.sqlite3
+
+# ==============================
+# Chroma / Vector Database
+# ==============================
+
+**/chroma_db/
+**/chromadb/
+**/chroma_data/
+
+# ==============================
+# Local AI / Model Cache
+# ==============================
+
+**/.cache/
+**/models/
+**/model_cache/
+
+# ==============================
+# OS Files
+# ==============================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==============================
+# Temporary Files
+# ==============================
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+~$*

@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "ERP-FastAPI": {
+      "host": "127.0.0.1",
+      "port": 8000,
+      "swagger": "/docs",
+      "reload": true,
+      "open_browser": true
+    }
+  }
+}
