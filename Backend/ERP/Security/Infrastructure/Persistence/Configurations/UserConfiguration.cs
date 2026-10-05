@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Security.Core.Models;
 
@@ -35,6 +36,13 @@ public class UserConfiguration
         {
             x.TenantId,
             x.Username
+        })
+        .IsUnique();
+
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.Email
         })
         .IsUnique();
     }
