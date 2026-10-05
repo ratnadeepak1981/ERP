@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Services;
-
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 namespace API.Features.SaaS;
 
 [ApiController]
@@ -41,4 +43,5 @@ public class SaaSController : ControllerBase
             subscription = result.Subscription
         });
     }
+   
 }
