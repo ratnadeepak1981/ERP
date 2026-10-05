@@ -184,4 +184,9 @@ public class RsaPrivateKeyLoader
     {
         return _rsaPrivate;
     }
+
+    public RSA? GetPublicRsa()
+    {
+        return _rsaPublic;
+    }
 }
