@@ -12,16 +12,40 @@ public class SaaSDbContext : DbContext
     {
     }
 
-    public DbSet<Tenant> Tenants => Set<Tenant>();
+    // =========================
+    // Tenant
+    // =========================
 
-    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<Tenant> Tenants
+        => Set<Tenant>();
+
+
+    // =========================
+    // Subscription
+    // =========================
+
+    public DbSet<SubscriptionParameter> SubscriptionParameters
+        => Set<SubscriptionParameter>();
+
+    public DbSet<SubscriptionPlan> SubscriptionPlans
+        => Set<SubscriptionPlan>();
 
     public DbSet<SubscriptionLimit> SubscriptionLimits
         => Set<SubscriptionLimit>();
 
-    public DbSet<SubscriptionLimitParameter>
-        SubscriptionLimitParameters
-        => Set<SubscriptionLimitParameter>();
+    public DbSet<SubscriptionPlanParameter> SubscriptionPlanParameters
+        => Set<SubscriptionPlanParameter>();
+
+    public DbSet<Subscription> Subscriptions
+        => Set<Subscription>();
+
+    public DbSet<SubscriptionUsage> SubscriptionUsages
+        => Set<SubscriptionUsage>();
+
+
+    // =========================
+    // Tenant Database
+    // =========================
 
     public DbSet<TenantDatabase> TenantDatabases
         => Set<TenantDatabase>();
@@ -29,8 +53,18 @@ public class SaaSDbContext : DbContext
     public DbSet<TenantConfiguration> TenantConfigurations
         => Set<TenantConfiguration>();
 
+
+    // =========================
+    // Auditing
+    // =========================
+
     public DbSet<PlatformAuditRecord> PlatformAuditRecords
         => Set<PlatformAuditRecord>();
+
+
+    // =========================
+    // EF Core Model Configuration
+    // =========================
 
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)

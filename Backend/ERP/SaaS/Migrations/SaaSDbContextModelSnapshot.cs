@@ -57,6 +57,9 @@ namespace SaaS.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid>("SubscriptionPlanId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("SubscriptionType")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -67,10 +70,11 @@ namespace SaaS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("SubscriptionPlanId");
 
-                    b.HasIndex("TenantId", "SubscriptionName")
-                        .IsUnique();
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
 
                     b.ToTable("Subscriptions", (string)null);
                 });
@@ -96,17 +100,18 @@ namespace SaaS.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("SubscriptionId")
+                    b.Property<Guid>("SubscriptionPlanId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SubscriptionId");
+                    b.HasIndex("SubscriptionPlanId")
+                        .IsUnique();
 
                     b.ToTable("SubscriptionLimits", (string)null);
                 });
 
-            modelBuilder.Entity("SaaS.Core.Models.SubscriptionLimitParameter", b =>
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionParameter", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -117,6 +122,99 @@ namespace SaaS.Migrations
 
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ParameterKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ParameterType")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParameterKey")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionParameters", (string)null);
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("BillingCycle")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlans", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SubscriptionPlans_Price_NonNegative", "[Price] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionPlanParameter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Duration")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -133,22 +231,75 @@ namespace SaaS.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("ParameterKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<Guid>("SubscriptionLimitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SubscriptionParameterId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
                     b.HasIndex("SubscriptionLimitId");
 
-                    b.HasIndex("SubscriptionLimitId", "ParameterKey")
+                    b.HasIndex("SubscriptionParameterId");
+
+                    b.HasIndex("SubscriptionLimitId", "SubscriptionParameterId")
                         .IsUnique();
 
-                    b.ToTable("SubscriptionLimitParameters", (string)null);
+                    b.ToTable("SubscriptionPlanParameters", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SubscriptionPlanParameters_LimitValue_NonNegative", "[LimitValue] IS NULL OR [LimitValue] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionPlanParameters_Unlimited_LimitValue", "([IsUnlimited] = 1 AND [LimitValue] IS NULL) OR ([IsUnlimited] = 0 AND [LimitValue] IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionUsage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LastUpdated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SubscriptionPlanParameterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UsageValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("SubscriptionPlanParameterId");
+
+                    b.HasIndex("SubscriptionId", "SubscriptionPlanParameterId", "PeriodStart", "PeriodEnd")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionUsages", (string)null);
                 });
 
             modelBuilder.Entity("SaaS.Core.Models.Tenant", b =>
@@ -322,35 +473,70 @@ namespace SaaS.Migrations
 
             modelBuilder.Entity("SaaS.Core.Models.Subscription", b =>
                 {
+                    b.HasOne("SaaS.Core.Models.SubscriptionPlan", "SubscriptionPlan")
+                        .WithMany("Subscriptions")
+                        .HasForeignKey("SubscriptionPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("SubscriptionPlan");
+
                     b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("SaaS.Core.Models.SubscriptionLimit", b =>
                 {
-                    b.HasOne("SaaS.Core.Models.Subscription", "Subscription")
-                        .WithMany()
-                        .HasForeignKey("SubscriptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                    b.HasOne("SaaS.Core.Models.SubscriptionPlan", "SubscriptionPlan")
+                        .WithOne("SubscriptionLimit")
+                        .HasForeignKey("SaaS.Core.Models.SubscriptionLimit", "SubscriptionPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Subscription");
+                    b.Navigation("SubscriptionPlan");
                 });
 
-            modelBuilder.Entity("SaaS.Core.Models.SubscriptionLimitParameter", b =>
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionPlanParameter", b =>
                 {
                     b.HasOne("SaaS.Core.Models.SubscriptionLimit", "SubscriptionLimit")
                         .WithMany("Parameters")
                         .HasForeignKey("SubscriptionLimitId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.SubscriptionParameter", "SubscriptionParameter")
+                        .WithMany("PlanParameters")
+                        .HasForeignKey("SubscriptionParameterId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("SubscriptionLimit");
+
+                    b.Navigation("SubscriptionParameter");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionUsage", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.Subscription", "Subscription")
+                        .WithMany("Usages")
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.SubscriptionPlanParameter", "SubscriptionPlanParameter")
+                        .WithMany("Usages")
+                        .HasForeignKey("SubscriptionPlanParameterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
+
+                    b.Navigation("SubscriptionPlanParameter");
                 });
 
             modelBuilder.Entity("SaaS.Core.Models.TenantConfiguration", b =>
@@ -373,9 +559,31 @@ namespace SaaS.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("SaaS.Core.Models.Subscription", b =>
+                {
+                    b.Navigation("Usages");
+                });
+
             modelBuilder.Entity("SaaS.Core.Models.SubscriptionLimit", b =>
                 {
                     b.Navigation("Parameters");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionParameter", b =>
+                {
+                    b.Navigation("PlanParameters");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionPlan", b =>
+                {
+                    b.Navigation("SubscriptionLimit");
+
+                    b.Navigation("Subscriptions");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionPlanParameter", b =>
+                {
+                    b.Navigation("Usages");
                 });
 #pragma warning restore 612, 618
         }

@@ -4,7 +4,7 @@ using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Services;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
+
 namespace API.Features.SaaS;
 
 [ApiController]
@@ -29,11 +29,11 @@ public class SaaSController : ControllerBase
     }
 
     [HttpPost("tenant-registration-test")]
-    public IActionResult TenantRegistrationTest(
+    public async Task<IActionResult> TenantRegistrationTest(
         [FromBody] CreateTenantRequest request)
     {
         TenantRegistrationResult result =
-            _tenantService.RegisterTenant(request);
+            await _tenantService.RegisterTenant(request);
 
         return Ok(new
         {
@@ -43,5 +43,4 @@ public class SaaSController : ControllerBase
             subscription = result.Subscription
         });
     }
-   
 }

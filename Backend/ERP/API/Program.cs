@@ -1,24 +1,23 @@
+using API.Security;
+using Domain.Infrastructure.Persistence;
 using Domain.Services;
+using ERP.Infrastructure.Persistence.Auditing;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-
 using SaaS.Application.Interfaces;
+using SaaS.Application.Interfaces.Repositories;
 using SaaS.Application.Services;
 using SaaS.Infrastructure.Persistence;
 using SaaS.Infrastructure.Persistence.Auditing;
+using SaaS.Infrastructure.Persistence.Repositories;
+using SaaS.Infrastructure.Repositories;
 using SaaS.Services;
-
 using Security.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence.Auditing;
 using Security.Infrastructure.Persistence.Repositories;
 using Security.Interfaces;
 using Security.Services;
-using API.Security;
-
-using Domain.Infrastructure.Persistence;
-using ERP.Infrastructure.Persistence.Auditing;
-
 using System.Security.Claims;
 
 namespace API
@@ -52,7 +51,21 @@ namespace API
             builder.Services.AddScoped<IUserService,UserService>();
 
             builder.Services.AddScoped<IUserRoleService,UserRoleService>();
-     
+
+
+            builder.Services.AddScoped<SecurityBootstrapService>();
+            builder.Services.AddScoped<PasswordService>();
+
+            builder.Services.AddScoped<ISubscriptionPlanService,SubscriptionPlanService>();
+
+            builder.Services.AddScoped<ISubscriptionParameterService,SubscriptionParameterService>();
+
+            builder.Services.AddScoped<ISubscriptionPlanParameterService,SubscriptionPlanParameterService>();
+
+            builder.Services.AddScoped<ISubscriptionLimitService,SubscriptionLimitService>();
+
+            builder.Services.AddScoped<ITenantProvisioningService,TenantProvisioningService>();
+
 
             // ============================================================
             // Current User Context
@@ -76,14 +89,25 @@ namespace API
 
             builder.Services.AddScoped<IUserRoleRepository,UserRoleRepository>();
 
+            builder.Services.AddScoped<ITenantDatabaseRepository,TenantDatabaseRepository>();
+
+            builder.Services.AddScoped<ITenantConfigurationRepository,TenantConfigurationRepository>();
+
             // ============================================================
             // Security Bootstrap Services
             // ============================================================
 
             builder.Services.AddScoped<ISecurityBootstrapRepository,SecurityBootstrapRepository>();
 
-            builder.Services.AddScoped<SecurityBootstrapService>();
-            builder.Services.AddScoped<PasswordService>();
+            builder.Services.AddScoped<ITenantRepository,TenantRepository>();
+
+            builder.Services.AddScoped<ISubscriptionParameterRepository,SubscriptionParameterRepository>();
+
+            builder.Services.AddScoped<ISubscriptionPlanParameterRepository,SubscriptionPlanParameterRepository>();
+
+            builder.Services.AddScoped<ISubscriptionLimitRepository,SubscriptionLimitRepository>();
+
+            builder.Services.AddScoped<ISubscriptionRepository,SubscriptionRepository>();
 
             // ============================================================
             // Audit Interceptors

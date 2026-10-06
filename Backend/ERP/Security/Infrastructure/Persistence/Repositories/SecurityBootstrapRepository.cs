@@ -4,7 +4,7 @@ using Security.Interfaces;
 
 namespace Security.Infrastructure.Persistence.Repositories;
 
-public class SecurityBootstrapRepository  : ISecurityBootstrapRepository
+public class SecurityBootstrapRepository : ISecurityBootstrapRepository
 {
     private readonly SecurityDbContext _context;
 
@@ -28,6 +28,24 @@ public class SecurityBootstrapRepository  : ISecurityBootstrapRepository
             .FirstOrDefaultAsync(x =>
                 x.TenantId == null &&
                 x.Username == "admin");
+    }
+
+    public Task<Role?> GetTenantAdminRoleAsync()
+    {
+        return _context.Roles
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == null &&
+                x.Name == "Tenant Admin");
+    }
+
+    public Task<User?> GetTenantAdminUserAsync(
+        Guid tenantId,
+        string username)
+    {
+        return _context.Users
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == tenantId &&
+                x.Username == username);
     }
 
     public async Task AddRoleAsync(Role role)

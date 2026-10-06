@@ -8,11 +8,20 @@ public interface ISecurityBootstrapRepository
 
     Task<User?> GetPlatformAdminUserAsync();
 
-    Task AddRoleAsync(Role role);
+    Task<Role?> GetTenantAdminRoleAsync();
 
-    Task AddUserAsync(User user);
+    Task<User?> GetTenantAdminUserAsync(
+        Guid tenantId,
+        string username);
 
-    Task AddUserRoleAsync(UserRole userRole);
+    Task AddRoleAsync(
+        Role role);
+
+    Task AddUserAsync(
+        User user);
+
+    Task AddUserRoleAsync(
+        UserRole userRole);
 
     Task SaveChangesAsync();
 }
