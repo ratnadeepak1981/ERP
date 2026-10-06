@@ -12,17 +12,23 @@ public class TenantProvisioningService
     private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly ITenantDatabaseRepository _tenantDatabaseRepository;
     private readonly ITenantConfigurationRepository _tenantConfigurationRepository;
+    private readonly ITenantAdminProvisioningService _tenantAdminProvisioningService;
+    private readonly IDomainDatabaseConfiguration _domainDatabaseConfiguration;
 
     public TenantProvisioningService(
         ITenantRepository tenantRepository,
         ISubscriptionRepository subscriptionRepository,
         ITenantDatabaseRepository tenantDatabaseRepository,
-        ITenantConfigurationRepository tenantConfigurationRepository)
+        ITenantConfigurationRepository tenantConfigurationRepository,
+        ITenantAdminProvisioningService tenantAdminProvisioningService,
+        IDomainDatabaseConfiguration domainDatabaseConfiguration)
     {
         _tenantRepository = tenantRepository;
         _subscriptionRepository = subscriptionRepository;
         _tenantDatabaseRepository = tenantDatabaseRepository;
         _tenantConfigurationRepository = tenantConfigurationRepository;
+        _tenantAdminProvisioningService = tenantAdminProvisioningService;
+        _domainDatabaseConfiguration = domainDatabaseConfiguration;
     }
 
     public async Task<TenantProvisioningResult> ProvisionTenant(
@@ -73,8 +79,10 @@ public class TenantProvisioningService
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
-            DatabaseName = "ERP_DB",
-            DatabaseServer = "SQLSERVER",
+            DatabaseName =
+                _domainDatabaseConfiguration.DatabaseName,
+            DatabaseServer =
+                _domainDatabaseConfiguration.DatabaseServer,
             IsActive = true
         };
 
@@ -88,6 +96,12 @@ public class TenantProvisioningService
             tenantConfiguration);
 
         await _tenantDatabaseRepository.SaveChangesAsync();
+
+        await _tenantAdminProvisioningService.EnsureTenantAdminAsync(
+            tenantId,
+            request.AdminUserName,
+            request.AdminEmail,
+            request.AdminPassword);
 
         return new TenantProvisioningResult
         {

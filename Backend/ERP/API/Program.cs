@@ -1,4 +1,5 @@
 using API.Security;
+using API.Services;
 using Domain.Infrastructure.Persistence;
 using Domain.Services;
 using ERP.Infrastructure.Persistence.Auditing;
@@ -27,6 +28,10 @@ namespace API
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+
+            builder.Services.AddScoped<IDomainDatabaseConfiguration, DomainDatabaseConfiguration>();
+
 
             // ============================================================
             // Application Services
@@ -65,6 +70,8 @@ namespace API
             builder.Services.AddScoped<ISubscriptionLimitService,SubscriptionLimitService>();
 
             builder.Services.AddScoped<ITenantProvisioningService,TenantProvisioningService>();
+
+            builder.Services.AddScoped<ITenantAdminProvisioningService,TenantAdminProvisioningService>();
 
 
             // ============================================================
