@@ -13,6 +13,12 @@ public class SubscriptionConfiguration
 
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.SubscriptionPlanId)
+            .IsRequired();
+
         builder.Property(x => x.SubscriptionName)
             .IsRequired()
             .HasMaxLength(100);
@@ -22,7 +28,8 @@ public class SubscriptionConfiguration
             .HasMaxLength(50);
 
         builder.Property(x => x.StorageMode)
-            .IsRequired();
+            .IsRequired()
+            .HasConversion<int>();
 
         builder.Property(x => x.StartDate)
             .IsRequired();
@@ -33,21 +40,20 @@ public class SubscriptionConfiguration
         builder.Property(x => x.IsActive)
             .IsRequired();
 
-        // Tenant → Subscriptions
         builder.HasOne(x => x.Tenant)
             .WithMany()
             .HasForeignKey(x => x.TenantId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Fast tenant lookup
-        builder.HasIndex(x => x.TenantId);
+        builder.HasOne(x => x.SubscriptionPlan)
+            .WithMany(x => x.Subscriptions)
+            .HasForeignKey(x => x.SubscriptionPlanId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        // Prevent duplicate subscription names within a tenant
-        builder.HasIndex(x => new
-        {
-            x.TenantId,
-            x.SubscriptionName
-        })
-        .IsUnique();
+        builder.HasIndex(x => x.SubscriptionPlanId);
+
+        builder.HasIndex(x => x.TenantId)
+            .HasFilter("[IsActive] = 1")
+            .IsUnique();
     }
 }

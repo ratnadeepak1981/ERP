@@ -1,41 +1,68 @@
 ﻿using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
 using SaaS.Core.Rules;
+using SaaS.Infrastructure.Persistence;
 
 namespace SaaS.Application.Services;
 
 public class SubscriptionService : ISubscriptionService
 {
-    public Subscription CreateDefaultSubscription(
-        Guid tenantId)
+    private readonly SaaSDbContext _dbContext;
+
+    public SubscriptionService(
+        SaaSDbContext dbContext)
     {
-        string subscriptionName = SubscriptionRules.GetDefaultSubscriptionName();
+        _dbContext = dbContext;
+    }
 
-        string subscriptionType = SubscriptionRules.GetDefaultSubscriptionType();
+    public Subscription CreateSubscription(
+        Guid tenantId,
+        Guid subscriptionPlanId)
+    {
+        SubscriptionPlan? plan =
+            _dbContext.SubscriptionPlans
+                .FirstOrDefault(x =>
+                    x.Id == subscriptionPlanId &&
+                    x.IsActive);
 
-        if (!SubscriptionRules.IsValidSubscriptionName(subscriptionName))
+        if (plan == null)
         {
-            throw new InvalidOperationException("Default subscription name is invalid.");
+            throw new InvalidOperationException(
+                "Selected subscription plan does not exist or is inactive.");
+        }
+
+        string subscriptionName = plan.Name;
+        string subscriptionType = plan.Code;
+
+        if (!SubscriptionRules.IsValidSubscriptionName(
+                subscriptionName))
+        {
+            throw new InvalidOperationException(
+                "Subscription name is invalid.");
         }
 
         if (!SubscriptionRules.IsValidSubscriptionType(
                 subscriptionType))
         {
             throw new InvalidOperationException(
-                "Default subscription type is invalid.");
+                "Subscription type is invalid.");
         }
 
         DateTime startDate = DateTime.UtcNow;
 
-        return new Subscription
+        Subscription subscription = new Subscription
         {
             Id = Guid.NewGuid(),
 
             TenantId = tenantId,
 
+            SubscriptionPlanId = plan.Id,
+
             SubscriptionName = subscriptionName,
 
             SubscriptionType = subscriptionType,
+
+            StorageMode = TenantStorageMode.Shared,
 
             StartDate = startDate,
 
@@ -45,17 +72,24 @@ public class SubscriptionService : ISubscriptionService
                 startDate,
                 null)
         };
+
+        _dbContext.Subscriptions.Add(subscription);
+
+        _dbContext.SaveChanges();
+
+        return subscription;
     }
 
     public bool IsSubscriptionActive(Guid tenantId)
     {
-        // PlatformDB persistence will be connected later.
         throw new NotImplementedException();
     }
 
-    public bool IsWithinLimit(Guid tenantId,string parameterKey,decimal currentValue)
+    public bool IsWithinLimit(
+        Guid tenantId,
+        string parameterKey,
+        decimal currentValue)
     {
-        // PlatformDB persistence will be connected later.
         throw new NotImplementedException();
     }
 }

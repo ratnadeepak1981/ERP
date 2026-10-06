@@ -8,14 +8,19 @@ namespace SaaS.Application.Services;
 public class TenantService : ITenantService
 {
     private readonly ISubscriptionService _subscriptionService;
+    private readonly ITenantRepository _tenantRepository;
 
     public TenantService(
-        ISubscriptionService subscriptionService)
+        ISubscriptionService subscriptionService,
+        ITenantRepository tenantRepository)
     {
         _subscriptionService = subscriptionService;
+        _tenantRepository = tenantRepository;
     }
 
-    public Tenant CreateTenant(string name, string code)
+    public Tenant CreateTenant(
+        string name,
+        string code)
     {
         if (!TenantRules.IsValidName(name))
         {
@@ -40,14 +45,26 @@ public class TenantService : ITenantService
         };
     }
 
-    public TenantRegistrationResult RegisterTenant(
+    public async Task<TenantRegistrationResult> RegisterTenant(
         CreateTenantRequest request)
     {
+        if (request == null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
         if (!TenantRules.IsValidName(request.Name))
         {
             throw new ArgumentException(
                 "Tenant name is required.",
                 nameof(request.Name));
+        }
+
+        if (request.SubscriptionPlanId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Subscription plan is required.",
+                nameof(request.SubscriptionPlanId));
         }
 
         Guid tenantId = Guid.NewGuid();
@@ -63,14 +80,35 @@ public class TenantService : ITenantService
             IsActive = true
         };
 
-        Subscription subscription =
-            _subscriptionService.CreateDefaultSubscription(
-                tenant.Id);
+        var transaction =
+            await _tenantRepository.BeginTransactionAsync();
 
-        return new TenantRegistrationResult
+        try
         {
-            Tenant = tenant,
-            Subscription = subscription
-        };
+            await _tenantRepository.AddAsync(tenant);
+
+            Subscription subscription =
+                _subscriptionService.CreateSubscription(
+                    tenant.Id,
+                    request.SubscriptionPlanId);
+
+            await _tenantRepository.SaveChangesAsync();
+
+            await _tenantRepository.CommitTransactionAsync(
+                transaction);
+
+            return new TenantRegistrationResult
+            {
+                Tenant = tenant,
+                Subscription = subscription
+            };
+        }
+        catch
+        {
+            await _tenantRepository.RollbackTransactionAsync(
+                transaction);
+
+            throw;
+        }
     }
 }

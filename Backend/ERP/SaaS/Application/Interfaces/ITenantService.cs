@@ -7,6 +7,7 @@ public interface ITenantService
 {
     Tenant CreateTenant(string name, string code);
 
-    TenantRegistrationResult RegisterTenant(
-        CreateTenantRequest request);
+    Task<TenantRegistrationResult> RegisterTenant(
+        CreateTenantRequest request
+        );
 }

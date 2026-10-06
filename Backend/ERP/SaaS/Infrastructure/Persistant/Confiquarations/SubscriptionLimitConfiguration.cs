@@ -7,20 +7,27 @@ namespace SaaS.Infrastructure.Persistence.Configurations;
 public class SubscriptionLimitConfiguration
     : IEntityTypeConfiguration<SubscriptionLimit>
 {
-    public void Configure(EntityTypeBuilder<SubscriptionLimit> builder)
+    public void Configure(
+        EntityTypeBuilder<SubscriptionLimit> builder)
     {
         builder.ToTable("SubscriptionLimits");
 
+        // Primary Key
         builder.HasKey(x => x.Id);
 
+        // Active status
         builder.Property(x => x.IsActive)
             .IsRequired();
 
-        builder.HasOne(x => x.Subscription)
-            .WithMany()
-            .HasForeignKey(x => x.SubscriptionId)
-            .OnDelete(DeleteBehavior.Cascade);
+        // SubscriptionPlan → SubscriptionLimit (1 : 1)
+        builder.HasOne(x => x.SubscriptionPlan)
+            .WithOne(x => x.SubscriptionLimit)
+            .HasForeignKey<SubscriptionLimit>(
+                x => x.SubscriptionPlanId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(x => x.SubscriptionId);
+        // One SubscriptionLimit per SubscriptionPlan
+        builder.HasIndex(x => x.SubscriptionPlanId)
+            .IsUnique();
     }
 }

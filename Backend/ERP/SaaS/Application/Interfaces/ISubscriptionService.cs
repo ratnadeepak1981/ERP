@@ -4,9 +4,14 @@ namespace SaaS.Application.Interfaces;
 
 public interface ISubscriptionService
 {
-    Subscription CreateDefaultSubscription(Guid tenantId);
+    Subscription CreateSubscription(
+        Guid tenantId,
+        Guid subscriptionPlanId);
 
     bool IsSubscriptionActive(Guid tenantId);
 
-    bool IsWithinLimit( Guid tenantId, string parameterKey, decimal currentValue);
+    bool IsWithinLimit(
+        Guid tenantId,
+        string parameterKey,
+        decimal currentValue);
 }

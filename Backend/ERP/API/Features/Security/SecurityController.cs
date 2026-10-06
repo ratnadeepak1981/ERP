@@ -522,11 +522,11 @@ public class SecurityController : ControllerBase
     // ============================================================
 
     [HttpPost("tenant-registration-test")]
-    public IActionResult TenantRegistrationTest(
+    public async Task<IActionResult> TenantRegistrationTest(
         [FromBody] CreateTenantRequest request)
     {
         TenantRegistrationResult result =
-            _tenantService.RegisterTenant(request);
+            await _tenantService.RegisterTenant(request);
 
         return Ok(new
         {
@@ -536,6 +536,10 @@ public class SecurityController : ControllerBase
             subscription = result.Subscription
         });
     }
+
+    // ============================================================
+    // PROTECTED TEST
+    // ============================================================
 
     [Authorize]
     [HttpGet("protected-test")]
@@ -556,6 +560,10 @@ public class SecurityController : ControllerBase
         });
     }
 
+    // ============================================================
+    // SUBSCRIPTION VIEW TEST
+    // ============================================================
+
     [HttpGet("subscription-view-test")]
     [Authorize(Policy = "SUBSCRIPTION_VIEW")]
     public IActionResult SubscriptionViewTest()
@@ -566,6 +574,10 @@ public class SecurityController : ControllerBase
             message = "SUBSCRIPTION_VIEW authorization successful."
         });
     }
+
+    // ============================================================
+    // PLATFORM ADMIN TEST
+    // ============================================================
 
     [HttpGet("platform-admin-test")]
     [Authorize(Roles = "Platform Admin")]
