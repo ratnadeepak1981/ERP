@@ -8,20 +8,28 @@ namespace API.Security;
 public class CurrentUserContext : ICurrentUserContext
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IUserScopeService _userScopeService;
+
+    private IReadOnlyCollection<Guid>? _companyIds;
+    private IReadOnlyCollection<Guid>? _branchIds;
 
     public CurrentUserContext(
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IUserScopeService userScopeService)
     {
         _httpContextAccessor = httpContextAccessor;
+        _userScopeService = userScopeService;
     }
 
     public Guid UserId
     {
         get
         {
-            var value = _httpContextAccessor.HttpContext?
-                .User
-                .FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var user = _httpContextAccessor.HttpContext?.User;
+
+            var value =
+                user?.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user?.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
             if (!Guid.TryParse(value, out var userId))
             {
@@ -42,15 +50,41 @@ public class CurrentUserContext : ICurrentUserContext
                 .FindFirstValue("tenant_id");
 
             if (Guid.TryParse(value, out var tenantId))
+            {
                 return tenantId;
+            }
 
             return null;
         }
     }
 
     public bool IsPlatformUser =>
-        TenantId == null;
+        _httpContextAccessor.HttpContext?
+            .User
+            .IsInRole("Platform Admin") == true;
 
     public bool IsTenantUser =>
         TenantId.HasValue;
+
+    public IReadOnlyCollection<Guid> CompanyIds =>
+        _companyIds ??= LoadCompanyIds();
+
+    public IReadOnlyCollection<Guid> BranchIds =>
+        _branchIds ??= LoadBranchIds();
+
+    private IReadOnlyCollection<Guid> LoadCompanyIds()
+    {
+        return _userScopeService
+            .GetCompanyIdsAsync(UserId)
+            .GetAwaiter()
+            .GetResult();
+    }
+
+    private IReadOnlyCollection<Guid> LoadBranchIds()
+    {
+        return _userScopeService
+            .GetBranchIdsAsync(UserId)
+            .GetAwaiter()
+            .GetResult();
+    }
 }

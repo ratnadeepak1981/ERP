@@ -12,11 +12,62 @@ namespace API.Features.Security;
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly ICurrentUserContext _currentUserContext;
+    private readonly IUserAccessService _userAccessService;
 
     public UserController(
-        IUserService userService)
+        IUserService userService,
+        ICurrentUserContext currentUserContext,
+        IUserAccessService userAccessService)
     {
         _userService = userService;
+        _currentUserContext = currentUserContext;
+        _userAccessService = userAccessService;
+    }
+
+    [HttpGet("access-test/company/{companyId:guid}")]
+    public async Task<IActionResult> TestCompanyAccess(
+        Guid companyId)
+    {
+        var tenantId = _currentUserContext.TenantId;
+
+        if (!tenantId.HasValue)
+        {
+            return Unauthorized(new
+            {
+                status = "FAIL",
+                message = "Tenant identity is missing."
+            });
+        }
+
+        var canAccess =
+            await _userAccessService.CanAccessCompanyAsync(
+                _currentUserContext.UserId,
+                tenantId.Value,
+                companyId);
+
+        return Ok(new
+        {
+            status = canAccess ? "PASS" : "DENY",
+            userId = _currentUserContext.UserId,
+            tenantId = tenantId.Value,
+            companyId,
+            canAccess
+        });
+    }
+
+    [HttpGet("context")]
+    public IActionResult GetContext()
+    {
+        return Ok(new
+        {
+            userId = _currentUserContext.UserId,
+            tenantId = _currentUserContext.TenantId,
+            isPlatformUser = _currentUserContext.IsPlatformUser,
+            isTenantUser = _currentUserContext.IsTenantUser,
+            companyIds = _currentUserContext.CompanyIds,
+            branchIds = _currentUserContext.BranchIds
+        });
     }
 
     [HttpPost]

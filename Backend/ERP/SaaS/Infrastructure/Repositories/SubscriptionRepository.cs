@@ -39,4 +39,18 @@ public class SubscriptionRepository : ISubscriptionRepository
     {
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<SubscriptionPlanParameter>>
+    GetActivePlanParametersAsync(
+        Guid subscriptionPlanId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.SubscriptionLimits
+            .Where(x =>
+                x.SubscriptionPlanId == subscriptionPlanId &&
+                x.IsActive)
+            .SelectMany(x => x.Parameters)
+            .Where(x => x.IsActive)
+            .ToListAsync(cancellationToken);
+    }
 }

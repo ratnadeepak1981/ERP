@@ -1,6 +1,6 @@
 ﻿using ERP.Domain.Common;
 
-namespace ERP.Domain.Features.MasterData.Product;
+namespace Domain.Features.MasterData.Product;
 
 public class Product : Auditable
 {

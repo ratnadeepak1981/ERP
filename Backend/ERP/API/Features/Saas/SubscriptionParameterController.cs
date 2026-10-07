@@ -76,7 +76,7 @@ public class TenantProvisioningService
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
-            DatabaseName = "ERP_DB",
+            DatabaseName = "Domain",
             DatabaseServer = "SQLSERVER",
             IsActive = true
         };
@@ -92,6 +92,18 @@ public class TenantProvisioningService
 
         await _tenantDatabaseRepository.SaveChangesAsync();
 
+        // Ensure the Tenant Admin system role exists.
+        await _tenantAdminProvisioningService
+            .EnsureTenantAdminRoleAsync();
+
+        // Create the Tenant Admin user for this tenant.
+        await _tenantAdminProvisioningService
+            .EnsureTenantAdminAsync(
+                tenantId,
+                request.AdminUserName,
+                request.AdminEmail,
+                request.AdminPassword);
+
         return new TenantProvisioningResult
         {
             TenantId = tenantId,
@@ -102,3 +114,4 @@ public class TenantProvisioningService
         };
     }
 }
+

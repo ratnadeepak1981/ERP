@@ -1,12 +1,12 @@
 ﻿using ERP.Domain.Features.MasterData.Category;
-using ERP.Domain.Features.MasterData.Company;
 using ERP.Domain.Features.MasterData.Branch;
 using ERP.Domain.Features.MasterData.Customer;
-using ERP.Domain.Features.MasterData.Product;
 using ERP.Domain.Features.MasterData.Supplier;
 using ERP.Domain.Features.MasterData.Warehouse;
 using ERP.Infrastructure.Persistence.Auditing;
 using Microsoft.EntityFrameworkCore;
+using Domain.Features.MasterData.Company;
+using Domain.Features.MasterData.Product;
 
 namespace Domain.Infrastructure.Persistence;
 

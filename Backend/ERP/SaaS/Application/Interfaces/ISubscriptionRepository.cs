@@ -14,4 +14,6 @@ public interface ISubscriptionRepository
 
     Task SaveChangesAsync(
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SubscriptionPlanParameter>> GetActivePlanParametersAsync(Guid subscriptionPlanId, CancellationToken cancellationToken = default);
 }

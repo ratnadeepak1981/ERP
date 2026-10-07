@@ -9,4 +9,8 @@ public interface ICurrentUserContext
     bool IsPlatformUser { get; }
 
     bool IsTenantUser { get; }
+
+    IReadOnlyCollection<Guid> CompanyIds { get; }
+
+    IReadOnlyCollection<Guid> BranchIds { get; }
 }

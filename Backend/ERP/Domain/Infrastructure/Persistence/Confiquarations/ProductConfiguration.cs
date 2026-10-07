@@ -1,5 +1,5 @@
-﻿using ERP.Domain.Features.MasterData.Category;
-using ERP.Domain.Features.MasterData.Product;
+﻿using Domain.Features.MasterData.Product;
+using ERP.Domain.Features.MasterData.Category;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

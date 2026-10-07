@@ -1,7 +1,11 @@
-﻿using SaaS.Application.DTOs;
+﻿using Microsoft.EntityFrameworkCore;
+using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
 using SaaS.Core.Rules;
+using System;
+using System.Numerics;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace SaaS.Application.Services;
 
@@ -9,13 +13,16 @@ public class TenantService : ITenantService
 {
     private readonly ISubscriptionService _subscriptionService;
     private readonly ITenantRepository _tenantRepository;
+    private readonly ISubscriptionUsageService _subscriptionUsageService;
 
     public TenantService(
         ISubscriptionService subscriptionService,
-        ITenantRepository tenantRepository)
+        ITenantRepository tenantRepository,
+        ISubscriptionUsageService subscriptionUsageService)
     {
         _subscriptionService = subscriptionService;
         _tenantRepository = tenantRepository;
+        _subscriptionUsageService = subscriptionUsageService;
     }
 
     public Tenant CreateTenant(
@@ -91,6 +98,9 @@ public class TenantService : ITenantService
                 _subscriptionService.CreateSubscription(
                     tenant.Id,
                     request.SubscriptionPlanId);
+
+            await _subscriptionUsageService
+                .InitializeUsageAsync(subscription);
 
             await _tenantRepository.SaveChangesAsync();
 

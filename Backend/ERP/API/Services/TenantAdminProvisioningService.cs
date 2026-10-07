@@ -14,6 +14,12 @@ public class TenantAdminProvisioningService
         _securityBootstrapService = securityBootstrapService;
     }
 
+    public async Task EnsureTenantAdminRoleAsync()
+    {
+        await _securityBootstrapService
+            .EnsureTenantAdminRoleAsync();
+    }
+
     public async Task EnsureTenantAdminAsync(
         Guid tenantId,
         string username,

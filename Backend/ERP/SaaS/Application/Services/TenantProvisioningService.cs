@@ -2,6 +2,8 @@
 using SaaS.Application.Interfaces;
 using SaaS.Application.Interfaces.Repositories;
 using SaaS.Core.Models;
+using System;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace SaaS.Application.Services;
 
@@ -13,22 +15,20 @@ public class TenantProvisioningService
     private readonly ITenantDatabaseRepository _tenantDatabaseRepository;
     private readonly ITenantConfigurationRepository _tenantConfigurationRepository;
     private readonly ITenantAdminProvisioningService _tenantAdminProvisioningService;
-    private readonly IDomainDatabaseConfiguration _domainDatabaseConfiguration;
 
     public TenantProvisioningService(
         ITenantRepository tenantRepository,
         ISubscriptionRepository subscriptionRepository,
         ITenantDatabaseRepository tenantDatabaseRepository,
         ITenantConfigurationRepository tenantConfigurationRepository,
-        ITenantAdminProvisioningService tenantAdminProvisioningService,
-        IDomainDatabaseConfiguration domainDatabaseConfiguration)
+        ITenantAdminProvisioningService tenantAdminProvisioningService)
     {
         _tenantRepository = tenantRepository;
         _subscriptionRepository = subscriptionRepository;
         _tenantDatabaseRepository = tenantDatabaseRepository;
         _tenantConfigurationRepository = tenantConfigurationRepository;
-        _tenantAdminProvisioningService = tenantAdminProvisioningService;
-        _domainDatabaseConfiguration = domainDatabaseConfiguration;
+        _tenantAdminProvisioningService =
+            tenantAdminProvisioningService;
     }
 
     public async Task<TenantProvisioningResult> ProvisionTenant(
@@ -79,10 +79,8 @@ public class TenantProvisioningService
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
-            DatabaseName =
-                _domainDatabaseConfiguration.DatabaseName,
-            DatabaseServer =
-                _domainDatabaseConfiguration.DatabaseServer,
+            DatabaseName = "DomainDB",
+            DatabaseServer = "SQLSERVER",
             IsActive = true
         };
 
@@ -97,11 +95,17 @@ public class TenantProvisioningService
 
         await _tenantDatabaseRepository.SaveChangesAsync();
 
-        await _tenantAdminProvisioningService.EnsureTenantAdminAsync(
-            tenantId,
-            request.AdminUserName,
-            request.AdminEmail,
-            request.AdminPassword);
+        // Ensure the Tenant Admin system role exists.
+        await _tenantAdminProvisioningService
+            .EnsureTenantAdminRoleAsync();
+
+        // Create the Tenant Admin user for this tenant.
+        await _tenantAdminProvisioningService
+            .EnsureTenantAdminAsync(
+                tenantId,
+                request.AdminUserName,
+                request.AdminEmail,
+                request.AdminPassword);
 
         return new TenantProvisioningResult
         {

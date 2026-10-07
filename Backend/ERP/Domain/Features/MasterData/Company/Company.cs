@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ERP.Domain.Features.MasterData.Company;
+namespace Domain.Features.MasterData.Company;
 
 public class Company
 {

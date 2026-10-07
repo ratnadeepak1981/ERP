@@ -2,6 +2,8 @@
 
 public interface ITenantAdminProvisioningService
 {
+    Task EnsureTenantAdminRoleAsync();
+
     Task EnsureTenantAdminAsync(
         Guid tenantId,
         string username,
