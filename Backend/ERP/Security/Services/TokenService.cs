@@ -3,7 +3,6 @@ using Security.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Security.Services;
 
@@ -13,38 +12,41 @@ public class TokenService : ITokenService
 
     public TokenService(RsaPrivateKeyLoader keyLoader)
     {
-        // 1. Fix the method call to load the PRIVATE key needed for signing tokens
+        // 1. Load the PRIVATE key needed for signing tokens
         if (!keyLoader.TryLoadPrivateKey())
         {
             throw new InvalidOperationException(
                 "RSA private key could not be loaded from SecureVault.");
         }
 
-        // 2. Load the companion public key to ensure the loader state is synchronized
+        // 2. Load the companion public key
         keyLoader.TryLoadPublicKey();
 
-        // 3. Extract the loaded signing engine reference safely
+        // 3. Extract the loaded signing engine
         _rsa = keyLoader.GetRsa()
             ?? throw new InvalidOperationException(
                 "RSA private key is unavailable.");
     }
 
-
     public string GenerateAccessToken(
         Guid userId,
+        string username,
         Guid? tenantId,
         IEnumerable<string> roles,
         IEnumerable<string> permissions)
     {
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, userId.ToString())
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(ClaimTypes.Name, username)
         };
 
         if (tenantId.HasValue)
         {
             claims.Add(
-                new Claim("tenant_id", tenantId.Value.ToString()));
+                new Claim(
+                    "tenant_id",
+                    tenantId.Value.ToString()));
         }
 
         claims.AddRange(
@@ -66,7 +68,8 @@ public class TokenService : ITokenService
             expires: DateTime.UtcNow.AddMinutes(30),
             signingCredentials: credentials);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return new JwtSecurityTokenHandler()
+            .WriteToken(token);
     }
 
     public string GenerateRefreshToken()

@@ -8,8 +8,16 @@ public interface IUserRepository
         Guid? tenantId,
         string username);
 
-    Task AddAsync(
-        User user);
+    Task<User?> GetByEmailAsync(
+        string email);
+
+    Task<List<string>> GetRolesAsync(
+        Guid userId);
+
+    Task<List<string>> GetPermissionsAsync(
+        Guid userId);
+
+    Task AddAsync(User user);
 
     Task SaveChangesAsync();
 }

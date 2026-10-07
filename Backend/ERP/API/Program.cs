@@ -1,4 +1,7 @@
 using API.Security;
+using API.Services;
+using Domain.Features.MasterData.Company;
+using Domain.Features.MasterData.Product;
 using Domain.Infrastructure.Persistence;
 using Domain.Services;
 using ERP.Infrastructure.Persistence.Auditing;
@@ -16,6 +19,7 @@ using SaaS.Services;
 using Security.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence.Auditing;
 using Security.Infrastructure.Persistence.Repositories;
+using Security.Infrastructure.Services;
 using Security.Interfaces;
 using Security.Services;
 using System.Security.Claims;
@@ -27,6 +31,10 @@ namespace API
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+
+            builder.Services.AddScoped<IDomainDatabaseConfiguration, DomainDatabaseConfiguration>();
+
 
             // ============================================================
             // Application Services
@@ -66,6 +74,20 @@ namespace API
 
             builder.Services.AddScoped<ITenantProvisioningService,TenantProvisioningService>();
 
+            builder.Services.AddScoped<ITenantAdminProvisioningService,TenantAdminProvisioningService>();
+
+            builder.Services.AddScoped<ISubscriptionUsageRepository,SubscriptionUsageRepository>();
+
+            builder.Services.AddScoped<ISubscriptionUsageService,SubscriptionUsageService>();
+
+            builder.Services.AddScoped<ICompanyService, CompanyService>();
+
+            builder.Services.AddScoped<IUserScopeService, UserScopeService>();
+
+            builder.Services.AddScoped<IUserAccessService, UserAccessService>();
+
+            builder.Services.AddScoped<IProductService, ProductService>();
+            
 
             // ============================================================
             // Current User Context
@@ -108,6 +130,10 @@ namespace API
             builder.Services.AddScoped<ISubscriptionLimitRepository,SubscriptionLimitRepository>();
 
             builder.Services.AddScoped<ISubscriptionRepository,SubscriptionRepository>();
+
+            builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
+
+            builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
             // ============================================================
             // Audit Interceptors
@@ -237,7 +263,13 @@ namespace API
                         policy.RequireClaim(
                             "permission",
                             "USER_VIEW");
+
                     });
+                options.AddPolicy("PRODUCT_VIEW", policy =>
+                        policy.RequireClaim("permission", "PRODUCT_VIEW"));
+
+                options.AddPolicy("COMPANY_VIEW", policy =>
+                    policy.RequireClaim("permission", "COMPANY_VIEW"));
             });
             // ============================================================
             // Controllers / Swagger

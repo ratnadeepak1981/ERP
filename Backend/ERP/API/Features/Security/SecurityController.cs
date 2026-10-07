@@ -1,12 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 
-using Security.Infrastructure.Persistence;
 using Security.Interfaces;
 using Security.Services;
 
@@ -28,136 +26,82 @@ public class SecurityController : ControllerBase
     private readonly ITokenService _tokenService;
     private readonly RsaPrivateKeyLoader _keyLoader;
     private readonly ITenantService _tenantService;
-    private readonly SecurityDbContext _securityDb;
-    private readonly PasswordService _passwordService;
+    private readonly IUserService _userService;
 
     public SecurityController(
         SecurityService securityService,
         ITokenService tokenService,
         RsaPrivateKeyLoader keyLoader,
         ITenantService tenantService,
-        SecurityDbContext securityDb,
-        PasswordService passwordService)
+        IUserService userService)
     {
         _securityService = securityService;
         _tokenService = tokenService;
         _keyLoader = keyLoader;
         _tenantService = tenantService;
-        _securityDb = securityDb;
-        _passwordService = passwordService;
+        _userService = userService;
     }
-
-    // ============================================================
-    // REAL LOGIN
-    // ============================================================
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         [FromBody] SecurityLoginRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Username) ||
-            string.IsNullOrWhiteSpace(request.Password))
+        try
+        {
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    status = "FAIL",
+                    message = "Login request is null."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new
+                {
+                    status = "FAIL",
+                    message = "Email did not reach SecurityController.",
+                    emailReceived = request.Email,
+                    passwordReceived =
+                        !string.IsNullOrWhiteSpace(request.Password)
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest(new
+                {
+                    status = "FAIL",
+                    message = "Password did not reach SecurityController.",
+                    emailReceived = request.Email,
+                    passwordReceived = false
+                });
+            }
+
+            var result =
+                await _userService.LoginAsync(request);
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
         {
             return BadRequest(new
             {
                 status = "FAIL",
-                message = "Username and password are required."
+                message = ex.Message
             });
         }
-
-        // --------------------------------------------------------
-        // Find active user
-        // --------------------------------------------------------
-
-        var user = await _securityDb.Users
-            .FirstOrDefaultAsync(x =>
-                x.Username == request.Username &&
-                x.IsActive);
-
-        if (user == null)
+        catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new
             {
                 status = "FAIL",
-                message = "Invalid username or password."
+                message = ex.Message
             });
         }
-
-        // --------------------------------------------------------
-        // Verify password
-        // --------------------------------------------------------
-
-        bool passwordValid =
-            _passwordService.VerifyPassword(
-                request.Password,
-                user.PasswordHash);
-
-        if (!passwordValid)
-        {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Invalid username or password."
-            });
-        }
-
-        // --------------------------------------------------------
-        // Load active user roles
-        // --------------------------------------------------------
-
-        var roles = await _securityDb.UserRoles
-            .Where(x => x.UserId == user.Id)
-            .Include(x => x.Role)
-            .Where(x => x.Role.IsActive)
-            .Select(x => x.Role.Name)
-            .Distinct()
-            .ToListAsync();
-
-        // --------------------------------------------------------
-        // Load active permissions through roles
-        // --------------------------------------------------------
-
-        var permissions = await _securityDb.UserRoles
-            .Where(x => x.UserId == user.Id)
-            .Include(x => x.Role)
-                .ThenInclude(x => x.RolePermissions)
-                    .ThenInclude(x => x.Permission)
-            .SelectMany(x => x.Role.RolePermissions)
-            .Where(x => x.Permission.IsActive)
-            .Select(x => x.Permission.Code)
-            .Distinct()
-            .ToListAsync();
-
-        // --------------------------------------------------------
-        // Generate real RSA JWT
-        // --------------------------------------------------------
-
-        string token =
-            _tokenService.GenerateAccessToken(
-                user.Id,
-                user.TenantId,
-                roles,
-                permissions);
-
-        return Ok(new
-        {
-            status = "PASS",
-            message = "Authentication successful.",
-            userId = user.Id,
-            username = user.Username,
-            tenantId = user.TenantId,
-            roles,
-            permissions,
-            algorithm = "RS256",
-            issuer = "CSharpAuthServer",
-            audience = "ERP",
-            token
-        });
     }
-
-    // ============================================================
-    // SECURITY STATUS
-    // ============================================================
 
     [HttpGet("status")]
     public IActionResult GetStatus()
@@ -165,16 +109,11 @@ public class SecurityController : ControllerBase
         return Ok(_securityService.GetStatus());
     }
 
-    // ============================================================
-    // SECURITY / RSA DIAGNOSTIC
-    // ============================================================
-
     [HttpGet("diagnostic")]
     public IActionResult RunDiagnostic()
     {
         var results = new List<object>();
 
-        // Test 1 - SecureVault path configuration check
         string privateKeyPath =
             _keyLoader.GetPrivateKeyPath();
 
@@ -194,7 +133,6 @@ public class SecurityController : ControllerBase
         if (!vaultPathAvailable)
             return Ok(results);
 
-        // Test 2 - Private key file lookup
         bool privateKeyFound =
             _keyLoader.IsPrivateKeyFound();
 
@@ -211,7 +149,6 @@ public class SecurityController : ControllerBase
         if (!privateKeyFound)
             return Ok(results);
 
-        // Test 3 - Private key loading
         bool privateKeyLoaded =
             _keyLoader.TryLoadPrivateKey();
 
@@ -228,7 +165,6 @@ public class SecurityController : ControllerBase
         if (!privateKeyLoaded)
             return Ok(results);
 
-        // Test 4 - Private key validation
         bool privateKeyValid =
             _keyLoader.IsPrivateKeyValid();
 
@@ -248,7 +184,6 @@ public class SecurityController : ControllerBase
         if (!privateKeyValid)
             return Ok(results);
 
-        // Test 5 - Public key file lookup
         bool publicKeyFound =
             _keyLoader.IsPublicKeyFound();
 
@@ -265,7 +200,6 @@ public class SecurityController : ControllerBase
         if (!publicKeyFound)
             return Ok(results);
 
-        // Test 6 - Public key loading
         bool publicKeyLoaded =
             _keyLoader.TryLoadPublicKey();
 
@@ -282,7 +216,6 @@ public class SecurityController : ControllerBase
         if (!publicKeyLoaded)
             return Ok(results);
 
-        // Test 7 - Public key validation
         bool publicKeyValid =
             _keyLoader.IsPublicKeyValid();
 
@@ -299,7 +232,6 @@ public class SecurityController : ControllerBase
         if (!publicKeyValid)
             return Ok(results);
 
-        // Test 8 - Private/public key pair verification
         bool keyPairValid =
             _keyLoader.VerifyPrivatePublicPair();
 
@@ -316,12 +248,12 @@ public class SecurityController : ControllerBase
         if (!keyPairValid)
             return Ok(results);
 
-        // Test 9 - RS256 JWT generation
         try
         {
             string token =
                 _tokenService.GenerateAccessToken(
                     Guid.NewGuid(),
+                    "DiagnosticUser",
                     Guid.NewGuid(),
                     new[] { "DiagnosticUser" },
                     new[] { "Security.Diagnostic" });
@@ -354,10 +286,6 @@ public class SecurityController : ControllerBase
         return Ok(results);
     }
 
-    // ============================================================
-    // JWT DIAGNOSTIC
-    // ============================================================
-
     [HttpGet("jwt-diagnostic")]
     public IActionResult JwtDiagnostic()
     {
@@ -380,6 +308,7 @@ public class SecurityController : ControllerBase
             string token =
                 _tokenService.GenerateAccessToken(
                     userId,
+                    "DiagnosticUser",
                     tenantId,
                     roles,
                     permissions);
@@ -407,10 +336,6 @@ public class SecurityController : ControllerBase
             });
         }
     }
-
-    // ============================================================
-    // LOGIN TEST - LEGACY DIAGNOSTIC
-    // ============================================================
 
     [HttpPost("login-test")]
     public IActionResult LoginTest(
@@ -443,6 +368,7 @@ public class SecurityController : ControllerBase
         string token =
             _tokenService.GenerateAccessToken(
                 userId,
+                username,
                 tenantId,
                 roles,
                 permissions);
@@ -458,10 +384,6 @@ public class SecurityController : ControllerBase
             token
         });
     }
-
-    // ============================================================
-    // WRONG ISSUER TEST
-    // ============================================================
 
     [HttpPost("jwt-wrong-issuer-test")]
     public IActionResult JwtWrongIssuerTest()
@@ -517,10 +439,6 @@ public class SecurityController : ControllerBase
         });
     }
 
-    // ============================================================
-    // TENANT REGISTRATION TEST
-    // ============================================================
-
     [HttpPost("tenant-registration-test")]
     public async Task<IActionResult> TenantRegistrationTest(
         [FromBody] CreateTenantRequest request)
@@ -537,10 +455,6 @@ public class SecurityController : ControllerBase
         });
     }
 
-    // ============================================================
-    // PROTECTED TEST
-    // ============================================================
-
     [Authorize]
     [HttpGet("protected-test")]
     public IActionResult ProtectedTest()
@@ -549,20 +463,22 @@ public class SecurityController : ControllerBase
         {
             status = "PASS",
             message = "JWT authentication successful.",
+
             userId = User.FindFirst(
-                JwtRegisteredClaimNames.Sub)?.Value,
-            username = User.Identity?.Name,
+                ClaimTypes.NameIdentifier)?.Value,
+
+            username = User.FindFirst(
+                ClaimTypes.Name)?.Value,
+
             roles = User.Claims
                 .Where(x => x.Type == ClaimTypes.Role)
                 .Select(x => x.Value)
                 .ToList(),
-            tenantId = User.FindFirst("tenant_id")?.Value
+
+            tenantId = User.FindFirst(
+                "tenant_id")?.Value
         });
     }
-
-    // ============================================================
-    // SUBSCRIPTION VIEW TEST
-    // ============================================================
 
     [HttpGet("subscription-view-test")]
     [Authorize(Policy = "SUBSCRIPTION_VIEW")]
@@ -574,10 +490,6 @@ public class SecurityController : ControllerBase
             message = "SUBSCRIPTION_VIEW authorization successful."
         });
     }
-
-    // ============================================================
-    // PLATFORM ADMIN TEST
-    // ============================================================
 
     [HttpGet("platform-admin-test")]
     [Authorize(Roles = "Platform Admin")]

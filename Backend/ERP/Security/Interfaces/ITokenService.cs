@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Security.Interfaces
 {
@@ -10,6 +7,7 @@ namespace Security.Interfaces
     {
         string GenerateAccessToken(
             Guid userId,
+            string username,
             Guid? tenantId,
             IEnumerable<string> roles,
             IEnumerable<string> permissions);
