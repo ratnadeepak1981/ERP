@@ -12,6 +12,7 @@ using Xunit;
 
 namespace ERP.SecurityTests;
 
+[Trait("Category", "Unit")]
 public class RecurringBillingTests
 {
     private static readonly Guid TenantAlpha = Guid.Parse("11111111-1111-1111-1111-111111111111");
