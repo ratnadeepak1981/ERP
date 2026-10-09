@@ -1,4 +1,4 @@
-﻿using Security.Core.Models;
+using Security.Core.Models;
 using Security.Interfaces;
 
 namespace Security.Bootstrap.Roles;
@@ -47,7 +47,12 @@ public static class TenantAdminRolePermissionSeed
             "SUPPLIER.CREATE",
             "SUPPLIER.EDIT",
             "SUPPLIER.DELETE",
-            "SUPPLIER.SOFT_DELETE"
+            "SUPPLIER.SOFT_DELETE",
+
+            "PURCHASE_ORDER.VIEW",
+            "PURCHASE_ORDER.CREATE",
+            "PURCHASE_ORDER.EDIT",
+            "PURCHASE_ORDER.DELETE"
         };
 
         foreach (var code in permissionCodes)

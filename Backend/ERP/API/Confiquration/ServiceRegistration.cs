@@ -1,4 +1,4 @@
-﻿using API.Security;
+using API.Security;
 using API.Services;
 using Domain.Features.MasterData.Branch;
 using Domain.Features.MasterData.Company;
@@ -52,6 +52,7 @@ public static class ServiceRegistration
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IBranchService, BranchService>();
+        services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderService>();
 
         services.AddHttpContextAccessor();
 

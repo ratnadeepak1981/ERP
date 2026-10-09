@@ -1,4 +1,4 @@
-﻿namespace Domain.Features.MasterData.Product;
+namespace Domain.Features.MasterData.Product;
 
 public interface IProductRepository
 {
@@ -7,4 +7,16 @@ public interface IProductRepository
     Task<Product?> GetByIdAsync(
         Guid tenantId,
         Guid productId);
+
+    Task<bool> ExistsByCodeAsync(
+        Guid tenantId,
+        string productCode);
+
+    Task<bool> ExistsByNameAsync(
+        Guid tenantId,
+        string productName);
+
+    Task AddAsync(Product product);
+
+    Task SaveChangesAsync();
 }

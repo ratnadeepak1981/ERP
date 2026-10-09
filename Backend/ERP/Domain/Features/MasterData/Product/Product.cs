@@ -1,8 +1,10 @@
-﻿using ERP.Domain.Common;
+using ERP.Domain.Common;
+
+using ERP.Domain.Common.Scope;
 
 namespace Domain.Features.MasterData.Product;
 
-public class Product : Auditable
+public class Product : Auditable, ITenantScopedEntity
 {
     public Guid ProductId { get; private set; }
 
@@ -39,6 +41,44 @@ public class Product : Auditable
     public bool IsActive { get; private set; }
 
    
+
+    public static Product Create(
+        Guid tenantId,
+        string productCode,
+        string productName,
+        Guid categoryId,
+        string unitOfMeasure = "PCS",
+        string? description = null,
+        ValuationMethod valuationMethod = ValuationMethod.FIFO,
+        decimal standardCost = 0,
+        decimal sellingPrice = 0,
+        decimal reorderLevel = 0,
+        decimal reorderQuantity = 0,
+        bool isManufacturable = false,
+        bool isPurchasable = true,
+        bool isSellable = true,
+        Guid? productId = null)
+    {
+        return new Product
+        {
+            ProductId = productId ?? Guid.NewGuid(),
+            TenantId = tenantId,
+            ProductCode = productCode,
+            ProductName = productName,
+            CategoryId = categoryId,
+            UnitOfMeasure = unitOfMeasure,
+            Description = description,
+            ValuationMethod = valuationMethod,
+            StandardCost = standardCost,
+            SellingPrice = sellingPrice,
+            ReorderLevel = reorderLevel,
+            ReorderQuantity = reorderQuantity,
+            IsManufacturable = isManufacturable,
+            IsPurchasable = isPurchasable,
+            IsSellable = isSellable,
+            IsActive = true
+        };
+    }
 
     private Product()
     {

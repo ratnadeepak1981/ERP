@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Common;
+using ERP.Domain.Common;
 
 namespace ERP.Domain.Features.MasterData.Category;
 
@@ -16,6 +16,24 @@ public class Category : Auditable
 
     public bool IsActive { get; private set; }
 
+
+    public static Category Create(
+        Guid tenantId,
+        string categoryCode,
+        string categoryName,
+        string? description = null,
+        Guid? categoryId = null)
+    {
+        return new Category
+        {
+            CategoryId = categoryId ?? Guid.NewGuid(),
+            TenantId = tenantId,
+            CategoryCode = categoryCode,
+            CategoryName = categoryName,
+            Description = description,
+            IsActive = true
+        };
+    }
 
     private Category()
     {

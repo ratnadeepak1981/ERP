@@ -1,5 +1,5 @@
-﻿using Domain.Features.MasterData.Product;
-using Microsoft.AspNetCore.Authorization;
+using API.Security.Authorization;
+using Domain.Features.MasterData.Product;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 
@@ -7,7 +7,7 @@ namespace API.Features.MasterData.Product;
 
 [ApiController]
 [Route("api/products")]
-[Authorize(Policy = "PRODUCT_VIEW")]
+[RequirePermission("PRODUCT.VIEW")]
 public class ProductController : ControllerBase
 {
     private readonly IProductService _productService;
@@ -82,5 +82,56 @@ public class ProductController : ControllerBase
         }
 
         return Ok(product);
+    }
+
+    [HttpPost]
+    [RequirePermission("PRODUCT.CREATE")]
+    public async Task<IActionResult> CreateProduct(
+        [FromBody] CreateProductRequest request)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+
+        if (!tenantId.HasValue)
+        {
+            return Unauthorized(new
+            {
+                status = "FAIL",
+                message = "Tenant identity is missing or invalid."
+            });
+        }
+
+        try
+        {
+            var product =
+                await _productService.CreateProductAsync(
+                    tenantId.Value,
+                    request);
+
+            return CreatedAtAction(
+                nameof(GetProduct),
+                new { id = product.ProductId },
+                product);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
+        }
     }
 }

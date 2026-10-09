@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Bootstrap.Permissions;
+using ERP.Domain.Bootstrap.Permissions;
 using Security.Boostrap.Permissions.Platform;
 using Security.Bootstrap.Permissions.Domain;
 using Security.Bootstrap.Roles;
@@ -58,6 +58,8 @@ public class SecurityBootstrapService
         await CustomerPermissionSeed.SeedAsync(_repository);
 
         await SupplierPermissionSeed.SeedAsync(_repository);
+
+        await PurchaseOrderPermissionSeed.SeedAsync(_repository);
 
         await TenantAdminRolePermissionSeed.SeedAsync(_repository);
     }
