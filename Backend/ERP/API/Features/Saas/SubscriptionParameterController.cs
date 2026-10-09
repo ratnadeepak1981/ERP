@@ -1,117 +1,113 @@
-﻿using SaaS.Application.DTOs;
+using Microsoft.AspNetCore.Mvc;
+using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
-using SaaS.Application.Interfaces.Repositories;
 using SaaS.Core.Models;
 
-namespace SaaS.Application.Services;
+namespace SaaS.API.Controllers;
 
-public class TenantProvisioningService
-    : ITenantProvisioningService
+[ApiController]
+[Route("api/[controller]")]
+public class SubscriptionParameterController : ControllerBase
 {
-    private readonly ITenantRepository _tenantRepository;
-    private readonly ISubscriptionRepository _subscriptionRepository;
-    private readonly ITenantDatabaseRepository _tenantDatabaseRepository;
-    private readonly ITenantConfigurationRepository _tenantConfigurationRepository;
-    private readonly ITenantAdminProvisioningService _tenantAdminProvisioningService;
+    private readonly ISubscriptionParameterService _service;
 
-    public TenantProvisioningService(
-        ITenantRepository tenantRepository,
-        ISubscriptionRepository subscriptionRepository,
-        ITenantDatabaseRepository tenantDatabaseRepository,
-        ITenantConfigurationRepository tenantConfigurationRepository,
-        ITenantAdminProvisioningService tenantAdminProvisioningService)
+    public SubscriptionParameterController(
+        ISubscriptionParameterService service)
     {
-        _tenantRepository = tenantRepository;
-        _subscriptionRepository = subscriptionRepository;
-        _tenantDatabaseRepository = tenantDatabaseRepository;
-        _tenantConfigurationRepository = tenantConfigurationRepository;
-        _tenantAdminProvisioningService = tenantAdminProvisioningService;
+        _service = service;
     }
 
-    public async Task<TenantProvisioningResult> ProvisionTenant(
-        TenantProvisioningRequest request)
+    [HttpPost]
+    public IActionResult Create(
+        [FromBody] CreateSubscriptionParameterRequest request)
     {
-        Guid tenantId = request.TenantId;
-
-        Tenant? tenant =
-            await _tenantRepository.GetByIdAsync(tenantId);
-
-        if (tenant == null)
+        try
         {
-            throw new InvalidOperationException(
-                "Tenant does not exist.");
+            SubscriptionParameter result =
+                _service.Create(request);
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
+        }
+    }
+
+    [HttpGet]
+    public IActionResult GetAll()
+    {
+        IReadOnlyList<SubscriptionParameter> result =
+            _service.GetAll();
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}")]
+    public IActionResult GetById(Guid id)
+    {
+        SubscriptionParameter? result =
+            _service.GetById(id);
+
+        if (result == null)
+        {
+            return NotFound(new
+            {
+                status = "FAIL",
+                message = "Subscription parameter not found."
+            });
         }
 
-        Subscription? subscription =
-            await _subscriptionRepository
-                .GetActiveByTenantIdAsync(tenantId);
+        return Ok(result);
+    }
 
-        if (subscription == null)
+    [HttpPut("{id:guid}")]
+    public IActionResult Update(
+        Guid id,
+        [FromBody] UpdateSubscriptionParameterRequest request)
+    {
+        try
         {
-            throw new InvalidOperationException(
-                "Active subscription does not exist for the tenant.");
+            SubscriptionParameter result =
+                _service.Update(id, request);
+
+            return Ok(result);
         }
-
-        if (await _tenantDatabaseRepository
-            .ExistsByTenantIdAsync(tenantId))
+        catch (ArgumentException ex)
         {
-            throw new InvalidOperationException(
-                "Tenant database configuration already exists.");
+            return BadRequest(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
         }
-
-        if (await _tenantConfigurationRepository
-            .ExistsByTenantIdAsync(tenantId))
+        catch (KeyNotFoundException ex)
         {
-            throw new InvalidOperationException(
-                "Tenant configuration already exists.");
+            return NotFound(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
         }
-
-        if (subscription.StorageMode != TenantStorageMode.Shared)
+        catch (InvalidOperationException ex)
         {
-            throw new InvalidOperationException(
-                "Only shared storage provisioning is currently supported.");
+            return Conflict(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
         }
-
-        TenantDatabase tenantDatabase = new TenantDatabase
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            DatabaseName = "Domain",
-            DatabaseServer = "SQLSERVER",
-            IsActive = true
-        };
-
-        TenantConfiguration tenantConfiguration =
-            TenantConfiguration.CreateDefault(tenantId);
-
-        await _tenantDatabaseRepository.AddAsync(
-            tenantDatabase);
-
-        await _tenantConfigurationRepository.AddAsync(
-            tenantConfiguration);
-
-        await _tenantDatabaseRepository.SaveChangesAsync();
-
-        // Ensure the Tenant Admin system role exists.
-        await _tenantAdminProvisioningService
-            .EnsureTenantAdminRoleAsync();
-
-        // Create the Tenant Admin user for this tenant.
-        await _tenantAdminProvisioningService
-            .EnsureTenantAdminAsync(
-                tenantId,
-                request.AdminUserName,
-                request.AdminEmail,
-                request.AdminPassword);
-
-        return new TenantProvisioningResult
-        {
-            TenantId = tenantId,
-            DatabaseProvisioned = true,
-            ConfigurationProvisioned = true,
-            IsProvisioned = true,
-            StorageMode = subscription.StorageMode.ToString()
-        };
     }
 }
-

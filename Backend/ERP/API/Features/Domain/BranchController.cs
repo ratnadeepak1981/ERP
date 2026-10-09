@@ -1,5 +1,5 @@
-﻿using Domain.Features.MasterData.Branch;
-using Microsoft.AspNetCore.Authorization;
+using API.Security.Authorization;
+using Domain.Features.MasterData.Branch;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 
@@ -7,7 +7,7 @@ namespace API.Features.Domain;
 
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches")]
-[Authorize(Policy = "BRANCH_VIEW")]
+[RequirePermission("BRANCH.VIEW")]
 public class BranchController : ControllerBase
 {
     private readonly IBranchService _branchService;
@@ -25,7 +25,8 @@ public class BranchController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetBranches(Guid companyId)
+    public async Task<IActionResult> GetBranches(
+        Guid companyId)
     {
         if (_currentUserContext.IsPlatformUser)
         {
