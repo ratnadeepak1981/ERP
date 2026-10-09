@@ -57,7 +57,7 @@ public class SubscriptionLifecyclePersistenceTests : IAsyncLifetime
         {
             Id = TestPlanId,
             Name = "Enterprise Cloud",
-            Code = "ENT_CLOUD",
+            Code = "Enterprise",
             Price = 499.00m,
             BillingCycle = DurationCycle.Monthly,
             IsActive = true
@@ -83,6 +83,16 @@ public class SubscriptionLifecyclePersistenceTests : IAsyncLifetime
 
         if (subIds.Any())
         {
+            var allocations = await db.PaymentAllocations
+                .Where(a => a.TenantId == TestTenantId || a.TenantId == OtherTenantId)
+                .ToListAsync();
+            db.PaymentAllocations.RemoveRange(allocations);
+
+            var payments = await db.PaymentTransactions
+                .Where(p => p.TenantId == TestTenantId || p.TenantId == OtherTenantId)
+                .ToListAsync();
+            db.PaymentTransactions.RemoveRange(payments);
+
             var invoiceLines = await db.SubscriptionInvoiceLines
                 .Where(l => l.TenantId == TestTenantId || l.TenantId == OtherTenantId)
                 .ToListAsync();
@@ -97,6 +107,11 @@ public class SubscriptionLifecyclePersistenceTests : IAsyncLifetime
                 .Where(e => e.TenantId == TestTenantId || e.TenantId == OtherTenantId)
                 .ToListAsync();
             db.BillingLedgerEntries.RemoveRange(ledgerEntries);
+
+            var usages = await db.SubscriptionUsages
+                .Where(u => subIds.Contains(u.SubscriptionId))
+                .ToListAsync();
+            db.SubscriptionUsages.RemoveRange(usages);
 
             var subs = await db.Subscriptions
                 .Where(s => subIds.Contains(s.Id))
@@ -468,4 +483,272 @@ public class SubscriptionLifecyclePersistenceTests : IAsyncLifetime
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
         Assert.Contains("Tenant mismatch", ex.Message);
     }
+
+    [Fact]
+    public void SubscriptionService_FreePlan_ActivatesImmediatelyInSqlServer()
+    {
+        using var db = CreateDbContext();
+        var subscriptionService = new SubscriptionService(db);
+
+        // Act: Create subscription for TestTenantId on seeded Free Manufacturing plan
+        var freePlanId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var subscription = subscriptionService.CreateSubscription(TestTenantId, freePlanId);
+
+        // Assert: Free plan starts Active immediately with IsActive = true
+        Assert.NotNull(subscription);
+        Assert.Equal(SubscriptionStatus.Active, subscription.Status);
+        Assert.True(subscription.IsActive);
+        Assert.Equal("FREE", subscription.SubscriptionType);
+
+        // Verify in fresh context from database
+        using var queryDb = CreateDbContext();
+        var reloaded = queryDb.Subscriptions.FirstOrDefault(s => s.Id == subscription.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal(SubscriptionStatus.Active, reloaded.Status);
+        Assert.True(reloaded.IsActive);
+    }
+
+    [Fact]
+    public void SubscriptionService_PaidPlan_StartsAsPendingPaymentInSqlServer()
+    {
+        using var db = CreateDbContext();
+        var subscriptionService = new SubscriptionService(db);
+
+        // Act: Create subscription for TestTenantId on paid TestPlanId ("ENT_CLOUD")
+        var subscription = subscriptionService.CreateSubscription(TestTenantId, TestPlanId);
+
+        // Assert: Commercial paid plan starts in PendingPayment status with IsActive = false
+        Assert.NotNull(subscription);
+        Assert.Equal(SubscriptionStatus.PendingPayment, subscription.Status);
+        Assert.False(subscription.IsActive);
+
+        // Verify in fresh context from database
+        using var queryDb = CreateDbContext();
+        var reloaded = queryDb.Subscriptions.FirstOrDefault(s => s.Id == subscription.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal(SubscriptionStatus.PendingPayment, reloaded.Status);
+        Assert.False(reloaded.IsActive);
+    }
+
+    [Fact]
+    public void SubscriptionService_InactiveOrNonExistentPlan_ThrowsInvalidOperationException()
+    {
+        using var db = CreateDbContext();
+        var subscriptionService = new SubscriptionService(db);
+
+        var nonExistentPlanId = Guid.NewGuid();
+
+        // Act & Assert
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            subscriptionService.CreateSubscription(TestTenantId, nonExistentPlanId));
+        Assert.Contains("Selected subscription plan does not exist or is inactive", ex.Message);
+    }
+
+    [Fact]
+    public async Task TenantService_RegisterTenant_AtomicOnboardingAndUsageInitialization()
+    {
+        using var db = CreateDbContext();
+        var subscriptionRepo = new SaaS.Infrastructure.Repositories.SubscriptionRepository(db);
+        var usageRepo = new SaaS.Infrastructure.Repositories.SubscriptionUsageRepository(db);
+        var tenantRepo = new SaaS.Infrastructure.Repositories.TenantRepository(db);
+        var subscriptionService = new SubscriptionService(db);
+        var usageService = new SubscriptionUsageService(subscriptionRepo, usageRepo);
+        var tenantService = new TenantService(subscriptionService, tenantRepo, usageService);
+
+        var freePlanId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var request = new SaaS.Application.DTOs.CreateTenantRequest
+        {
+            Name = "Onboarded Manufacturing Corp",
+            SubscriptionPlanId = freePlanId
+        };
+
+        // Act: Register tenant
+        var result = await tenantService.RegisterTenant(request);
+
+        Assert.NotNull(result);
+        Assert.NotNull(result.Tenant);
+        Assert.NotNull(result.Subscription);
+        Assert.Equal(SubscriptionStatus.Active, result.Subscription.Status);
+
+        // Verify in fresh DB context that Tenant, Subscription, and initial Usages exist in SQL Server
+        using var verifyDb = CreateDbContext();
+        var reloadedTenant = await verifyDb.Tenants.FindAsync(result.Tenant.Id);
+        Assert.NotNull(reloadedTenant);
+        Assert.Equal("Onboarded Manufacturing Corp", reloadedTenant.Name);
+
+        var reloadedSub = await verifyDb.Subscriptions.FindAsync(result.Subscription.Id);
+        Assert.NotNull(reloadedSub);
+        Assert.Equal(result.Tenant.Id, reloadedSub.TenantId);
+
+        var usages = await verifyDb.SubscriptionUsages
+            .Where(u => u.SubscriptionId == result.Subscription.Id)
+            .ToListAsync();
+        Assert.Equal(5, usages.Count); // 5 parameters configured on Free plan limit
+        Assert.All(usages, u => Assert.Equal(0, u.UsageValue));
+
+        // Clean up newly registered tenant and associated rows
+        verifyDb.SubscriptionUsages.RemoveRange(usages);
+        verifyDb.Subscriptions.Remove(reloadedSub);
+        verifyDb.Tenants.Remove(reloadedTenant);
+        await verifyDb.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task SubscriptionService_IsSubscriptionActive_EvaluatesEntitlementAndGracePeriodAccurately()
+    {
+        using var db = CreateDbContext();
+        var subscriptionService = new SubscriptionService(db);
+        var now = DateTime.UtcNow;
+
+        // 1. Inactive sub (PendingPayment) -> Not Active
+        var pendingSub = new Subscription
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TestTenantId,
+            SubscriptionPlanId = TestPlanId,
+            SubscriptionName = "Pending Entitlement Check",
+            SubscriptionType = "ENT",
+            Status = SubscriptionStatus.PendingPayment,
+            IsActive = false,
+            BillingCycle = DurationCycle.Monthly,
+            BillingPlanPriceSnapshot = 499.00m,
+            BillingAnchorDate = now,
+            CurrentPeriodStart = now,
+            CurrentPeriodEnd = now.AddMonths(1),
+            AutoRenew = true,
+            StartDate = now
+        };
+        db.Subscriptions.Add(pendingSub);
+        await db.SaveChangesAsync();
+
+        bool isPendingActive = subscriptionService.IsSubscriptionActive(TestTenantId);
+        Assert.False(isPendingActive);
+
+        // 2. Active sub within term -> Active
+        pendingSub.Activate();
+        await db.SaveChangesAsync();
+
+        bool isLiveActive = subscriptionService.IsSubscriptionActive(TestTenantId);
+        Assert.True(isLiveActive);
+
+        // 3. PastDue sub within grace period (EndDate was 3 days ago, grace period = 7 days)
+        pendingSub.MarkPastDue();
+        pendingSub.EndDate = now.AddDays(-3);
+        await db.SaveChangesAsync();
+
+        bool isGracePeriodActive = subscriptionService.IsSubscriptionActive(TestTenantId);
+        Assert.True(isGracePeriodActive);
+
+        // 4. PastDue sub beyond grace period (EndDate was 10 days ago)
+        pendingSub.EndDate = now.AddDays(-10);
+        await db.SaveChangesAsync();
+
+        bool isLapsedGracePeriodActive = subscriptionService.IsSubscriptionActive(TestTenantId);
+        Assert.False(isLapsedGracePeriodActive);
+    }
+
+    [Fact]
+    public async Task PaymentAndLedgerWorkflow_ApplyPaymentToInvoice_PersistsCreditLedgerAndResolvesReceivable()
+    {
+        using var db = CreateDbContext();
+        var anchor = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var sub = new Subscription
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TestTenantId,
+            SubscriptionPlanId = TestPlanId,
+            SubscriptionName = "Payment Flow Sub",
+            SubscriptionType = "PAY_FLOW",
+            Status = SubscriptionStatus.Active,
+            IsActive = true,
+            BillingCycle = DurationCycle.Monthly,
+            BillingPlanPriceSnapshot = 300.00m,
+            BillingAnchorDate = anchor,
+            CurrentPeriodStart = anchor,
+            CurrentPeriodEnd = anchor.AddMonths(1),
+            AutoRenew = true,
+            StartDate = anchor
+        };
+
+        db.Subscriptions.Add(sub);
+        await db.SaveChangesAsync();
+
+        var billingService = new RecurringBillingService(
+            db,
+            new DummyBillingNotificationService(NullLogger<DummyBillingNotificationService>.Instance),
+            NullLogger<RecurringBillingService>.Instance);
+
+        var invoice = await billingService.GenerateRecurringInvoiceAsync(sub.Id, anchor);
+        Assert.NotNull(invoice);
+        Assert.Equal(300.00m, invoice.TotalAmount);
+        Assert.Equal(InvoiceStatus.Pending, invoice.Status);
+
+        // Create Payment Transaction in SQL Server
+        var payment = new PaymentTransaction
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TestTenantId,
+            PaymentProvider = "StripeTest",
+            ProviderTransactionId = "TXN_STRIPE_001",
+            IdempotencyKey = "IDEMP_STRIPE_001",
+            PaymentMethod = PaymentMethodType.Card,
+            Status = PaymentStatus.Success,
+            Amount = 300.00m,
+            AllocatedAmount = 300.00m,
+            RefundedAmount = 0.00m,
+            Currency = "USD",
+            ProcessedAtUtc = DateTime.UtcNow
+        };
+
+        var paymentAllocation = new PaymentAllocation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TestTenantId,
+            PaymentTransactionId = payment.Id,
+            SubscriptionInvoiceId = invoice.Id,
+            Amount = 300.00m,
+            AllocatedAtUtc = DateTime.UtcNow
+        };
+
+        // Post Credit Ledger Entry for payment receipt
+        var paymentLedgerEntry = new BillingLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TestTenantId,
+            EntryType = LedgerEntryType.PaymentReceived,
+            Direction = LedgerDirection.Credit,
+            Amount = 300.00m,
+            Currency = "USD",
+            PostedAtUtc = DateTime.UtcNow,
+            SourceDocumentType = nameof(PaymentTransaction),
+            SourceDocumentId = payment.Id,
+            ReferenceNumber = payment.ProviderTransactionId,
+            Description = "Full payment received for subscription invoice"
+        };
+
+        // Update invoice balance
+        invoice.ApplyPayment(300.00m, DateTime.UtcNow);
+
+        db.PaymentTransactions.Add(payment);
+        db.PaymentAllocations.Add(paymentAllocation);
+        db.BillingLedgerEntries.Add(paymentLedgerEntry);
+        await db.SaveChangesAsync();
+
+        // Verify state in fresh SQL Server context
+        using var verifyDb = CreateDbContext();
+        var reloadedInvoice = await verifyDb.SubscriptionInvoices.FindAsync(invoice.Id);
+        Assert.NotNull(reloadedInvoice);
+        Assert.Equal(InvoiceStatus.Paid, reloadedInvoice.Status);
+        Assert.Equal(0.00m, reloadedInvoice.OutstandingAmount);
+
+        var tenantLedger = await verifyDb.BillingLedgerEntries
+            .Where(e => e.TenantId == TestTenantId)
+            .ToListAsync();
+        Assert.Equal(2, tenantLedger.Count); // 1 Debit (Invoice) + 1 Credit (Payment)
+
+        decimal netBalance = SaaS.Core.Rules.BillingRules.CalculateTenantReceivableBalance(tenantLedger);
+        Assert.Equal(0.00m, netBalance); // Receivable fully satisfied
+    }
 }
+
