@@ -54,7 +54,8 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
             {
                 ["ConnectionStrings:PlatformDatabase"] = TestConstants.PlatformDbTest,
                 ["ConnectionStrings:SecurityDatabase"] = TestConstants.SecurityDbTest,
-                ["ConnectionStrings:DomainDatabase"] = TestConstants.DomainDbTest
+                ["ConnectionStrings:DomainDatabase"] = TestConstants.DomainDbTest,
+                ["Migrations:TargetPlatformMigration"] = "20261009092409_AddSubscriptionStatus"
             };
 
             config.AddInMemoryCollection(testSettings);
@@ -74,7 +75,9 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
             var securityDb = sp.GetRequiredService<SecurityDbContext>();
             var domainDb = sp.GetRequiredService<DomainDbContext>();
 
-            platformDb.Database.Migrate();
+            var migrator = Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetInfrastructure(platformDb)
+                .GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
+            migrator?.Migrate("20261009092409_AddSubscriptionStatus");
             securityDb.Database.Migrate();
             domainDb.Database.Migrate();
 

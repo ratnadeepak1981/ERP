@@ -1,4 +1,4 @@
-﻿using SaaS.Application.Interfaces;
+using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
 using SaaS.Core.Rules;
 using SaaS.Infrastructure.Persistence;
@@ -50,6 +50,18 @@ public class SubscriptionService : ISubscriptionService
 
         DateTime startDate = DateTime.UtcNow;
 
+        // Commercial vs Free plan initial status:
+        // Only the explicit "FREE" shared plan activates immediately.
+        // All other plans (including DEDICATED and commercial paid plans) require onboarding/payment verification
+        // and start as PendingPayment.
+        bool isInstantFreePlan = plan.Code.Equals("FREE", StringComparison.OrdinalIgnoreCase);
+        SubscriptionStatus initialStatus = isInstantFreePlan 
+            ? SubscriptionStatus.Active 
+            : SubscriptionStatus.PendingPayment;
+
+        bool initialIsActive = SubscriptionRules.DeriveIsActive(initialStatus) 
+                               && SubscriptionRules.IsActive(startDate, null);
+
         Subscription subscription = new Subscription
         {
             Id = Guid.NewGuid(),
@@ -62,15 +74,15 @@ public class SubscriptionService : ISubscriptionService
 
             SubscriptionType = subscriptionType,
 
+            Status = initialStatus,
+
             StorageMode = TenantStorageMode.Shared,
 
             StartDate = startDate,
 
             EndDate = null,
 
-            IsActive = SubscriptionRules.IsActive(
-                startDate,
-                null)
+            IsActive = initialIsActive
         };
 
         _dbContext.Subscriptions.Add(subscription);
@@ -82,7 +94,18 @@ public class SubscriptionService : ISubscriptionService
 
     public bool IsSubscriptionActive(Guid tenantId)
     {
-        throw new NotImplementedException();
+        Subscription? subscription = _dbContext.Subscriptions
+            .FirstOrDefault(x => x.TenantId == tenantId && x.IsActive);
+
+        if (subscription == null)
+            return false;
+
+        return SubscriptionRules.IsEntitledToService(
+            subscription.Status,
+            subscription.StartDate,
+            subscription.EndDate,
+            DateTime.UtcNow,
+            SubscriptionRules.DefaultGracePeriodDays);
     }
 
     public bool IsWithinLimit(
