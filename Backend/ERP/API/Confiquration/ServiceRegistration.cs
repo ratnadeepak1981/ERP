@@ -47,6 +47,9 @@ public static class ServiceRegistration
 
         services.AddScoped<ISubscriptionUsageService, SubscriptionUsageService>();
 
+        services.AddScoped<IRecurringBillingService, RecurringBillingService>();
+        services.AddScoped<IBillingNotificationService, DummyBillingNotificationService>();
+
         services.AddScoped<ICompanyService, CompanyService>();
         services.AddScoped<IUserScopeService, UserScopeService>();
         services.AddScoped<IUserAccessService, UserAccessService>();

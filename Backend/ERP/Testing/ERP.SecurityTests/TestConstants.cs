@@ -43,4 +43,5 @@ public static class TestConstants
     public static readonly Guid MultiBranchUserId = Guid.Parse("15151515-1515-1515-1515-151515151515");
     public static readonly Guid MixedScopeUserId = Guid.Parse("16161616-1616-1616-1616-161616161616");
     public static readonly Guid ReadOnlyUserId = Guid.Parse("17171717-1717-1717-1717-171717171717");
+    public static readonly Guid MultiCompanyUserABId = Guid.Parse("18181818-1818-1818-1818-181818181818");
 }

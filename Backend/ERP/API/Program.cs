@@ -1,5 +1,6 @@
 using API.Configuration;
 using API.Security.Authorization;
+using Hangfire;
 using Domain.Infrastructure.Persistence;
 using ERP.Infrastructure.Persistence.Auditing;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -46,6 +47,30 @@ public class Program
                     sp.GetRequiredService<
                         PlatformAuditSaveChangesInterceptor>());
             });
+
+        // Hangfire Persistent SQL Server Storage in Platform database ([HangFire] schema)
+        string? platformConnStr = builder.Configuration.GetConnectionString("PlatformDatabase");
+        if (!string.IsNullOrEmpty(platformConnStr))
+        {
+            builder.Services.AddHangfire(config => config
+                .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(platformConnStr, new Hangfire.SqlServer.SqlServerStorageOptions
+                {
+                    CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+                    QueuePollInterval = TimeSpan.Zero,
+                    UseRecommendedIsolationLevel = true,
+                    DisableGlobalLocks = true,
+                    SchemaName = "HangFire"
+                }));
+
+            builder.Services.AddHangfireServer(options =>
+            {
+                options.WorkerCount = Environment.ProcessorCount * 2;
+            });
+        }
 
         builder.Services.AddDbContext<SecurityDbContext>(
             (sp, options) =>
@@ -171,7 +196,17 @@ public class Program
             var platformDb =
                 services.GetRequiredService<SaaSDbContext>();
 
-            await platformDb.Database.MigrateAsync();
+            string? targetPlatformMigration = builder.Configuration["Migrations:TargetPlatformMigration"];
+            if (!string.IsNullOrEmpty(targetPlatformMigration))
+            {
+                var migrator = Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetInfrastructure(platformDb)
+                    .GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
+                migrator?.Migrate(targetPlatformMigration);
+            }
+            else
+            {
+                await platformDb.Database.MigrateAsync();
+            }
 
             SubscriptionSeed.Seed(
                 services.GetRequiredService<ISubscriptionPlanRepository>(),
@@ -210,6 +245,21 @@ public class Program
 
         app.UseAuthentication();
         app.UseAuthorization();
+
+        // Hangfire Dashboard (Secured with PlatformAdmin / SecurityManager role authorization)
+        app.MapHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
+        {
+            Authorization = new[] { new HangfireAuthorizationFilter() }
+        });
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var recurringJobManager = scope.ServiceProvider.GetService<IRecurringJobManager>();
+            if (recurringJobManager != null)
+            {
+                RecurringBillingJobsConfig.ScheduleRecurringJobs(recurringJobManager);
+            }
+        }
 
         app.MapControllers();
 

@@ -361,6 +361,184 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
         Assert.Equal(PurchaseOrderStatus.Approved, order.Status);
     }
 
+    [Fact]
+    public async Task CreatePurchaseOrder_InCompanyB_UsingTenantOwnedProductFromCompanyA_Succeeds()
+    {
+        // Scenario 3: A tenant-owned Product created/visible in Company A is available to an authorized
+        // user creating a Purchase Order in Company B within the same tenant.
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.MixedScopeUserId,
+            "mixedscope_user",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE" });
+
+        var uniqueOrderNum = $"PO-CO-B-{Guid.NewGuid():N}"[..16];
+        var request = new CreatePurchaseOrderRequest
+        {
+            OrderNumber = uniqueOrderNum,
+            OrderDate = DateTime.UtcNow,
+            Items = new List<CreatePurchaseOrderItemRequest>
+            {
+                new CreatePurchaseOrderItemRequest
+                {
+                    ProductId = TestConstants.ProductAlphaId, // Master product belonging to Tenant Alpha
+                    Quantity = 5,
+                    UnitPrice = 30m
+                }
+            }
+        };
+
+        // Act: Create order in Company B, Branch B2 using Tenant Alpha product
+        var response = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB2Id}/purchase-orders",
+            request);
+
+        // Assert: Succeeds because Product master table is shared across companies within Tenant Alpha
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var created = await response.Content.ReadFromJsonAsync<PurchaseOrderDto>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(created);
+        Assert.Equal(uniqueOrderNum, created.OrderNumber);
+        Assert.Equal(150m, created.TotalAmount);
+    }
+
+    [Fact]
+    public async Task CreateOrAccessPurchaseOrder_CompanyAUserTargetingCompanyB_ReturnsForbidden()
+    {
+        // Scenario 5: A user with access only to Company A cannot create or access a Purchase Order in Company B
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE" });
+
+        var request = new CreatePurchaseOrderRequest
+        {
+            OrderNumber = $"PO-DENIED-{Guid.NewGuid():N}"[..16],
+            OrderDate = DateTime.UtcNow,
+            Items = new List<CreatePurchaseOrderItemRequest>
+            {
+                new CreatePurchaseOrderItemRequest
+                {
+                    ProductId = TestConstants.ProductAlphaId,
+                    Quantity = 1,
+                    UnitPrice = 10m
+                }
+            }
+        };
+
+        // 1. Creation attempt in Company B -> Forbidden
+        var createResponse = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/purchase-orders",
+            request);
+        Assert.Equal(HttpStatusCode.Forbidden, createResponse.StatusCode);
+
+        // 2. Listing attempt in Company B -> Forbidden
+        var listResponse = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/purchase-orders");
+        Assert.Equal(HttpStatusCode.Forbidden, listResponse.StatusCode);
+
+        // 3. Direct order lookup in Company B -> Forbidden
+        var getResponse = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/purchase-orders/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Forbidden, getResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreatePurchaseOrder_MultiCompanyUser_EnforcesBranchRestrictionsWithinEachCompany()
+    {
+        // Scenario 6: Verify branch restrictions still apply when a user has access to multiple companies
+        // MixedScopeUser is authorized for:
+        // - (Company A, Branch A1) -> Allowed
+        // - (Company B, Branch B2) -> Allowed
+        // But NOT authorized for:
+        // - (Company A, Branch A2) -> Denied
+        // - (Company B, Branch B1) -> Denied
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.MixedScopeUserId,
+            "mixedscope_user",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE" });
+
+        var item = new List<CreatePurchaseOrderItemRequest>
+        {
+            new CreatePurchaseOrderItemRequest
+            {
+                ProductId = TestConstants.ProductAlphaId,
+                Quantity = 1,
+                UnitPrice = 10m
+            }
+        };
+
+        // 1. Attempt in Company A, Branch A2 (unauthorized branch in authorized company) -> Denied
+        var resA2 = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA2Id}/purchase-orders",
+            new CreatePurchaseOrderRequest { OrderNumber = $"PO-A2-{Guid.NewGuid():N}"[..14], Items = item });
+        Assert.Equal(HttpStatusCode.Forbidden, resA2.StatusCode);
+
+        // 2. Attempt in Company B, Branch B1 (unauthorized branch in authorized company) -> Denied
+        var resB1 = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/purchase-orders",
+            new CreatePurchaseOrderRequest { OrderNumber = $"PO-B1-{Guid.NewGuid():N}"[..14], Items = item });
+        Assert.Equal(HttpStatusCode.Forbidden, resB1.StatusCode);
+
+        // 3. Attempt in Company A, Branch A1 (authorized pairing) -> Allowed
+        var resA1 = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
+            new CreatePurchaseOrderRequest { OrderNumber = $"PO-A1-{Guid.NewGuid():N}"[..14], Items = item });
+        Assert.Equal(HttpStatusCode.Created, resA1.StatusCode);
+
+        // 4. Attempt in Company B, Branch B2 (authorized pairing) -> Allowed
+        var resB2 = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB2Id}/purchase-orders",
+            new CreatePurchaseOrderRequest { OrderNumber = $"PO-B2-{Guid.NewGuid():N}"[..14], Items = item });
+        Assert.Equal(HttpStatusCode.Created, resB2.StatusCode);
+    }
+
+    [Fact]
+    public async Task DirectApiInvocation_BypassingUi_EnforcesAuthorization()
+    {
+        // Scenario 7: Verify authorization is enforced by the API and not merely by UI filtering
+        // Client issues direct crafted HTTP requests targeting forbidden company and branch IDs
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE", "COMPANY.VIEW", "BRANCH.VIEW" });
+
+        // 1. Direct GET against forbidden company ID bypassing any UI dropdown
+        var directCompRes = await client.GetAsync($"/api/companies/{TestConstants.CompanyBId}");
+        Assert.True(directCompRes.StatusCode == HttpStatusCode.Forbidden || directCompRes.StatusCode == HttpStatusCode.NotFound);
+
+        // 2. Direct GET against forbidden branch ID
+        var directBranchRes = await client.GetAsync($"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}");
+        Assert.True(directBranchRes.StatusCode == HttpStatusCode.Forbidden || directBranchRes.StatusCode == HttpStatusCode.NotFound);
+
+        // 3. Direct POST with JSON payload targeting foreign company/branch
+        var rawPayload = new CreatePurchaseOrderRequest
+        {
+            OrderNumber = $"PO-DIRECT-{Guid.NewGuid():N}"[..16],
+            Items = new List<CreatePurchaseOrderItemRequest>
+            {
+                new CreatePurchaseOrderItemRequest { ProductId = TestConstants.ProductAlphaId, Quantity = 1, UnitPrice = 10m }
+            }
+        };
+        var directPostRes = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/purchase-orders",
+            rawPayload);
+        Assert.Equal(HttpStatusCode.Forbidden, directPostRes.StatusCode);
+
+        // 4. Direct GET against cross-tenant resource (Tenant Beta's Company C)
+        var crossTenantRes = await client.GetAsync($"/api/companies/{TestConstants.CompanyCId}");
+        Assert.True(crossTenantRes.StatusCode == HttpStatusCode.Forbidden || crossTenantRes.StatusCode == HttpStatusCode.NotFound);
+    }
+
     private class PurchaseOrderDto
     {
         public Guid Id { get; set; }

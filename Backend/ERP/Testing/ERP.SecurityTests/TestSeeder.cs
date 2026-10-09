@@ -202,6 +202,10 @@ public static class TestSeeder
         var readOnlyUser = SeedUserWithRole(db, TestConstants.ReadOnlyUserId, TestConstants.TenantAlphaId, "readonly_user", "readonly@tenant.local", viewerRole);
         EnsureScope(db, readOnlyUser, TestConstants.CompanyAId, TestConstants.BranchA1Id);
 
+        var multiCompUser = SeedUserWithRole(db, TestConstants.MultiCompanyUserABId, TestConstants.TenantAlphaId, "multicomp_user_ab", "multicomp_ab@tenant.local", branchUserRole);
+        EnsureScope(db, multiCompUser, TestConstants.CompanyAId, null);
+        EnsureScope(db, multiCompUser, TestConstants.CompanyBId, null);
+
         db.SaveChanges();
     }
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SaaS.Core.Models;
 
@@ -31,11 +31,41 @@ public class SubscriptionConfiguration
             .IsRequired()
             .HasConversion<int>();
 
+        builder.Property(x => x.BillingCycle)
+            .IsRequired()
+            .HasConversion<int>();
+
+        builder.Property(x => x.BillingPlanPriceSnapshot)
+            .IsRequired()
+            .HasColumnType("decimal(18,2)");
+
+        builder.Property(x => x.BillingAnchorDate)
+            .IsRequired();
+
+        builder.Property(x => x.CurrentPeriodStart)
+            .IsRequired();
+
+        builder.Property(x => x.CurrentPeriodEnd)
+            .IsRequired();
+
+        builder.Property(x => x.NextBillingDate)
+            .IsRequired(false);
+
+        builder.Property(x => x.AutoRenew)
+            .IsRequired();
+
+        builder.Property(x => x.LastInvoiceGeneratedAt)
+            .IsRequired(false);
+
         builder.Property(x => x.StartDate)
             .IsRequired();
 
         builder.Property(x => x.EndDate)
             .IsRequired(false);
+
+        builder.Property(x => x.Status)
+            .IsRequired()
+            .HasConversion<int>();
 
         builder.Property(x => x.IsActive)
             .IsRequired();

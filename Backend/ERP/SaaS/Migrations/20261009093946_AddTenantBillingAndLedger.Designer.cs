@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SaaS.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using SaaS.Infrastructure.Persistence;
 namespace SaaS.Migrations
 {
     [DbContext(typeof(SaaSDbContext))]
-    partial class SaaSDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009093946_AddTenantBillingAndLedger")]
+    partial class AddTenantBillingAndLedger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -347,29 +350,11 @@ namespace SaaS.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<bool>("AutoRenew")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("BillingAnchorDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("BillingCycle")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("BillingPlanPriceSnapshot")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CurrentPeriodEnd")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CurrentPeriodStart")
-                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime2");
@@ -377,17 +362,11 @@ namespace SaaS.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime?>("LastInvoiceGeneratedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("NextBillingDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
@@ -431,15 +410,6 @@ namespace SaaS.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("BillingCycle")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("BillingPeriodEnd")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("BillingPeriodStart")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -481,9 +451,6 @@ namespace SaaS.Migrations
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("SequenceNumber")
-                        .HasColumnType("int");
-
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -510,9 +477,6 @@ namespace SaaS.Migrations
                     b.HasIndex("SubscriptionId");
 
                     b.HasIndex("TenantId", "Status");
-
-                    b.HasIndex("SubscriptionId", "BillingPeriodStart", "BillingPeriodEnd")
-                        .IsUnique();
 
                     b.ToTable("SubscriptionInvoices", null, t =>
                         {
