@@ -1,4 +1,4 @@
-﻿using Domain.Features.MasterData.Branch;
+using Domain.Features.MasterData.Branch;
 using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.Product;
 using SaaS.Application.Interfaces;
@@ -38,6 +38,7 @@ public static class RepositoryRegistration
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IBranchRepository, BranchRepository>();
+        services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderRepository, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderRepository>();
 
         return services;
     }

@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Features.MasterData.Category;
+using ERP.Domain.Features.MasterData.Category;
 using Domain.Features.MasterData.Branch;
 using ERP.Domain.Features.MasterData.Customer;
 using ERP.Domain.Features.MasterData.Supplier;
@@ -44,6 +44,12 @@ public class DomainDbContext : DbContext
 
     public DbSet<WarehouseLocation> WarehouseLocations
         => Set<WarehouseLocation>();
+
+    public DbSet<Domain.Features.Procurement.PurchaseOrder.PurchaseOrder> PurchaseOrders
+        => Set<Domain.Features.Procurement.PurchaseOrder.PurchaseOrder>();
+
+    public DbSet<Domain.Features.Procurement.PurchaseOrder.PurchaseOrderItem> PurchaseOrderItems
+        => Set<Domain.Features.Procurement.PurchaseOrder.PurchaseOrderItem>();
 
     public DbSet<DomainAuditRecord> DomainAuditRecords
         => Set<DomainAuditRecord>();
