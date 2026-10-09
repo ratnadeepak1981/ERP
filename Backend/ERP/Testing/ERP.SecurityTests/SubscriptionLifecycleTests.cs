@@ -7,6 +7,7 @@ using Xunit;
 
 namespace ERP.SecurityTests;
 
+[Trait("Category", "Unit")]
 public class SubscriptionLifecycleTests
 {
     [Theory]
