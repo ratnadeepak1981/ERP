@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ERP.Domain.Features.MasterData.Branch
+namespace Domain.Features.MasterData.Branch
 {
     public class Branch
     {

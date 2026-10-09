@@ -1,382 +1,218 @@
-using API.Security;
-using API.Services;
-using Domain.Features.MasterData.Company;
-using Domain.Features.MasterData.Product;
+using API.Configuration;
+using API.Security.Authorization;
 using Domain.Infrastructure.Persistence;
-using Domain.Services;
 using ERP.Infrastructure.Persistence.Auditing;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using SaaS.Application.Interfaces;
 using SaaS.Application.Interfaces.Repositories;
-using SaaS.Application.Services;
+using SaaS.Bootstrap.Subscription;
 using SaaS.Infrastructure.Persistence;
 using SaaS.Infrastructure.Persistence.Auditing;
-using SaaS.Infrastructure.Persistence.Repositories;
-using SaaS.Infrastructure.Repositories;
-using SaaS.Services;
 using Security.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence.Auditing;
-using Security.Infrastructure.Persistence.Repositories;
 using Security.Infrastructure.Services;
-using Security.Interfaces;
 using Security.Services;
 using System.Security.Claims;
 
-namespace API
+namespace API;
+
+public class Program
 {
-    public class Program
+    public static async Task Main(string[] args)
     {
-        public static async Task Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
+        var builder = WebApplication.CreateBuilder(args);
 
+        // DI
+        builder.Services.AddApplicationServices();
+        builder.Services.AddApplicationRepositories();
+        builder.Services.AddBootstrapServices();
 
-            builder.Services.AddScoped<IDomainDatabaseConfiguration, DomainDatabaseConfiguration>();
+        // Audit
+        builder.Services.AddScoped<AuditSaveChangesInterceptor>();
+        builder.Services.AddScoped<PlatformAuditSaveChangesInterceptor>();
+        builder.Services.AddScoped<SecurityAuditSaveChangesInterceptor>();
 
+        // Databases
+        builder.Services.AddDbContext<SaaSDbContext>(
+            (sp, options) =>
+            {
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString(
+                        "PlatformDatabase"));
 
-            // ============================================================
-            // Application Services
-            // ============================================================
+                options.AddInterceptors(
+                    sp.GetRequiredService<
+                        PlatformAuditSaveChangesInterceptor>());
+            });
 
-            builder.Services.AddScoped<SaaSService>();
-            builder.Services.AddScoped<DomainService>();
-            builder.Services.AddScoped<SecurityService>();
+        builder.Services.AddDbContext<SecurityDbContext>(
+            (sp, options) =>
+            {
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString(
+                        "SecurityDatabase"));
 
-            builder.Services.AddSingleton<RsaPrivateKeyLoader>();
+                // TEMPORARY EF DIAGNOSTIC LOGGING
+                options.EnableSensitiveDataLogging();
+                options.LogTo(Console.WriteLine);
 
-            builder.Services.AddScoped<ITokenService, TokenService>();
-            builder.Services.AddScoped<ITenantService, TenantService>();
-            builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+                options.AddInterceptors(
+                    sp.GetRequiredService<
+                        SecurityAuditSaveChangesInterceptor>());
+            });
 
-            builder.Services.AddScoped<IRolePermissionService,RolePermissionService>();
+        builder.Services.AddDbContext<DomainDbContext>(
+            (sp, options) =>
+            {
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString(
+                        "DomainDatabase"));
 
-            builder.Services.AddScoped<IRoleService, RoleService>();
+                options.AddInterceptors(
+                    sp.GetRequiredService<
+                        AuditSaveChangesInterceptor>());
+            });
 
-            builder.Services.AddScoped<IPermissionService,PermissionService>();
-
-            builder.Services.AddScoped<IUserService,UserService>();
-
-            builder.Services.AddScoped<IUserRoleService,UserRoleService>();
-
-
-            builder.Services.AddScoped<SecurityBootstrapService>();
-            builder.Services.AddScoped<PasswordService>();
-
-            builder.Services.AddScoped<ISubscriptionPlanService,SubscriptionPlanService>();
-
-            builder.Services.AddScoped<ISubscriptionParameterService,SubscriptionParameterService>();
-
-            builder.Services.AddScoped<ISubscriptionPlanParameterService,SubscriptionPlanParameterService>();
-
-            builder.Services.AddScoped<ISubscriptionLimitService,SubscriptionLimitService>();
-
-            builder.Services.AddScoped<ITenantProvisioningService,TenantProvisioningService>();
-
-            builder.Services.AddScoped<ITenantAdminProvisioningService,TenantAdminProvisioningService>();
-
-            builder.Services.AddScoped<ISubscriptionUsageRepository,SubscriptionUsageRepository>();
-
-            builder.Services.AddScoped<ISubscriptionUsageService,SubscriptionUsageService>();
-
-            builder.Services.AddScoped<ICompanyService, CompanyService>();
-
-            builder.Services.AddScoped<IUserScopeService, UserScopeService>();
-
-            builder.Services.AddScoped<IUserAccessService, UserAccessService>();
-
-            builder.Services.AddScoped<IProductService, ProductService>();
-            
-
-            // ============================================================
-            // Current User Context
-            // ============================================================
-
-            builder.Services.AddHttpContextAccessor();
-
-            builder.Services.AddScoped<ICurrentUserContext,CurrentUserContext>();
-
-            // ============================================================
-            // Role Repository
-            // ============================================================
-
-            builder.Services.AddScoped<IRoleRepository,RoleRepository>();
-
-            builder.Services.AddScoped<IPermissionRepository,PermissionRepository>();
-
-            builder.Services.AddScoped<IRolePermissionRepository,RolePermissionRepository>();
-
-            builder.Services.AddScoped<IUserRepository,UserRepository>();
-
-            builder.Services.AddScoped<IUserRoleRepository,UserRoleRepository>();
-
-            builder.Services.AddScoped<ITenantDatabaseRepository,TenantDatabaseRepository>();
-
-            builder.Services.AddScoped<ITenantConfigurationRepository,TenantConfigurationRepository>();
-
-            // ============================================================
-            // Security Bootstrap Services
-            // ============================================================
-
-            builder.Services.AddScoped<ISecurityBootstrapRepository,SecurityBootstrapRepository>();
-
-            builder.Services.AddScoped<ITenantRepository,TenantRepository>();
-
-            builder.Services.AddScoped<ISubscriptionParameterRepository,SubscriptionParameterRepository>();
-
-            builder.Services.AddScoped<ISubscriptionPlanParameterRepository,SubscriptionPlanParameterRepository>();
-
-            builder.Services.AddScoped<ISubscriptionLimitRepository,SubscriptionLimitRepository>();
-
-            builder.Services.AddScoped<ISubscriptionRepository,SubscriptionRepository>();
-
-            builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
-
-            builder.Services.AddScoped<IProductRepository, ProductRepository>();
-
-            // ============================================================
-            // Audit Interceptors
-            // ============================================================
-
-            builder.Services.AddScoped<AuditSaveChangesInterceptor>();
-            builder.Services.AddScoped<PlatformAuditSaveChangesInterceptor>();
-            builder.Services.AddScoped<SecurityAuditSaveChangesInterceptor>();
-
-            // ============================================================
-            // EF Core - Platform Database
-            // ============================================================
-
-            builder.Services.AddDbContext<SaaSDbContext>(
-                (serviceProvider, options) =>
-                {
-                    options.UseSqlServer(
-                        builder.Configuration.GetConnectionString(
-                            "PlatformDatabase"));
-
-                    options.AddInterceptors(
-                        serviceProvider.GetRequiredService<
-                            PlatformAuditSaveChangesInterceptor>());
-                });
-
-            // ============================================================
-            // EF Core - Security Database
-            // ============================================================
-
-            builder.Services.AddDbContext<SecurityDbContext>(
-                (serviceProvider, options) =>
-                {
-                    options.UseSqlServer(
-                        builder.Configuration.GetConnectionString(
-                            "SecurityDatabase"));
-
-                    options.AddInterceptors(
-                        serviceProvider.GetRequiredService<
-                            SecurityAuditSaveChangesInterceptor>());
-                });
-
-            // ============================================================
-            // EF Core - Domain Database
-            // ============================================================
-
-            builder.Services.AddDbContext<DomainDbContext>(
-                (serviceProvider, options) =>
-                {
-                    options.UseSqlServer(
-                        builder.Configuration.GetConnectionString(
-                            "DomainDatabase"));
-
-                    options.AddInterceptors(
-                        serviceProvider.GetRequiredService<
-                            AuditSaveChangesInterceptor>());
-                });
-
-            // ============================================================
-            // JWT Authentication
-            // ============================================================
-
-            builder.Services.AddAuthentication(
+        // Authentication
+        builder.Services
+            .AddAuthentication(
                 JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
+            .AddJwtBearer(options =>
+            {
+                var keyLoader = new RsaPrivateKeyLoader();
+
+                if (!keyLoader.TryLoadPublicKey())
                 {
-                    var keyLoader =
-                        new RsaPrivateKeyLoader();
+                    throw new InvalidOperationException(
+                        "RSA public key could not be loaded.");
+                }
 
-                    if (!keyLoader.TryLoadPublicKey())
+                var rsa = keyLoader.GetPublicRsa()
+                    ?? throw new InvalidOperationException(
+                        "RSA public key is unavailable.");
+
+                options.TokenValidationParameters =
+                    new TokenValidationParameters
                     {
-                        throw new InvalidOperationException(
-                            "RSA public key could not be loaded.");
-                    }
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new RsaSecurityKey(rsa),
 
-                    var rsa =
-                        keyLoader.GetPublicRsa()
-                        ?? throw new InvalidOperationException(
-                            "RSA public key is unavailable.");
+                        ValidateIssuer = true,
+                        ValidIssuer = "CSharpAuthServer",
 
-                    options.TokenValidationParameters =
-                        new TokenValidationParameters
-                        {
-                            ValidateIssuerSigningKey = true,
+                        ValidateAudience = true,
+                        ValidAudience = "ERP",
 
-                            IssuerSigningKey =
-                                new RsaSecurityKey(rsa),
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.FromMinutes(1),
 
-                            ValidateIssuer = true,
+                        RoleClaimType = ClaimTypes.Role
+                    };
+            });
 
-                            ValidIssuer =
-                                "CSharpAuthServer",
+        // Dynamic Permission Authorization
+        builder.Services.AddSingleton<
+            IAuthorizationPolicyProvider,
+            PermissionPolicyProvider>();
 
-                            ValidateAudience = true,
+        builder.Services.AddScoped<
+            IAuthorizationHandler,
+            PermissionAuthorizationHandler>();
 
-                            ValidAudience =
-                                "ERP",
+        builder.Services.AddAuthorization();
 
-                            ValidateLifetime = true,
+        // Controllers / Swagger
+        builder.Services.AddControllers();
+        builder.Services.AddEndpointsApiExplorer();
 
-                            ClockSkew =
-                                TimeSpan.FromMinutes(1),
-
-                            RoleClaimType =
-                                ClaimTypes.Role
-                        };
+        builder.Services.AddSwaggerGen(options =>
+        {
+            options.AddSecurityDefinition(
+                "Bearer",
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                    Description = "Enter your JWT token."
                 });
 
-            builder.Services.AddAuthorization(options =>
-            {
-                options.AddPolicy(
-                    "SUBSCRIPTION_VIEW",
-                    policy =>
+            options.AddSecurityRequirement(
+                new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+                {
                     {
-                        policy.RequireAuthenticatedUser();
-
-                        policy.RequireClaim(
-                            "permission",
-                            "SUBSCRIPTION_VIEW");
-                    });
-
-                options.AddPolicy(
-                    "USER_VIEW",
-                    policy =>
-                    {
-                        policy.RequireAuthenticatedUser();
-
-                        policy.RequireClaim(
-                            "permission",
-                            "USER_VIEW");
-
-                    });
-                options.AddPolicy("PRODUCT_VIEW", policy =>
-                        policy.RequireClaim("permission", "PRODUCT_VIEW"));
-
-                options.AddPolicy("COMPANY_VIEW", policy =>
-                    policy.RequireClaim("permission", "COMPANY_VIEW"));
-            });
-            // ============================================================
-            // Controllers / Swagger
-            // ============================================================
-
-            builder.Services.AddControllers();
-
-            builder.Services.AddEndpointsApiExplorer();
-
-            builder.Services.AddSwaggerGen(options =>
-            {
-                options.AddSecurityDefinition(
-                    "Bearer",
-                    new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-                    {
-                        Name = "Authorization",
-
-                        Type =
-                            Microsoft.OpenApi.Models.SecuritySchemeType.Http,
-
-                        Scheme = "bearer",
-
-                        BearerFormat = "JWT",
-
-                        In =
-                            Microsoft.OpenApi.Models.ParameterLocation.Header,
-
-                        Description =
-                            "Enter your JWT token."
-                    });
-
-                options.AddSecurityRequirement(
-                    new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-                    {
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
                         {
-                            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-                            {
-                                Reference =
-                                    new Microsoft.OpenApi.Models.OpenApiReference
-                                    {
-                                        Type =
-                                            Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                            Reference =
+                                new Microsoft.OpenApi.Models.OpenApiReference
+                                {
+                                    Type =
+                                        Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                                    Id = "Bearer"
+                                }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+        });
 
-                                        Id = "Bearer"
-                                    }
-                            },
+        var app = builder.Build();
 
-                            Array.Empty<string>()
-                        }
-                    });
-            });
+        // Database Migration and Seed
+        using (var scope = app.Services.CreateScope())
+        {
+            var services = scope.ServiceProvider;
 
-            // ============================================================
-            // Build Application
-            // ============================================================
+            // SaaS / Platform DB
+            var platformDb =
+                services.GetRequiredService<SaaSDbContext>();
 
-            var app = builder.Build();
+            await platformDb.Database.MigrateAsync();
 
-            // ============================================================
-            // Database Migration + Platform Admin Bootstrap
-            // ============================================================
+            SubscriptionSeed.Seed(
+                services.GetRequiredService<ISubscriptionPlanRepository>(),
+                services.GetRequiredService<ISubscriptionParameterRepository>(),
+                services.GetRequiredService<ISubscriptionLimitRepository>(),
+                services.GetRequiredService<ISubscriptionPlanParameterRepository>());
 
-            using (var scope = app.Services.CreateScope())
-            {
-                var services = scope.ServiceProvider;
+            // Security DB
+            var securityDb =
+                services.GetRequiredService<SecurityDbContext>();
 
-                var platformDb =
-                    services.GetRequiredService<SaaSDbContext>();
+            await securityDb.Database.MigrateAsync();
 
-                await platformDb.Database.MigrateAsync();
+            var securityBootstrap =
+                services.GetRequiredService<SecurityBootstrapService>();
 
-                var securityDb =
-                    services.GetRequiredService<SecurityDbContext>();
+            await securityBootstrap.EnsurePlatformRbacAsync();
 
-                await securityDb.Database.MigrateAsync();
+            await securityBootstrap.EnsureDomainPermissionsAsync();
 
-                var domainDb =
-                    services.GetRequiredService<DomainDbContext>();
+            // Domain DB
+            var domainDb =
+                services.GetRequiredService<DomainDbContext>();
 
-                await domainDb.Database.MigrateAsync();
-
-                var bootstrap =
-                    services.GetRequiredService<
-                        SecurityBootstrapService>();
-
-                await bootstrap.EnsurePlatformAdminAsync();
-            }
-
-            // ============================================================
-            // HTTP Request Pipeline
-            // ============================================================
-
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-            app.UseHttpsRedirection();
-
-            app.UseAuthentication();
-
-            app.UseAuthorization();
-
-            app.MapControllers();
-
-            app.Run();
+            await domainDb.Database.MigrateAsync();
         }
+
+        // HTTP Pipeline
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+
+        app.UseHttpsRedirection();
+
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        app.MapControllers();
+
+        app.Run();
     }
 }

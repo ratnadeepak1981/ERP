@@ -1,14 +1,14 @@
-﻿using Domain.Features.MasterData.Company;
-using Microsoft.AspNetCore.Authorization;
+﻿using API.Security.Authorization;
+using Domain.Features.MasterData.Company;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 using CompanyEntity = Domain.Features.MasterData.Company.Company;
 
-namespace API.Features.MasterData.Company;
+namespace API.Features.MasterMasterData.Company;
 
 [ApiController]
 [Route("api/companies")]
-[Authorize(Policy = "COMPANY_VIEW")]
+[RequirePermission("COMPANY.VIEW")]
 public class CompanyController : ControllerBase
 {
     private readonly ICompanyService _companyService;

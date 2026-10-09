@@ -1,5 +1,5 @@
 ﻿using ERP.Domain.Features.MasterData.Category;
-using ERP.Domain.Features.MasterData.Branch;
+using Domain.Features.MasterData.Branch;
 using ERP.Domain.Features.MasterData.Customer;
 using ERP.Domain.Features.MasterData.Supplier;
 using ERP.Domain.Features.MasterData.Warehouse;
