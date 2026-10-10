@@ -17,6 +17,14 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
             .HasColumnType("decimal(18,4)")
             .IsRequired();
 
+        builder.Property(x => x.ReceivedQuantity)
+            .HasColumnType("decimal(18,4)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.RowVersion)
+            .IsRowVersion();
+
         builder.Property(x => x.UnitPrice)
             .HasColumnType("decimal(18,2)")
             .IsRequired();

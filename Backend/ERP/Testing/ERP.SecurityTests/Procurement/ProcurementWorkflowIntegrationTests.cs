@@ -152,41 +152,49 @@ public class ProcurementWorkflowIntegrationTests : IClassFixture<TestSecurityFix
         var putRes = await clientAdmin.PutAsJsonAsync("/api/tenants/current/settings/procurement-approval", new { ApprovalRequired = false, ApprovalMode = 1 });
         Assert.Equal(HttpStatusCode.OK, putRes.StatusCode);
 
-        var clientUser = _fixture.CreateAuthenticatedClient(
-            TestConstants.BranchUserA1Id,
-            "branchuser_a1",
-            TestConstants.TenantAlphaId,
-            new[] { "Branch User" },
-            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE", "PURCHASE_ORDER.SUBMIT" });
+        try
+        {
+            var clientUser = _fixture.CreateAuthenticatedClient(
+                TestConstants.BranchUserA1Id,
+                "branchuser_a1",
+                TestConstants.TenantAlphaId,
+                new[] { "Branch User" },
+                new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE", "PURCHASE_ORDER.SUBMIT" });
 
-        var orderNumber = $"PO-NOAPP-{Guid.NewGuid():N}"[..15];
-        var createRes = await clientUser.PostAsJsonAsync(
-            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
-            new CreatePurchaseOrderRequest
-            {
-                OrderNumber = orderNumber,
-                Items = new List<CreatePurchaseOrderItemRequest>
+            var orderNumber = $"PO-NOAPP-{Guid.NewGuid():N}"[..15];
+            var createRes = await clientUser.PostAsJsonAsync(
+                $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
+                new CreatePurchaseOrderRequest
                 {
-                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 2, UnitPrice = 15m }
-                }
-            });
-        var order = await createRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
+                    OrderNumber = orderNumber,
+                    Items = new List<CreatePurchaseOrderItemRequest>
+                    {
+                        new() { ProductId = TestConstants.ProductAlphaId, Quantity = 2, UnitPrice = 15m }
+                    }
+                });
+            var order = await createRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
 
-        // Submit -> Should immediately AutoApprove
-        var submitRes = await clientUser.PostAsync(
-            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{order!.Id}/submit",
-            null);
-        Assert.Equal(HttpStatusCode.OK, submitRes.StatusCode);
-        var submittedOrder = await submitRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
-        Assert.Equal(PurchaseOrderStatus.Approved, submittedOrder!.Status);
+            // Submit -> Should immediately AutoApprove
+            var submitRes = await clientUser.PostAsync(
+                $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{order!.Id}/submit",
+                null);
+            Assert.Equal(HttpStatusCode.OK, submitRes.StatusCode);
+            var submittedOrder = await submitRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
+            Assert.Equal(PurchaseOrderStatus.Approved, submittedOrder!.Status);
 
-        // Verify history shows automated approval
-        var historyRes = await clientUser.GetAsync(
-            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{order.Id}/approval-history");
-        var history = await historyRes.Content.ReadFromJsonAsync<List<ApprovalAuditRecordDto>>(_jsonOpts);
-        Assert.NotNull(history);
-        Assert.Single(history);
-        Assert.True(history[0].IsAutomated);
+            // Verify history shows automated approval
+            var historyRes = await clientUser.GetAsync(
+                $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{order.Id}/approval-history");
+            var history = await historyRes.Content.ReadFromJsonAsync<List<ApprovalAuditRecordDto>>(_jsonOpts);
+            Assert.NotNull(history);
+            Assert.Single(history);
+            Assert.True(history[0].IsAutomated);
+        }
+        finally
+        {
+            // Restore approval required = true for other tests
+            await clientAdmin.PutAsJsonAsync("/api/tenants/current/settings/procurement-approval", new { ApprovalRequired = true, ApprovalMode = 1 });
+        }
     }
 
     [Fact]

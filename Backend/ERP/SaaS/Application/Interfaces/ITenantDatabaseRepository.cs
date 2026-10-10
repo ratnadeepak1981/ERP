@@ -1,4 +1,4 @@
-﻿using SaaS.Core.Models;
+using SaaS.Core.Models;
 
 namespace SaaS.Application.Interfaces.Repositories;
 
@@ -9,6 +9,8 @@ public interface ITenantDatabaseRepository
     Task<bool> ExistsByTenantIdAsync(Guid tenantId);
 
     Task AddAsync(TenantDatabase tenantDatabase);
+
+    Task DeleteAsync(TenantDatabase tenantDatabase);
 
     Task SaveChangesAsync();
 }
