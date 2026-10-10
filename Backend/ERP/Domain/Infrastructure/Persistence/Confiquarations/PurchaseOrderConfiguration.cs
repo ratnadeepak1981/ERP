@@ -28,6 +28,12 @@ public class PurchaseOrderConfiguration : IEntityTypeConfiguration<PurchaseOrder
         builder.Property(x => x.IsActive)
             .IsRequired();
 
+        builder.Property(x => x.SupplierId)
+            .IsRequired(false);
+
+        builder.Property(x => x.CreatedByUserId)
+            .IsRequired(false);
+
         // Tenant + Company + OrderNumber unique
         builder.HasIndex(x => new
         {
@@ -44,6 +50,18 @@ public class PurchaseOrderConfiguration : IEntityTypeConfiguration<PurchaseOrder
             x.CompanyId,
             x.BranchId
         });
+
+        // Supplier index
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.SupplierId
+        });
+
+        builder.HasOne<ERP.Domain.Features.MasterData.Supplier.Supplier>()
+            .WithMany()
+            .HasForeignKey(x => x.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // 1-to-many relationship with items
         builder.HasMany(x => x.Items)

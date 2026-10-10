@@ -1,15 +1,16 @@
 using Domain.Features.MasterData.Product;
-using Domain.Features.Procurement.PurchaseOrder;
+using Domain.Features.MasterData.UnitOfMeasure;
+using Domain.Features.Procurement.PurchaseRequisition;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Domain.Infrastructure.Persistence.Configurations;
 
-public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseOrderItem>
+public class PurchaseRequisitionItemConfiguration : IEntityTypeConfiguration<PurchaseRequisitionItem>
 {
-    public void Configure(EntityTypeBuilder<PurchaseOrderItem> builder)
+    public void Configure(EntityTypeBuilder<PurchaseRequisitionItem> builder)
     {
-        builder.ToTable("PurchaseOrderItems");
+        builder.ToTable("PurchaseRequisitionItems");
 
         builder.HasKey(x => x.Id);
 
@@ -17,13 +18,16 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
             .HasColumnType("decimal(18,4)")
             .IsRequired();
 
-        builder.Property(x => x.UnitPrice)
+        builder.Property(x => x.EstimatedUnitPrice)
             .HasColumnType("decimal(18,2)")
             .IsRequired();
 
-        builder.Property(x => x.LineTotal)
+        builder.Property(x => x.EstimatedLineTotal)
             .HasColumnType("decimal(18,2)")
             .IsRequired();
+
+        builder.Property(x => x.Remarks)
+            .HasMaxLength(250);
 
         builder.Property(x => x.IsActive)
             .IsRequired();
@@ -36,7 +40,7 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
             .HasForeignKey(x => x.ProductId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure>()
+        builder.HasOne<UnitOfMeasure>()
             .WithMany()
             .HasForeignKey(x => x.UnitOfMeasureId)
             .OnDelete(DeleteBehavior.Restrict);

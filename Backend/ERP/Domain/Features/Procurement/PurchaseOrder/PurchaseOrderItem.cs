@@ -10,6 +10,8 @@ public class PurchaseOrderItem
 
     public Guid ProductId { get; set; }
 
+    public Guid? UnitOfMeasureId { get; set; }
+
     public decimal Quantity { get; set; }
 
     public decimal UnitPrice { get; set; }

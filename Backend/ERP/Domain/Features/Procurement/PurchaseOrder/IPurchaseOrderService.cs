@@ -21,7 +21,9 @@ public interface IPurchaseOrderService
         Guid tenantId,
         Guid companyId,
         Guid branchId,
-        CreatePurchaseOrderRequest request);
+        CreatePurchaseOrderRequest request,
+        Guid? actorUserId = null,
+        string? actorUserName = null);
 
     Task<PurchaseOrderItem> AddItemAsync(
         Guid tenantId,
@@ -29,4 +31,45 @@ public interface IPurchaseOrderService
         Guid branchId,
         Guid orderId,
         CreatePurchaseOrderItemRequest request);
+
+    Task<PurchaseOrder> SubmitOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        Guid actorUserId,
+        string actorUserName);
+
+    Task<PurchaseOrder> ApproveOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        Guid approverUserId,
+        string approverUserName,
+        string? remarks = null);
+
+    Task<PurchaseOrder> RejectOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        Guid approverUserId,
+        string approverUserName,
+        string remarks);
+
+    Task<PurchaseOrder> CancelOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        Guid actorUserId,
+        string actorUserName,
+        string? remarks = null);
+
+    Task<List<Approval.ApprovalAuditRecord>> GetApprovalHistoryAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId);
 }

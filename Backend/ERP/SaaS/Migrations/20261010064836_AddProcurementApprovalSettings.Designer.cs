@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SaaS.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using SaaS.Infrastructure.Persistence;
 namespace SaaS.Migrations
 {
     [DbContext(typeof(SaaSDbContext))]
-    partial class SaaSDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261010064836_AddProcurementApprovalSettings")]
+    partial class AddProcurementApprovalSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

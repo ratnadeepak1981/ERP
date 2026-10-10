@@ -87,6 +87,16 @@ public static class TestSeeder
             });
         }
 
+        if (!db.TenantConfigurations.Any(x => x.TenantId == TestConstants.TenantAlphaId))
+        {
+            db.TenantConfigurations.Add(TenantConfiguration.CreateDefault(TestConstants.TenantAlphaId));
+        }
+
+        if (!db.TenantConfigurations.Any(x => x.TenantId == TestConstants.TenantBetaId))
+        {
+            db.TenantConfigurations.Add(TenantConfiguration.CreateDefault(TestConstants.TenantBetaId));
+        }
+
         db.SaveChanges();
     }
 

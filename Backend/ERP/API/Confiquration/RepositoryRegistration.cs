@@ -46,6 +46,8 @@ public static class RepositoryRegistration
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseRepository, ERP.Domain.Features.MasterData.Warehouse.WarehouseRepository>();
         services.AddScoped<Domain.Features.MasterData.Address.IAddressRepository, Domain.Features.MasterData.Address.AddressRepository>();
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceRepository, Domain.Features.MasterData.Supplier.SupplierProductPriceRepository>();
+        services.AddScoped<Domain.Features.Procurement.Approval.IApprovalAuditRepository, Domain.Features.Procurement.Approval.ApprovalAuditRepository>();
+        services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionRepository, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionRepository>();
 
         return services;
     }

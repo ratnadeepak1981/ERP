@@ -36,6 +36,27 @@ public static class PurchaseOrderPermissionSeed
             "PurchaseOrder",
             "Allows deleting purchase orders.");
 
+        await SeedPermissionAsync(
+            repository,
+            "PURCHASE_ORDER.SUBMIT",
+            "Submit Purchase Order",
+            "PurchaseOrder",
+            "Allows submitting purchase orders for approval.");
+
+        await SeedPermissionAsync(
+            repository,
+            "PURCHASE_ORDER.APPROVE",
+            "Approve/Reject Purchase Order",
+            "PurchaseOrder",
+            "Allows approving or rejecting submitted purchase orders.");
+
+        await SeedPermissionAsync(
+            repository,
+            "PURCHASE_ORDER.CANCEL",
+            "Cancel Purchase Order",
+            "PurchaseOrder",
+            "Allows cancelling purchase orders.");
+
         await repository.SaveChangesAsync();
     }
 

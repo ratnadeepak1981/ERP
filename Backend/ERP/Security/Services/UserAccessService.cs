@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Security.Interfaces;
 using Security.Infrastructure.Persistence;
 
@@ -75,6 +75,6 @@ public class UserAccessService : IUserAccessService
                 x.IsActive &&
                 x.UserRole.UserId == userId &&
                 x.CompanyId == companyId &&
-                x.BranchId == branchId);
+                (x.BranchId == null || x.BranchId == branchId));
     }
 }
