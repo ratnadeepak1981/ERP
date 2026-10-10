@@ -121,6 +121,20 @@ public class SubscriptionLifecyclePersistenceTests : IAsyncLifetime
             await db.SaveChangesAsync();
         }
 
+        var limits = await db.SubscriptionLimits
+            .Where(l => l.SubscriptionPlanId == TestPlanId)
+            .ToListAsync();
+        if (limits.Count > 0)
+        {
+            var limitIds = limits.Select(l => l.Id).ToList();
+            var planParams = await db.SubscriptionPlanParameters
+                .Where(p => limitIds.Contains(p.SubscriptionLimitId))
+                .ToListAsync();
+            db.SubscriptionPlanParameters.RemoveRange(planParams);
+            db.SubscriptionLimits.RemoveRange(limits);
+            await db.SaveChangesAsync();
+        }
+
         var plan = await db.SubscriptionPlans.FindAsync(TestPlanId);
         if (plan != null) db.SubscriptionPlans.Remove(plan);
 

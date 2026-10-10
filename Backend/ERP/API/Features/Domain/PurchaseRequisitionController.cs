@@ -2,87 +2,69 @@ using System;
 using System.Threading.Tasks;
 using API.Security.Authorization;
 using Domain.Features.Procurement.Approval;
-using Domain.Features.Procurement.PurchaseOrder;
+using Domain.Features.Procurement.PurchaseRequisition;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 
 namespace API.Features.Domain;
 
 [ApiController]
-[Route("api/companies/{companyId:guid}/branches/{branchId:guid}/purchase-orders")]
-[RequirePermission("PURCHASE_ORDER.VIEW")]
-public class PurchaseOrderController : ControllerBase
+[Route("api/companies/{companyId:guid}/branches/{branchId:guid}/purchase-requisitions")]
+[RequirePermission("PURCHASE_REQUISITION.VIEW")]
+public class PurchaseRequisitionController : ControllerBase
 {
-    private readonly IPurchaseOrderService _orderService;
+    private readonly IPurchaseRequisitionService _requisitionService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
 
-    public PurchaseOrderController(
-        IPurchaseOrderService orderService,
+    public PurchaseRequisitionController(
+        IPurchaseRequisitionService requisitionService,
         ICurrentUserContext currentUserContext,
         IUserAccessService userAccessService)
     {
-        _orderService = orderService;
+        _requisitionService = requisitionService;
         _currentUserContext = currentUserContext;
         _userAccessService = userAccessService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetOrders(
-        Guid companyId,
-        Guid branchId)
+    public async Task<IActionResult> GetRequisitions(Guid companyId, Guid branchId)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
-        var orders = await _orderService.GetOrdersAsync(
-            authResult.TenantId,
-            companyId,
-            branchId);
-
-        return Ok(orders);
+        var requisitions = await _requisitionService.GetRequisitionsAsync(authResult.TenantId, companyId, branchId);
+        return Ok(requisitions);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetOrder(
-        Guid companyId,
-        Guid branchId,
-        Guid id)
+    public async Task<IActionResult> GetRequisition(Guid companyId, Guid branchId, Guid id)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
-        var order = await _orderService.GetOrderAsync(
-            authResult.TenantId,
-            companyId,
-            branchId,
-            id);
-
-        if (order == null)
+        var requisition = await _requisitionService.GetRequisitionAsync(authResult.TenantId, companyId, branchId, id);
+        if (requisition == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Purchase order not found in the authorized scope."
-            });
+            return NotFound(new { status = "FAIL", message = "Purchase requisition not found in the authorized scope." });
         }
 
-        return Ok(order);
+        return Ok(requisition);
     }
 
     [HttpPost]
-    [RequirePermission("PURCHASE_ORDER.CREATE")]
-    public async Task<IActionResult> CreateOrder(
+    [RequirePermission("PURCHASE_REQUISITION.CREATE")]
+    public async Task<IActionResult> CreateRequisition(
         Guid companyId,
         Guid branchId,
-        [FromBody] CreatePurchaseOrderRequest request)
+        [FromBody] CreatePurchaseRequisitionRequest request)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         try
         {
-            var order = await _orderService.CreateOrderAsync(
+            var requisition = await _requisitionService.CreateRequisitionAsync(
                 authResult.TenantId,
                 companyId,
                 branchId,
@@ -91,165 +73,41 @@ public class PurchaseOrderController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
             return CreatedAtAction(
-                nameof(GetOrder),
-                new { companyId, branchId, id = order.Id },
-                order);
+                nameof(GetRequisition),
+                new { companyId, branchId, id = requisition.Id },
+                requisition);
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return BadRequest(new { status = "FAIL", message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return Conflict(new { status = "FAIL", message = ex.Message });
         }
     }
 
-    [HttpPost("{orderId:guid}/items")]
-    [RequirePermission("PURCHASE_ORDER.EDIT")]
+    [HttpPost("{requisitionId:guid}/items")]
+    [RequirePermission("PURCHASE_REQUISITION.EDIT")]
     public async Task<IActionResult> AddItem(
         Guid companyId,
         Guid branchId,
-        Guid orderId,
-        [FromBody] CreatePurchaseOrderItemRequest request)
+        Guid requisitionId,
+        [FromBody] CreatePurchaseRequisitionItemRequest request)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         try
         {
-            var item = await _orderService.AddItemAsync(
+            var item = await _requisitionService.AddItemAsync(
                 authResult.TenantId,
                 companyId,
                 branchId,
-                orderId,
+                requisitionId,
                 request);
 
             return Ok(item);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-    }
-
-    [HttpPost("{orderId:guid}/submit")]
-    [RequirePermission("PURCHASE_ORDER.SUBMIT")]
-    public async Task<IActionResult> SubmitOrder(
-        Guid companyId,
-        Guid branchId,
-        Guid orderId)
-    {
-        var authResult = await ValidateScopeAccess(companyId, branchId);
-        if (authResult.Action != null) return authResult.Action;
-
-        try
-        {
-            var order = await _orderService.SubmitOrderAsync(
-                authResult.TenantId,
-                companyId,
-                branchId,
-                orderId,
-                _currentUserContext.UserId,
-                User.Identity?.Name ?? _currentUserContext.UserId.ToString());
-
-            return Ok(order);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
-        }
-    }
-
-    [HttpPost("{orderId:guid}/approve")]
-    [RequirePermission("PURCHASE_ORDER.APPROVE")]
-    public async Task<IActionResult> ApproveOrder(
-        Guid companyId,
-        Guid branchId,
-        Guid orderId,
-        [FromBody] ApprovalDecisionRequest? request)
-    {
-        var authResult = await ValidateScopeAccess(companyId, branchId);
-        if (authResult.Action != null) return authResult.Action;
-
-        try
-        {
-            var order = await _orderService.ApproveOrderAsync(
-                authResult.TenantId,
-                companyId,
-                branchId,
-                orderId,
-                _currentUserContext.UserId,
-                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
-                request?.Remarks);
-
-            return Ok(order);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
-        }
-    }
-
-    [HttpPost("{orderId:guid}/reject")]
-    [RequirePermission("PURCHASE_ORDER.APPROVE")]
-    public async Task<IActionResult> RejectOrder(
-        Guid companyId,
-        Guid branchId,
-        Guid orderId,
-        [FromBody] ApprovalDecisionRequest request)
-    {
-        var authResult = await ValidateScopeAccess(companyId, branchId);
-        if (authResult.Action != null) return authResult.Action;
-
-        try
-        {
-            var order = await _orderService.RejectOrderAsync(
-                authResult.TenantId,
-                companyId,
-                branchId,
-                orderId,
-                _currentUserContext.UserId,
-                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
-                request?.Remarks ?? string.Empty);
-
-            return Ok(order);
         }
         catch (KeyNotFoundException ex)
         {
@@ -265,29 +123,27 @@ public class PurchaseOrderController : ControllerBase
         }
     }
 
-    [HttpPost("{orderId:guid}/cancel")]
-    [RequirePermission("PURCHASE_ORDER.CANCEL")]
-    public async Task<IActionResult> CancelOrder(
+    [HttpPost("{requisitionId:guid}/submit")]
+    [RequirePermission("PURCHASE_REQUISITION.SUBMIT")]
+    public async Task<IActionResult> SubmitRequisition(
         Guid companyId,
         Guid branchId,
-        Guid orderId,
-        [FromBody] ApprovalDecisionRequest? request)
+        Guid requisitionId)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         try
         {
-            var order = await _orderService.CancelOrderAsync(
+            var requisition = await _requisitionService.SubmitRequisitionAsync(
                 authResult.TenantId,
                 companyId,
                 branchId,
-                orderId,
+                requisitionId,
                 _currentUserContext.UserId,
-                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
-                request?.Remarks);
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
-            return Ok(order);
+            return Ok(requisition);
         }
         catch (KeyNotFoundException ex)
         {
@@ -299,23 +155,129 @@ public class PurchaseOrderController : ControllerBase
         }
     }
 
-    [HttpGet("{orderId:guid}/approval-history")]
-    [RequirePermission("PURCHASE_ORDER.VIEW")]
-    public async Task<IActionResult> GetApprovalHistory(
+    [HttpPost("{requisitionId:guid}/approve")]
+    [RequirePermission("PURCHASE_REQUISITION.APPROVE")]
+    public async Task<IActionResult> ApproveRequisition(
         Guid companyId,
         Guid branchId,
-        Guid orderId)
+        Guid requisitionId,
+        [FromBody] ApprovalDecisionRequest? request)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         try
         {
-            var history = await _orderService.GetApprovalHistoryAsync(
+            var requisition = await _requisitionService.ApproveRequisitionAsync(
                 authResult.TenantId,
                 companyId,
                 branchId,
-                orderId);
+                requisitionId,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
+                request?.Remarks);
+
+            return Ok(requisition);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { status = "FAIL", message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { status = "FAIL", message = ex.Message });
+        }
+    }
+
+    [HttpPost("{requisitionId:guid}/reject")]
+    [RequirePermission("PURCHASE_REQUISITION.APPROVE")]
+    public async Task<IActionResult> RejectRequisition(
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        [FromBody] ApprovalDecisionRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var requisition = await _requisitionService.RejectRequisitionAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                requisitionId,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
+                request?.Remarks ?? string.Empty);
+
+            return Ok(requisition);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { status = "FAIL", message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { status = "FAIL", message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { status = "FAIL", message = ex.Message });
+        }
+    }
+
+    [HttpPost("{requisitionId:guid}/cancel")]
+    [RequirePermission("PURCHASE_REQUISITION.CANCEL")]
+    public async Task<IActionResult> CancelRequisition(
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        [FromBody] ApprovalDecisionRequest? request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var requisition = await _requisitionService.CancelRequisitionAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                requisitionId,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
+                request?.Remarks);
+
+            return Ok(requisition);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { status = "FAIL", message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { status = "FAIL", message = ex.Message });
+        }
+    }
+
+    [HttpGet("{requisitionId:guid}/approval-history")]
+    [RequirePermission("PURCHASE_REQUISITION.VIEW")]
+    public async Task<IActionResult> GetApprovalHistory(
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var history = await _requisitionService.GetApprovalHistoryAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                requisitionId);
 
             return Ok(history);
         }

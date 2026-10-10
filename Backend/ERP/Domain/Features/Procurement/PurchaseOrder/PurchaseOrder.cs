@@ -11,7 +11,8 @@ public enum PurchaseOrderStatus
     Submitted = 2,
     Approved = 3,
     Fulfilled = 4,
-    Cancelled = 5
+    Cancelled = 5,
+    Rejected = 6
 }
 
 public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchScopedEntity
@@ -23,6 +24,10 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
     public Guid CompanyId { get; set; }
 
     public Guid BranchId { get; set; }
+
+    public Guid? SupplierId { get; set; }
+
+    public Guid? CreatedByUserId { get; set; }
 
     public string OrderNumber { get; set; } = string.Empty;
 
@@ -41,7 +46,9 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
         Guid companyId,
         Guid branchId,
         string orderNumber,
-        DateTime? orderDate = null)
+        DateTime? orderDate = null,
+        Guid? supplierId = null,
+        Guid? createdByUserId = null)
     {
         return new PurchaseOrder
         {
@@ -49,6 +56,8 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
             TenantId = tenantId,
             CompanyId = companyId,
             BranchId = branchId,
+            SupplierId = supplierId,
+            CreatedByUserId = createdByUserId,
             OrderNumber = orderNumber.Trim(),
             OrderDate = orderDate ?? DateTime.UtcNow,
             Status = PurchaseOrderStatus.Draft,
@@ -57,7 +66,7 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
         };
     }
 
-    public void AddItem(Guid productId, decimal quantity, decimal unitPrice)
+    public void AddItem(Guid productId, decimal quantity, decimal unitPrice, Guid? unitOfMeasureId = null)
     {
         if (Status != PurchaseOrderStatus.Draft)
             throw new InvalidOperationException($"Cannot add items to purchase order '{OrderNumber}' because it is in status '{Status}'. Only Draft orders can be modified.");
@@ -77,6 +86,7 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
             Id = Guid.NewGuid(),
             PurchaseOrderId = this.Id,
             ProductId = productId,
+            UnitOfMeasureId = unitOfMeasureId,
             Quantity = roundedQuantity,
             UnitPrice = roundedUnitPrice,
             LineTotal = lineTotal,
@@ -119,10 +129,32 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
         Status = PurchaseOrderStatus.Approved;
     }
 
+    public void AutoApprove()
+    {
+        if (Status != PurchaseOrderStatus.Draft && Status != PurchaseOrderStatus.Submitted)
+            throw new InvalidOperationException($"Orders in status '{Status}' cannot be automatically approved.");
+
+        if (Items.Count == 0 || !Items.Exists(i => i.IsActive))
+            throw new InvalidOperationException("Cannot approve a purchase order with no active line items.");
+
+        Status = PurchaseOrderStatus.Approved;
+    }
+
+    public void Reject()
+    {
+        if (Status != PurchaseOrderStatus.Submitted)
+            throw new InvalidOperationException($"Only Submitted orders can be rejected. Current status: {Status}");
+
+        Status = PurchaseOrderStatus.Rejected;
+    }
+
     public void Cancel()
     {
         if (Status == PurchaseOrderStatus.Fulfilled)
             throw new InvalidOperationException("Fulfilled orders cannot be cancelled.");
+
+        if (Status == PurchaseOrderStatus.Cancelled)
+            throw new InvalidOperationException("Purchase order is already cancelled.");
 
         Status = PurchaseOrderStatus.Cancelled;
     }

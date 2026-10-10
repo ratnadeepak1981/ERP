@@ -101,6 +101,15 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.Procurement.PurchaseOrder.PurchaseOrderItem> PurchaseOrderItems
         => Set<Domain.Features.Procurement.PurchaseOrder.PurchaseOrderItem>();
 
+    public DbSet<Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisition> PurchaseRequisitions
+        => Set<Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisition>();
+
+    public DbSet<Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionItem> PurchaseRequisitionItems
+        => Set<Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionItem>();
+
+    public DbSet<Domain.Features.Procurement.Approval.ApprovalAuditRecord> ApprovalAuditRecords
+        => Set<Domain.Features.Procurement.Approval.ApprovalAuditRecord>();
+
     public DbSet<DomainAuditRecord> DomainAuditRecords
         => Set<DomainAuditRecord>();
 

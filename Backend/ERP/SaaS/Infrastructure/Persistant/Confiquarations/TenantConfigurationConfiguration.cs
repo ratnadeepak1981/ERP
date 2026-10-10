@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SaaS.Core.Models;
 
@@ -30,6 +30,14 @@ public class TenantConfigurationConfiguration
 
         builder.Property(x => x.WarehouseBinEnabled)
             .IsRequired();
+
+        builder.Property(x => x.ProcurementApprovalRequired)
+            .IsRequired()
+            .HasDefaultValue(true);
+
+        builder.Property(x => x.ProcurementApprovalMode)
+            .IsRequired()
+            .HasDefaultValue(1);
 
         // One configuration per tenant
         builder.HasIndex(x => x.TenantId)

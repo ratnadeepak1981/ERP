@@ -53,6 +53,19 @@ public static class TenantAdminRolePermissionSeed
             "PURCHASE_ORDER.CREATE",
             "PURCHASE_ORDER.EDIT",
             "PURCHASE_ORDER.DELETE",
+            "PURCHASE_ORDER.SUBMIT",
+            "PURCHASE_ORDER.APPROVE",
+            "PURCHASE_ORDER.CANCEL",
+
+            "PURCHASE_REQUISITION.VIEW",
+            "PURCHASE_REQUISITION.CREATE",
+            "PURCHASE_REQUISITION.EDIT",
+            "PURCHASE_REQUISITION.SUBMIT",
+            "PURCHASE_REQUISITION.APPROVE",
+            "PURCHASE_REQUISITION.CANCEL",
+
+            "PROCUREMENT.SETTINGS.VIEW",
+            "PROCUREMENT.SETTINGS.EDIT",
 
             "CATEGORY.VIEW",
             "CATEGORY.CREATE",
