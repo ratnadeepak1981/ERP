@@ -88,6 +88,109 @@ public class InventoryRepository : IInventoryRepository
         await _context.Set<InventoryBalance>().AddAsync(balance);
     }
 
+    public async Task AcquireValuationLockAsync(Guid tenantId, Guid productId, Guid warehouseId, int timeoutMilliseconds = 15000)
+    {
+        string resourceName = $"Valuation:{tenantId}:{productId}:{warehouseId}";
+        var paramResource = new Microsoft.Data.SqlClient.SqlParameter("@Resource", resourceName);
+        var paramTimeout = new Microsoft.Data.SqlClient.SqlParameter("@LockTimeout", timeoutMilliseconds);
+        var paramResult = new Microsoft.Data.SqlClient.SqlParameter("@Result", System.Data.SqlDbType.Int)
+        {
+            Direction = System.Data.ParameterDirection.Output
+        };
+
+        await _context.Database.ExecuteSqlRawAsync(
+            "EXEC @Result = sp_getapplock @Resource = @Resource, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = @LockTimeout;",
+            paramResult, paramResource, paramTimeout);
+
+        int resultCode = paramResult.Value is int val ? val : -999;
+        if (resultCode < 0)
+        {
+            throw new InvalidOperationException(
+                $"Failed to acquire transactional valuation lock for resource '{resourceName}'. Lock return code: {resultCode}. Transaction aborted.");
+        }
+    }
+
+    public async Task AcquireTransferValuationLocksAsync(Guid tenantId, Guid productId, Guid sourceWarehouseId, Guid destinationWarehouseId, int timeoutMilliseconds = 15000)
+    {
+        if (sourceWarehouseId == destinationWarehouseId)
+        {
+            await AcquireValuationLockAsync(tenantId, productId, sourceWarehouseId, timeoutMilliseconds);
+            return;
+        }
+
+        // Deterministic lock ordering: Compare Guids to always lock in the same sequence
+        Guid firstWarehouse = sourceWarehouseId.CompareTo(destinationWarehouseId) < 0 ? sourceWarehouseId : destinationWarehouseId;
+        Guid secondWarehouse = sourceWarehouseId.CompareTo(destinationWarehouseId) < 0 ? destinationWarehouseId : sourceWarehouseId;
+
+        await AcquireValuationLockAsync(tenantId, productId, firstWarehouse, timeoutMilliseconds);
+        await AcquireValuationLockAsync(tenantId, productId, secondWarehouse, timeoutMilliseconds);
+    }
+
+    public async Task<List<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer>> GetActiveCostLayersAsync(
+        Guid tenantId,
+        Guid productId,
+        Guid warehouseId,
+        bool ascending = true,
+        string? batchNumber = null,
+        string? serialNumber = null)
+    {
+        var query = _context.Set<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer>()
+            .Where(x => x.TenantId == tenantId
+                        && x.ProductId == productId
+                        && x.WarehouseId == warehouseId
+                        && !x.IsExhausted
+                        && x.RemainingQuantity > 0);
+
+        if (!string.IsNullOrWhiteSpace(batchNumber))
+        {
+            string normBatch = batchNumber.Trim();
+            query = query.Where(x => x.BatchNumber == normBatch);
+        }
+
+        if (!string.IsNullOrWhiteSpace(serialNumber))
+        {
+            string normSerial = serialNumber.Trim();
+            query = query.Where(x => x.SerialNumber == normSerial);
+        }
+
+        if (ascending)
+        {
+            return await query
+                .OrderBy(x => x.LayerDate)
+                .ThenBy(x => x.CostLayerId)
+                .ToListAsync();
+        }
+        else
+        {
+            return await query
+                .OrderByDescending(x => x.LayerDate)
+                .ThenByDescending(x => x.CostLayerId)
+                .ToListAsync();
+        }
+    }
+
+    public async Task<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer?> GetCostLayerByTransactionIdAsync(Guid tenantId, Guid transactionId)
+    {
+        return await _context.Set<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer>()
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.InventoryTransactionId == transactionId);
+    }
+
+    public async Task AddCostLayerAsync(ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer layer)
+    {
+        await _context.Set<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer>().AddAsync(layer);
+    }
+
+    public async Task<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance?> GetValuationBalanceAsync(Guid tenantId, Guid productId, Guid warehouseId)
+    {
+        return await _context.Set<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance>()
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.ProductId == productId && x.WarehouseId == warehouseId);
+    }
+
+    public async Task AddValuationBalanceAsync(ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance balance)
+    {
+        await _context.Set<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance>().AddAsync(balance);
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

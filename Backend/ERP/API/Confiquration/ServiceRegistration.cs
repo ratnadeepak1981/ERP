@@ -69,6 +69,13 @@ public static class ServiceRegistration
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteService>();
 
+        // Inventory Valuation Strategies & Service
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.FifoValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.LifoValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.WeightedAverageValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.StandardCostValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationService, ERP.Domain.Features.Inventory.Valuation.InventoryValuationService>();
+
         services.AddHttpContextAccessor();
 
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
