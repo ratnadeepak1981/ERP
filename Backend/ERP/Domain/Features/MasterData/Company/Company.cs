@@ -1,8 +1,10 @@
-﻿using System;
+using System;
+
+using ERP.Domain.Common.Scope;
 
 namespace Domain.Features.MasterData.Company;
 
-public class Company
+public class Company : ITenantScopedEntity
 {
     public Guid Id { get; set; }
 

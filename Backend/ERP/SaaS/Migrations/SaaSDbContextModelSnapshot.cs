@@ -22,11 +22,14 @@ namespace SaaS.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("SaaS.Core.Models.Subscription", b =>
+            modelBuilder.Entity("SaaS.Core.Models.BillingLedgerEntry", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -34,11 +37,21 @@ namespace SaaS.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("EndDate")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntryType")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
@@ -46,8 +59,341 @@ namespace SaaS.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("PostedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("SourceDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceDocumentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "PostedAtUtc");
+
+                    b.HasIndex("TenantId", "SourceDocumentType", "SourceDocumentId", "EntryType", "Direction")
+                        .IsUnique();
+
+                    b.ToTable("BillingLedgerEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingLedgerEntries_Amount_Positive", "[Amount] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.CreditNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreditNoteNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime>("IssuedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid>("SubscriptionInvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreditNoteNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SubscriptionInvoiceId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("CreditNotes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CreditNotes_Amount_Positive", "[Amount] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.PaymentAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AllocatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PaymentTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SubscriptionInvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentTransactionId");
+
+                    b.HasIndex("SubscriptionInvoiceId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("PaymentAllocations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PaymentAllocations_Amount_Positive", "[Amount] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.PaymentTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("AllocatedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentProvider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("ProcessedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProviderTransactionId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("RefundedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentProvider", "ProviderTransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.HasIndex("TenantId", "PaymentProvider", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("PaymentTransactions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PaymentTransactions_AllocatedAmount_NonNegative", "[AllocatedAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_PaymentTransactions_Amount_Positive", "[Amount] > 0");
+
+                            t.HasCheckConstraint("CK_PaymentTransactions_RefundedAmount_NonNegative", "[RefundedAmount] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.RefundTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PaymentTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ProcessedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProviderRefundId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentTransactionId");
+
+                    b.HasIndex("ProviderRefundId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("RefundTransactions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RefundTransactions_Amount_Positive", "[Amount] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.Subscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AutoRenew")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("BillingAnchorDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("BillingCycle")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("BillingPlanPriceSnapshot")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CurrentPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CurrentPeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastInvoiceGeneratedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("NextBillingDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
                     b.Property<int>("StorageMode")
                         .HasColumnType("int");
@@ -77,6 +423,178 @@ namespace SaaS.Migrations
                         .HasFilter("[IsActive] = 1");
 
                     b.ToTable("Subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionInvoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("BillingCycle")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("BillingPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("BillingPeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("CreditedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.HasIndex("SubscriptionId", "BillingPeriodStart", "BillingPeriodEnd")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionInvoices", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SubscriptionInvoices_CreditedAmount_NonNegative", "[CreditedAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoices_PaidAmount_NonNegative", "[PaidAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoices_SubTotal_NonNegative", "[SubTotal] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoices_TaxAmount_NonNegative", "[TaxAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoices_TotalAmount_NonNegative", "[TotalAmount] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionInvoiceLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("SubscriptionInvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionInvoiceId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("SubscriptionInvoiceLines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SubscriptionInvoiceLines_Quantity_Positive", "[Quantity] > 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoiceLines_SubTotal_NonNegative", "[SubTotal] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoiceLines_TaxAmount_NonNegative", "[TaxAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoiceLines_TaxRate_NonNegative", "[TaxRate] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoiceLines_TotalAmount_NonNegative", "[TotalAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionInvoiceLines_UnitPrice_NonNegative", "[UnitPrice] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("SaaS.Core.Models.SubscriptionLimit", b =>
@@ -344,6 +862,85 @@ namespace SaaS.Migrations
                     b.ToTable("Tenants", (string)null);
                 });
 
+            modelBuilder.Entity("SaaS.Core.Models.TenantBillingProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AddressLine1")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("AddressLine2")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("BillingEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<bool>("IsTaxExempt")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("StateOrProvince")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("TenantBillingProfiles", (string)null);
+                });
+
             modelBuilder.Entity("SaaS.Core.Models.TenantConfiguration", b =>
                 {
                     b.Property<Guid>("TenantConfigurationId")
@@ -366,6 +963,16 @@ namespace SaaS.Migrations
 
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ProcurementApprovalMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<bool>("ProcurementApprovalRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -471,6 +1078,93 @@ namespace SaaS.Migrations
                     b.ToTable("PlatformAuditRecords", (string)null);
                 });
 
+            modelBuilder.Entity("SaaS.Core.Models.BillingLedgerEntry", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.CreditNote", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.SubscriptionInvoice", "SubscriptionInvoice")
+                        .WithMany("CreditNotes")
+                        .HasForeignKey("SubscriptionInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SubscriptionInvoice");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.PaymentAllocation", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.PaymentTransaction", "PaymentTransaction")
+                        .WithMany("Allocations")
+                        .HasForeignKey("PaymentTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.SubscriptionInvoice", "SubscriptionInvoice")
+                        .WithMany("PaymentAllocations")
+                        .HasForeignKey("SubscriptionInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PaymentTransaction");
+
+                    b.Navigation("SubscriptionInvoice");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.PaymentTransaction", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.RefundTransaction", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.PaymentTransaction", "PaymentTransaction")
+                        .WithMany("Refunds")
+                        .HasForeignKey("PaymentTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PaymentTransaction");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("SaaS.Core.Models.Subscription", b =>
                 {
                     b.HasOne("SaaS.Core.Models.SubscriptionPlan", "SubscriptionPlan")
@@ -486,6 +1180,44 @@ namespace SaaS.Migrations
                         .IsRequired();
 
                     b.Navigation("SubscriptionPlan");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionInvoice", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.Subscription", "Subscription")
+                        .WithMany("Invoices")
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionInvoiceLine", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.SubscriptionInvoice", "SubscriptionInvoice")
+                        .WithMany("Lines")
+                        .HasForeignKey("SubscriptionInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SubscriptionInvoice");
 
                     b.Navigation("Tenant");
                 });
@@ -539,6 +1271,17 @@ namespace SaaS.Migrations
                     b.Navigation("SubscriptionPlanParameter");
                 });
 
+            modelBuilder.Entity("SaaS.Core.Models.TenantBillingProfile", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("SaaS.Core.Models.TenantConfiguration", b =>
                 {
                     b.HasOne("SaaS.Core.Models.Tenant", null)
@@ -559,9 +1302,27 @@ namespace SaaS.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("SaaS.Core.Models.PaymentTransaction", b =>
+                {
+                    b.Navigation("Allocations");
+
+                    b.Navigation("Refunds");
+                });
+
             modelBuilder.Entity("SaaS.Core.Models.Subscription", b =>
                 {
+                    b.Navigation("Invoices");
+
                     b.Navigation("Usages");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.SubscriptionInvoice", b =>
+                {
+                    b.Navigation("CreditNotes");
+
+                    b.Navigation("Lines");
+
+                    b.Navigation("PaymentAllocations");
                 });
 
             modelBuilder.Entity("SaaS.Core.Models.SubscriptionLimit", b =>

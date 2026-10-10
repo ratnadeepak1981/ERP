@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Features.MasterData.Customer;
+using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -62,6 +62,14 @@ public class CustomerConfiguration
         {
             x.TenantId,
             x.CustomerCode
+        })
+        .IsUnique();
+
+        // Composite key for tenant-aware foreign keys
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.CustomerId
         })
         .IsUnique();
     }

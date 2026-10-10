@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Features.MasterData.Warehouse;
+using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -36,9 +36,28 @@ public class WarehouseZoneConfiguration
         })
         .IsUnique();
 
+        // Composite key for tenant-aware foreign keys
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.WarehouseZoneId
+        })
+        .IsUnique();
+
+        // Composite key including warehouse for location hierarchy foreign key
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.WarehouseId,
+            x.WarehouseZoneId
+        })
+        .IsUnique();
+
+        // WarehouseZone → Warehouse (Tenant-aware composite foreign key)
         builder.HasOne<Warehouse>()
             .WithMany()
-            .HasForeignKey(x => x.WarehouseId)
+            .HasForeignKey(x => new { x.TenantId, x.WarehouseId })
+            .HasPrincipalKey(x => new { x.TenantId, x.WarehouseId })
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

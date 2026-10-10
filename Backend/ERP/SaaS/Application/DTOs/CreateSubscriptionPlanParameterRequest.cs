@@ -1,5 +1,3 @@
-﻿using SaaS.Core.Models;
-
 using SaaS.Core.Models;
 
 namespace SaaS.Application.DTOs;

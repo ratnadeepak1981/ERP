@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
 using SaaS.Infrastructure.Persistence;
@@ -8,6 +8,8 @@ namespace SaaS.Infrastructure.Repositories;
 public class SubscriptionRepository : ISubscriptionRepository
 {
     private readonly SaaSDbContext _context;
+
+    public SaaSDbContext Context => _context;
 
     public SubscriptionRepository(SaaSDbContext context)
     {
