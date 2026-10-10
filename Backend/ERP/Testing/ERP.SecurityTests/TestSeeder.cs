@@ -48,6 +48,45 @@ public static class TestSeeder
             });
         }
 
+        var freePlanId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var now = DateTime.UtcNow;
+
+        if (!db.Subscriptions.Any(x => x.TenantId == TestConstants.TenantAlphaId))
+        {
+            db.Subscriptions.Add(new Subscription
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TestConstants.TenantAlphaId,
+                SubscriptionPlanId = freePlanId,
+                SubscriptionName = "Tenant Alpha Free Subscription",
+                SubscriptionType = "FREE",
+                Status = SubscriptionStatus.Active,
+                StartDate = now.AddMonths(-1),
+                CurrentPeriodStart = now.AddMonths(-1),
+                CurrentPeriodEnd = now.AddYears(1),
+                BillingAnchorDate = now.AddMonths(-1),
+                IsActive = true
+            });
+        }
+
+        if (!db.Subscriptions.Any(x => x.TenantId == TestConstants.TenantBetaId))
+        {
+            db.Subscriptions.Add(new Subscription
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TestConstants.TenantBetaId,
+                SubscriptionPlanId = freePlanId,
+                SubscriptionName = "Tenant Beta Free Subscription",
+                SubscriptionType = "FREE",
+                Status = SubscriptionStatus.Active,
+                StartDate = now.AddMonths(-1),
+                CurrentPeriodStart = now.AddMonths(-1),
+                CurrentPeriodEnd = now.AddYears(1),
+                BillingAnchorDate = now.AddMonths(-1),
+                IsActive = true
+            });
+        }
+
         db.SaveChanges();
     }
 

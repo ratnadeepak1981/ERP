@@ -27,4 +27,16 @@ public class CreateProductRequest
     public bool IsPurchasable { get; set; } = true;
 
     public bool IsSellable { get; set; } = true;
+
+    public bool CanConsumeInProduction { get; set; } = false;
+
+    public bool CanConsumeInMaintenance { get; set; } = false;
+
+    public bool IsStockTracked { get; set; } = true;
+
+    public ProductType ProductType { get; set; } = ProductType.StockItem;
+
+    public TrackingMode TrackingMode { get; set; } = TrackingMode.None;
+
+    public Guid? UnitOfMeasureId { get; set; }
 }

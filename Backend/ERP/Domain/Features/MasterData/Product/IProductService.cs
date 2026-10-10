@@ -11,4 +11,13 @@ public interface IProductService
     Task<Product> CreateProductAsync(
         Guid tenantId,
         CreateProductRequest request);
+
+    Task<Product> UpdateProductAsync(
+        Guid tenantId,
+        Guid productId,
+        UpdateProductRequest request);
+
+    Task DeactivateProductAsync(
+        Guid tenantId,
+        Guid productId);
 }

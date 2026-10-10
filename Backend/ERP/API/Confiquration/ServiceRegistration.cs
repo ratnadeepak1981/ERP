@@ -56,6 +56,13 @@ public static class ServiceRegistration
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderService>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryService, ERP.Domain.Features.MasterData.Category.CategoryService>();
+        services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureService>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Customer.ICustomerService, ERP.Domain.Features.MasterData.Customer.CustomerService>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Supplier.ISupplierService, ERP.Domain.Features.MasterData.Supplier.SupplierService>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseService, ERP.Domain.Features.MasterData.Warehouse.WarehouseService>();
+        services.AddScoped<Domain.Features.MasterData.Address.IAddressService, Domain.Features.MasterData.Address.AddressService>();
+        services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceService, Domain.Features.MasterData.Supplier.SupplierProductPriceService>();
 
         services.AddHttpContextAccessor();
 

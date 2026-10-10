@@ -22,6 +22,121 @@ namespace Domain.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Domain.Features.MasterData.Address.Address", b =>
+                {
+                    b.Property<Guid>("AddressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AddressLine1")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("AddressLine2")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("AddressName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CountryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("StateProvince")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnmatchedCountryText")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("AddressId");
+
+                    b.HasIndex("CountryId");
+
+                    b.HasIndex("TenantId", "AddressId")
+                        .IsUnique();
+
+                    b.ToTable("Addresses", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.AddressType.AddressType", b =>
+                {
+                    b.Property<Guid>("AddressTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("AddressTypeId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasFilter("[TenantId] IS NOT NULL");
+
+                    b.ToTable("AddressTypes", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Branch.Branch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -47,6 +162,60 @@ namespace Domain.Migrations
                     b.ToTable("Branches");
                 });
 
+            modelBuilder.Entity("Domain.Features.MasterData.Branch.BranchAddress", b =>
+                {
+                    b.Property<Guid>("BranchAddressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("BranchAddressId");
+
+                    b.HasIndex("AddressTypeId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("TenantId", "AddressId");
+
+                    b.HasIndex("TenantId", "BranchId", "AddressTypeId")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1 AND [IsActive] = 1");
+
+                    b.HasIndex("TenantId", "BranchId", "AddressId", "AddressTypeId")
+                        .IsUnique();
+
+                    b.ToTable("BranchAddresses", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Company.Company", b =>
                 {
                     b.Property<Guid>("Id")
@@ -69,7 +238,226 @@ namespace Domain.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Companies");
+                    b.HasIndex("TenantId", "Id")
+                        .IsUnique();
+
+                    b.ToTable("Companies", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Company.CompanyAddress", b =>
+                {
+                    b.Property<Guid>("CompanyAddressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CompanyAddressId");
+
+                    b.HasIndex("AddressTypeId");
+
+                    b.HasIndex("TenantId", "AddressId");
+
+                    b.HasIndex("TenantId", "CompanyId", "AddressTypeId")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1 AND [IsActive] = 1");
+
+                    b.HasIndex("TenantId", "CompanyId", "AddressId", "AddressTypeId")
+                        .IsUnique();
+
+                    b.ToTable("CompanyAddresses", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Contact.Contact", b =>
+                {
+                    b.Property<Guid>("ContactId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContactName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("JobTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("MobileNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PreferredContactMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ContactId");
+
+                    b.HasIndex("TenantId", "ContactId")
+                        .IsUnique();
+
+                    b.ToTable("Contacts", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.ContactType.ContactType", b =>
+                {
+                    b.Property<Guid>("ContactTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ContactTypeId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasFilter("[TenantId] IS NOT NULL");
+
+                    b.ToTable("ContactTypes", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Country.Country", b =>
+                {
+                    b.Property<Guid>("CountryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Alpha2Code")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nchar(2)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Alpha3Code")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
+
+                    b.Property<string>("CountryName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NumericCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("OfficialName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("CountryId");
+
+                    b.HasIndex("Alpha2Code")
+                        .IsUnique();
+
+                    b.HasIndex("Alpha3Code")
+                        .IsUnique();
+
+                    b.HasIndex("CountryName")
+                        .IsUnique();
+
+                    b.ToTable("Countries", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Features.MasterData.Product.Product", b =>
@@ -77,6 +465,16 @@ namespace Domain.Migrations
                     b.Property<Guid>("ProductId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("CanConsumeInMaintenance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("CanConsumeInProduction")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uniqueidentifier");
@@ -103,6 +501,11 @@ namespace Domain.Migrations
                     b.Property<bool>("IsSellable")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsStockTracked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -119,6 +522,11 @@ namespace Domain.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("ProductType")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<decimal>("ReorderLevel")
                         .HasColumnType("decimal(18,2)");
 
@@ -134,25 +542,202 @@ namespace Domain.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("TrackingMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("UnitOfMeasure")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("UnitOfMeasureId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("ValuationMethod")
                         .HasColumnType("int");
 
                     b.HasKey("ProductId");
 
-                    b.HasIndex("CategoryId");
+                    b.HasIndex("TenantId", "CategoryId");
 
                     b.HasIndex("TenantId", "ProductCode")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ProductId")
                         .IsUnique();
 
                     b.HasIndex("TenantId", "ProductName")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "UnitOfMeasureId");
+
                     b.ToTable("Products", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.SupplierProductPrice.SupplierProductPrice", b =>
+                {
+                    b.Property<Guid>("SupplierProductPriceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPreferred")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("MinimumOrderQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SupplierItemCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UnitOfMeasureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("SupplierProductPriceId");
+
+                    b.HasIndex("TenantId", "ProductId");
+
+                    b.HasIndex("TenantId", "UnitOfMeasureId");
+
+                    b.HasIndex("TenantId", "SupplierId", "ProductId");
+
+                    b.ToTable("SupplierProductPrices", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", b =>
+                {
+                    b.Property<Guid>("UnitOfMeasureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("UnitOfMeasureId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "UnitOfMeasureId")
+                        .IsUnique();
+
+                    b.ToTable("UnitsOfMeasure", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureConversion", b =>
+                {
+                    b.Property<Guid>("ConversionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("ConversionFactor")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FromUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ToUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ConversionId");
+
+                    b.HasIndex("TenantId", "ToUnitId");
+
+                    b.HasIndex("TenantId", "FromUnitId", "ToUnitId")
+                        .IsUnique();
+
+                    b.ToTable("UnitOfMeasureConversions", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Features.Procurement.PurchaseOrder.PurchaseOrder", b =>
@@ -273,6 +858,9 @@ namespace Domain.Migrations
                     b.HasIndex("TenantId", "CategoryCode")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "CategoryId")
+                        .IsUnique();
+
                     b.HasIndex("TenantId", "CategoryName")
                         .IsUnique();
 
@@ -361,7 +949,114 @@ namespace Domain.Migrations
                     b.HasIndex("TenantId", "CustomerCode")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "CustomerId")
+                        .IsUnique();
+
                     b.ToTable("Customers", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Customer.CustomerAddress", b =>
+                {
+                    b.Property<Guid>("CustomerAddressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CustomerAddressId");
+
+                    b.HasIndex("AddressTypeId");
+
+                    b.HasIndex("TenantId", "AddressId");
+
+                    b.HasIndex("TenantId", "CustomerId", "AddressTypeId")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1 AND [IsActive] = 1");
+
+                    b.HasIndex("TenantId", "CustomerId", "AddressId", "AddressTypeId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerAddresses", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Customer.CustomerContact", b =>
+                {
+                    b.Property<Guid>("CustomerContactId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContactTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CustomerContactId");
+
+                    b.HasIndex("ContactTypeId");
+
+                    b.HasIndex("TenantId", "ContactId");
+
+                    b.HasIndex("TenantId", "CustomerId", "ContactTypeId")
+                        .IsUnique()
+                        .HasFilter("[IsPrimary] = 1 AND [IsActive] = 1");
+
+                    b.HasIndex("TenantId", "CustomerId", "ContactId", "ContactTypeId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerContacts", (string)null);
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Supplier.Supplier", b =>
@@ -447,7 +1142,173 @@ namespace Domain.Migrations
                     b.HasIndex("TenantId", "SupplierCode")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "SupplierId")
+                        .IsUnique();
+
                     b.ToTable("Suppliers", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Supplier.SupplierAddress", b =>
+                {
+                    b.Property<Guid>("SupplierAddressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("SupplierAddressId");
+
+                    b.HasIndex("AddressTypeId");
+
+                    b.HasIndex("TenantId", "AddressId");
+
+                    b.HasIndex("TenantId", "SupplierId", "AddressTypeId")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1 AND [IsActive] = 1");
+
+                    b.HasIndex("TenantId", "SupplierId", "AddressId", "AddressTypeId")
+                        .IsUnique();
+
+                    b.ToTable("SupplierAddresses", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Supplier.SupplierContact", b =>
+                {
+                    b.Property<Guid>("SupplierContactId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContactTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("SupplierContactId");
+
+                    b.HasIndex("ContactTypeId");
+
+                    b.HasIndex("TenantId", "ContactId");
+
+                    b.HasIndex("TenantId", "SupplierId", "ContactTypeId")
+                        .IsUnique()
+                        .HasFilter("[IsPrimary] = 1 AND [IsActive] = 1");
+
+                    b.HasIndex("TenantId", "SupplierId", "ContactId", "ContactTypeId")
+                        .IsUnique();
+
+                    b.ToTable("SupplierContacts", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.LocationType", b =>
+                {
+                    b.Property<Guid>("LocationTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("CanContainChildren")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanPick")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanPutAway")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanStoreInventory")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("LocationTypeId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasFilter("[TenantId] IS NOT NULL");
+
+                    b.ToTable("LocationTypes", (string)null);
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.Warehouse", b =>
@@ -464,9 +1325,15 @@ namespace Domain.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("City")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Country")
                         .HasMaxLength(100)
@@ -510,10 +1377,69 @@ namespace Domain.Migrations
 
                     b.HasKey("WarehouseId");
 
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("TenantId", "CompanyId");
+
                     b.HasIndex("TenantId", "WarehouseCode")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "WarehouseId")
+                        .IsUnique();
+
                     b.ToTable("Warehouses", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseAddress", b =>
+                {
+                    b.Property<Guid>("WarehouseAddressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddressTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("WarehouseAddressId");
+
+                    b.HasIndex("AddressTypeId");
+
+                    b.HasIndex("TenantId", "AddressId");
+
+                    b.HasIndex("TenantId", "WarehouseId", "AddressTypeId")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1 AND [IsActive] = 1");
+
+                    b.HasIndex("TenantId", "WarehouseId", "AddressId", "AddressTypeId")
+                        .IsUnique();
+
+                    b.ToTable("WarehouseAddresses", (string)null);
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", b =>
@@ -541,10 +1467,16 @@ namespace Domain.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("LocationTypeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentLocationId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("TenantId")
@@ -558,11 +1490,17 @@ namespace Domain.Migrations
 
                     b.HasKey("WarehouseLocationId");
 
-                    b.HasIndex("WarehouseId");
+                    b.HasIndex("LocationTypeId");
 
-                    b.HasIndex("WarehouseZoneId");
+                    b.HasIndex("TenantId", "WarehouseLocationId")
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "WarehouseId", "WarehouseZoneId", "LocationCode")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "WarehouseId", "WarehouseZoneId", "ParentLocationId");
+
+                    b.HasIndex("TenantId", "WarehouseId", "WarehouseZoneId", "WarehouseLocationId")
                         .IsUnique();
 
                     b.ToTable("WarehouseLocations", (string)null);
@@ -611,7 +1549,11 @@ namespace Domain.Migrations
 
                     b.HasKey("WarehouseZoneId");
 
-                    b.HasIndex("WarehouseId");
+                    b.HasIndex("TenantId", "WarehouseZoneId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "WarehouseId", "WarehouseZoneId")
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "WarehouseId", "ZoneCode")
                         .IsUnique();
@@ -664,11 +1606,111 @@ namespace Domain.Migrations
                     b.ToTable("DomainAuditRecords", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Features.MasterData.Address.Address", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Country.Country", null)
+                        .WithMany()
+                        .HasForeignKey("CountryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Branch.BranchAddress", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
+                        .WithMany()
+                        .HasForeignKey("AddressTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Branch.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Address.Address", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AddressId")
+                        .HasPrincipalKey("TenantId", "AddressId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Company.CompanyAddress", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
+                        .WithMany()
+                        .HasForeignKey("AddressTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Address.Address", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AddressId")
+                        .HasPrincipalKey("TenantId", "AddressId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Company.Company", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CompanyId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Product.Product", b =>
                 {
                     b.HasOne("ERP.Domain.Features.MasterData.Category.Category", null)
                         .WithMany()
-                        .HasForeignKey("CategoryId")
+                        .HasForeignKey("TenantId", "CategoryId")
+                        .HasPrincipalKey("TenantId", "CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "UnitOfMeasureId")
+                        .HasPrincipalKey("TenantId", "UnitOfMeasureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.SupplierProductPrice.SupplierProductPrice", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Product.Product", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProductId")
+                        .HasPrincipalKey("TenantId", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Supplier.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SupplierId")
+                        .HasPrincipalKey("TenantId", "SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "UnitOfMeasureId")
+                        .HasPrincipalKey("TenantId", "UnitOfMeasureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureConversion", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "FromUnitId")
+                        .HasPrincipalKey("TenantId", "UnitOfMeasureId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ToUnitId")
+                        .HasPrincipalKey("TenantId", "UnitOfMeasureId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -688,26 +1730,169 @@ namespace Domain.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", b =>
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Customer.CustomerAddress", b =>
                 {
+                    b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
+                        .WithMany()
+                        .HasForeignKey("AddressTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Address.Address", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AddressId")
+                        .HasPrincipalKey("TenantId", "AddressId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Customer.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CustomerId")
+                        .HasPrincipalKey("TenantId", "CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Customer.CustomerContact", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.ContactType.ContactType", null)
+                        .WithMany()
+                        .HasForeignKey("ContactTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Contact.Contact", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ContactId")
+                        .HasPrincipalKey("TenantId", "ContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Customer.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CustomerId")
+                        .HasPrincipalKey("TenantId", "CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Supplier.SupplierAddress", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
+                        .WithMany()
+                        .HasForeignKey("AddressTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Address.Address", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AddressId")
+                        .HasPrincipalKey("TenantId", "AddressId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Supplier.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SupplierId")
+                        .HasPrincipalKey("TenantId", "SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Supplier.SupplierContact", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.ContactType.ContactType", null)
+                        .WithMany()
+                        .HasForeignKey("ContactTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Contact.Contact", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ContactId")
+                        .HasPrincipalKey("TenantId", "ContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Supplier.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SupplierId")
+                        .HasPrincipalKey("TenantId", "SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.Warehouse", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Branch.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Features.MasterData.Company.Company", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CompanyId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseAddress", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
+                        .WithMany()
+                        .HasForeignKey("AddressTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Address.Address", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AddressId")
+                        .HasPrincipalKey("TenantId", "AddressId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("ERP.Domain.Features.MasterData.Warehouse.Warehouse", null)
                         .WithMany()
-                        .HasForeignKey("WarehouseId")
+                        .HasForeignKey("TenantId", "WarehouseId")
+                        .HasPrincipalKey("TenantId", "WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", b =>
+                {
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.LocationType", null)
+                        .WithMany()
+                        .HasForeignKey("LocationTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "WarehouseId")
+                        .HasPrincipalKey("TenantId", "WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("ERP.Domain.Features.MasterData.Warehouse.WarehouseZone", null)
                         .WithMany()
-                        .HasForeignKey("WarehouseZoneId")
+                        .HasForeignKey("TenantId", "WarehouseId", "WarehouseZoneId")
+                        .HasPrincipalKey("TenantId", "WarehouseId", "WarehouseZoneId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "WarehouseId", "WarehouseZoneId", "ParentLocationId")
+                        .HasPrincipalKey("TenantId", "WarehouseId", "WarehouseZoneId", "WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseZone", b =>
                 {
                     b.HasOne("ERP.Domain.Features.MasterData.Warehouse.Warehouse", null)
                         .WithMany()
-                        .HasForeignKey("WarehouseId")
+                        .HasForeignKey("TenantId", "WarehouseId")
+                        .HasPrincipalKey("TenantId", "WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

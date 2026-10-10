@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Features.MasterData.Supplier;
+using ERP.Domain.Features.MasterData.Supplier;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -61,6 +61,14 @@ public class SupplierConfiguration
         {
             x.TenantId,
             x.SupplierCode
+        })
+        .IsUnique();
+
+        // Composite key for tenant-aware foreign keys
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.SupplierId
         })
         .IsUnique();
     }

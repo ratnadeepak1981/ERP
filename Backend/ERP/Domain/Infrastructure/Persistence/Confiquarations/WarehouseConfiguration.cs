@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Features.MasterData.Warehouse;
+using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -39,6 +39,12 @@ public class WarehouseConfiguration
         builder.Property(x => x.Country)
             .HasMaxLength(100);
 
+        builder.Property(x => x.CompanyId)
+            .IsRequired(false);
+
+        builder.Property(x => x.BranchId)
+            .IsRequired(false);
+
         builder.Property(x => x.IsActive)
             .IsRequired();
 
@@ -49,5 +55,26 @@ public class WarehouseConfiguration
             x.WarehouseCode
         })
         .IsUnique();
+
+        // Composite key for tenant-aware foreign keys
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.WarehouseId
+        })
+        .IsUnique();
+
+        // Warehouse → Company (Tenant-aware composite foreign key)
+        builder.HasOne<global::Domain.Features.MasterData.Company.Company>()
+            .WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.CompanyId })
+            .HasPrincipalKey(x => new { x.TenantId, x.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Warehouse → Branch
+        builder.HasOne<global::Domain.Features.MasterData.Branch.Branch>()
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -52,7 +52,46 @@ public static class TenantAdminRolePermissionSeed
             "PURCHASE_ORDER.VIEW",
             "PURCHASE_ORDER.CREATE",
             "PURCHASE_ORDER.EDIT",
-            "PURCHASE_ORDER.DELETE"
+            "PURCHASE_ORDER.DELETE",
+
+            "CATEGORY.VIEW",
+            "CATEGORY.CREATE",
+            "CATEGORY.EDIT",
+            "CATEGORY.DELETE",
+            "CATEGORY.SOFT_DELETE",
+
+            "UOM.VIEW",
+            "UOM.CREATE",
+            "UOM.EDIT",
+            "UOM.DELETE",
+
+            "WAREHOUSE.VIEW",
+            "WAREHOUSE.CREATE",
+            "WAREHOUSE.EDIT",
+            "WAREHOUSE.DELETE",
+            "WAREHOUSE.SOFT_DELETE",
+
+            "LOCATION.VIEW",
+            "LOCATION.CREATE",
+            "LOCATION.EDIT",
+            "LOCATION.DELETE",
+
+            "ADDRESS.VIEW",
+            "ADDRESS.CREATE",
+            "ADDRESS.EDIT",
+            "ADDRESS.DELETE",
+
+            "CONTACT.VIEW",
+            "CONTACT.CREATE",
+            "CONTACT.EDIT",
+            "CONTACT.DELETE",
+
+            "SUPPLIER_PRICE.VIEW",
+            "SUPPLIER_PRICE.CREATE",
+            "SUPPLIER_PRICE.EDIT",
+            "SUPPLIER_PRICE.DELETE",
+
+            "COUNTRY.VIEW"
         };
 
         foreach (var code in permissionCodes)

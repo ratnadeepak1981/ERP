@@ -54,6 +54,12 @@ public class ProductRepository : IProductRepository
                 x.ProductName == productName);
     }
 
+    public async Task<bool> CategoryExistsAsync(Guid tenantId, Guid categoryId)
+    {
+        return await _context.Categories
+            .AnyAsync(x => x.TenantId == tenantId && x.CategoryId == categoryId && x.IsActive);
+    }
+
     public async Task AddAsync(Product product)
     {
         await _context.Products.AddAsync(product);

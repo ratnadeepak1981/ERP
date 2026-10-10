@@ -134,4 +134,99 @@ public class ProductController : ControllerBase
             });
         }
     }
+
+    [HttpPut("{id:guid}")]
+    [RequirePermission("PRODUCT.UPDATE")]
+    public async Task<IActionResult> UpdateProduct(
+        Guid id,
+        [FromBody] UpdateProductRequest request)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+
+        if (!tenantId.HasValue)
+        {
+            return Unauthorized(new
+            {
+                status = "FAIL",
+                message = "Tenant identity is missing or invalid."
+            });
+        }
+
+        try
+        {
+            var product = await _productService.UpdateProductAsync(
+                tenantId.Value,
+                id,
+                request);
+
+            return Ok(product);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new
+            {
+                status = "FAIL",
+                message = "Product not found."
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
+            {
+                status = "FAIL",
+                message = ex.Message
+            });
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    [RequirePermission("PRODUCT.DELETE")]
+    public async Task<IActionResult> DeactivateProduct(Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+
+        if (!tenantId.HasValue)
+        {
+            return Unauthorized(new
+            {
+                status = "FAIL",
+                message = "Tenant identity is missing or invalid."
+            });
+        }
+
+        try
+        {
+            await _productService.DeactivateProductAsync(
+                tenantId.Value,
+                id);
+
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new
+            {
+                status = "FAIL",
+                message = "Product not found."
+            });
+        }
+    }
 }

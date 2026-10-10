@@ -55,7 +55,7 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
                 ["ConnectionStrings:PlatformDatabase"] = TestConstants.PlatformDbTest,
                 ["ConnectionStrings:SecurityDatabase"] = TestConstants.SecurityDbTest,
                 ["ConnectionStrings:DomainDatabase"] = TestConstants.DomainDbTest,
-                ["Migrations:TargetPlatformMigration"] = "20261009092409_AddSubscriptionStatus"
+                ["Migrations:TargetPlatformMigration"] = "20261009100016_AddRecurringBillingSchedule"
             };
 
             config.AddInMemoryCollection(testSettings);
@@ -77,7 +77,7 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
 
             var migrator = Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetInfrastructure(platformDb)
                 .GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
-            migrator?.Migrate("20261009092409_AddSubscriptionStatus");
+            migrator?.Migrate("20261009100016_AddRecurringBillingSchedule");
             securityDb.Database.Migrate();
             domainDb.Database.Migrate();
 
