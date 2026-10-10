@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
 using Domain.Infrastructure.Persistence;
+using ERP.Domain.Features.Inventory.Valuation;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,17 +15,20 @@ public class InventoryPostingService : IInventoryPostingService
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IProductRepository _productRepository;
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IInventoryValuationService _valuationService;
     private readonly DomainDbContext _context;
 
     public InventoryPostingService(
         IInventoryRepository inventoryRepository,
         IProductRepository productRepository,
         IWarehouseRepository warehouseRepository,
+        IInventoryValuationService valuationService,
         DomainDbContext context)
     {
         _inventoryRepository = inventoryRepository;
         _productRepository = productRepository;
         _warehouseRepository = warehouseRepository;
+        _valuationService = valuationService;
         _context = context;
     }
 
@@ -84,83 +88,120 @@ public class InventoryPostingService : IInventoryPostingService
         var dbTransaction = existingTx == null ? await _context.Database.BeginTransactionAsync() : null;
         try
         {
+            // Acquire transactional valuation lock for this SKU + Warehouse
+            await _valuationService.AcquireValuationLockAsync(tenantId, request.ProductId, request.WarehouseId);
+
             string normBatch = request.BatchNumber?.Trim() ?? string.Empty;
             string normSerial = request.SerialNumber?.Trim() ?? string.Empty;
 
-        // Fetch or create balance
-        var balance = await _inventoryRepository.GetBalanceAsync(
-            tenantId,
-            request.WarehouseLocationId,
-            request.ProductId,
-            normBatch,
-            normSerial);
-
-        if (balance == null)
-        {
-            balance = InventoryBalance.Create(
+            // Fetch or create balance
+            var balance = await _inventoryRepository.GetBalanceAsync(
                 tenantId,
-                request.WarehouseId,
                 request.WarehouseLocationId,
                 request.ProductId,
                 normBatch,
                 normSerial);
-            await _inventoryRepository.AddBalanceAsync(balance);
-        }
 
-        // Apply Balance Changes
-        // Inflow: Positive quantity
-        // Outflow: Negative quantity
-        decimal signedQuantity = GetSignedQuantity(request.MovementType, request.Quantity);
-
-        if (signedQuantity < 0)
-        {
-            // Outflow: Ensure sufficient available stock
-            decimal requestedOutflow = Math.Abs(signedQuantity);
-            if (requestedOutflow > balance.QuantityAvailable)
+            if (balance == null)
             {
-                throw new InvalidOperationException(
-                    $"Insufficient available inventory at location '{location.LocationCode}'. Requested: {requestedOutflow}, Available: {balance.QuantityAvailable} (On-Hand: {balance.QuantityOnHand}, Quarantined: {balance.QuantityQuarantine}, Allocated: {balance.QuantityAllocated}).");
+                balance = InventoryBalance.Create(
+                    tenantId,
+                    request.WarehouseId,
+                    request.WarehouseLocationId,
+                    request.ProductId,
+                    normBatch,
+                    normSerial);
+                await _inventoryRepository.AddBalanceAsync(balance);
             }
+
+            // Apply Balance Changes
+            // Inflow: Positive quantity
+            // Outflow: Negative quantity
+            decimal signedQuantity = GetSignedQuantity(request.MovementType, request.Quantity);
+
+            if (signedQuantity < 0)
+            {
+                // Outflow: Ensure sufficient available stock
+                decimal requestedOutflow = Math.Abs(signedQuantity);
+                if (requestedOutflow > balance.QuantityAvailable)
+                {
+                    throw new InvalidOperationException(
+                        $"Insufficient available inventory at location '{location.LocationCode}'. Requested: {requestedOutflow}, Available: {balance.QuantityAvailable} (On-Hand: {balance.QuantityOnHand}, Quarantined: {balance.QuantityQuarantine}, Allocated: {balance.QuantityAllocated}).");
+                }
+            }
+
+            Guid txnId = Guid.NewGuid();
+
+            var valContext = new ValuationContext
+            {
+                TenantId = tenantId,
+                ProductId = request.ProductId,
+                WarehouseId = request.WarehouseId,
+                WarehouseLocationId = request.WarehouseLocationId,
+                Product = product,
+                BatchNumber = normBatch,
+                SerialNumber = normSerial,
+                TransactionDate = request.TransactionDate ?? DateTime.UtcNow
+            };
+
+            decimal effectiveUnitCost;
+            if (signedQuantity > 0)
+            {
+                var inflowResult = await _valuationService.ProcessInflowAsync(
+                    valContext,
+                    request.Quantity,
+                    request.UnitCost,
+                    txnId);
+                effectiveUnitCost = inflowResult.UnitCost;
+            }
+            else
+            {
+                var outflowResult = await _valuationService.ProcessOutflowAsync(
+                    valContext,
+                    Math.Abs(signedQuantity),
+                    txnId);
+                effectiveUnitCost = outflowResult.UnitCost;
+            }
+
+            balance.ApplyOnHandChange(signedQuantity);
+
+            if (request.IsQuarantine)
+            {
+                balance.ApplyQuarantineChange(signedQuantity);
+            }
+
+            string txnNumber = GenerateTransactionNumber();
+
+            var txn = InventoryTransaction.Create(
+                tenantId,
+                txnNumber,
+                request.MovementType,
+                request.SourceDocumentType,
+                request.SourceDocumentId,
+                lineId,
+                request.MovementSequence,
+                request.ProductId,
+                request.WarehouseId,
+                request.WarehouseLocationId,
+                signedQuantity,
+                effectiveUnitCost,
+                request.UnitOfMeasureId ?? product.UnitOfMeasureId,
+                normBatch,
+                normSerial,
+                request.ExpiryDate,
+                request.TransactionDate ?? DateTime.UtcNow,
+                inventoryTransactionId: txnId);
+
+            await _inventoryRepository.AddTransactionAsync(txn);
+            await _inventoryRepository.SaveChangesAsync();
+
+            if (dbTransaction != null)
+            {
+                await dbTransaction.CommitAsync();
+            }
+
+            return txn;
         }
-
-        balance.ApplyOnHandChange(signedQuantity);
-
-        if (request.IsQuarantine)
-        {
-            balance.ApplyQuarantineChange(signedQuantity);
-        }
-
-        string txnNumber = GenerateTransactionNumber();
-
-        var txn = InventoryTransaction.Create(
-            tenantId,
-            txnNumber,
-            request.MovementType,
-            request.SourceDocumentType,
-            request.SourceDocumentId,
-            lineId,
-            request.MovementSequence,
-            request.ProductId,
-            request.WarehouseId,
-            request.WarehouseLocationId,
-            signedQuantity,
-            request.UnitCost,
-            request.UnitOfMeasureId ?? product.UnitOfMeasureId,
-            normBatch,
-            normSerial,
-            request.ExpiryDate,
-            request.TransactionDate ?? DateTime.UtcNow);
-
-        await _inventoryRepository.AddTransactionAsync(txn);
-        await _inventoryRepository.SaveChangesAsync();
-
-        if (dbTransaction != null)
-        {
-            await dbTransaction.CommitAsync();
-        }
-
-        return txn;
-    }
     finally
     {
         if (dbTransaction != null)
@@ -222,110 +263,150 @@ public class InventoryPostingService : IInventoryPostingService
         var dbTransaction = existingTx == null ? await _context.Database.BeginTransactionAsync() : null;
         try
         {
+            // Acquire valuation locks in deterministic order across source & destination warehouses
+            await _valuationService.AcquireTransferValuationLocksAsync(
+                tenantId,
+                request.ProductId,
+                request.SourceWarehouseId,
+                request.DestinationWarehouseId);
+
             string normBatch = request.BatchNumber?.Trim() ?? string.Empty;
             string normSerial = request.SerialNumber?.Trim() ?? string.Empty;
 
-        // Source balance
-        var srcBalance = await _inventoryRepository.GetBalanceAsync(
-            tenantId,
-            request.SourceLocationId,
-            request.ProductId,
-            normBatch,
-            normSerial);
-
-        if (srcBalance == null)
-        {
-            throw new InvalidOperationException($"No stock exists at source location '{srcLocation.LocationCode}'.");
-        }
-
-        if (request.IsSourceQuarantine)
-        {
-            // Moving stock out of quarantine: Must have enough quarantine stock
-            if (request.Quantity > srcBalance.QuantityQuarantine)
-            {
-                throw new InvalidOperationException($"Insufficient quarantine stock at source location. Requested: {request.Quantity}, Quarantine available: {srcBalance.QuantityQuarantine}.");
-            }
-
-            // Decrement both on-hand and quarantine at source
-            srcBalance.ApplyOnHandChange(-request.Quantity);
-            srcBalance.ApplyQuarantineChange(-request.Quantity);
-        }
-        else
-        {
-            // Standard transfer: Must have enough available stock
-            if (request.Quantity > srcBalance.QuantityAvailable)
-            {
-                throw new InvalidOperationException($"Insufficient available stock at source location. Requested: {request.Quantity}, Available: {srcBalance.QuantityAvailable}.");
-            }
-
-            srcBalance.ApplyOnHandChange(-request.Quantity);
-        }
-
-        // Destination balance
-        var dstBalance = await _inventoryRepository.GetBalanceAsync(
-            tenantId,
-            request.DestinationLocationId,
-            request.ProductId,
-            normBatch,
-            normSerial);
-
-        if (dstBalance == null)
-        {
-            dstBalance = InventoryBalance.Create(
+            // Source balance
+            var srcBalance = await _inventoryRepository.GetBalanceAsync(
                 tenantId,
-                request.DestinationWarehouseId,
+                request.SourceLocationId,
+                request.ProductId,
+                normBatch,
+                normSerial);
+
+            if (srcBalance == null)
+            {
+                throw new InvalidOperationException($"No stock exists at source location '{srcLocation.LocationCode}'.");
+            }
+
+            if (request.IsSourceQuarantine)
+            {
+                // Moving stock out of quarantine: Must have enough quarantine stock
+                if (request.Quantity > srcBalance.QuantityQuarantine)
+                {
+                    throw new InvalidOperationException($"Insufficient quarantine stock at source location. Requested: {request.Quantity}, Quarantine available: {srcBalance.QuantityQuarantine}.");
+                }
+
+                // Decrement both on-hand and quarantine at source
+                srcBalance.ApplyOnHandChange(-request.Quantity);
+                srcBalance.ApplyQuarantineChange(-request.Quantity);
+            }
+            else
+            {
+                // Standard transfer: Must have enough available stock
+                if (request.Quantity > srcBalance.QuantityAvailable)
+                {
+                    throw new InvalidOperationException($"Insufficient available stock at source location. Requested: {request.Quantity}, Available: {srcBalance.QuantityAvailable}.");
+                }
+
+                srcBalance.ApplyOnHandChange(-request.Quantity);
+            }
+
+            // Destination balance
+            var dstBalance = await _inventoryRepository.GetBalanceAsync(
+                tenantId,
                 request.DestinationLocationId,
                 request.ProductId,
                 normBatch,
                 normSerial);
-            await _inventoryRepository.AddBalanceAsync(dstBalance);
-        }
 
-        dstBalance.ApplyOnHandChange(request.Quantity);
-        if (request.IsDestinationQuarantine)
-        {
-            dstBalance.ApplyQuarantineChange(request.Quantity);
-        }
+            if (dstBalance == null)
+            {
+                dstBalance = InventoryBalance.Create(
+                    tenantId,
+                    request.DestinationWarehouseId,
+                    request.DestinationLocationId,
+                    request.ProductId,
+                    normBatch,
+                    normSerial);
+                await _inventoryRepository.AddBalanceAsync(dstBalance);
+            }
 
-        // Outflow transaction
-        var outTxn = InventoryTransaction.Create(
-            tenantId,
-            GenerateTransactionNumber(),
-            InventoryMovementType.InternalTransferOut,
-            request.SourceDocumentType,
-            request.SourceDocumentId,
-            lineId,
-            1,
-            request.ProductId,
-            request.SourceWarehouseId,
-            request.SourceLocationId,
-            -request.Quantity,
-            request.UnitCost,
-            request.UnitOfMeasureId ?? product.UnitOfMeasureId,
-            normBatch,
-            normSerial,
-            request.ExpiryDate,
-            request.TransactionDate ?? DateTime.UtcNow);
+            dstBalance.ApplyOnHandChange(request.Quantity);
+            if (request.IsDestinationQuarantine)
+            {
+                dstBalance.ApplyQuarantineChange(request.Quantity);
+            }
 
-        // Inflow transaction
-        var inTxn = InventoryTransaction.Create(
-            tenantId,
-            GenerateTransactionNumber(),
-            InventoryMovementType.InternalTransferIn,
-            request.SourceDocumentType,
-            request.SourceDocumentId,
-            lineId,
-            2,
-            request.ProductId,
-            request.DestinationWarehouseId,
-            request.DestinationLocationId,
-            request.Quantity,
-            request.UnitCost,
-            request.UnitOfMeasureId ?? product.UnitOfMeasureId,
-            normBatch,
-            normSerial,
-            request.ExpiryDate,
-            request.TransactionDate ?? DateTime.UtcNow);
+            Guid outTxnId = Guid.NewGuid();
+            Guid inTxnId = Guid.NewGuid();
+
+            // Valuation: Relieve source and establish destination
+            var srcValContext = new ValuationContext
+            {
+                TenantId = tenantId,
+                ProductId = request.ProductId,
+                WarehouseId = request.SourceWarehouseId,
+                WarehouseLocationId = request.SourceLocationId,
+                Product = product,
+                BatchNumber = normBatch,
+                SerialNumber = normSerial,
+                TransactionDate = request.TransactionDate ?? DateTime.UtcNow
+            };
+            var outflowResult = await _valuationService.ProcessOutflowAsync(srcValContext, request.Quantity, outTxnId);
+            decimal transferUnitCost = outflowResult.UnitCost;
+
+            var dstValContext = new ValuationContext
+            {
+                TenantId = tenantId,
+                ProductId = request.ProductId,
+                WarehouseId = request.DestinationWarehouseId,
+                WarehouseLocationId = request.DestinationLocationId,
+                Product = product,
+                BatchNumber = normBatch,
+                SerialNumber = normSerial,
+                TransactionDate = request.TransactionDate ?? DateTime.UtcNow
+            };
+            await _valuationService.ProcessInflowAsync(dstValContext, request.Quantity, transferUnitCost, inTxnId);
+
+            // Outflow transaction
+            var outTxn = InventoryTransaction.Create(
+                tenantId,
+                GenerateTransactionNumber(),
+                InventoryMovementType.InternalTransferOut,
+                request.SourceDocumentType,
+                request.SourceDocumentId,
+                lineId,
+                1,
+                request.ProductId,
+                request.SourceWarehouseId,
+                request.SourceLocationId,
+                -request.Quantity,
+                transferUnitCost,
+                request.UnitOfMeasureId ?? product.UnitOfMeasureId,
+                normBatch,
+                normSerial,
+                request.ExpiryDate,
+                request.TransactionDate ?? DateTime.UtcNow,
+                inventoryTransactionId: outTxnId);
+
+            // Inflow transaction
+            var inTxn = InventoryTransaction.Create(
+                tenantId,
+                GenerateTransactionNumber(),
+                InventoryMovementType.InternalTransferIn,
+                request.SourceDocumentType,
+                request.SourceDocumentId,
+                lineId,
+                2,
+                request.ProductId,
+                request.DestinationWarehouseId,
+                request.DestinationLocationId,
+                request.Quantity,
+                transferUnitCost,
+                request.UnitOfMeasureId ?? product.UnitOfMeasureId,
+                normBatch,
+                normSerial,
+                request.ExpiryDate,
+                request.TransactionDate ?? DateTime.UtcNow,
+                inventoryTransactionId: inTxnId);
 
         await _inventoryRepository.AddTransactionAsync(outTxn);
         await _inventoryRepository.AddTransactionAsync(inTxn);
@@ -358,101 +439,144 @@ public class InventoryPostingService : IInventoryPostingService
             var originalTxn = await _inventoryRepository.GetTransactionByIdAsync(tenantId, request.OriginalTransactionId)
                 ?? throw new KeyNotFoundException("Original inventory transaction not found.");
 
-        if (originalTxn.MovementType == InventoryMovementType.Reversal)
-        {
-            throw new InvalidOperationException("Cannot reverse a reversal transaction.");
-        }
+            if (originalTxn.MovementType == InventoryMovementType.Reversal)
+            {
+                throw new InvalidOperationException("Cannot reverse a reversal transaction.");
+            }
 
-        // Find existing reversals for this transaction
-        var existingReversals = await _inventoryRepository.GetTransactionsByOriginalIdAsync(tenantId, request.OriginalTransactionId);
-        decimal alreadyReversedQty = existingReversals.Sum(r => Math.Abs(r.Quantity));
-        decimal origQty = Math.Abs(originalTxn.Quantity);
-        decimal remainingQty = origQty - alreadyReversedQty;
+            // Lock the product and warehouse
+            await _valuationService.AcquireValuationLockAsync(tenantId, originalTxn.ProductId, originalTxn.WarehouseId);
 
-        if (remainingQty <= 0)
-        {
-            throw new InvalidOperationException($"Original transaction '{originalTxn.TransactionNumber}' has already been fully reversed.");
-        }
+            var product = await _productRepository.GetByIdAsync(tenantId, originalTxn.ProductId)
+                ?? throw new KeyNotFoundException("Product not found.");
 
-        decimal qtyToReverse = request.QuantityToReverse.HasValue
-            ? Math.Abs(request.QuantityToReverse.Value)
-            : remainingQty;
+            // Find existing reversals for this transaction
+            var existingReversals = await _inventoryRepository.GetTransactionsByOriginalIdAsync(tenantId, request.OriginalTransactionId);
+            decimal alreadyReversedQty = existingReversals.Sum(r => Math.Abs(r.Quantity));
+            decimal origQty = Math.Abs(originalTxn.Quantity);
+            decimal remainingQty = origQty - alreadyReversedQty;
 
-        if (qtyToReverse <= 0)
-        {
-            throw new ArgumentException("Reversal quantity must be greater than zero.", nameof(request.QuantityToReverse));
-        }
+            if (remainingQty <= 0)
+            {
+                throw new InvalidOperationException($"Original transaction '{originalTxn.TransactionNumber}' has already been fully reversed.");
+            }
 
-        if (qtyToReverse > remainingQty)
-        {
-            throw new InvalidOperationException($"Reversal quantity ({qtyToReverse}) exceeds remaining unreverted quantity ({remainingQty}).");
-        }
+            decimal qtyToReverse = request.QuantityToReverse.HasValue
+                ? Math.Abs(request.QuantityToReverse.Value)
+                : remainingQty;
 
-        // The reversal direction is opposite to the original movement
-        // If original was +Qty (e.g., Receipt), reversal is -QtyToReverse.
-        // If original was -Qty (e.g., Issue), reversal is +QtyToReverse.
-        decimal reversalSignedQty = originalTxn.Quantity > 0 ? -qtyToReverse : qtyToReverse;
+            if (qtyToReverse <= 0)
+            {
+                throw new ArgumentException("Reversal quantity must be greater than zero.", nameof(request.QuantityToReverse));
+            }
 
-        string normBatch = originalTxn.BatchNumber ?? string.Empty;
-        string normSerial = originalTxn.SerialNumber ?? string.Empty;
+            if (qtyToReverse > remainingQty)
+            {
+                throw new InvalidOperationException($"Reversal quantity ({qtyToReverse}) exceeds remaining unreverted quantity ({remainingQty}).");
+            }
 
-        var balance = await _inventoryRepository.GetBalanceAsync(
-            tenantId,
-            originalTxn.WarehouseLocationId,
-            originalTxn.ProductId,
-            normBatch,
-            normSerial);
+            // The reversal direction is opposite to the original movement
+            // If original was +Qty (e.g., Receipt), reversal is -QtyToReverse.
+            // If original was -Qty (e.g., Issue), reversal is +QtyToReverse.
+            decimal reversalSignedQty = originalTxn.Quantity > 0 ? -qtyToReverse : qtyToReverse;
 
-        if (balance == null)
-        {
-            balance = InventoryBalance.Create(
+            string normBatch = originalTxn.BatchNumber ?? string.Empty;
+            string normSerial = originalTxn.SerialNumber ?? string.Empty;
+
+            var balance = await _inventoryRepository.GetBalanceAsync(
                 tenantId,
-                originalTxn.WarehouseId,
                 originalTxn.WarehouseLocationId,
                 originalTxn.ProductId,
                 normBatch,
                 normSerial);
-            await _inventoryRepository.AddBalanceAsync(balance);
+
+            if (balance == null)
+            {
+                balance = InventoryBalance.Create(
+                    tenantId,
+                    originalTxn.WarehouseId,
+                    originalTxn.WarehouseLocationId,
+                    originalTxn.ProductId,
+                    normBatch,
+                    normSerial);
+                await _inventoryRepository.AddBalanceAsync(balance);
+            }
+
+            if (reversalSignedQty < 0 && Math.Abs(reversalSignedQty) > balance.QuantityAvailable)
+            {
+                throw new InvalidOperationException($"Cannot reverse transaction: Insufficient available inventory to deduct. Available: {balance.QuantityAvailable}, Requested deduction: {Math.Abs(reversalSignedQty)}.");
+            }
+
+            Guid reversalTxnId = Guid.NewGuid();
+
+            var valContext = new ValuationContext
+            {
+                TenantId = tenantId,
+                ProductId = originalTxn.ProductId,
+                WarehouseId = originalTxn.WarehouseId,
+                WarehouseLocationId = originalTxn.WarehouseLocationId,
+                Product = product,
+                BatchNumber = normBatch,
+                SerialNumber = normSerial,
+                TransactionDate = request.TransactionDate ?? DateTime.UtcNow
+            };
+
+            decimal effectiveReversalUnitCost;
+            if (originalTxn.Quantity > 0)
+            {
+                // Reversing an inflow (e.g. GRN reversal / supplier return)
+                var reversalResult = await _valuationService.ProcessInflowReversalAsync(
+                    valContext,
+                    originalTxn,
+                    qtyToReverse,
+                    reversalTxnId);
+                effectiveReversalUnitCost = reversalResult.ReversalUnitCost;
+            }
+            else
+            {
+                // Reversing an outflow (e.g. issue cancellation / customer return)
+                var reversalResult = await _valuationService.ProcessOutflowReversalAsync(
+                    valContext,
+                    originalTxn,
+                    qtyToReverse,
+                    reversalTxnId);
+                effectiveReversalUnitCost = reversalResult.ReversalUnitCost;
+            }
+
+            balance.ApplyOnHandChange(reversalSignedQty);
+
+            int seq = existingReversals.Count + 1;
+            var reversalTxn = InventoryTransaction.Create(
+                tenantId,
+                GenerateTransactionNumber(),
+                InventoryMovementType.Reversal,
+                originalTxn.SourceDocumentType,
+                originalTxn.SourceDocumentId,
+                originalTxn.SourceDocumentLineId,
+                seq,
+                originalTxn.ProductId,
+                originalTxn.WarehouseId,
+                originalTxn.WarehouseLocationId,
+                reversalSignedQty,
+                effectiveReversalUnitCost,
+                originalTxn.UnitOfMeasureId,
+                normBatch,
+                normSerial,
+                originalTxn.ExpiryDate,
+                request.TransactionDate ?? DateTime.UtcNow,
+                reversalOfTransactionId: originalTxn.InventoryTransactionId,
+                inventoryTransactionId: reversalTxnId);
+
+            await _inventoryRepository.AddTransactionAsync(reversalTxn);
+            await _inventoryRepository.SaveChangesAsync();
+
+            if (dbTransaction != null)
+            {
+                await dbTransaction.CommitAsync();
+            }
+
+            return reversalTxn;
         }
-
-        if (reversalSignedQty < 0 && Math.Abs(reversalSignedQty) > balance.QuantityAvailable)
-        {
-            throw new InvalidOperationException($"Cannot reverse transaction: Insufficient available inventory to deduct. Available: {balance.QuantityAvailable}, Requested deduction: {Math.Abs(reversalSignedQty)}.");
-        }
-
-        balance.ApplyOnHandChange(reversalSignedQty);
-
-        int seq = existingReversals.Count + 1;
-        var reversalTxn = InventoryTransaction.Create(
-            tenantId,
-            GenerateTransactionNumber(),
-            InventoryMovementType.Reversal,
-            originalTxn.SourceDocumentType,
-            originalTxn.SourceDocumentId,
-            originalTxn.SourceDocumentLineId,
-            seq,
-            originalTxn.ProductId,
-            originalTxn.WarehouseId,
-            originalTxn.WarehouseLocationId,
-            reversalSignedQty,
-            originalTxn.UnitCost,
-            originalTxn.UnitOfMeasureId,
-            normBatch,
-            normSerial,
-            originalTxn.ExpiryDate,
-            request.TransactionDate ?? DateTime.UtcNow,
-            reversalOfTransactionId: originalTxn.InventoryTransactionId);
-
-        await _inventoryRepository.AddTransactionAsync(reversalTxn);
-        await _inventoryRepository.SaveChangesAsync();
-
-        if (dbTransaction != null)
-        {
-            await dbTransaction.CommitAsync();
-        }
-
-        return reversalTxn;
-    }
     finally
     {
         if (dbTransaction != null)
