@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -24,6 +24,10 @@
     <Folder Include="Boostrap\Permissions\Domain\Sales\" />
     <Folder Include="Boostrap\Permissions\Domain\Purchase\" />
     <Folder Include="Boostrap\Permissions\Security\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SaaS\SaaS.csproj" />
   </ItemGroup>
 
 </Project>

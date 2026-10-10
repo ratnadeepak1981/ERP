@@ -1,4 +1,4 @@
-﻿
+
 using Security.Interfaces;
 using ERP.Domain.Bootstrap.Permissions.MasterData;
 
@@ -10,13 +10,13 @@ public static class DomainPermissionSeeder
         ISecurityBootstrapRepository repository)
     {
         await CompanyBranchPermissionSeed.SeedAsync(repository);
-
-        // Add the next Domain permission seeds here
-        // await ProductCategoryPermissionSeed.SeedAsync(repository);
-        // await CustomerPermissionSeed.SeedAsync(repository);
-        // await SupplierPermissionSeed.SeedAsync(repository);
-        // await WarehousePermissionSeed.SeedAsync(repository);
-        // await PurchasePermissionSeed.SeedAsync(repository);
-        // await SalesPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.CategoryPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.UnitOfMeasurePermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.WarehousePermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.LocationPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.AddressPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.ContactPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.SupplierProductPricePermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.CountryPermissionSeed.SeedAsync(repository);
     }
 }

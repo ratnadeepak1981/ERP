@@ -1,4 +1,4 @@
-﻿using ERP.Domain.Features.MasterData.Category;
+using ERP.Domain.Features.MasterData.Category;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -40,6 +40,14 @@ public class CategoryConfiguration
         {
             x.TenantId,
             x.CategoryName
+        })
+        .IsUnique();
+
+        // Composite key for tenant-aware foreign keys
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.CategoryId
         })
         .IsUnique();
     }

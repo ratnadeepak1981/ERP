@@ -16,6 +16,8 @@ public interface IProductRepository
         Guid tenantId,
         string productName);
 
+    Task<bool> CategoryExistsAsync(Guid tenantId, Guid categoryId);
+
     Task AddAsync(Product product);
 
     Task SaveChangesAsync();

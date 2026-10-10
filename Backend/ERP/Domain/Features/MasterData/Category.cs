@@ -1,8 +1,9 @@
 using ERP.Domain.Common;
+using ERP.Domain.Common.Scope;
 
 namespace ERP.Domain.Features.MasterData.Category;
 
-public class Category : Auditable
+public class Category : Auditable, ITenantScopedEntity
 {
     public Guid CategoryId { get; private set; }
 
@@ -15,7 +16,6 @@ public class Category : Auditable
     public string? Description { get; private set; }
 
     public bool IsActive { get; private set; }
-
 
     public static Category Create(
         Guid tenantId,
@@ -33,6 +33,22 @@ public class Category : Auditable
             Description = description,
             IsActive = true
         };
+    }
+
+    public void Update(string categoryName, string? description)
+    {
+        CategoryName = categoryName;
+        Description = description;
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
     }
 
     private Category()

@@ -1,4 +1,5 @@
-﻿using Security.Application.DTOs;
+using SaaS.Application.Interfaces;
+using Security.Application.DTOs;
 using Security.Core.Models;
 using Security.Interfaces;
 
@@ -10,17 +11,20 @@ public class UserService : IUserService
     private readonly ICurrentUserContext _currentUserContext;
     private readonly PasswordService _passwordService;
     private readonly ITokenService _tokenService;
+    private readonly ISubscriptionUsageService? _subscriptionUsageService;
 
     public UserService(
         IUserRepository repository,
         ICurrentUserContext currentUserContext,
         PasswordService passwordService,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        ISubscriptionUsageService? subscriptionUsageService = null)
     {
         _repository = repository;
         _currentUserContext = currentUserContext;
         _passwordService = passwordService;
         _tokenService = tokenService;
+        _subscriptionUsageService = subscriptionUsageService;
     }
 
     public async Task<User> CreateUserAsync(
@@ -80,6 +84,20 @@ public class UserService : IUserService
 
             IsActive = true
         };
+
+        if (tenantId.HasValue && _subscriptionUsageService != null)
+        {
+            return await _subscriptionUsageService.ExecuteWithUsageLimitAsync(
+                tenantId.Value,
+                "USERS",
+                1m,
+                async () =>
+                {
+                    await _repository.AddAsync(user);
+                    await _repository.SaveChangesAsync();
+                    return user;
+                });
+        }
 
         await _repository.AddAsync(user);
         await _repository.SaveChangesAsync();

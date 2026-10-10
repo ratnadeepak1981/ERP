@@ -39,6 +39,13 @@ public static class RepositoryRegistration
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IBranchRepository, BranchRepository>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderRepository, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderRepository>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryRepository, ERP.Domain.Features.MasterData.Category.CategoryRepository>();
+        services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureRepository, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureRepository>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Customer.ICustomerRepository, ERP.Domain.Features.MasterData.Customer.CustomerRepository>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Supplier.ISupplierRepository, ERP.Domain.Features.MasterData.Supplier.SupplierRepository>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseRepository, ERP.Domain.Features.MasterData.Warehouse.WarehouseRepository>();
+        services.AddScoped<Domain.Features.MasterData.Address.IAddressRepository, Domain.Features.MasterData.Address.AddressRepository>();
+        services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceRepository, Domain.Features.MasterData.Supplier.SupplierProductPriceRepository>();
 
         return services;
     }
