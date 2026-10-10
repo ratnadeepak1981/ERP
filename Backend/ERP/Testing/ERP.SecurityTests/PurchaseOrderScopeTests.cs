@@ -539,6 +539,306 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
         Assert.True(crossTenantRes.StatusCode == HttpStatusCode.Forbidden || crossTenantRes.StatusCode == HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Scenario1_UserViewsCompanyAPO_Allowed()
+    {
+        // 1. User views Company A PO -> Allowed
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        var res = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders");
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Scenario2_UserViewsCompanyBPO_WhenAssignedToB_Allowed()
+    {
+        // 2. User views Company B PO, when assigned to B -> Allowed
+        // MultiCompanyUserABId is assigned to Company A and Company B
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.MultiCompanyUserABId,
+            "multicomp_user_ab",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        var res = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/purchase-orders");
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Scenario3_UserViewsCompanyCPO_Denied()
+    {
+        // 3. User views Company C PO -> Denied (User assigned to A and B, not C)
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.MultiCompanyUserABId,
+            "multicomp_user_ab",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        var res = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyCId}/branches/{TestConstants.BranchC1Id}/purchase-orders");
+
+        Assert.True(res.StatusCode == HttpStatusCode.Forbidden || res.StatusCode == HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Scenario4_UserCreatesPOForCompanyA_AllowedWithCreatePermission()
+    {
+        // 4. User creates a PO for Company A -> Allowed with create permission
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE" });
+
+        var orderNum = $"PO-A-SC4-{Guid.NewGuid():N}"[..16];
+        var res = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
+            new CreatePurchaseOrderRequest
+            {
+                OrderNumber = orderNum,
+                Items = new List<CreatePurchaseOrderItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 2, UnitPrice = 10m }
+                }
+            });
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Scenario5_UserCreatesPOForCompanyC_Denied()
+    {
+        // 5. User creates a PO for Company C -> Denied
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.MultiCompanyUserABId,
+            "multicomp_user_ab",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE" });
+
+        var orderNum = $"PO-C-SC5-{Guid.NewGuid():N}"[..16];
+        var res = await client.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyCId}/branches/{TestConstants.BranchC1Id}/purchase-orders",
+            new CreatePurchaseOrderRequest
+            {
+                OrderNumber = orderNum,
+                Items = new List<CreatePurchaseOrderItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 1, UnitPrice = 10m }
+                }
+            });
+
+        Assert.True(res.StatusCode == HttpStatusCode.Forbidden || res.StatusCode == HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Scenario6_UserHasCompanyAAccess_TriesUnassignedBranch_Denied()
+    {
+        // 6. User has Company A access but tries an unassigned branch (e.g. BranchUserA1 tries Branch A2) -> Denied
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        var res = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA2Id}/purchase-orders");
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Scenario7_UserHasCompanyAAndBAccess_ViewsPOsFromBoth_Allowed()
+    {
+        // 7. User has Company A and B access and views POs from both -> Allowed, subject to permissions
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.MultiCompanyUserABId,
+            "multicomp_user_ab",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        var resA = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders");
+        var resB = await client.GetAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/purchase-orders");
+
+        Assert.Equal(HttpStatusCode.OK, resA.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, resB.StatusCode);
+    }
+
+    [Fact]
+    public async Task Scenario8_UserTriesToAccessAnotherTenantsPO_Denied()
+    {
+        // 8. User tries to access another tenant's PO -> Denied
+        var clientA = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        var res = await clientA.GetAsync(
+            $"/api/companies/{TestConstants.CompanyCId}/branches/{TestConstants.BranchC1Id}/purchase-orders");
+
+        Assert.True(res.StatusCode == HttpStatusCode.Forbidden || res.StatusCode == HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Scenario9_ProcurementManager_HasApprovalPermissionAndAssignedScope_ApprovalAllowed()
+    {
+        // 9. Procurement Manager has approval permission and an assigned company scope -> Approval allowed within that scope
+        // Ensure ApprovalRequired is true for Tenant Alpha
+        var clientAdmin = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenantadmin_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant Admin" },
+            new[] { "PROCUREMENT.SETTINGS.VIEW", "PROCUREMENT.SETTINGS.EDIT" });
+        await clientAdmin.PutAsJsonAsync("/api/tenants/current/settings/procurement-approval", new { ApprovalRequired = true, ApprovalMode = 1 });
+
+        // First create and submit PO in Company A, Branch A1 using BranchUserA1
+        var clientUser = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE", "PURCHASE_ORDER.SUBMIT" });
+
+        var orderNum = $"PO-APPR-{Guid.NewGuid():N}"[..16];
+        var createRes = await clientUser.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
+            new CreatePurchaseOrderRequest
+            {
+                OrderNumber = orderNum,
+                Items = new List<CreatePurchaseOrderItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 2, UnitPrice = 15m }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var createdPO = await createRes.Content.ReadFromJsonAsync<PurchaseOrderDto>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(createdPO);
+
+        var submitRes = await clientUser.PostAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{createdPO.Id}/submit",
+            null);
+        Assert.Equal(HttpStatusCode.OK, submitRes.StatusCode);
+
+        // Procurement Manager (CompanyUserAId) has Company A scope and APPROVE permission
+        var clientManager = _fixture.CreateAuthenticatedClient(
+            TestConstants.CompanyUserAId,
+            "compuser_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.APPROVE" });
+
+        var approveRes = await clientManager.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{createdPO.Id}/approve",
+            new { Remarks = "Approved by Company A Procurement Manager" });
+
+        Assert.Equal(HttpStatusCode.OK, approveRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task Scenario10_UserHasCompanyScope_LacksPOViewOrPOCreate_Denied()
+    {
+        // 10. User has company scope but lacks PO.VIEW or PO.CREATE -> Denied for corresponding operation
+        // Case A: Lacks PO.VIEW
+        var clientNoView = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.CREATE" }); // Has CREATE, lacks VIEW
+
+        var resGet = await clientNoView.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders");
+        Assert.Equal(HttpStatusCode.Forbidden, resGet.StatusCode);
+
+        // Case B: Lacks PO.CREATE
+        var clientNoCreate = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" }); // Has VIEW, lacks CREATE
+
+        var resPost = await clientNoCreate.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
+            new CreatePurchaseOrderRequest
+            {
+                OrderNumber = "PO-NOPERM-TEST",
+                Items = new List<CreatePurchaseOrderItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 1, UnitPrice = 5m }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Forbidden, resPost.StatusCode);
+    }
+
+    [Fact]
+    public async Task CriticalTest_CreateInOneCompany_RetrieveInAnotherContext_ServerValidatesCorrectly()
+    {
+        // Step 1: Create PO in Company A, Branch A1
+        var clientCreator = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE" });
+
+        var orderNum = $"PO-CRIT-{Guid.NewGuid():N}"[..16];
+        var createRes = await clientCreator.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
+            new CreatePurchaseOrderRequest
+            {
+                OrderNumber = orderNum,
+                Items = new List<CreatePurchaseOrderItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 3, UnitPrice = 20m }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var po = await createRes.Content.ReadFromJsonAsync<PurchaseOrderDto>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(po);
+
+        // Step 2a: Attempt to retrieve that PO using Company B context path
+        // (Even if requested path states Company B, the PO entity belongs to Company A / Branch A1)
+        var clientCompanyBOnly = _fixture.CreateAuthenticatedClient(
+            TestConstants.MixedScopeUserId, // Has Company B / Branch B2 scope
+            "mixedscope_user",
+            TestConstants.TenantAlphaId,
+            new[] { "Branch User" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        // Querying Company B with PO from Company A must return NotFound (not in Company B)
+        var resViaCompB = await clientCompanyBOnly.GetAsync(
+            $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB2Id}/purchase-orders/{po.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, resViaCompB.StatusCode);
+
+        // Step 2b: User who has access ONLY to Company B attempts to directly query Company A's endpoint for that PO
+        // Must be rejected with Forbidden (403) by server-side scope enforcement
+        var resForbiddenDirect = await clientCompanyBOnly.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA2Id}/purchase-orders/{po.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, resForbiddenDirect.StatusCode);
+    }
+
     private class PurchaseOrderDto
     {
         public Guid Id { get; set; }

@@ -48,6 +48,8 @@ public static class RepositoryRegistration
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceRepository, Domain.Features.MasterData.Supplier.SupplierProductPriceRepository>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalAuditRepository, Domain.Features.Procurement.Approval.ApprovalAuditRepository>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionRepository, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionRepository>();
+        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryRepository, ERP.Domain.Features.Inventory.InventoryRepository>();
+        services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteRepository, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteRepository>();
 
         return services;
     }

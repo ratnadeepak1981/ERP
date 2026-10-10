@@ -11,7 +11,7 @@ public class WarehouseLocation : Auditable, ITenantScopedEntity
 
     public Guid WarehouseId { get; private set; }
 
-    public Guid WarehouseZoneId { get; private set; }
+    public Guid? WarehouseZoneId { get; private set; }
 
     public Guid? LocationTypeId { get; private set; }
 
@@ -26,7 +26,7 @@ public class WarehouseLocation : Auditable, ITenantScopedEntity
     public static WarehouseLocation Create(
         Guid tenantId,
         Guid warehouseId,
-        Guid warehouseZoneId,
+        Guid? warehouseZoneId,
         string locationCode,
         string locationName,
         Guid? locationTypeId = null,

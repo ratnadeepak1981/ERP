@@ -113,6 +113,24 @@ public class DomainDbContext : DbContext
     public DbSet<DomainAuditRecord> DomainAuditRecords
         => Set<DomainAuditRecord>();
 
+    public DbSet<ERP.Domain.Features.Inventory.InventoryTransaction> InventoryTransactions
+        => Set<ERP.Domain.Features.Inventory.InventoryTransaction>();
+
+    public DbSet<ERP.Domain.Features.Inventory.InventoryBalance> InventoryBalances
+        => Set<ERP.Domain.Features.Inventory.InventoryBalance>();
+
+    public DbSet<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote> GoodsReceiptNotes
+        => Set<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote>();
+
+    public DbSet<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteLine> GoodsReceiptNoteLines
+        => Set<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteLine>();
+
+    public DbSet<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer> InventoryCostLayers
+        => Set<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer>();
+
+    public DbSet<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance> ProductValuationBalances
+        => Set<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {

@@ -178,6 +178,34 @@ public class WarehouseController : ControllerBase
         return Ok(locations);
     }
 
+    [HttpPost("{id:guid}/locations")]
+    [RequirePermission("LOCATION.CREATE")]
+    public async Task<IActionResult> CreateLocationDirect(Guid id, [FromBody] CreateWarehouseLocationRequest request)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+
+        try
+        {
+            var location = await _warehouseService.CreateLocationAsync(tenantId.Value, id, request.WarehouseZoneId, request);
+            return Ok(location);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { status = "FAIL", message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { status = "FAIL", message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { status = "FAIL", message = ex.Message });
+        }
+    }
+
     [HttpPost("{id:guid}/zones/{zoneId:guid}/locations")]
     [RequirePermission("LOCATION.CREATE")]
     public async Task<IActionResult> CreateLocation(Guid id, Guid zoneId, [FromBody] CreateWarehouseLocationRequest request)
@@ -251,6 +279,10 @@ public class WarehouseController : ControllerBase
         catch (KeyNotFoundException)
         {
             return NotFound(new { status = "FAIL", message = "Warehouse location not found." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { status = "FAIL", message = ex.Message });
         }
     }
 

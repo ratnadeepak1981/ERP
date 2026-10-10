@@ -66,6 +66,8 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, Domain.Features.Procurement.Approval.ApprovalWorkflowService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
+        services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteService>();
 
         services.AddHttpContextAccessor();
 

@@ -12,6 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 using SaaS.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence;
 using Security.Interfaces;
+using Xunit;
+
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace ERP.SecurityTests;
 

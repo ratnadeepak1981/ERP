@@ -63,6 +63,8 @@ public class SecurityBootstrapService
 
         await PurchaseRequisitionPermissionSeed.SeedAsync(_repository);
 
+        await GoodsReceiptNotePermissionSeed.SeedAsync(_repository);
+
         await TenantAdminRolePermissionSeed.SeedAsync(_repository);
     }
 
@@ -201,6 +203,61 @@ public class SecurityBootstrapService
         string email,
         string password)
     {
-        // Existing implementation remains here.
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("Tenant ID cannot be empty.", nameof(tenantId));
+        }
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            throw new ArgumentException("Username cannot be empty.", nameof(username));
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new ArgumentException("Password cannot be empty.", nameof(password));
+        }
+
+        var role = await _repository.GetTenantAdminRoleAsync();
+        if (role == null)
+        {
+            throw new InvalidOperationException("Tenant Admin role does not exist.");
+        }
+
+        var user = await _repository.GetTenantAdminUserAsync(tenantId, username);
+        if (user == null)
+        {
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Username = username.Trim(),
+                Email = email.Trim(),
+                PasswordHash = _passwordService.HashPassword(password),
+                IsActive = true
+            };
+
+            await _repository.AddUserAsync(user);
+            await _repository.SaveChangesAsync();
+        }
+
+        var userRole = await _repository.GetUserRoleAsync(user.Id, role.Id);
+        if (userRole == null)
+        {
+            await _repository.AddUserRoleAsync(
+                new UserRole
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    RoleId = role.Id
+                });
+
+            await _repository.SaveChangesAsync();
+        }
     }
 }
