@@ -5,6 +5,8 @@ using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.Product;
 using Domain.Infrastructure.Persistence;
 using Domain.Services;
+using ERP.AI.Infrastructure.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using SaaS.Application.Interfaces;
 using SaaS.Application.Services;
 using SaaS.Services;
@@ -17,8 +19,11 @@ namespace API.Configuration;
 public static class ServiceRegistration
 {
     public static IServiceCollection AddApplicationServices(
-        this IServiceCollection services)
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        services.AddAIInfrastructure(configuration);
+
         services.AddScoped<IDomainDatabaseConfiguration, DomainDatabaseConfiguration>();
 
         services.AddScoped<SaaSService>();

@@ -23,6 +23,7 @@
     <ProjectReference Include="..\Domain\Domain.csproj" />
     <ProjectReference Include="..\SaaS\SaaS.csproj" />
     <ProjectReference Include="..\Security\Security.csproj" />
+    <ProjectReference Include="..\ERP.AI.Infrastructure\ERP.AI.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
