@@ -1,28 +1,40 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
+using Security.Interfaces;
 
 namespace SaaS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class TenantController : ControllerBase
 {
     private readonly ITenantService _tenantService;
     private readonly ITenantProvisioningService _tenantProvisioningService;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public TenantController(
         ITenantService tenantService,
-        ITenantProvisioningService tenantProvisioningService)
+        ITenantProvisioningService tenantProvisioningService,
+        ICurrentUserContext currentUserContext)
     {
         _tenantService = tenantService;
         _tenantProvisioningService = tenantProvisioningService;
+        _currentUserContext = currentUserContext;
     }
 
     [HttpPost("tenant-registration-test")]
+    [RequirePermission("TENANT.CREATE")]
     public async Task<IActionResult> TenantRegistrationTest(
         [FromBody] CreateTenantRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
         TenantRegistrationResult result =
             await _tenantService.RegisterTenant(request);
 
@@ -55,9 +67,15 @@ public class TenantController : ControllerBase
     }
 
     [HttpPost("provision")]
+    [RequirePermission("TENANT.CREATE")]
     public async Task<IActionResult> Provision(
     [FromBody] TenantProvisioningRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
             TenantProvisioningResult result =
