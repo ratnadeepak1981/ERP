@@ -117,7 +117,12 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
                 await platformDb.SaveChangesAsync();
             }
 
-            var client = _fixture.CreateClient();
+            var client = _fixture.CreateAuthenticatedClient(
+                TestConstants.PlatformAdminId,
+                "platformadmin",
+                null,
+                new[] { "Platform Admin" },
+                new[] { "TENANT.CREATE" });
             var req = new TenantProvisioningRequest
             {
                 TenantId = testTenantId,
@@ -213,7 +218,12 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
                 await platformDb.SaveChangesAsync();
             }
 
-            var client = _fixture.CreateClient();
+            var client = _fixture.CreateAuthenticatedClient(
+                TestConstants.PlatformAdminId,
+                "platformadmin",
+                null,
+                new[] { "Platform Admin" },
+                new[] { "TENANT.CREATE" });
             var req = new TenantProvisioningRequest
             {
                 TenantId = testTenantId,
@@ -239,7 +249,12 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
     [Fact]
     public async Task ProvisionTenant_NonExistentTenant_ReturnsConflict()
     {
-        var client = _fixture.CreateClient();
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.PlatformAdminId,
+            "platformadmin",
+            null,
+            new[] { "Platform Admin" },
+            new[] { "TENANT.CREATE" });
         var req = new TenantProvisioningRequest
         {
             TenantId = Guid.NewGuid(),
@@ -271,7 +286,12 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
                 await platformDb.SaveChangesAsync();
             }
 
-            var client = _fixture.CreateClient();
+            var client = _fixture.CreateAuthenticatedClient(
+                TestConstants.PlatformAdminId,
+                "platformadmin",
+                null,
+                new[] { "Platform Admin" },
+                new[] { "TENANT.CREATE" });
             var req = new TenantProvisioningRequest
             {
                 TenantId = testTenantId,
@@ -360,7 +380,12 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
                 await platformDb.SaveChangesAsync();
             }
 
-            var client = _fixture.CreateClient();
+            var client = _fixture.CreateAuthenticatedClient(
+                TestConstants.PlatformAdminId,
+                "platformadmin",
+                null,
+                new[] { "Platform Admin" },
+                new[] { "TENANT.CREATE" });
             var req = new TenantProvisioningRequest
             {
                 TenantId = testTenantId,

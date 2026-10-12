@@ -1,26 +1,38 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
+using Security.Interfaces;
 
 namespace SaaS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SubscriptionPlanController : ControllerBase
 {
     private readonly ISubscriptionPlanService _service;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public SubscriptionPlanController(
-        ISubscriptionPlanService service)
+        ISubscriptionPlanService service,
+        ICurrentUserContext currentUserContext)
     {
         _service = service;
+        _currentUserContext = currentUserContext;
     }
 
     [HttpPost]
+    [RequirePermission("SUBSCRIPTION.CREATE")]
     public IActionResult Create(
         [FromBody] CreateSubscriptionPlanRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
         try
         {
             SubscriptionPlan result =
@@ -47,8 +59,14 @@ public class SubscriptionPlanController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetAll()
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         IReadOnlyList<SubscriptionPlan> plans =
             _service.GetAll();
 
@@ -56,8 +74,14 @@ public class SubscriptionPlanController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetById(Guid id)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         SubscriptionPlan? plan =
             _service.GetById(id);
 
@@ -74,10 +98,16 @@ public class SubscriptionPlanController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.EDIT")]
     public IActionResult Update(
         Guid id,
         [FromBody] UpdateSubscriptionPlanRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
             SubscriptionPlan result =
@@ -104,8 +134,14 @@ public class SubscriptionPlanController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.EDIT")]
     public IActionResult Deactivate(Guid id)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
             _service.Deactivate(id);

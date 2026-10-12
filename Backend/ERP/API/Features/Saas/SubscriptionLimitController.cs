@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
+using Security.Interfaces;
 
 namespace SaaS.API.Controllers;
 
@@ -11,17 +13,25 @@ namespace SaaS.API.Controllers;
 public class SubscriptionLimitController : ControllerBase
 {
     private readonly ISubscriptionLimitService _service;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public SubscriptionLimitController(
-        ISubscriptionLimitService service)
+        ISubscriptionLimitService service,
+        ICurrentUserContext currentUserContext)
     {
         _service = service;
+        _currentUserContext = currentUserContext;
     }
 
     [HttpPost]
+    [RequirePermission("SUBSCRIPTION.EDIT")]
     public IActionResult Create(
         [FromBody] CreateSubscriptionLimitRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
         try
         {
             var result = _service.Create(request);
@@ -48,8 +58,14 @@ public class SubscriptionLimitController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetById(Guid id)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         var result = _service.GetById(id);
 
         if (result == null)
@@ -64,18 +80,30 @@ public class SubscriptionLimitController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetAll()
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         var result = _service.GetAll();
 
         return Ok(result);
     }
 
     [HttpPut("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.EDIT")]
     public IActionResult Update(
         Guid id,
         [FromBody] UpdateSubscriptionLimitRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
             var result = _service.Update(id, request);

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Security.Application.DTOs;
 using Security.Interfaces;
@@ -19,6 +19,7 @@ public class PermissionController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Platform Admin, Security Manager")]
     public async Task<IActionResult> CreatePermission(
         [FromBody] CreatePermissionRequest request)
     {

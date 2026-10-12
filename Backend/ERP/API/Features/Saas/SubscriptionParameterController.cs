@@ -1,26 +1,38 @@
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
+using Security.Interfaces;
 
 namespace SaaS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SubscriptionParameterController : ControllerBase
 {
     private readonly ISubscriptionParameterService _service;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public SubscriptionParameterController(
-        ISubscriptionParameterService service)
+        ISubscriptionParameterService service,
+        ICurrentUserContext currentUserContext)
     {
         _service = service;
+        _currentUserContext = currentUserContext;
     }
 
     [HttpPost]
+    [RequirePermission("SUBSCRIPTION.CREATE")]
     public IActionResult Create(
         [FromBody] CreateSubscriptionParameterRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
         try
         {
             SubscriptionParameter result =
@@ -47,8 +59,14 @@ public class SubscriptionParameterController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetAll()
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         IReadOnlyList<SubscriptionParameter> result =
             _service.GetAll();
 
@@ -56,8 +74,14 @@ public class SubscriptionParameterController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetById(Guid id)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         SubscriptionParameter? result =
             _service.GetById(id);
 
@@ -74,10 +98,16 @@ public class SubscriptionParameterController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.EDIT")]
     public IActionResult Update(
         Guid id,
         [FromBody] UpdateSubscriptionParameterRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
             SubscriptionParameter result =

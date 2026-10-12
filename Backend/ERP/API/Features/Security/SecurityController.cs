@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 
@@ -13,6 +13,9 @@ using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 
 using SecurityLoginRequest = Security.Application.DTOs.LoginRequest;
 
@@ -25,21 +28,21 @@ public class SecurityController : ControllerBase
     private readonly SecurityService _securityService;
     private readonly ITokenService _tokenService;
     private readonly RsaPrivateKeyLoader _keyLoader;
-    private readonly ITenantService _tenantService;
     private readonly IUserService _userService;
+    private readonly IWebHostEnvironment _env;
 
     public SecurityController(
         SecurityService securityService,
         ITokenService tokenService,
         RsaPrivateKeyLoader keyLoader,
-        ITenantService tenantService,
-        IUserService userService)
+        IUserService userService,
+        IWebHostEnvironment env)
     {
         _securityService = securityService;
         _tokenService = tokenService;
         _keyLoader = keyLoader;
-        _tenantService = tenantService;
         _userService = userService;
+        _env = env;
     }
 
     [HttpPost("login")]
@@ -110,6 +113,7 @@ public class SecurityController : ControllerBase
     }
 
     [HttpGet("diagnostic")]
+    [Authorize(Roles = "Platform Admin, Security Manager")]
     public IActionResult RunDiagnostic()
     {
         var results = new List<object>();
@@ -289,6 +293,11 @@ public class SecurityController : ControllerBase
     [HttpGet("jwt-diagnostic")]
     public IActionResult JwtDiagnostic()
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFound();
+        }
+
         try
         {
             Guid userId = Guid.NewGuid();
@@ -342,6 +351,11 @@ public class SecurityController : ControllerBase
         [FromQuery] string username,
         [FromQuery] string password)
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFound();
+        }
+
         if (username != "admin" || password != "123")
         {
             return Unauthorized(new
@@ -388,6 +402,11 @@ public class SecurityController : ControllerBase
     [HttpPost("jwt-wrong-issuer-test")]
     public IActionResult JwtWrongIssuerTest()
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFound();
+        }
+
         Guid userId = Guid.NewGuid();
         Guid tenantId = Guid.NewGuid();
 
@@ -439,22 +458,6 @@ public class SecurityController : ControllerBase
         });
     }
 
-    [HttpPost("tenant-registration-test")]
-    public async Task<IActionResult> TenantRegistrationTest(
-        [FromBody] CreateTenantRequest request)
-    {
-        TenantRegistrationResult result =
-            await _tenantService.RegisterTenant(request);
-
-        return Ok(new
-        {
-            status = "PASS",
-            message = "Tenant registration use case completed",
-            tenant = result.Tenant,
-            subscription = result.Subscription
-        });
-    }
-
     [Authorize]
     [HttpGet("protected-test")]
     public IActionResult ProtectedTest()
@@ -481,7 +484,7 @@ public class SecurityController : ControllerBase
     }
 
     [HttpGet("subscription-view-test")]
-    [Authorize(Policy = "SUBSCRIPTION_VIEW")]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult SubscriptionViewTest()
     {
         return Ok(new
