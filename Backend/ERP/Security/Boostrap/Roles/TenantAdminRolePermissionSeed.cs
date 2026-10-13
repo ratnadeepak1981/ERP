@@ -65,6 +65,14 @@ public static class TenantAdminRolePermissionSeed
             "SALES_ORDER.CONFIRM",
             "SALES_ORDER.CANCEL",
 
+            "SALES_SHIPMENT.VIEW",
+            "SALES_SHIPMENT.CREATE",
+            "SALES_SHIPMENT.EDIT",
+            "SALES_SHIPMENT.DELETE",
+            "SALES_SHIPMENT.DISPATCH",
+            "SALES_SHIPMENT.DELIVER",
+            "SALES_SHIPMENT.CANCEL",
+
             "GRN.VIEW",
             "GRN.CREATE",
             "GRN.EDIT",

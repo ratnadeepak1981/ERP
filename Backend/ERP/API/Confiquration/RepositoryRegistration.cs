@@ -58,6 +58,7 @@ public static class RepositoryRegistration
 
         // Sales
         services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderRepository, Domain.Features.Sales.SalesOrder.SalesOrderRepository>();
+        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentRepository, Domain.Features.Sales.Shipment.SalesShipmentRepository>();
 
         return services;
     }

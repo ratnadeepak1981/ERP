@@ -87,6 +87,7 @@ public static class ServiceRegistration
 
         // Sales
         services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderService, Domain.Features.Sales.SalesOrder.SalesOrderService>();
+        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentService, Domain.Features.Sales.Shipment.SalesShipmentService>();
 
         services.AddHttpContextAccessor();
 

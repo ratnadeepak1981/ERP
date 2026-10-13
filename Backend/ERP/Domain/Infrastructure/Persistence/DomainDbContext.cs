@@ -146,6 +146,12 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.Sales.SalesOrder.SalesOrderItem> SalesOrderItems
         => Set<Domain.Features.Sales.SalesOrder.SalesOrderItem>();
 
+    public DbSet<Domain.Features.Sales.Shipment.SalesShipment> SalesShipments
+        => Set<Domain.Features.Sales.Shipment.SalesShipment>();
+
+    public DbSet<Domain.Features.Sales.Shipment.SalesShipmentItem> SalesShipmentItems
+        => Set<Domain.Features.Sales.Shipment.SalesShipmentItem>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
