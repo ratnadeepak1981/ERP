@@ -85,6 +85,10 @@ public static class ServiceRegistration
         services.AddScoped<ERP.Domain.Features.CRM.IOpportunityService, ERP.Domain.Features.CRM.OpportunityService>();
         services.AddScoped<ERP.Domain.Features.CRM.ICrmActivityService, ERP.Domain.Features.CRM.CrmActivityService>();
 
+        // Sales
+        services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderService, Domain.Features.Sales.SalesOrder.SalesOrderService>();
+        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentService, Domain.Features.Sales.Shipment.SalesShipmentService>();
+
         services.AddHttpContextAccessor();
 
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();

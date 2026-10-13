@@ -140,6 +140,18 @@ public class DomainDbContext : DbContext
     public DbSet<ERP.Domain.Features.CRM.CrmActivity> CrmActivities
         => Set<ERP.Domain.Features.CRM.CrmActivity>();
 
+    public DbSet<Domain.Features.Sales.SalesOrder.SalesOrder> SalesOrders
+        => Set<Domain.Features.Sales.SalesOrder.SalesOrder>();
+
+    public DbSet<Domain.Features.Sales.SalesOrder.SalesOrderItem> SalesOrderItems
+        => Set<Domain.Features.Sales.SalesOrder.SalesOrderItem>();
+
+    public DbSet<Domain.Features.Sales.Shipment.SalesShipment> SalesShipments
+        => Set<Domain.Features.Sales.Shipment.SalesShipment>();
+
+    public DbSet<Domain.Features.Sales.Shipment.SalesShipmentItem> SalesShipmentItems
+        => Set<Domain.Features.Sales.Shipment.SalesShipmentItem>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
