@@ -8,6 +8,7 @@ using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.Supplier;
 using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.Procurement.PurchaseOrder;
+using Domain.Features.Sales.SalesOrder;
 using ERP.Domain.Features.MasterData.Category;
 using ERP.Domain.Features.MasterData.Customer;
 using ERP.Domain.Features.MasterData.Supplier;
@@ -42,6 +43,8 @@ public static class EntityScopePolicy
         [typeof(WarehouseAddress)] = DataScope.Tenant,
         [typeof(PurchaseOrder)] = DataScope.Branch,
         [typeof(PurchaseOrderItem)] = DataScope.ParentTransaction,
+        [typeof(SalesOrder)] = DataScope.Branch,
+        [typeof(SalesOrderItem)] = DataScope.ParentTransaction,
         [typeof(ERP.Domain.Features.CRM.Lead)] = DataScope.Company,
         [typeof(ERP.Domain.Features.CRM.Opportunity)] = DataScope.Company,
         [typeof(ERP.Domain.Features.CRM.CrmActivity)] = DataScope.Company

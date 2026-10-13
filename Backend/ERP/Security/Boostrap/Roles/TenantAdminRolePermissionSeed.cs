@@ -57,6 +57,14 @@ public static class TenantAdminRolePermissionSeed
             "PURCHASE_ORDER.APPROVE",
             "PURCHASE_ORDER.CANCEL",
 
+            "SALES_ORDER.VIEW",
+            "SALES_ORDER.CREATE",
+            "SALES_ORDER.EDIT",
+            "SALES_ORDER.DELETE",
+            "SALES_ORDER.SUBMIT",
+            "SALES_ORDER.CONFIRM",
+            "SALES_ORDER.CANCEL",
+
             "GRN.VIEW",
             "GRN.CREATE",
             "GRN.EDIT",
