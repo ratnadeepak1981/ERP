@@ -8,6 +8,7 @@ public static class TestConstants
     public const string PlatformDbTest = "Server=(localdb)\\MSSQLLocalDB;Database=PlatformDB_Test;Trusted_Connection=True;TrustServerCertificate=True;";
     public const string SecurityDbTest = "Server=(localdb)\\MSSQLLocalDB;Database=SecurityDB_Test;Trusted_Connection=True;TrustServerCertificate=True;";
     public const string DomainDbTest = "Server=(localdb)\\MSSQLLocalDB;Database=DomainDB_Test;Trusted_Connection=True;TrustServerCertificate=True;";
+    public const string AIDbTest = "Server=(localdb)\\MSSQLLocalDB;Database=AIDatabase_Test;Trusted_Connection=True;TrustServerCertificate=True;";
 
     // Tenants
     public static readonly Guid TenantAlphaId = Guid.Parse("11111111-1111-1111-1111-111111111111");

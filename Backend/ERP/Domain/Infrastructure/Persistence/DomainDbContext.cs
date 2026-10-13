@@ -131,6 +131,15 @@ public class DomainDbContext : DbContext
     public DbSet<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance> ProductValuationBalances
         => Set<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance>();
 
+    public DbSet<ERP.Domain.Features.CRM.Lead> Leads
+        => Set<ERP.Domain.Features.CRM.Lead>();
+
+    public DbSet<ERP.Domain.Features.CRM.Opportunity> Opportunities
+        => Set<ERP.Domain.Features.CRM.Opportunity>();
+
+    public DbSet<ERP.Domain.Features.CRM.CrmActivity> CrmActivities
+        => Set<ERP.Domain.Features.CRM.CrmActivity>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {

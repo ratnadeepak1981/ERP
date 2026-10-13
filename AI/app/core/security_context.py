@@ -9,6 +9,8 @@ class SecurityContext:
     tenant_id: str | None
     roles: list[str]
     permissions: list[str]
+    identity_type: str | None = None
+    client_id: str | None = None
 
     @classmethod
     def from_claims(cls, claims: dict[str, Any]):
@@ -34,5 +36,7 @@ class SecurityContext:
             subject=claims.get("sub"),
             tenant_id=claims.get("tenant_id"),
             roles=roles,
-            permissions=permissions
+            permissions=permissions,
+            identity_type=claims.get("identity_type"),
+            client_id=claims.get("client_id")
         )

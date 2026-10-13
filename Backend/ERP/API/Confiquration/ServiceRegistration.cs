@@ -5,6 +5,8 @@ using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.Product;
 using Domain.Infrastructure.Persistence;
 using Domain.Services;
+using ERP.AI.Infrastructure.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using SaaS.Application.Interfaces;
 using SaaS.Application.Services;
 using SaaS.Services;
@@ -17,8 +19,11 @@ namespace API.Configuration;
 public static class ServiceRegistration
 {
     public static IServiceCollection AddApplicationServices(
-        this IServiceCollection services)
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        services.AddAIInfrastructure(configuration);
+
         services.AddScoped<IDomainDatabaseConfiguration, DomainDatabaseConfiguration>();
 
         services.AddScoped<SaaSService>();
@@ -75,6 +80,10 @@ public static class ServiceRegistration
         services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.WeightedAverageValuationStrategy>();
         services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.StandardCostValuationStrategy>();
         services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationService, ERP.Domain.Features.Inventory.Valuation.InventoryValuationService>();
+        services.AddScoped<ERP.Domain.Features.CRM.Deduplication.ICustomerDeduplicationService, ERP.Domain.Features.CRM.Deduplication.CustomerDeduplicationService>();
+        services.AddScoped<ERP.Domain.Features.CRM.ILeadService, ERP.Domain.Features.CRM.LeadService>();
+        services.AddScoped<ERP.Domain.Features.CRM.IOpportunityService, ERP.Domain.Features.CRM.OpportunityService>();
+        services.AddScoped<ERP.Domain.Features.CRM.ICrmActivityService, ERP.Domain.Features.CRM.CrmActivityService>();
 
         services.AddHttpContextAccessor();
 

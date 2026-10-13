@@ -110,7 +110,17 @@ public static class TenantAdminRolePermissionSeed
             "SUPPLIER_PRICE.EDIT",
             "SUPPLIER_PRICE.DELETE",
 
-            "COUNTRY.VIEW"
+            "COUNTRY.VIEW",
+
+            "CRM.LEAD.VIEW",
+            "CRM.LEAD.CREATE",
+            "CRM.LEAD.EDIT",
+            "CRM.LEAD.QUALIFY",
+            "CRM.LEAD.CONVERT",
+            "CRM.OPPORTUNITY.VIEW",
+            "CRM.OPPORTUNITY.MANAGE",
+            "CRM.ACTIVITY.VIEW",
+            "CRM.ACTIVITY.MANAGE"
         };
 
         foreach (var code in permissionCodes)

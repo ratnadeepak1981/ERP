@@ -26,7 +26,7 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // DI
-        builder.Services.AddApplicationServices();
+        builder.Services.AddApplicationServices(builder.Configuration);
         builder.Services.AddApplicationRepositories();
         builder.Services.AddBootstrapServices();
 
