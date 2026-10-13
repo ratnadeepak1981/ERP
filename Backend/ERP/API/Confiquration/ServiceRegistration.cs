@@ -80,6 +80,10 @@ public static class ServiceRegistration
         services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.WeightedAverageValuationStrategy>();
         services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.StandardCostValuationStrategy>();
         services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationService, ERP.Domain.Features.Inventory.Valuation.InventoryValuationService>();
+        services.AddScoped<ERP.Domain.Features.CRM.Deduplication.ICustomerDeduplicationService, ERP.Domain.Features.CRM.Deduplication.CustomerDeduplicationService>();
+        services.AddScoped<ERP.Domain.Features.CRM.ILeadService, ERP.Domain.Features.CRM.LeadService>();
+        services.AddScoped<ERP.Domain.Features.CRM.IOpportunityService, ERP.Domain.Features.CRM.OpportunityService>();
+        services.AddScoped<ERP.Domain.Features.CRM.ICrmActivityService, ERP.Domain.Features.CRM.CrmActivityService>();
 
         services.AddHttpContextAccessor();
 

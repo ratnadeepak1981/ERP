@@ -51,6 +51,11 @@ public static class RepositoryRegistration
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryRepository, ERP.Domain.Features.Inventory.InventoryRepository>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteRepository, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteRepository>();
 
+        // CRM
+        services.AddScoped<ERP.Domain.Features.CRM.ILeadRepository, ERP.Domain.Features.CRM.LeadRepository>();
+        services.AddScoped<ERP.Domain.Features.CRM.IOpportunityRepository, ERP.Domain.Features.CRM.OpportunityRepository>();
+        services.AddScoped<ERP.Domain.Features.CRM.ICrmActivityRepository, ERP.Domain.Features.CRM.CrmActivityRepository>();
+
         return services;
     }
 }

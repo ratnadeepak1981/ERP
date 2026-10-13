@@ -41,7 +41,10 @@ public static class EntityScopePolicy
         [typeof(BranchAddress)] = DataScope.Tenant,
         [typeof(WarehouseAddress)] = DataScope.Tenant,
         [typeof(PurchaseOrder)] = DataScope.Branch,
-        [typeof(PurchaseOrderItem)] = DataScope.ParentTransaction
+        [typeof(PurchaseOrderItem)] = DataScope.ParentTransaction,
+        [typeof(ERP.Domain.Features.CRM.Lead)] = DataScope.Company,
+        [typeof(ERP.Domain.Features.CRM.Opportunity)] = DataScope.Company,
+        [typeof(ERP.Domain.Features.CRM.CrmActivity)] = DataScope.Company
     };
 
     public static DataScope GetScope<T>()
