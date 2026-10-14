@@ -254,7 +254,7 @@ public class ServiceTokenSecurityTests : IClassFixture<TestSecurityFixture>
             var getResponse = await client.GetAsync("/api/ai/credentials/GROQ?environment=Production");
             Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
-            var credData = await getResponse.Content.ReadFromJsonAsync<API.Features.AI.AIProviderCredentialResponse>();
+            var credData = await getResponse.ReadApiResponseDataAsync<API.Features.AI.AIProviderCredentialResponse>();
             Assert.NotNull(credData);
             Assert.Equal("GROQ", credData.ProviderCode);
             Assert.Equal("GROQ_API_KEY", credData.KeyReferenceCode);
@@ -305,7 +305,7 @@ public class ServiceTokenSecurityTests : IClassFixture<TestSecurityFixture>
         var getResponse = await client.GetAsync("/api/ai/credentials/GEMINI?environment=Production");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
-        var credData = await getResponse.Content.ReadFromJsonAsync<API.Features.AI.AIProviderCredentialResponse>();
+        var credData = await getResponse.ReadApiResponseDataAsync<API.Features.AI.AIProviderCredentialResponse>();
         Assert.NotNull(credData);
         Assert.Equal("GEMINI", credData.ProviderCode);
         Assert.Equal("GEMINI_API_KEY", credData.KeyReferenceCode);

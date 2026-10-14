@@ -13,6 +13,7 @@ using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ERP.SecurityTests;
 using Xunit;
 
 namespace ERP.SecurityTests.Sales;
@@ -50,7 +51,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
             });
 
         Assert.Equal(HttpStatusCode.Created, createShipmentRes.StatusCode);
-        var shipment = await createShipmentRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var shipment = await createShipmentRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
         Assert.NotNull(shipment);
         Assert.Equal(shipmentNum, shipment.ShipmentNumber);
         Assert.Equal(SalesShipmentStatus.Draft, shipment.Status);
@@ -66,7 +67,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-shipments/{shipment.Id}/dispatch",
             null);
         Assert.Equal(HttpStatusCode.OK, dispatchRes.StatusCode);
-        var dispatched = await dispatchRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var dispatched = await dispatchRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
         Assert.NotNull(dispatched);
         Assert.Equal(SalesShipmentStatus.Dispatched, dispatched.Status);
         Assert.NotNull(dispatched.DispatchedAt);
@@ -79,7 +80,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
         // Verify parent Sales Order status transitioned to Fulfilled
         var orderRes = await client.GetAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order.Id}");
-        var updatedOrder = await orderRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var updatedOrder = await orderRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.NotNull(updatedOrder);
         Assert.Equal(SalesOrderStatus.Fulfilled, updatedOrder.Status);
 
@@ -88,7 +89,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-shipments/{shipment.Id}/deliver",
             new DeliverShipmentRequest { RecipientName = "Warehouse Manager" });
         Assert.Equal(HttpStatusCode.OK, deliverRes.StatusCode);
-        var delivered = await deliverRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var delivered = await deliverRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
         Assert.NotNull(delivered);
         Assert.Equal(SalesShipmentStatus.Delivered, delivered.Status);
         Assert.Equal("Warehouse Manager", delivered.RecipientName);
@@ -127,7 +128,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 }
             });
         Assert.Equal(HttpStatusCode.Created, sh1Res.StatusCode);
-        var sh1 = await sh1Res.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var sh1 = await sh1Res.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
 
         // Dispatch Shipment 1
         var d1Res = await client.PostAsync(
@@ -138,7 +139,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
         // Order remains Confirmed (not Fulfilled)
         var orderCheck1 = await client.GetAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order.Id}");
-        var o1 = await orderCheck1.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var o1 = await orderCheck1.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.Equal(SalesOrderStatus.Confirmed, o1!.Status);
 
         // Shipment 2: 40 units
@@ -163,7 +164,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 }
             });
         Assert.Equal(HttpStatusCode.Created, sh2Res.StatusCode);
-        var sh2 = await sh2Res.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var sh2 = await sh2Res.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
 
         // Dispatch Shipment 2
         var d2Res = await client.PostAsync(
@@ -205,7 +206,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 DefaultLocationId = loc.WarehouseLocationId
             }); // Omitted Items defaults to remaining 30 units
         Assert.Equal(HttpStatusCode.Created, sh3ValidRes.StatusCode);
-        var sh3 = await sh3ValidRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var sh3 = await sh3ValidRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
         Assert.Equal(30m, sh3!.Items[0].QuantityDispatched);
 
         var d3Res = await client.PostAsync(
@@ -216,7 +217,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
         // Order is now fully Fulfilled
         var orderCheckFinal = await client.GetAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order.Id}");
-        var oFinal = await orderCheckFinal.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var oFinal = await orderCheckFinal.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.Equal(SalesOrderStatus.Fulfilled, oFinal!.Status);
 
         // A 4th attempt to create shipment from fully fulfilled order is rejected
@@ -248,7 +249,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 RecipientName = "Counter Customer"
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var shipment = await createRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var shipment = await createRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
 
         // Direct delivery (skipping separate dispatch step)
         var deliverRes = await client.PostAsJsonAsync(
@@ -256,7 +257,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
             new DeliverShipmentRequest { RecipientName = "Customer Handover" });
         Assert.Equal(HttpStatusCode.OK, deliverRes.StatusCode);
 
-        var delivered = await deliverRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var delivered = await deliverRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
         Assert.NotNull(delivered);
         Assert.Equal(SalesShipmentStatus.Delivered, delivered.Status);
         Assert.NotNull(delivered.DispatchedAt);
@@ -285,7 +286,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 DefaultLocationId = loc.WarehouseLocationId
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var shipment = await createRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var shipment = await createRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
 
         // Dispatch fails due to insufficient inventory
         var dispatchRes = await client.PostAsync(
@@ -337,14 +338,14 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 DefaultWarehouseId = wh.WarehouseId,
                 DefaultLocationId = loc.WarehouseLocationId
             });
-        var shipment = await createRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var shipment = await createRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
 
         // Cancel
         var cancelRes = await client.PostAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-shipments/{shipment!.Id}/cancel",
             null);
         Assert.Equal(HttpStatusCode.OK, cancelRes.StatusCode);
-        var cancelled = await cancelRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var cancelled = await cancelRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
         Assert.Equal(SalesShipmentStatus.Cancelled, cancelled!.Status);
 
         // Cannot dispatch cancelled shipment
@@ -368,7 +369,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 DefaultWarehouseId = wh.WarehouseId,
                 DefaultLocationId = loc.WarehouseLocationId
             });
-        var shipment = await createRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var shipment = await createRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
 
         // 1. User from Tenant Beta attempts to access Tenant Alpha shipment -> Forbidden
         var betaClient = _fixture.CreateAuthenticatedClient(
@@ -402,7 +403,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                 DefaultWarehouseId = wh.WarehouseId,
                 DefaultLocationId = loc.WarehouseLocationId
             });
-        var shipment = await createRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts);
+        var shipment = await createRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts);
 
         // User without SALES_SHIPMENT.DISPATCH
         var viewOnlyClient = _fixture.CreateAuthenticatedClient(
@@ -475,7 +476,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
                     }
                 }
             });
-        var order = await createRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var order = await createRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
 
         // Submit order
         await client.PostAsync(
@@ -487,7 +488,7 @@ public class SalesShipmentWorkflowAndScopeTests : IClassFixture<TestSecurityFixt
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order.Id}/confirm",
             null);
 
-        return (await confRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        return (await confRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
     }
 
     private async Task DepositInventoryAsync(Guid warehouseId, Guid locationId, Guid productId, decimal quantity)

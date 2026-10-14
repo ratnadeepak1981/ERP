@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using API.Common;
 using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +14,7 @@ namespace SaaS.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class SubscriptionPlanController : ControllerBase
+public class SubscriptionPlanController : BaseApiController
 {
     private readonly ISubscriptionPlanService _service;
     private readonly ICurrentUserContext _currentUserContext;
@@ -26,35 +29,21 @@ public class SubscriptionPlanController : ControllerBase
 
     [HttpPost]
     [RequirePermission("SUBSCRIPTION.CREATE")]
-    public IActionResult Create(
-        [FromBody] CreateSubscriptionPlanRequest request)
+    public IActionResult Create([FromBody] CreateSubscriptionPlanRequest request)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
             return Forbid();
         }
+
         try
         {
-            SubscriptionPlan result =
-                _service.Create(request);
-
-            return Ok(result);
+            SubscriptionPlan result = _service.Create(request);
+            return CreatedResponse(nameof(GetById), new { id = result.Id }, result, "Subscription plan created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
@@ -67,10 +56,8 @@ public class SubscriptionPlanController : ControllerBase
             return Forbid();
         }
 
-        IReadOnlyList<SubscriptionPlan> plans =
-            _service.GetAll();
-
-        return Ok(plans);
+        IReadOnlyList<SubscriptionPlan> plans = _service.GetAll();
+        return SuccessResponse(plans);
     }
 
     [HttpGet("{id:guid}")]
@@ -82,26 +69,18 @@ public class SubscriptionPlanController : ControllerBase
             return Forbid();
         }
 
-        SubscriptionPlan? plan =
-            _service.GetById(id);
-
+        SubscriptionPlan? plan = _service.GetById(id);
         if (plan == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Subscription plan not found."
-            });
+            return NotFoundResponse("Subscription plan not found.");
         }
 
-        return Ok(plan);
+        return SuccessResponse(plan);
     }
 
     [HttpPut("{id:guid}")]
     [RequirePermission("SUBSCRIPTION.EDIT")]
-    public IActionResult Update(
-        Guid id,
-        [FromBody] UpdateSubscriptionPlanRequest request)
+    public IActionResult Update(Guid id, [FromBody] UpdateSubscriptionPlanRequest request)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
@@ -110,26 +89,16 @@ public class SubscriptionPlanController : ControllerBase
 
         try
         {
-            SubscriptionPlan result =
-                _service.Update(id, request);
-
-            return Ok(result);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            SubscriptionPlan result = _service.Update(id, request);
+            return SuccessResponse(result, "Subscription plan updated successfully.");
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return NotFoundResponse(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
         }
     }
 
@@ -145,20 +114,15 @@ public class SubscriptionPlanController : ControllerBase
         try
         {
             _service.Deactivate(id);
-
-            return Ok(new
-            {
-                status = "PASS",
-                message = "Subscription plan deactivated."
-            });
+            return SuccessResponse("Subscription plan deactivated.");
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return NotFoundResponse(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
         }
     }
 }

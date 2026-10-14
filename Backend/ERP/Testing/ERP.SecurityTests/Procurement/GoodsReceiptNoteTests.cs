@@ -13,6 +13,7 @@ using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ERP.SecurityTests;
 using Xunit;
 
 namespace ERP.SecurityTests.Procurement;
@@ -57,7 +58,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
             $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/from-po/{po.Id}?grnNumber={grnNum}&warehouseId={wh.WarehouseId}&warehouseLocationId={loc.WarehouseLocationId}",
             null);
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var grnDto = await createRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var grnDto = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
         Assert.NotNull(grnDto);
         Assert.Equal(GoodsReceiptNoteStatus.Draft, grnDto.Status);
         Assert.Single(grnDto.Lines);
@@ -68,7 +69,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
             $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{grnDto.GoodsReceiptNoteId}/confirm",
             null);
         Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
-        var confirmedDto = await confirmRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var confirmedDto = await confirmRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
         Assert.NotNull(confirmedDto);
         Assert.Equal(GoodsReceiptNoteStatus.Confirmed, confirmedDto.Status);
 
@@ -139,7 +140,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
 
         var res1 = await client.PostAsJsonAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes", manualReq1);
         Assert.Equal(HttpStatusCode.Created, res1.StatusCode);
-        var dto1 = await res1.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var dto1 = await res1.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
         var conf1 = await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{dto1!.GoodsReceiptNoteId}/confirm", null);
         Assert.Equal(HttpStatusCode.OK, conf1.StatusCode);
 
@@ -174,7 +175,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
 
         var res2 = await client.PostAsJsonAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes", manualReq2);
         Assert.Equal(HttpStatusCode.Created, res2.StatusCode);
-        var dto2 = await res2.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var dto2 = await res2.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
         var conf2 = await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{dto2!.GoodsReceiptNoteId}/confirm", null);
         Assert.Equal(HttpStatusCode.OK, conf2.StatusCode);
 
@@ -237,7 +238,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
 
         var res = await client.PostAsJsonAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes", manualReq);
         Assert.Equal(HttpStatusCode.Created, res.StatusCode);
-        var dto = await res.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var dto = await res.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
 
         // Confirming must fail with Conflict (409)
         var conf = await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{dto!.GoodsReceiptNoteId}/confirm", null);
@@ -277,7 +278,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         var createRes = await client.PostAsync(
             $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/from-po/{po.Id}?grnNumber={grnNum}&warehouseId={wh.WarehouseId}&warehouseLocationId={loc.WarehouseLocationId}",
             null);
-        var grnDto = await createRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var grnDto = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
 
         // Confirmation 1
         var conf1 = await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{grnDto!.GoodsReceiptNoteId}/confirm", null);
@@ -341,7 +342,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         };
 
         var res = await client.PostAsJsonAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes", manualReq);
-        var dto = await res.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var dto = await res.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
         var conf = await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{dto!.GoodsReceiptNoteId}/confirm", null);
         Assert.Equal(HttpStatusCode.OK, conf.StatusCode);
 
@@ -399,7 +400,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         };
 
         var res = await client.PostAsJsonAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes", manualReq);
-        var dto = await res.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var dto = await res.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
         var conf = await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{dto!.GoodsReceiptNoteId}/confirm", null);
         Assert.Equal(HttpStatusCode.Conflict, conf.StatusCode);
 
@@ -454,7 +455,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         var createRes = await client.PostAsync(
             $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/from-po/{po.Id}?grnNumber={grnNum}&warehouseId={wh.WarehouseId}&warehouseLocationId={loc.WarehouseLocationId}",
             null);
-        var grnDto = await createRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var grnDto = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
 
         await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{grnDto!.GoodsReceiptNoteId}/confirm", null);
 
@@ -496,12 +497,12 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         var createRes = await client.PostAsync(
             $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/from-po/{po.Id}?grnNumber={grnNum}&warehouseId={wh.WarehouseId}&warehouseLocationId={loc.WarehouseLocationId}",
             null);
-        var grnDto = await createRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var grnDto = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
 
         // Cancel the draft
         var cancelRes = await client.PostAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{grnDto!.GoodsReceiptNoteId}/cancel", null);
         Assert.Equal(HttpStatusCode.OK, cancelRes.StatusCode);
-        var cancelledDto = await cancelRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var cancelledDto = await cancelRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
         Assert.Equal(GoodsReceiptNoteStatus.Cancelled, cancelledDto!.Status);
 
         // Verify PO remains untouched
@@ -539,7 +540,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         var createRes = await clientAlpha.PostAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/goods-receipt-notes/from-po/{po.Id}?grnNumber={grnNum}&warehouseId={wh.WarehouseId}&warehouseLocationId={loc.WarehouseLocationId}",
             null);
-        var grnDto = await createRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var grnDto = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
 
         // Tenant Beta Admin attempts to view Tenant Alpha's GRN
         var clientBeta = _fixture.CreateAuthenticatedClient(
@@ -560,7 +561,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
     // Helper methods
     private static async Task<Warehouse> CreateTestWarehouseAsync(DomainDbContext db, Guid tenantId)
     {
-        string code = $"WH_{Guid.NewGuid():N}"[..8];
+        string code = $"WH_{Guid.NewGuid():N}"[..18];
         var wh = Warehouse.Create(tenantId, code, $"Warehouse_{code}", city: "Colombo");
         await db.Warehouses.AddAsync(wh);
         await db.SaveChangesAsync();
@@ -573,7 +574,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         Guid warehouseId,
         string prefix)
     {
-        string code = $"{prefix}_{Guid.NewGuid():N}"[..8];
+        string code = $"{prefix}_{Guid.NewGuid():N}"[..18];
         var loc = WarehouseLocation.Create(
             tenantId,
             warehouseId,
@@ -590,7 +591,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         Guid tenantId,
         TrackingMode trackingMode)
     {
-        string code = $"PRD_{Guid.NewGuid():N}"[..8];
+        string code = $"PRD_{Guid.NewGuid():N}"[..18];
         var cat = await db.Categories.FirstOrDefaultAsync(c => c.TenantId == tenantId);
         Guid catId = cat?.CategoryId ?? Guid.NewGuid();
 
@@ -616,7 +617,7 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         decimal quantity,
         decimal unitPrice)
     {
-        string poNum = $"PO_{Guid.NewGuid():N}"[..10];
+        string poNum = $"PO_{Guid.NewGuid():N}"[..18];
         var po = PurchaseOrder.Create(tenantId, companyId, branchId, poNum);
         po.AddItem(productId, quantity, unitPrice);
         po.AutoApprove();

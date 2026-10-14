@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using API.Common;
 using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,8 +14,7 @@ namespace SaaS.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class SubscriptionPlanParameterController
-    : ControllerBase
+public class SubscriptionPlanParameterController : BaseApiController
 {
     private readonly ISubscriptionPlanParameterService _service;
     private readonly ICurrentUserContext _currentUserContext;
@@ -27,84 +29,57 @@ public class SubscriptionPlanParameterController
 
     [HttpPost]
     [RequirePermission("SUBSCRIPTION.CREATE")]
-    public ActionResult<SubscriptionPlanParameter> Create(
-        CreateSubscriptionPlanParameterRequest request)
+    public IActionResult Create([FromBody] CreateSubscriptionPlanParameterRequest request)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
             return Forbid();
         }
+
         try
         {
-            SubscriptionPlanParameter result =
-                _service.Create(request);
-
-            return Ok(result);
+            SubscriptionPlanParameter result = _service.Create(request);
+            return CreatedResponse(nameof(GetById), new { id = result.Id }, result, "Subscription plan parameter created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
     [HttpGet("{id:guid}")]
     [RequirePermission("SUBSCRIPTION.VIEW")]
-    public ActionResult<SubscriptionPlanParameter> GetById(
-        Guid id)
+    public IActionResult GetById(Guid id)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
             return Forbid();
         }
 
-        SubscriptionPlanParameter? result =
-            _service.GetById(id);
-
+        SubscriptionPlanParameter? result = _service.GetById(id);
         if (result == null)
         {
-            return NotFound(new
-            {
-                message = "Subscription plan parameter was not found."
-            });
+            return NotFoundResponse("Subscription plan parameter was not found.");
         }
 
-        return Ok(result);
+        return SuccessResponse(result);
     }
 
     [HttpGet]
     [RequirePermission("SUBSCRIPTION.VIEW")]
-    public ActionResult<IReadOnlyList<SubscriptionPlanParameter>> GetAll()
+    public IActionResult GetAll()
     {
         if (!_currentUserContext.IsPlatformUser)
         {
             return Forbid();
         }
 
-        return Ok(_service.GetAll());
+        return SuccessResponse(_service.GetAll());
     }
 
     [HttpPut("{id:guid}")]
     [RequirePermission("SUBSCRIPTION.EDIT")]
-    public ActionResult<SubscriptionPlanParameter> Update(
-        Guid id,
-        UpdateSubscriptionPlanParameterRequest request)
+    public IActionResult Update(Guid id, [FromBody] UpdateSubscriptionPlanParameterRequest request)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
@@ -113,24 +88,12 @@ public class SubscriptionPlanParameterController
 
         try
         {
-            SubscriptionPlanParameter result =
-                _service.Update(id, request);
-
-            return Ok(result);
+            SubscriptionPlanParameter result = _service.Update(id, request);
+            return SuccessResponse(result, "Subscription plan parameter updated successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Branch;
 using Microsoft.AspNetCore.Mvc;
@@ -8,11 +13,16 @@ namespace API.Features.Domain;
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches")]
 [RequirePermission("BRANCH.VIEW")]
-public class BranchController : ControllerBase
+public class BranchController : BaseApiController
 {
     private readonly IBranchService _branchService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+
+    private static readonly SortMapping<Branch> _sortMapping = new SortMapping<Branch>()
+        .Add("name", b => b.Name, isDefault: true)
+        .Add("code", b => b.Code)
+        .SetSecondary(b => b.Id);
 
     public BranchController(
         IBranchService branchService,
@@ -26,7 +36,11 @@ public class BranchController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetBranches(
-        Guid companyId)
+        Guid companyId,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser)
         {
@@ -34,33 +48,26 @@ public class BranchController : ControllerBase
         }
 
         var tenantId = _currentUserContext.TenantId;
-
         if (!tenantId.HasValue)
         {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
         }
 
-        var canAccessCompany =
-            await _userAccessService.CanAccessCompanyAsync(
-                _currentUserContext.UserId,
-                tenantId.Value,
-                companyId);
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
 
         if (!canAccessCompany)
         {
             return Forbid();
         }
 
-        var branches =
-            await _branchService.GetBranchesAsync(
-                tenantId.Value,
-                companyId);
+        var branches = await _branchService.GetBranchesAsync(
+            tenantId.Value,
+            companyId);
 
-        return Ok(branches);
+        return PaginateAndSort(branches, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -74,42 +81,31 @@ public class BranchController : ControllerBase
         }
 
         var tenantId = _currentUserContext.TenantId;
-
         if (!tenantId.HasValue)
         {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
         }
 
-        var canAccessCompany =
-            await _userAccessService.CanAccessCompanyAsync(
-                _currentUserContext.UserId,
-                tenantId.Value,
-                companyId);
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
 
         if (!canAccessCompany)
         {
             return Forbid();
         }
 
-        var branch =
-            await _branchService.GetBranchAsync(
-                tenantId.Value,
-                companyId,
-                id);
+        var branch = await _branchService.GetBranchAsync(
+            tenantId.Value,
+            companyId,
+            id);
 
         if (branch == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Branch not found."
-            });
+            return NotFoundResponse("Branch not found.");
         }
 
-        return Ok(branch);
+        return SuccessResponse(branch);
     }
 }
