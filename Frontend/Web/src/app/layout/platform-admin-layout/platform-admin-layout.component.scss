@@ -1,0 +1,36 @@
+@use '../workspace-layout/workspace-layout.component.scss' as ws;
+
+.workspace-shell {
+  @extend .workspace-shell;
+
+  .brand-icon.admin-icon {
+    background: linear-gradient(135deg, #0f548c, #071f32);
+    color: #ffd700;
+  }
+
+  .brand-tag.admin-tag {
+    color: var(--erp-primary);
+    font-weight: 700;
+  }
+
+  .tenant-avatar.admin-avatar {
+    background-color: var(--erp-primary-light);
+    color: var(--erp-primary);
+  }
+
+  .admin-scope-badge {
+    background-color: var(--erp-primary-light);
+    border: 1px solid var(--erp-primary);
+    color: var(--erp-primary);
+
+    .scope-value {
+      color: var(--erp-primary);
+    }
+  }
+
+  .admin-user-avatar {
+    background: linear-gradient(135deg, var(--erp-primary), #071f32);
+    color: #ffffff;
+    font-weight: 700;
+  }
+}

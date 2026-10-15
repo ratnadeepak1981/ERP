@@ -26,6 +26,18 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        // CORS
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
+                      .AllowAnyHeader()
+                      .AllowAnyMethod()
+                      .AllowCredentials();
+            });
+        });
+
         // DI
         builder.Services.AddApplicationServices(builder.Configuration);
         builder.Services.AddApplicationRepositories();
@@ -246,6 +258,7 @@ public class Program
             app.UseSwaggerUI();
         }
 
+        app.UseCors();
         app.UseHttpsRedirection();
 
         app.UseAuthentication();

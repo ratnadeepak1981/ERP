@@ -54,7 +54,7 @@ public class SubscriptionService : ISubscriptionService
         // Only the explicit "FREE" shared plan activates immediately.
         // All other plans (including DEDICATED and commercial paid plans) require onboarding/payment verification
         // and start as PendingPayment.
-        bool isInstantFreePlan = plan.Code.Equals("FREE", StringComparison.OrdinalIgnoreCase);
+        bool isInstantFreePlan = plan.Code.StartsWith("FREE", StringComparison.OrdinalIgnoreCase) || plan.Price == 0;
         SubscriptionStatus initialStatus = isInstantFreePlan 
             ? SubscriptionStatus.Active 
             : SubscriptionStatus.PendingPayment;

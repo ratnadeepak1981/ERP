@@ -30,21 +30,7 @@ public static class SubscriptionRules
             return false;
         }
 
-        return subscriptionType.Equals(
-                   "Free",
-                   StringComparison.OrdinalIgnoreCase)
-               ||
-               subscriptionType.Equals(
-                   "Trial",
-                   StringComparison.OrdinalIgnoreCase)
-               ||
-               subscriptionType.Equals(
-                   "Paid",
-                   StringComparison.OrdinalIgnoreCase)
-               ||
-               subscriptionType.Equals(
-                   "Enterprise",
-                   StringComparison.OrdinalIgnoreCase);
+        return true;
     }
 
     public static bool IsActive(
