@@ -7,6 +7,7 @@ import { LoadingStateComponent } from '../../../../shared/components/loading-sta
 import { ErrorStateComponent } from '../../../../shared/components/error-state/error-state.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { DiagnosticStepResult } from '../../../../core/models/auth.models';
+import { buildApiUrl } from '../../../../core/utils/api-url.util';
 
 interface EndpointTest {
   name: string;
@@ -41,19 +42,19 @@ export class DiagnosticsComponent implements OnInit {
   readonly endpointTests = signal<EndpointTest[]>([
     {
       name: 'Security Engine Status',
-      url: '/api/Security/status',
+      url: buildApiUrl('/Security/status'),
       requirement: 'Anonymous / Public',
       status: 'PENDING'
     },
     {
       name: 'JWT Protected Verification',
-      url: '/api/Security/protected-test',
+      url: buildApiUrl('/Security/protected-test'),
       requirement: '[Authorize] with Bearer Token',
       status: 'PENDING'
     },
     {
       name: 'Platform Admin Role Authorization',
-      url: '/api/Security/platform-admin-test',
+      url: buildApiUrl('/Security/platform-admin-test'),
       requirement: '[Authorize(Roles = "Platform Admin")]',
       status: 'PENDING'
     }

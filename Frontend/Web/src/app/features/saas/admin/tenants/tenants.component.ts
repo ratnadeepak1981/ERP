@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppDataTableComponent } from '../../../../shared/components/data-table/data-table.component';
 import { TableColumn } from '../../../../shared/models/table-column.model';
@@ -19,7 +20,7 @@ export interface TenantRecord {
 @Component({
   selector: 'app-tenants',
   standalone: true,
-  imports: [CommonModule, PageHeaderComponent, AppDataTableComponent, ButtonModule],
+  imports: [CommonModule, RouterLink, PageHeaderComponent, AppDataTableComponent, ButtonModule],
   templateUrl: './tenants.component.html',
   styleUrl: './tenants.component.scss'
 })

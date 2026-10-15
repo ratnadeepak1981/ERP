@@ -94,4 +94,105 @@ public class TenantController : BaseApiController
             return HandleDomainException(ex);
         }
     }
+
+    [HttpGet]
+    [RequirePermission("TENANT.VIEW")]
+    public async Task<IActionResult> GetAll()
+    {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var tenants = await _tenantService.GetTenantListAsync();
+            return SuccessResponse(tenants, "Tenants retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("metrics")]
+    [RequirePermission("TENANT.VIEW")]
+    public async Task<IActionResult> GetMetrics()
+    {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var metrics = await _tenantService.GetTenantMetricsAsync();
+            return SuccessResponse(metrics, "Tenant metrics retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("{tenantId:guid}")]
+    [RequirePermission("TENANT.VIEW")]
+    public async Task<IActionResult> GetById([FromRoute] Guid tenantId)
+    {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        if (tenantId == Guid.Empty)
+        {
+            return BadRequestResponse("Valid Tenant Identifier is required.");
+        }
+
+        try
+        {
+            var tenant = await _tenantService.GetTenantDetailsAsync(tenantId);
+            if (tenant == null)
+            {
+                return NotFoundResponse($"Tenant with ID '{tenantId}' was not found.");
+            }
+
+            return SuccessResponse(tenant, "Tenant details retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("{tenantId:guid}/status")]
+    [HttpGet("{tenantId:guid}/provisioning-status")]
+    [RequirePermission("TENANT.VIEW")]
+    public async Task<IActionResult> GetStatus([FromRoute] Guid tenantId)
+    {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        if (tenantId == Guid.Empty)
+        {
+            return BadRequestResponse("Valid Tenant Identifier is required.");
+        }
+
+        try
+        {
+            var status = await _tenantService.GetTenantStatusAsync(tenantId);
+            if (status == null)
+            {
+                return NotFoundResponse($"Tenant with ID '{tenantId}' was not found.");
+            }
+
+            return SuccessResponse(status, "Tenant lifecycle status retrieved successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
 }

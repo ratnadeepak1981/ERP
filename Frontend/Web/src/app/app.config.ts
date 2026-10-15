@@ -6,7 +6,7 @@ import { providePrimeNG } from 'primeng/config';
 import { definePreset } from '@primeng/themes';
 import Aura from '@primeng/themes/aura';
 import { routes } from './app.routes';
-import { authInterceptor } from './core/intercepters/auth.interceptor';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 // Clean Enterprise Theme Preset extending PrimeNG Aura
 export const CleanEnterprisePreset = definePreset(Aura, {

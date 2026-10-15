@@ -22,7 +22,7 @@
       </div>
     }
 
-    <form (ngSubmit)="onLogin()" class="login-form">
+    <form (ngSubmit)="onLogin($event)" class="login-form">
       <div class="form-field">
         <label for="email">Work Email</label>
         <input

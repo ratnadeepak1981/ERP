@@ -9,6 +9,7 @@ import {
   ApiResponse,
   DiagnosticStepResult
 } from '../models/auth.models';
+import { buildApiUrl } from '../utils/api-url.util';
 
 const SESSION_STORAGE_KEY = 'apex_erp_session';
 
@@ -84,7 +85,7 @@ export class AuthService {
 
   login(credentials: LoginRequest): Observable<ApiResponse<LoginResponse>> {
     return this.http
-      .post<ApiResponse<LoginResponse>>('/api/Security/login', {
+      .post<ApiResponse<LoginResponse>>(buildApiUrl('/Security/login'), {
         email: credentials.email.trim(),
         password: credentials.password
       })
@@ -112,7 +113,7 @@ export class AuthService {
 
   loginTest(username = 'admin', password = '123'): Observable<ApiResponse<any>> {
     return this.http
-      .post<ApiResponse<any>>(`/api/Security/login-test?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, null)
+      .post<ApiResponse<any>>(buildApiUrl(`/Security/login-test?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`), null)
       .pipe(
         tap(response => {
           if (response?.succeeded && response.data) {
@@ -122,7 +123,7 @@ export class AuthService {
               username: data.username || username,
               email: `${username}@platform.local`,
               tenantId: data.tenantId || null,
-              roles: data.roles || ['TenantAdmin'],
+              roles: data.roles || ['Tenant Admin'],
               permissions: data.permissions || ['Product.Read', 'Product.Write'],
               token: data.token
             };
@@ -153,18 +154,18 @@ export class AuthService {
   }
 
   checkProtectedTest(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>('/api/Security/protected-test');
+    return this.http.get<ApiResponse<any>>(buildApiUrl('/Security/protected-test'));
   }
 
   checkPlatformAdminTest(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>('/api/Security/platform-admin-test');
+    return this.http.get<ApiResponse<any>>(buildApiUrl('/Security/platform-admin-test'));
   }
 
   getSecurityStatus(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>('/api/Security/status');
+    return this.http.get<ApiResponse<any>>(buildApiUrl('/Security/status'));
   }
 
   runDiagnostic(): Observable<ApiResponse<DiagnosticStepResult[]>> {
-    return this.http.get<ApiResponse<DiagnosticStepResult[]>>('/api/Security/diagnostic');
+    return this.http.get<ApiResponse<DiagnosticStepResult[]>>(buildApiUrl('/Security/diagnostic'));
   }
 }
