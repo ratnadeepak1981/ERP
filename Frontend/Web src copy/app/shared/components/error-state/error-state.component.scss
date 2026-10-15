@@ -1,0 +1,35 @@
+.erp-error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--erp-space-8) var(--erp-space-4);
+  text-align: center;
+
+  .error-icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--erp-radius-pill);
+    background: var(--erp-danger-bg);
+    color: var(--erp-danger);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: var(--erp-space-3);
+  }
+
+  .error-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: var(--erp-space-2);
+    color: var(--erp-danger);
+  }
+
+  .error-message {
+    font-size: 13.5px;
+    color: var(--erp-text-secondary);
+    max-width: 440px;
+    margin-bottom: var(--erp-space-4);
+  }
+}

@@ -48,27 +48,17 @@ public class SubscriptionPlanController : BaseApiController
     }
 
     [HttpGet]
-    [RequirePermission("SUBSCRIPTION.VIEW")]
+    [AllowAnonymous]
     public IActionResult GetAll()
     {
-        if (!_currentUserContext.IsPlatformUser)
-        {
-            return Forbid();
-        }
-
         IReadOnlyList<SubscriptionPlan> plans = _service.GetAll();
         return SuccessResponse(plans);
     }
 
     [HttpGet("{id:guid}")]
-    [RequirePermission("SUBSCRIPTION.VIEW")]
+    [AllowAnonymous]
     public IActionResult GetById(Guid id)
     {
-        if (!_currentUserContext.IsPlatformUser)
-        {
-            return Forbid();
-        }
-
         SubscriptionPlan? plan = _service.GetById(id);
         if (plan == null)
         {

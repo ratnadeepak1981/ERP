@@ -30,15 +30,10 @@ public class TenantController : BaseApiController
     }
 
     [HttpPost("tenant-registration-test")]
-    [RequirePermission("TENANT.CREATE")]
+    [AllowAnonymous]
     public async Task<IActionResult> TenantRegistrationTest(
         [FromBody] CreateTenantRequest request)
     {
-        if (!_currentUserContext.IsPlatformUser)
-        {
-            return Forbid();
-        }
-
         try
         {
             TenantRegistrationResult result =
@@ -66,6 +61,10 @@ public class TenantController : BaseApiController
                     isActive = result.Subscription.IsActive
                 }
             }, "Tenant registration use case completed");
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            return ConflictResponse("A tenant with this organization name already exists. Please choose a different name.");
         }
         catch (Exception ex)
         {

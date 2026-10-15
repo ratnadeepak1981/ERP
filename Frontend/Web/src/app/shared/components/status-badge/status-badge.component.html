@@ -1,0 +1,6 @@
+<span class="erp-badge" [ngClass]="['severity-' + displaySeverity(), 'size-' + size()]">
+  @if (icon()) {
+    <i [class]="icon()" class="badge-icon"></i>
+  }
+  <span class="badge-label">{{ displayLabel() }}</span>
+</span>
