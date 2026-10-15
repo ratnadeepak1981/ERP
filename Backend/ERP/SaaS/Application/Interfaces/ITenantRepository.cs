@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage;
 using SaaS.Core.Models;
 
 namespace SaaS.Application.Interfaces;
@@ -20,4 +20,12 @@ public interface ITenantRepository
 
     Task RollbackTransactionAsync(
         IDbContextTransaction transaction);
+
+    Task<List<SaaS.Application.DTOs.TenantQueueItemDto>> GetTenantListAsync();
+
+    Task<SaaS.Application.DTOs.TenantDetailsDto?> GetTenantDetailsAsync(Guid tenantId);
+
+    Task<SaaS.Application.DTOs.TenantLifecycleStatusDto?> GetTenantStatusAsync(Guid tenantId);
+
+    Task<SaaS.Application.DTOs.TenantMetricsDto> GetTenantMetricsAsync();
 }

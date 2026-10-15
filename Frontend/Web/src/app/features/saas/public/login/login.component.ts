@@ -6,6 +6,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { sanitizeReturnUrl } from '../../../../core/utils/return-url.util';
 
 @Component({
   selector: 'app-login',
@@ -34,7 +35,10 @@ export class LoginComponent implements OnInit {
     }
   }
 
-  onLogin(): void {
+  onLogin(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+    }
     if (!this.email || !this.password) {
       this.errorMessage.set('Please provide both email and password.');
       return;
@@ -87,9 +91,10 @@ export class LoginComponent implements OnInit {
   }
 
   private navigateAfterLogin(): void {
-    const intended = this.returnUrl();
-    if (intended && !intended.startsWith('/login') && !intended.startsWith('/access-denied')) {
-      this.router.navigateByUrl(intended);
+    const rawReturnUrl = this.returnUrl();
+    const safeUrl = sanitizeReturnUrl(rawReturnUrl);
+    if (safeUrl) {
+      this.router.navigateByUrl(safeUrl);
       return;
     }
 

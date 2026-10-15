@@ -19,6 +19,20 @@ export const adminRoutes: Routes = [
       import('./tenants/tenants.component').then(m => m.TenantsComponent)
   },
   {
+    path: 'tenants/provisioning',
+    loadComponent: () =>
+      import('./tenant-provisioning/tenant-provisioning.component').then(
+        m => m.TenantProvisioningComponent
+      )
+  },
+  {
+    path: 'tenants/:tenantId/provisioning',
+    loadComponent: () =>
+      import('./tenant-provisioning/tenant-provisioning.component').then(
+        m => m.TenantProvisioningComponent
+      )
+  },
+  {
     path: 'diagnostics',
     loadComponent: () =>
       import('./diagnostics/diagnostics.component').then(m => m.DiagnosticsComponent)

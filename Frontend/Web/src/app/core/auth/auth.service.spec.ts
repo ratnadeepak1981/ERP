@@ -78,4 +78,26 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
     expect(service.token()).toBeNull();
   });
+
+  it('should assign canonical "Tenant Admin" role during test-login fallback and recognize isTenantAdmin', () => {
+    service.loginTest('tenantadmin', 'pass').subscribe(res => {
+      expect(res.succeeded).toBe(true);
+      expect(service.isAuthenticated()).toBe(true);
+      expect(service.isTenantAdmin()).toBe(true);
+      expect(service.roles()).toContain('Tenant Admin');
+    });
+
+    const req = httpMock.expectOne('/api/Security/login-test?username=tenantadmin&password=pass');
+    expect(req.request.method).toBe('POST');
+    // Flush response without explicit roles array to exercise the fallback default
+    req.flush({
+      succeeded: true,
+      message: 'Test login success',
+      data: {
+        userId: 'tenant-user-1',
+        token: 'mock-tenant-jwt'
+      },
+      errors: []
+    });
+  });
 });
