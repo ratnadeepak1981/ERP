@@ -34,8 +34,7 @@ public class TenantIsolationTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var json = await response.Content.ReadAsStringAsync();
-        var products = JsonSerializer.Deserialize<List<ProductDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var products = await response.ReadApiResponseDataAsync<List<ProductDto>>();
 
         Assert.NotNull(products);
         Assert.Contains(products, p => p.ProductId == TestConstants.ProductAlphaId);
@@ -59,8 +58,7 @@ public class TenantIsolationTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var json = await response.Content.ReadAsStringAsync();
-        var products = JsonSerializer.Deserialize<List<ProductDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var products = await response.ReadApiResponseDataAsync<List<ProductDto>>();
 
         Assert.NotNull(products);
         Assert.Contains(products, p => p.ProductId == TestConstants.ProductBetaId);
@@ -133,7 +131,7 @@ public class TenantIsolationTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var created = await response.Content.ReadFromJsonAsync<ProductDto>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.ReadApiResponseDataAsync<ProductDto>();
         Assert.NotNull(created);
         Assert.Equal(TestConstants.TenantAlphaId, created.TenantId);
 

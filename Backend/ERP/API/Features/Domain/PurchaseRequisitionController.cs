@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseRequisition;
@@ -11,11 +14,18 @@ namespace API.Features.Domain;
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches/{branchId:guid}/purchase-requisitions")]
 [RequirePermission("PURCHASE_REQUISITION.VIEW")]
-public class PurchaseRequisitionController : ControllerBase
+public class PurchaseRequisitionController : BaseApiController
 {
     private readonly IPurchaseRequisitionService _requisitionService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+
+    private static readonly SortMapping<PurchaseRequisition> _sortMapping = new SortMapping<PurchaseRequisition>()
+        .Add("requisitionNumber", r => r.RequisitionNumber, isDefault: true)
+        .Add("requisitionDate", r => r.RequisitionDate)
+        .Add("totalAmount", r => r.TotalAmount)
+        .Add("status", r => r.Status)
+        .SetSecondary(r => r.Id);
 
     public PurchaseRequisitionController(
         IPurchaseRequisitionService requisitionService,
@@ -28,13 +38,19 @@ public class PurchaseRequisitionController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetRequisitions(Guid companyId, Guid branchId)
+    public async Task<IActionResult> GetRequisitions(
+        Guid companyId,
+        Guid branchId,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         var requisitions = await _requisitionService.GetRequisitionsAsync(authResult.TenantId, companyId, branchId);
-        return Ok(requisitions);
+        return PaginateAndSort(requisitions, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -46,10 +62,10 @@ public class PurchaseRequisitionController : ControllerBase
         var requisition = await _requisitionService.GetRequisitionAsync(authResult.TenantId, companyId, branchId, id);
         if (requisition == null)
         {
-            return NotFound(new { status = "FAIL", message = "Purchase requisition not found in the authorized scope." });
+            return NotFoundResponse("Purchase requisition not found in the authorized scope.");
         }
 
-        return Ok(requisition);
+        return SuccessResponse(requisition);
     }
 
     [HttpPost]
@@ -72,18 +88,14 @@ public class PurchaseRequisitionController : ControllerBase
                 _currentUserContext.UserId,
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
-            return CreatedAtAction(
+            return CreatedResponse(
                 nameof(GetRequisition),
                 new { companyId, branchId, id = requisition.Id },
                 requisition);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -107,19 +119,11 @@ public class PurchaseRequisitionController : ControllerBase
                 requisitionId,
                 request);
 
-            return Ok(item);
+            return SuccessResponse(item, "Item added to purchase requisition successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -143,15 +147,11 @@ public class PurchaseRequisitionController : ControllerBase
                 _currentUserContext.UserId,
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
-            return Ok(requisition);
+            return SuccessResponse(requisition, "Purchase requisition submitted successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -177,15 +177,11 @@ public class PurchaseRequisitionController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks);
 
-            return Ok(requisition);
+            return SuccessResponse(requisition, "Purchase requisition approved successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -211,19 +207,11 @@ public class PurchaseRequisitionController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks ?? string.Empty);
 
-            return Ok(requisition);
+            return SuccessResponse(requisition, "Purchase requisition rejected successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -249,15 +237,11 @@ public class PurchaseRequisitionController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks);
 
-            return Ok(requisition);
+            return SuccessResponse(requisition, "Purchase requisition cancelled successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -279,11 +263,11 @@ public class PurchaseRequisitionController : ControllerBase
                 branchId,
                 requisitionId);
 
-            return Ok(history);
+            return SuccessResponse(history);
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -299,11 +283,7 @@ public class PurchaseRequisitionController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(

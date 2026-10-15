@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseOrder;
 using Domain.Features.Procurement.PurchaseRequisition;
+using ERP.SecurityTests;
 using Xunit;
 
 namespace ERP.SecurityTests.Procurement;
@@ -87,7 +88,7 @@ public class ProcurementWorkflowIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders",
             createReq);
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var createdOrder = await createRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
+        var createdOrder = await createRes.ReadApiResponseDataAsync<PurchaseOrderResponseDto>(_jsonOpts);
         Assert.NotNull(createdOrder);
         var orderId = createdOrder.Id;
 
@@ -96,7 +97,7 @@ public class ProcurementWorkflowIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{orderId}/submit",
             null);
         Assert.Equal(HttpStatusCode.OK, submitRes.StatusCode);
-        var submittedOrder = await submitRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
+        var submittedOrder = await submitRes.ReadApiResponseDataAsync<PurchaseOrderResponseDto>(_jsonOpts);
         Assert.Equal(PurchaseOrderStatus.Submitted, submittedOrder!.Status);
 
         // 3. Creator tries to approve own PO (even if given APPROVE permission) -> Prohibited / Conflict
@@ -124,14 +125,14 @@ public class ProcurementWorkflowIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{orderId}/approve",
             new ApprovalDecisionRequest { Remarks = "Approved by Company GM" });
         Assert.Equal(HttpStatusCode.OK, approveRes.StatusCode);
-        var approvedOrder = await approveRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
+        var approvedOrder = await approveRes.ReadApiResponseDataAsync<PurchaseOrderResponseDto>(_jsonOpts);
         Assert.Equal(PurchaseOrderStatus.Approved, approvedOrder!.Status);
 
         // 5. Verify Approval History
         var historyRes = await clientCompanyGM.GetAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{orderId}/approval-history");
         Assert.Equal(HttpStatusCode.OK, historyRes.StatusCode);
-        var history = await historyRes.Content.ReadFromJsonAsync<List<ApprovalAuditRecordDto>>(_jsonOpts);
+        var history = await historyRes.ReadApiResponseDataAsync<List<ApprovalAuditRecordDto>>(_jsonOpts);
         Assert.NotNull(history);
         Assert.Equal(2, history.Count); // Submitted + Approved
         Assert.False(history[0].IsAutomated);
@@ -172,20 +173,20 @@ public class ProcurementWorkflowIntegrationTests : IClassFixture<TestSecurityFix
                         new() { ProductId = TestConstants.ProductAlphaId, Quantity = 2, UnitPrice = 15m }
                     }
                 });
-            var order = await createRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
+            var order = await createRes.ReadApiResponseDataAsync<PurchaseOrderResponseDto>(_jsonOpts);
 
             // Submit -> Should immediately AutoApprove
             var submitRes = await clientUser.PostAsync(
                 $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{order!.Id}/submit",
                 null);
             Assert.Equal(HttpStatusCode.OK, submitRes.StatusCode);
-            var submittedOrder = await submitRes.Content.ReadFromJsonAsync<PurchaseOrderResponseDto>(_jsonOpts);
+            var submittedOrder = await submitRes.ReadApiResponseDataAsync<PurchaseOrderResponseDto>(_jsonOpts);
             Assert.Equal(PurchaseOrderStatus.Approved, submittedOrder!.Status);
 
             // Verify history shows automated approval
             var historyRes = await clientUser.GetAsync(
                 $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-orders/{order.Id}/approval-history");
-            var history = await historyRes.Content.ReadFromJsonAsync<List<ApprovalAuditRecordDto>>(_jsonOpts);
+            var history = await historyRes.ReadApiResponseDataAsync<List<ApprovalAuditRecordDto>>(_jsonOpts);
             Assert.NotNull(history);
             Assert.Single(history);
             Assert.True(history[0].IsAutomated);
@@ -238,7 +239,7 @@ public class ProcurementWorkflowIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-requisitions",
             createReq);
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var createdPR = await createRes.Content.ReadFromJsonAsync<PurchaseRequisitionResponseDto>(_jsonOpts);
+        var createdPR = await createRes.ReadApiResponseDataAsync<PurchaseRequisitionResponseDto>(_jsonOpts);
         Assert.NotNull(createdPR);
         Assert.Equal(50m, createdPR.TotalAmount);
 
@@ -266,7 +267,7 @@ public class ProcurementWorkflowIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/purchase-requisitions/{createdPR.Id}/reject",
             new ApprovalDecisionRequest { Remarks = "Budget exhausted for this quarter." });
         Assert.Equal(HttpStatusCode.OK, rejectValid.StatusCode);
-        var rejectedPR = await rejectValid.Content.ReadFromJsonAsync<PurchaseRequisitionResponseDto>(_jsonOpts);
+        var rejectedPR = await rejectValid.ReadApiResponseDataAsync<PurchaseRequisitionResponseDto>(_jsonOpts);
         Assert.Equal(PurchaseRequisitionStatus.Rejected, rejectedPR!.Status);
 
         // 5. Branch A1 user tries to query Company B -> Forbidden

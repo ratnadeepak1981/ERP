@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using ERP.Domain.Features.CRM;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +14,20 @@ namespace API.Features.Domain.CRM;
 [ApiController]
 [Route("api/companies/{companyId:guid}/crm/activities")]
 [RequirePermission("CRM.ACTIVITY.VIEW")]
-public class CrmActivityController : ControllerBase
+public class CrmActivityController : BaseApiController
 {
     private readonly ICrmActivityService _activityService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
     private readonly global::Domain.Features.MasterData.Company.ICompanyRepository _companyRepository;
+
+    private static readonly SortMapping<CrmActivityDto> _sortMapping = new SortMapping<CrmActivityDto>()
+        .Add("subject", a => a.Subject, isDefault: true)
+        .Add("activityType", a => a.ActivityType)
+        .Add("dueDate", a => a.DueDate ?? DateTime.MaxValue)
+        .Add("createdAt", a => a.CreatedAt)
+        .Add("isCompleted", a => a.IsCompleted)
+        .SetSecondary(a => a.CrmActivityId);
 
     public CrmActivityController(
         ICrmActivityService activityService,
@@ -39,6 +49,10 @@ public class CrmActivityController : ControllerBase
         [FromQuery] Guid? opportunityId = null,
         [FromQuery] Guid? customerId = null,
         [FromQuery] bool? isCompleted = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
@@ -54,7 +68,7 @@ public class CrmActivityController : ControllerBase
             isCompleted,
             cancellationToken);
 
-        return Ok(activities);
+        return PaginateAndSort(activities, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -74,7 +88,7 @@ public class CrmActivityController : ControllerBase
 
         if (activity == null)
         {
-            return NotFound(new { status = "FAIL", message = "CRM activity not found in the authorized scope." });
+            return NotFoundResponse("CRM activity not found in the authorized scope.");
         }
 
         if (activity.BranchId.HasValue)
@@ -83,7 +97,7 @@ public class CrmActivityController : ControllerBase
             if (branchAuth.Action != null) return branchAuth.Action;
         }
 
-        return Ok(activity);
+        return SuccessResponse(activity);
     }
 
     [HttpPost]
@@ -104,15 +118,11 @@ public class CrmActivityController : ControllerBase
                 request,
                 cancellationToken);
 
-            return CreatedAtAction(nameof(GetActivityById), new { companyId, id = activity.CrmActivityId }, activity);
+            return CreatedResponse(nameof(GetActivityById), new { companyId, id = activity.CrmActivityId }, activity, "CRM activity created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -136,15 +146,11 @@ public class CrmActivityController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(activity);
+            return SuccessResponse(activity, "CRM activity updated successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -168,15 +174,11 @@ public class CrmActivityController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(activity);
+            return SuccessResponse(activity, "CRM activity completed successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -190,11 +192,7 @@ public class CrmActivityController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var company = await _companyRepository.GetByIdAsync(tenantId.Value, companyId);

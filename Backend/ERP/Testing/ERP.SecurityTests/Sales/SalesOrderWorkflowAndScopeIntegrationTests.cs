@@ -9,6 +9,7 @@ using Domain.Features.Sales.SalesOrder;
 using Domain.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ERP.SecurityTests;
 using Xunit;
 
 namespace ERP.SecurityTests.Sales;
@@ -60,7 +61,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var created = await response.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var created = await response.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.NotNull(created);
         Assert.Equal(uniqueOrderNum, created.OrderNumber);
         Assert.Equal(SalesOrderStatus.Draft, created.Status);
@@ -178,7 +179,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
             request);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var created = await response.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var created = await response.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.NotNull(created);
         Assert.Null(created.OpportunityId);
         Assert.Equal(100.00m, created.TotalAmount);
@@ -327,7 +328,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
                 CustomerId = TestConstants.CustomerAlphaId
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var order = await createRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var order = await createRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.NotNull(order);
         Assert.Equal(SalesOrderStatus.Draft, order.Status);
 
@@ -349,7 +350,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order.Id}/submit",
             null);
         Assert.Equal(HttpStatusCode.OK, submitRes.StatusCode);
-        var submittedOrder = await submitRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var submittedOrder = await submitRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.NotNull(submittedOrder);
         Assert.Equal(SalesOrderStatus.Submitted, submittedOrder.Status);
 
@@ -369,7 +370,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order.Id}/confirm",
             new SalesOrderDecisionRequest { Remarks = "Approved by branch manager" });
         Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
-        var confirmedOrder = await confirmRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var confirmedOrder = await confirmRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.NotNull(confirmedOrder);
         Assert.Equal(SalesOrderStatus.Confirmed, confirmedOrder.Status);
 
@@ -378,7 +379,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order.Id}/cancel",
             new SalesOrderDecisionRequest { Remarks = "Customer requested cancellation" });
         Assert.Equal(HttpStatusCode.OK, cancelRes.StatusCode);
-        var cancelledOrder = await cancelRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var cancelledOrder = await cancelRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
         Assert.NotNull(cancelledOrder);
         Assert.Equal(SalesOrderStatus.Cancelled, cancelledOrder.Status);
     }
@@ -407,7 +408,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
                 }
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var order = await createRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var order = await createRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
 
         var confirmRes = await client.PostAsJsonAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order!.Id}/confirm",
@@ -447,7 +448,7 @@ public class SalesOrderWorkflowAndScopeIntegrationTests : IClassFixture<TestSecu
                 }
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var order = await createRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts);
+        var order = await createRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts);
 
         var confirmRes = await client.PostAsJsonAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-orders/{order!.Id}/confirm",

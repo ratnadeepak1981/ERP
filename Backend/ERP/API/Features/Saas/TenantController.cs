@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+using API.Common;
 using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +13,7 @@ namespace SaaS.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class TenantController : ControllerBase
+public class TenantController : BaseApiController
 {
     private readonly ITenantService _tenantService;
     private readonly ITenantProvisioningService _tenantProvisioningService;
@@ -35,41 +38,45 @@ public class TenantController : ControllerBase
         {
             return Forbid();
         }
-        TenantRegistrationResult result =
-            await _tenantService.RegisterTenant(request);
 
-        return Ok(new
+        try
         {
-            status = "PASS",
-            message = "Tenant registration use case completed",
+            TenantRegistrationResult result =
+                await _tenantService.RegisterTenant(request);
 
-            tenant = new
+            return SuccessResponse(new
             {
-                id = result.Tenant.Id,
-                name = result.Tenant.Name,
-                code = result.Tenant.Code,
-                isActive = result.Tenant.IsActive
-            },
-
-            subscription = new
-            {
-                id = result.Subscription.Id,
-                tenantId = result.Subscription.TenantId,
-                subscriptionPlanId = result.Subscription.SubscriptionPlanId,
-                subscriptionName = result.Subscription.SubscriptionName,
-                subscriptionType = result.Subscription.SubscriptionType,
-                storageMode = result.Subscription.StorageMode,
-                startDate = result.Subscription.StartDate,
-                endDate = result.Subscription.EndDate,
-                isActive = result.Subscription.IsActive
-            }
-        });
+                tenant = new
+                {
+                    id = result.Tenant.Id,
+                    name = result.Tenant.Name,
+                    code = result.Tenant.Code,
+                    isActive = result.Tenant.IsActive
+                },
+                subscription = new
+                {
+                    id = result.Subscription.Id,
+                    tenantId = result.Subscription.TenantId,
+                    subscriptionPlanId = result.Subscription.SubscriptionPlanId,
+                    subscriptionName = result.Subscription.SubscriptionName,
+                    subscriptionType = result.Subscription.SubscriptionType,
+                    storageMode = result.Subscription.StorageMode,
+                    startDate = result.Subscription.StartDate,
+                    endDate = result.Subscription.EndDate,
+                    isActive = result.Subscription.IsActive
+                }
+            }, "Tenant registration use case completed");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
     }
 
     [HttpPost("provision")]
     [RequirePermission("TENANT.CREATE")]
     public async Task<IActionResult> Provision(
-    [FromBody] TenantProvisioningRequest request)
+        [FromBody] TenantProvisioningRequest request)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
@@ -81,23 +88,11 @@ public class TenantController : ControllerBase
             TenantProvisioningResult result =
                 await _tenantProvisioningService.ProvisionTenant(request);
 
-            return Ok(result);
+            return SuccessResponse(result, "Tenant provisioned successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

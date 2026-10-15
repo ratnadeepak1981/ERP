@@ -1,20 +1,17 @@
+using API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SaaS.Application.DTOs;
-using SaaS.Application.Interfaces;
 using SaaS.Services;
-using System.Security.Claims;
 
 namespace API.Features.SaaS;
 
 [ApiController]
 [Route("api/[controller]")]
-public class SaaSController : ControllerBase
+public class SaaSController : BaseApiController
 {
     private readonly SaaSService _saasService;
 
-    public SaaSController(
-        SaaSService saasService)
+    public SaaSController(SaaSService saasService)
     {
         _saasService = saasService;
     }
@@ -22,6 +19,6 @@ public class SaaSController : ControllerBase
     [HttpGet("status")]
     public IActionResult GetStatus()
     {
-        return Ok(_saasService.GetStatus());
+        return SuccessResponse(_saasService.GetStatus());
     }
 }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Supplier;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,15 @@ namespace API.Features.MasterData.Supplier;
 [ApiController]
 [Route("api/supplier-prices")]
 [RequirePermission("SUPPLIER_PRICE.VIEW")]
-public class SupplierProductPriceController : ControllerBase
+public class SupplierProductPriceController : BaseApiController
 {
     private readonly ISupplierProductPriceService _priceService;
     private readonly ICurrentUserContext _currentUserContext;
+
+    private static readonly SortMapping<SupplierProductPrice> _sortMapping = new SortMapping<SupplierProductPrice>()
+        .Add("unitPrice", p => p.UnitPrice, isDefault: true)
+        .Add("effectiveFrom", p => p.EffectiveFrom)
+        .SetSecondary(p => p.SupplierProductPriceId);
 
     public SupplierProductPriceController(
         ISupplierProductPriceService priceService,
@@ -25,15 +32,21 @@ public class SupplierProductPriceController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetPrices([FromQuery] Guid? supplierId, [FromQuery] Guid? productId)
+    public async Task<IActionResult> GetPrices(
+        [FromQuery] Guid? supplierId,
+        [FromQuery] Guid? productId,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var prices = await _priceService.GetPricesAsync(tenantId.Value, supplierId, productId);
-        return Ok(prices);
+        return PaginateAndSort(prices, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,13 +55,13 @@ public class SupplierProductPriceController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var price = await _priceService.GetPriceAsync(tenantId.Value, id);
         if (price == null)
-            return NotFound(new { status = "FAIL", message = "Supplier product price card not found." });
+            return NotFoundResponse("Supplier product price card not found.");
 
-        return Ok(price);
+        return SuccessResponse(price);
     }
 
     [HttpPost]
@@ -58,20 +71,16 @@ public class SupplierProductPriceController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var price = await _priceService.CreatePriceAsync(tenantId.Value, request);
-            return CreatedAtAction(nameof(GetPrice), new { id = price.SupplierProductPriceId }, price);
+            return CreatedResponse(nameof(GetPrice), new { id = price.SupplierProductPriceId }, price);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -82,24 +91,16 @@ public class SupplierProductPriceController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var price = await _priceService.UpdatePriceAsync(tenantId.Value, id, request);
-            return Ok(price);
+            return SuccessResponse(price);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier product price card not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -110,16 +111,16 @@ public class SupplierProductPriceController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _priceService.DeactivatePriceAsync(tenantId.Value, id);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier product price card not found." });
+            return HandleDomainException(ex);
         }
     }
 
@@ -129,12 +130,12 @@ public class SupplierProductPriceController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var price = await _priceService.GetActivePriceAsync(tenantId.Value, supplierId, productId, asOfDate);
         if (price == null)
-            return NotFound(new { status = "FAIL", message = "No active price found for this supplier and product." });
+            return NotFoundResponse("No active price found for this supplier and product.");
 
-        return Ok(price);
+        return SuccessResponse(price);
     }
 }

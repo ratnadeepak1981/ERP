@@ -1,3 +1,4 @@
+using API.Common;
 using API.Configuration;
 using API.Security.Authorization;
 using Hangfire;
@@ -147,6 +148,8 @@ public class Program
             PermissionAuthorizationHandler>();
 
         builder.Services.AddAuthorization();
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+        builder.Services.AddProblemDetails();
 
         // Controllers / Swagger
         builder.Services.AddControllers();
@@ -235,6 +238,8 @@ public class Program
         }
 
         // HTTP Pipeline
+        app.UseExceptionHandler();
+
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();

@@ -14,6 +14,7 @@ using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Customer;
 using ERP.Domain.Features.MasterData.Supplier;
 using ERP.Domain.Features.MasterData.Warehouse;
+using ERP.SecurityTests;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -86,7 +87,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         Guid branchId = TestConstants.BranchA1Id;
 
         // 1. Create Warehouse via API
-        string whCode = $"WH_{Guid.NewGuid():N}"[..8];
+        string whCode = $"WH_{Guid.NewGuid():N}";
         var whRes = await client.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
         {
             WarehouseCode = whCode,
@@ -96,22 +97,22 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             City = "Colombo"
         });
         Assert.Equal(HttpStatusCode.Created, whRes.StatusCode);
-        var whDoc = await whRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        var whDoc = await whRes.ReadDataJsonElementAsync();
         Guid warehouseId = ExtractId(whDoc, "warehouseId", "WarehouseId", "id", "Id");
 
         // 2. Create Location via API
-        string locCode = $"LOC_{Guid.NewGuid():N}"[..8];
+        string locCode = $"LOC_{Guid.NewGuid():N}";
         var locRes = await client.PostAsJsonAsync($"/api/warehouses/{warehouseId}/locations", new CreateWarehouseLocationRequest
         {
             LocationCode = locCode,
             LocationName = $"Location {locCode}"
         });
         Assert.Equal(HttpStatusCode.OK, locRes.StatusCode);
-        var locDoc = await locRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        var locDoc = await locRes.ReadDataJsonElementAsync();
         Guid locationId = ExtractId(locDoc, "warehouseLocationId", "WarehouseLocationId", "id", "Id");
 
         // 3. Create Supplier via API
-        string supCode = $"SUP_{Guid.NewGuid():N}"[..8];
+        string supCode = $"SUP_{Guid.NewGuid():N}";
         var supRes = await client.PostAsJsonAsync("/api/suppliers", new CreateSupplierRequest
         {
             SupplierCode = supCode,
@@ -119,12 +120,12 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             City = "Colombo",
             Email = $"{supCode.ToLowerInvariant()}@supplier.com"
         });
-        Assert.Equal(HttpStatusCode.Created, supRes.StatusCode);
-        var supDoc = await supRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        Assert.True(supRes.StatusCode == HttpStatusCode.Created, $"Expected Created (201) but got {supRes.StatusCode}: {await supRes.Content.ReadAsStringAsync()}");
+        var supDoc = await supRes.ReadDataJsonElementAsync();
         Guid supplierId = ExtractId(supDoc, "supplierId", "SupplierId", "id", "Id");
 
         // 4. Create Customer via API
-        string custCode = $"CUST_{Guid.NewGuid():N}"[..8];
+        string custCode = $"CUST_{Guid.NewGuid():N}";
         var custRes = await client.PostAsJsonAsync("/api/customers", new CreateCustomerRequest
         {
             CustomerCode = custCode,
@@ -133,13 +134,13 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             CreditLimit = 100000m,
             Email = $"{custCode.ToLowerInvariant()}@client.com"
         });
-        Assert.Equal(HttpStatusCode.Created, custRes.StatusCode);
-        var custDoc = await custRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        Assert.True(custRes.StatusCode == HttpStatusCode.Created, $"Expected Created (201) but got {custRes.StatusCode}: {await custRes.Content.ReadAsStringAsync()}");
+        var custDoc = await custRes.ReadDataJsonElementAsync();
         Guid customerId = ExtractId(custDoc, "customerId", "CustomerId", "id", "Id");
 
         // 5. Create 3 Physical Stock-Tracked Products and 1 Service Product via API
         // Product 1: SIM-GOODS-001 (Retail / Wholesale / Fast-moving SKU)
-        string p1Code = $"G001_{Guid.NewGuid():N}"[..10];
+        string p1Code = $"G001_{Guid.NewGuid():N}";
         var p1Res = await client.PostAsJsonAsync("/api/products", new CreateProductRequest
         {
             ProductCode = p1Code,
@@ -153,12 +154,12 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             IsStockTracked = true,
             ProductType = ProductType.StockItem
         });
-        Assert.Equal(HttpStatusCode.Created, p1Res.StatusCode);
-        var p1Doc = await p1Res.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        Assert.True(p1Res.StatusCode == HttpStatusCode.Created, $"Expected Created (201) but got {p1Res.StatusCode}: {await p1Res.Content.ReadAsStringAsync()}");
+        var p1Doc = await p1Res.ReadDataJsonElementAsync();
         Guid goods001Id = ExtractId(p1Doc, "productId", "ProductId", "id", "Id");
 
         // Product 2: SIM-GOODS-002 (Distribution / Bulk SKU)
-        string p2Code = $"G002_{Guid.NewGuid():N}"[..10];
+        string p2Code = $"G002_{Guid.NewGuid():N}";
         var p2Res = await client.PostAsJsonAsync("/api/products", new CreateProductRequest
         {
             ProductCode = p2Code,
@@ -172,12 +173,12 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             IsStockTracked = true,
             ProductType = ProductType.StockItem
         });
-        Assert.Equal(HttpStatusCode.Created, p2Res.StatusCode);
-        var p2Doc = await p2Res.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        Assert.True(p2Res.StatusCode == HttpStatusCode.Created, $"Expected Created (201) but got {p2Res.StatusCode}: {await p2Res.Content.ReadAsStringAsync()}");
+        var p2Doc = await p2Res.ReadDataJsonElementAsync();
         Guid goods002Id = ExtractId(p2Doc, "productId", "ProductId", "id", "Id");
 
         // Product 3: SIM-GOODS-003 (Trading / Resale SKU)
-        string p3Code = $"G003_{Guid.NewGuid():N}"[..10];
+        string p3Code = $"G003_{Guid.NewGuid():N}";
         var p3Res = await client.PostAsJsonAsync("/api/products", new CreateProductRequest
         {
             ProductCode = p3Code,
@@ -191,12 +192,12 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             IsStockTracked = true,
             ProductType = ProductType.StockItem
         });
-        Assert.Equal(HttpStatusCode.Created, p3Res.StatusCode);
-        var p3Doc = await p3Res.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        Assert.True(p3Res.StatusCode == HttpStatusCode.Created, $"Expected Created (201) but got {p3Res.StatusCode}: {await p3Res.Content.ReadAsStringAsync()}");
+        var p3Doc = await p3Res.ReadDataJsonElementAsync();
         Guid goods003Id = ExtractId(p3Doc, "productId", "ProductId", "id", "Id");
 
         // Product 4: SIM-SRV-001 (Service SKU)
-        string srvCode = $"SRV_{Guid.NewGuid():N}"[..10];
+        string srvCode = $"SRV_{Guid.NewGuid():N}";
         var srvRes = await client.PostAsJsonAsync("/api/products", new CreateProductRequest
         {
             ProductCode = srvCode,
@@ -210,8 +211,8 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             IsStockTracked = false,
             ProductType = ProductType.Service
         });
-        Assert.Equal(HttpStatusCode.Created, srvRes.StatusCode);
-        var srvDoc = await srvRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        Assert.True(srvRes.StatusCode == HttpStatusCode.Created, $"Expected Created (201) but got {srvRes.StatusCode}: {await srvRes.Content.ReadAsStringAsync()}");
+        var srvDoc = await srvRes.ReadDataJsonElementAsync();
         Guid service001Id = ExtractId(srvDoc, "productId", "ProductId", "id", "Id");
 
         return new SimulationContext(client, companyId, branchId, warehouseId, locationId, supplierId, customerId, goods001Id, goods002Id, goods003Id, service001Id);
@@ -256,7 +257,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 }
             });
         Assert.Equal(HttpStatusCode.Created, poCreateRes.StatusCode);
-        var poDoc = await poCreateRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
+        var poDoc = await poCreateRes.ReadDataJsonElementAsync();
         Guid poId = ExtractId(poDoc, "id", "Id");
 
         // 2. Submit Purchase Order via API by BranchUserA1
@@ -264,8 +265,8 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             $"/api/companies/{companyId}/branches/{branchId}/purchase-orders/{poId}/submit",
             null);
         Assert.Equal(HttpStatusCode.OK, poSubmitRes.StatusCode);
-        var poSubmittedDoc = await poSubmitRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOpts);
-        int poStatus = poSubmittedDoc.GetProperty("status").GetInt32();
+        var poSubmittedDoc = await poSubmitRes.ReadDataJsonElementAsync();
+        int poStatus = poSubmittedDoc.TryGetProperty("status", out var sProp) ? sProp.GetInt32() : poSubmittedDoc.GetProperty("Status").GetInt32();
 
         // 3. If approval is required (status == PurchaseOrderStatus.Submitted / 2), approve PO with TenantAdminAlpha (segregated approver)
         if (poStatus == (int)PurchaseOrderStatus.Submitted)
@@ -290,7 +291,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             var err = await grnCreateRes.Content.ReadAsStringAsync();
             throw new Exception($"GRN creation failed with {grnCreateRes.StatusCode}: {err}");
         }
-        var grn = (await grnCreateRes.Content.ReadFromJsonAsync<GoodsReceiptNoteDto>(_jsonOpts))!;
+        var grn = (await grnCreateRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts))!;
 
         // 5. Confirm GRN via API -> Posts InventoryMovementType.GoodsReceipt directly to warehouse location
         var grnConfirmRes = await client.PostAsync(
@@ -329,7 +330,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 }).ToList()
             });
         Assert.Equal(HttpStatusCode.Created, createSoRes.StatusCode);
-        var order = (await createSoRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        var order = (await createSoRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
 
         // Submit
         var submitRes = await client.PostAsync(
@@ -342,7 +343,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             $"/api/companies/{companyId}/branches/{branchId}/sales-orders/{order.Id}/confirm",
             null);
         Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
-        return (await confirmRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        return (await confirmRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
     }
 
     [Fact]
@@ -406,7 +407,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 Notes = "Counter pickup completed"
             });
         Assert.Equal(HttpStatusCode.Created, shRes.StatusCode);
-        var shipment = (await shRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var shipment = (await shRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
         Assert.Equal(SalesShipmentStatus.Draft, shipment.Status);
 
         // 3. Deliver directly from draft (StoreHandover / CustomerPickup pattern)
@@ -414,7 +415,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/{shipment.Id}/deliver",
             new DeliverShipmentRequest { RecipientName = "Walk-in Retail Customer" });
         Assert.Equal(HttpStatusCode.OK, deliverRes.StatusCode);
-        var delivered = (await deliverRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var delivered = (await deliverRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
         Assert.Equal(SalesShipmentStatus.Delivered, delivered.Status);
 
         // 4. Verify stock decreased by 5: 50 -> 45
@@ -425,7 +426,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         // 5. Verify Sales Order transitioned to Fulfilled
         var orderRes = await ctx.Client.GetAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-orders/{order.Id}");
-        var finalOrder = (await orderRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        var finalOrder = (await orderRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
         Assert.Equal(SalesOrderStatus.Fulfilled, finalOrder.Status);
     }
 
@@ -465,7 +466,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 }
             });
         Assert.Equal(HttpStatusCode.Created, sh1Res.StatusCode);
-        var sh1 = (await sh1Res.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var sh1 = (await sh1Res.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         // Dispatch Shipment 1
         var d1Res = await ctx.Client.PostAsync(
@@ -481,7 +482,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         // Order remains Confirmed (partially fulfilled)
         var orderCheck1 = await ctx.Client.GetAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-orders/{order.Id}");
-        var o1 = (await orderCheck1.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        var o1 = (await orderCheck1.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
         Assert.Equal(SalesOrderStatus.Confirmed, o1.Status);
 
         // 3. Shipment 2: Auto-defaults to remaining unfulfilled quantity (60 units)
@@ -496,7 +497,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 DefaultLocationId = ctx.LocationId
             });
         Assert.Equal(HttpStatusCode.Created, sh2Res.StatusCode);
-        var sh2 = (await sh2Res.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var sh2 = (await sh2Res.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
         Assert.Single(sh2.Items);
         Assert.Equal(60m, sh2.Items[0].QuantityDispatched);
 
@@ -514,7 +515,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         // Order status transitions to Fulfilled
         var orderCheck2 = await ctx.Client.GetAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-orders/{order.Id}");
-        var o2 = (await orderCheck2.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        var o2 = (await orderCheck2.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
         Assert.Equal(SalesOrderStatus.Fulfilled, o2.Status);
     }
 
@@ -548,14 +549,14 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 Notes = "Fragile drums - keep upright"
             });
         Assert.Equal(HttpStatusCode.Created, shRes.StatusCode);
-        var shipment = (await shRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var shipment = (await shRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         // 3. Dispatch shipment: Stock decrements at dispatch (100 -> 50)
         var dispatchRes = await ctx.Client.PostAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/{shipment.Id}/dispatch",
             null);
         Assert.Equal(HttpStatusCode.OK, dispatchRes.StatusCode);
-        var dispatched = (await dispatchRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var dispatched = (await dispatchRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
         Assert.Equal(SalesShipmentStatus.Dispatched, dispatched.Status);
         Assert.NotNull(dispatched.DispatchedAt);
 
@@ -572,7 +573,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 Notes = "Signed proof of delivery POD-98765 received"
             });
         Assert.Equal(HttpStatusCode.OK, deliverRes.StatusCode);
-        var delivered = (await deliverRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var delivered = (await deliverRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
         Assert.Equal(SalesShipmentStatus.Delivered, delivered.Status);
         Assert.NotNull(delivered.DeliveredAt);
 
@@ -609,7 +610,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 DefaultWarehouseId = ctx.WarehouseId,
                 DefaultLocationId = ctx.LocationId
             });
-        var shipment = (await shRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var shipment = (await shRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         var dRes = await ctx.Client.PostAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/{shipment.Id}/dispatch",
@@ -629,7 +630,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         // Order marked Fulfilled
         var orderRes = await ctx.Client.GetAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-orders/{order.Id}");
-        var finalOrder = (await orderRes.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        var finalOrder = (await orderRes.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
         Assert.Equal(SalesOrderStatus.Fulfilled, finalOrder.Status);
     }
 
@@ -662,7 +663,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 DefaultWarehouseId = ctx.WarehouseId,
                 DefaultLocationId = ctx.LocationId
             });
-        var shipment = (await shRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var shipment = (await shRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         var dRes = await ctx.Client.PostAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/{shipment.Id}/dispatch",
@@ -731,7 +732,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                     }
                 }
             });
-        var validSh = (await validShRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var validSh = (await validShRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         // First dispatch -> OK, stock 10 -> 8
         var d1Res = await ctx.Client.PostAsync(
@@ -762,7 +763,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 DefaultWarehouseId = ctx.WarehouseId,
                 DefaultLocationId = ctx.LocationId
             });
-        var largeSh = (await largeShRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var largeSh = (await largeShRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         var failDispatchRes = await ctx.Client.PostAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/{largeSh.Id}/dispatch",
@@ -772,7 +773,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         // Verify state is preserved: shipment is still Draft, stock is still 8
         var checkShRes = await ctx.Client.GetAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/{largeSh.Id}");
-        var checkSh = (await checkShRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var checkSh = (await checkShRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
         Assert.Equal(SalesShipmentStatus.Draft, checkSh.Status);
         var balAfterFail = (await GetInventoryBalanceAsync(ctx.LocationId, ctx.Goods001Id))!.QuantityOnHand;
         Assert.Equal(8m, balAfterFail);
@@ -825,7 +826,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 DefaultLocationId = ctx.LocationId
             });
         Assert.Equal(HttpStatusCode.Created, mixedShRes.StatusCode);
-        var mixedSh = (await mixedShRes.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var mixedSh = (await mixedShRes.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         // Shipment must contain ONLY the 1 physical line item
         Assert.Single(mixedSh.Items);
@@ -850,7 +851,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         // Overall Sales Order remains Confirmed because service deliverables remain pending!
         var mixedOrderCheck = await ctx.Client.GetAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-orders/{mixedOrder.Id}");
-        var finalMixedOrder = (await mixedOrderCheck.Content.ReadFromJsonAsync<SalesOrderDto>(_jsonOpts))!;
+        var finalMixedOrder = (await mixedOrderCheck.ReadApiResponseDataAsync<SalesOrderDto>(_jsonOpts))!;
         Assert.Equal(SalesOrderStatus.Confirmed, finalMixedOrder.Status);
     }
 
@@ -888,7 +889,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 }
             });
         Assert.Equal(HttpStatusCode.Created, sh1Res.StatusCode);
-        var sh1 = (await sh1Res.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var sh1 = (await sh1Res.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         // Create Draft Shipment 2 for 6 units (6 + 6 = 12 > 10 ordered!)
         string sh2Num = $"SH-CONC-2-{Guid.NewGuid():N}"[..14];
@@ -912,7 +913,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 }
             });
         Assert.Equal(HttpStatusCode.Created, sh2Res.StatusCode);
-        var sh2 = (await sh2Res.Content.ReadFromJsonAsync<SalesShipmentDto>(_jsonOpts))!;
+        var sh2 = (await sh2Res.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         // Execute both dispatches simultaneously via Task.WhenAll
         var task1 = ctx.Client.PostAsync(

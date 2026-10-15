@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+using API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Security.Application.DTOs;
@@ -8,43 +11,34 @@ namespace API.Features.Security;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class UserRoleController : ControllerBase
+public class UserRoleController : BaseApiController
 {
     private readonly IUserRoleService _userRoleService;
 
-    public UserRoleController(
-        IUserRoleService userRoleService)
+    public UserRoleController(IUserRoleService userRoleService)
     {
         _userRoleService = userRoleService;
     }
 
     [HttpPost]
     [Authorize(Roles = "Platform Admin, Security Manager")]
-    public async Task<IActionResult> AssignRoleToUser(
-        [FromBody] AssignRoleToUserRequest request)
+    public async Task<IActionResult> AssignRoleToUser([FromBody] AssignRoleToUserRequest request)
     {
         try
         {
-            await _userRoleService
-                .AssignRoleToUserAsync(
-                    request.UserId,
-                    request.RoleId);
+            await _userRoleService.AssignRoleToUserAsync(
+                request.UserId,
+                request.RoleId);
 
-            return Ok(new
+            return SuccessResponse(new
             {
-                status = "PASS",
-                message = "Role assigned to user successfully.",
                 userId = request.UserId,
                 roleId = request.RoleId
-            });
+            }, "Role assigned to user successfully.");
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }
