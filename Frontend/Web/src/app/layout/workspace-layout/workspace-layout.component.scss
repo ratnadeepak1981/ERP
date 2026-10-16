@@ -247,13 +247,13 @@
     overflow: hidden;
 
     .workspace-topbar {
-      height: var(--erp-header-height);
-      background-color: var(--erp-bg-surface);
+      min-height: var(--erp-header-height);
+      background-color: var(--erp-primary);
       border-bottom: 1px solid var(--erp-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 var(--erp-space-4);
+      padding: 6px var(--erp-space-4);
       box-shadow: var(--erp-shadow-xs);
       z-index: 40;
 
@@ -297,12 +297,17 @@
       .topbar-right {
         display: flex;
         align-items: center;
-        gap: var(--erp-space-2);
+        ::ng-deep .p-button.p-button-text {
+          color: #ffffff !important;
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.18) !important;
+          }
+        }
 
         .topbar-divider {
           width: 1px;
           height: 24px;
-          background-color: var(--erp-border);
+          background-color: rgba(255, 255, 255, 0.3);
           margin: 0 var(--erp-space-2);
         }
 
@@ -313,20 +318,21 @@
           padding: 3px 8px 3px 4px;
           border-radius: var(--erp-radius-pill);
           cursor: pointer;
+          background: rgba(255, 255, 255, 0.15);
           transition: background-color 0.15s;
 
           &:hover {
-            background-color: var(--erp-bg-hover);
+            background-color: rgba(255, 255, 255, 0.25);
           }
 
           .user-avatar {
             width: 28px;
             height: 28px;
             border-radius: var(--erp-radius-pill);
-            background: linear-gradient(135deg, #0f6cbd, #115ea3);
-            color: #ffffff;
+            background: #ffffff;
+            color: var(--erp-primary);
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -340,13 +346,13 @@
             .user-name {
               font-size: 12.5px;
               font-weight: 600;
-              color: var(--erp-text-main);
+              color: #ffffff;
               line-height: 1.1;
             }
 
             .user-role {
               font-size: 10.5px;
-              color: var(--erp-text-muted);
+              color: rgba(255, 255, 255, 0.85);
             }
           }
 

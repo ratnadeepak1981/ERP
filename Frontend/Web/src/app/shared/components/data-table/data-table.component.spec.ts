@@ -106,4 +106,127 @@ describe('AppDataTableComponent', () => {
       expect(() => component.exportCSV()).not.toThrow();
     }
   });
+
+  it('should filter data when onColumnFilter is called', () => {
+    fixture.componentRef.setInput('columns', mockColumns);
+    fixture.componentRef.setInput('data', mockData);
+    fixture.detectChanges();
+
+    component.onColumnFilter({ field: 'code', value: 'PRD-001', matchMode: 'contains' });
+    fixture.detectChanges();
+
+    expect(component.processedData().length).toBe(1);
+    expect(component.processedData()[0].code).toBe('PRD-001');
+
+    component.onColumnFilterClear('code');
+    fixture.detectChanges();
+
+    expect(component.processedData().length).toBe(2);
+  });
+
+  it('should sort data when onColumnSort is called', () => {
+    fixture.componentRef.setInput('columns', mockColumns);
+    fixture.componentRef.setInput('data', mockData);
+    fixture.detectChanges();
+
+    // Sort descending by amount
+    component.onColumnSort({ field: 'amount', order: -1 });
+    fixture.detectChanges();
+
+    expect(component.processedData()[0].amount).toBe(8900.0);
+    expect(component.processedData()[1].amount).toBe(1250.5);
+  });
+
+  it('should support row selection and select-all', () => {
+    fixture.componentRef.setInput('columns', mockColumns);
+    fixture.componentRef.setInput('data', mockData);
+    fixture.componentRef.setInput('selectionMode', 'multiple');
+    fixture.detectChanges();
+
+    expect(component.selectedCount()).toBe(0);
+
+    component.toggleRowSelection(mockData[0], true);
+    expect(component.selectedCount()).toBe(1);
+    expect(component.isRowSelected(mockData[0])).toBe(true);
+    expect(component.isRowSelected(mockData[1])).toBe(false);
+
+    // Select all page
+    component.toggleSelectAllPage(true);
+    expect(component.selectedCount()).toBe(2);
+    expect(component.isAllPageSelected()).toBe(true);
+
+    // Clear
+    component.clearSelection();
+    expect(component.selectedCount()).toBe(0);
+  });
+
+  it('should support switching between Table, List, and Card views', () => {
+    fixture.componentRef.setInput('columns', mockColumns);
+    fixture.componentRef.setInput('data', mockData);
+    fixture.detectChanges();
+
+    expect(component.currentView()).toBe('table');
+
+    const viewChangeSpy = vi.fn();
+    component.viewModeChange.subscribe(viewChangeSpy);
+
+    component.setViewMode('list');
+    expect(component.currentView()).toBe('list');
+    expect(viewChangeSpy).toHaveBeenCalledWith('list');
+
+    component.setViewMode('card');
+    expect(component.currentView()).toBe('card');
+    expect(viewChangeSpy).toHaveBeenCalledWith('card');
+  });
+
+  it('should preserve search, filter, and selection state when switching views', () => {
+    fixture.componentRef.setInput('columns', mockColumns);
+    fixture.componentRef.setInput('data', mockData);
+    fixture.componentRef.setInput('selectionMode', 'multiple');
+    fixture.detectChanges();
+
+    // 1. Perform search
+    component.onGlobalSearch('Steel');
+    fixture.detectChanges();
+    expect(component.processedData().length).toBe(1);
+    expect(component.processedData()[0].code).toBe('PRD-001');
+
+    // 2. Select the record
+    component.toggleRowSelection(mockData[0], true);
+    expect(component.isRowSelected(mockData[0])).toBe(true);
+
+    // 3. Switch to Card view
+    component.setViewMode('card');
+    fixture.detectChanges();
+
+    // Data, search, and selection must be preserved
+    expect(component.processedData().length).toBe(1);
+    expect(component.isRowSelected(mockData[0])).toBe(true);
+
+    // 4. Switch to List view
+    component.setViewMode('list');
+    fixture.detectChanges();
+
+    expect(component.processedData().length).toBe(1);
+    expect(component.isRowSelected(mockData[0])).toBe(true);
+  });
+
+  it('should format card title and fields accurately for Card View', () => {
+    fixture.componentRef.setInput('columns', mockColumns);
+    fixture.componentRef.setInput('data', mockData);
+    fixture.componentRef.setInput('cardTitleField', 'name');
+    fixture.componentRef.setInput('cardSubtitleField', 'code');
+    fixture.detectChanges();
+
+    const title = component.getCardTitle(mockData[0]);
+    const subtitle = component.getCardSubtitle(mockData[0]);
+    const fields = component.getCardFields(mockData[0]);
+
+    expect(title).toBe('Raw Material Steel');
+    expect(subtitle).toBe('PRD-001');
+    expect(fields.length).toBeGreaterThan(0);
+    expect(fields.some(f => f.header === 'Amount')).toBe(true);
+  });
 });
+
+

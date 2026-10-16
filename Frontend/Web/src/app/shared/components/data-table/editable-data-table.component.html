@@ -1,0 +1,401 @@
+<div class="erp-editable-table-wrapper">
+  <!-- Feedback Banner for Save / Validation messages -->
+  @if (feedbackMessage(); as msg) {
+    <div class="erp-feedback-banner" [class.banner-success]="msg.type === 'success'" [class.banner-info]="msg.type === 'info'" [class.banner-error]="msg.type === 'error'">
+      <div class="banner-content">
+        <i [class]="msg.type === 'success' ? 'pi pi-check-circle' : (msg.type === 'error' ? 'pi pi-exclamation-circle' : 'pi pi-info-circle')"></i>
+        <span>{{ msg.text }}</span>
+      </div>
+      <button type="button" class="close-banner-btn" aria-label="Dismiss feedback message" (click)="feedbackMessage.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Action Bar: Add Line, Save, Cancel, Dirty indicator -->
+  <div class="editable-action-bar">
+    <div class="dirty-state-info">
+      @if (dirtyCount() > 0) {
+        <span class="dirty-badge">
+          <i class="pi pi-exclamation-triangle"></i>
+          {{ dirtyCount() }} unsaved change(s)
+        </span>
+      } @else {
+        <span class="clean-badge">
+          <i class="pi pi-check"></i> All changes saved
+        </span>
+      }
+
+      @if (hasErrors()) {
+        <span class="error-badge">
+          <i class="pi pi-times-circle"></i> Validation errors exist
+        </span>
+      }
+    </div>
+
+    <div class="action-buttons">
+      @if (allowAddRow) {
+        <p-button
+          label="Add Blank Row"
+          icon="pi pi-plus"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="addNewRow('start')"
+        ></p-button>
+      }
+
+      <p-button
+        label="Discard"
+        icon="pi pi-undo"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="dirtyCount() === 0"
+        (onClick)="cancelAllChanges()"
+      ></p-button>
+
+      <p-button
+        label="Save Changes"
+        icon="pi pi-check"
+        size="small"
+        severity="primary"
+        [disabled]="dirtyCount() === 0 || hasErrors()"
+        (onClick)="saveChanges()"
+      ></p-button>
+    </div>
+  </div>
+
+  <!-- Selection Bar -->
+  @if (selectionMode === 'multiple') {
+    <app-table-selection
+      [selectedCount]="selection().length"
+      [totalCount]="processedData().length"
+      (selectAll)="selectAllRecords()"
+      (clearSelection)="clearSelection()"
+    ></app-table-selection>
+  }
+
+  <!-- Header Toolbar (Search + Column Chooser) -->
+  <div class="table-caption-bar">
+    <div class="left-tools">
+      @if (showGlobalSearch) {
+        <app-table-search
+          [value]="globalSearchTerm()"
+          [placeholder]="searchPlaceholder"
+          (searchChange)="onGlobalSearch($event)"
+          (searchClear)="onGlobalSearch('')"
+        ></app-table-search>
+      }
+    </div>
+
+    <div class="right-tools">
+      @if (showColumnChooser) {
+        <app-table-column-chooser
+          [columns]="columnsSignal()"
+          (columnsChange)="onColumnsChange($event)"
+        ></app-table-column-chooser>
+      }
+    </div>
+  </div>
+
+  <!-- Editable Table Scroll Container -->
+  <div class="table-scroll-container">
+    <table class="erp-excel-table erp-editable-grid" role="grid">
+      <!-- Header -->
+      <thead>
+        <tr>
+          @if (selectionMode === 'multiple') {
+            <th class="selection-col-header" style="width: 44px; text-align: center;">
+              <app-checkbox
+                [checked]="isAllPageSelected()"
+                [indeterminate]="isIndeterminatePageSelected()"
+                (checkedChange)="toggleSelectAllPage($event)"
+                ariaLabel="Select all records on this page"
+                size="small"
+              ></app-checkbox>
+            </th>
+          }
+
+          @if (showRowNumbers) {
+            <th class="row-num-header" style="width: 44px; text-align: center;">#</th>
+          }
+
+          @for (col of visibleColumns(); track col.field) {
+            <th
+              [style.width]="col.width || 'auto'"
+              [style.minWidth]="col.minWidth || 'auto'"
+              [style.maxWidth]="col.maxWidth || 'auto'"
+              [style.textAlign]="col.align || 'left'"
+            >
+              <div class="th-content" [style.justifyContent]="col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start')">
+                <span class="th-title">
+                  {{ col.header }}
+                  @if (col.editable) {
+                    <i class="pi pi-pencil edit-indicator-icon" title="Click cell to edit" aria-hidden="true"></i>
+                  }
+                </span>
+
+                <div class="th-controls">
+                  @if (showSorting && col.sortable !== false) {
+                    <app-table-sort
+                      [field]="getFieldKey(col)"
+                      [sortField]="activeSortField()"
+                      [sortOrder]="activeSortOrder()"
+                      (sortChange)="onColumnSort($event)"
+                    ></app-table-sort>
+                  }
+
+                  @if (showFilters && col.filterable !== false && col.type !== 'actions') {
+                    <app-table-filter
+                      [column]="col"
+                      [value]="columnFilters()[getFieldKey(col)]?.value"
+                      (filterChange)="onColumnFilter($event)"
+                      (filterClear)="onColumnFilterClear($event)"
+                    ></app-table-filter>
+                  }
+                </div>
+              </div>
+            </th>
+          }
+
+          @if (allowDeleteRow) {
+            <th style="width: 76px; text-align: center;">Actions</th>
+          }
+        </tr>
+      </thead>
+
+      <!-- Body -->
+      <tbody>
+        @if (loading) {
+          <tr>
+            <td [attr.colspan]="getTotalColspan()" class="state-cell">
+              <app-loading-state message="Loading editable records..."></app-loading-state>
+            </td>
+          </tr>
+        } @else if (displayedRows().length === 0) {
+          <tr>
+            <td [attr.colspan]="getTotalColspan()" class="state-cell">
+              <app-empty-state
+                title="No items found"
+                description="Click 'Add Blank Row' above or enter data to begin."
+              ></app-empty-state>
+            </td>
+          </tr>
+        } @else {
+          @for (row of displayedRows(); track getRowKey(row); let rowIndex = $index) {
+            <tr
+              class="erp-table-row"
+              [class.is-dirty-row]="isRowDirty(row)"
+              [class.row-selected]="isRowSelected(row)"
+            >
+              @if (selectionMode === 'multiple') {
+                <td class="selection-cell" style="text-align: center;">
+                  <app-checkbox
+                    [checked]="isRowSelected(row)"
+                    (checkedChange)="toggleRowSelection(row, $event)"
+                    ariaLabel="Select row"
+                    size="small"
+                  ></app-checkbox>
+                </td>
+              }
+
+              @if (showRowNumbers) {
+                <td class="row-num-cell" style="text-align: center;">
+                  {{ pageOffset() + rowIndex + 1 }}
+                </td>
+              }
+
+              @for (col of visibleColumns(); track col.field) {
+                <td
+                  [class.editable-cell]="col.editable"
+                  [class.is-editing]="isCellEditing(row, col)"
+                  [class.readonly-cell]="!col.editable"
+                  [class.has-error]="getFieldError(row, getFieldKey(col))"
+                  [style.textAlign]="col.align || 'left'"
+                  (click)="startEditing(row, col, $event)"
+                >
+                  <!-- Active Cell Editor (Shown ONLY when cell is clicked / active) -->
+                  @if (col.editable && isCellEditing(row, col)) {
+                    <div class="cell-editor-container" (click)="$event.stopPropagation()">
+                      @if (col.editType === 'lookup' && col.lookupOptions) {
+                        <app-lookup-dropdown
+                          [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
+                          [items]="col.lookupOptions"
+                          [ngModel]="row[col.field]"
+                          (ngModelChange)="onCellValueChange(row, col, $event)"
+                          (selectItem)="onLookupSelect(row, col, $event)"
+                          (keydown)="onCellKeyDown($event, row, col, rowIndex)"
+                          [autoOpen]="true"
+                          size="small"
+                        ></app-lookup-dropdown>
+                      } @else if (col.editType === 'select' && col.editOptions) {
+                        <select
+                          [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
+                          class="erp-cell-select"
+                          [ngModel]="row[col.field]"
+                          (ngModelChange)="onCellValueChange(row, col, $event)"
+                          (blur)="stopEditing()"
+                          (keydown)="onCellKeyDown($event, row, col, rowIndex)"
+                          [class.invalid]="getFieldError(row, getFieldKey(col))"
+                        >
+                          @for (opt of col.editOptions; track opt.value) {
+                            <option [value]="opt.value">{{ opt.label }}</option>
+                          }
+                        </select>
+                      } @else if (col.editType === 'number' || col.editType === 'currency') {
+                        <input
+                          [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
+                          type="number"
+                          class="erp-cell-input numeric-input"
+                          [ngModel]="row[col.field]"
+                          (ngModelChange)="onCellValueChange(row, col, $event)"
+                          (blur)="stopEditing()"
+                          (keydown)="onCellKeyDown($event, row, col, rowIndex)"
+                          [class.invalid]="getFieldError(row, getFieldKey(col))"
+                        />
+                      } @else {
+                        <input
+                          [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
+                          type="text"
+                          class="erp-cell-input text-input"
+                          [ngModel]="row[col.field]"
+                          (ngModelChange)="onCellValueChange(row, col, $event)"
+                          (blur)="stopEditing()"
+                          (keydown)="onCellKeyDown($event, row, col, rowIndex)"
+                          [class.invalid]="getFieldError(row, getFieldKey(col))"
+                        />
+                      }
+
+                      @if (getFieldError(row, getFieldKey(col)); as errText) {
+                        <span class="cell-error-msg" [title]="errText">
+                          <i class="pi pi-exclamation-triangle"></i> {{ errText }}
+                        </span>
+                      }
+                    </div>
+                  } @else {
+                    <!-- Cell Display Mode (Standard text, formatted currency/badge, click to edit) -->
+                    <div class="cell-display-container" [class.clickable]="col.editable" [title]="col.editable ? 'Click to edit' : ''">
+                      @if (col.type === 'badge') {
+                        <app-status-badge
+                          [label]="row[col.field]"
+                          [severity]="col.badgeSeverityMap ? col.badgeSeverityMap(row[col.field], row) : 'neutral'"
+                        ></app-status-badge>
+                      } @else {
+                        <span class="cell-text-value" [class.font-mono]="col.field === 'productCode' || col.field === 'lineId'">
+                          {{ formatValue(col, row) || (col.editable ? '—' : '') }}
+                        </span>
+                      }
+
+                      @if (col.editable) {
+                        <i class="pi pi-pencil cell-edit-indicator" aria-hidden="true"></i>
+                      }
+                    </div>
+
+                    @if (getFieldError(row, getFieldKey(col)); as errText) {
+                      <span class="cell-error-msg" [title]="errText">
+                        <i class="pi pi-exclamation-triangle"></i> {{ errText }}
+                      </span>
+                    }
+                  }
+                </td>
+              }
+
+              <!-- Actions Cell (Insert blank row below & Delete) -->
+              <td class="row-actions-cell" style="text-align: center; white-space: nowrap;">
+                <button
+                  type="button"
+                  class="row-action-btn row-insert-btn"
+                  title="Insert blank row below (or press Insert key)"
+                  aria-label="Insert blank row below"
+                  (click)="insertRowAt(pageOffset() + rowIndex, $event)"
+                >
+                  <i class="pi pi-plus" aria-hidden="true"></i>
+                </button>
+                @if (allowDeleteRow) {
+                  <button
+                    type="button"
+                    class="row-action-btn row-delete-btn"
+                    title="Delete line item"
+                    aria-label="Delete line item"
+                    (click)="promptDelete(row, $event)"
+                  >
+                    <i class="pi pi-trash" aria-hidden="true"></i>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+
+      <!-- Footer: Subtotal & Summary -->
+      @if (showSubtotal && workingData().length > 0) {
+        <tfoot>
+          <tr class="table-subtotal-row">
+            <td [attr.colspan]="getSubtotalLeadingColspan()">
+              <span class="subtotal-items-badge">
+                <i class="pi pi-list" aria-hidden="true"></i> Total Items: <strong>{{ workingData().length }}</strong>
+              </span>
+            </td>
+            <td class="subtotal-label-cell" style="text-align: right; font-weight: 600;">
+              {{ subtotalLabel }}:
+            </td>
+            <td class="subtotal-value-cell" style="text-align: right; font-weight: 700; color: #0f6cbd;">
+              {{ computedSubtotal() | currency:currencyCode:'symbol':'1.2-2' }}
+            </td>
+            @if (allowDeleteRow) {
+              <td></td>
+            }
+          </tr>
+        </tfoot>
+      }
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  @if (paginator && processedData().length > rows) {
+    <div class="table-pagination-footer">
+      <app-table-pagination
+        [totalRecords]="processedData().length"
+        [rows]="rows"
+        [first]="pageOffset()"
+        [rowsPerPageOptions]="rowsPerPageOptions"
+        (pageChange)="onPageChange($event)"
+      ></app-table-pagination>
+    </div>
+  }
+
+  <!-- Delete Confirmation Modal -->
+  <p-dialog
+    header="Confirm Line Item Removal"
+    [visible]="deleteDialogVisible()"
+    (visibleChange)="deleteDialogVisible.set($event)"
+    [modal]="true"
+    [closable]="true"
+    [style]="{ width: '420px' }"
+  >
+    <div class="delete-dialog-content">
+      <i class="pi pi-exclamation-triangle warning-icon"></i>
+      <p>
+        Are you sure you want to remove item
+        <strong>{{ pendingDeleteRow() ? getRowKey(pendingDeleteRow()!) : '' }}</strong>
+        from this transaction?
+      </p>
+    </div>
+    <div class="dialog-footer-actions">
+      <p-button
+        label="Cancel"
+        [text]="true"
+        severity="secondary"
+        (onClick)="deleteDialogVisible.set(false)"
+      ></p-button>
+      <p-button
+        label="Delete"
+        severity="danger"
+        icon="pi pi-trash"
+        (onClick)="confirmDelete()"
+      ></p-button>
+    </div>
+  </p-dialog>
+</div>

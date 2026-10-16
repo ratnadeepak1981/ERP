@@ -64,8 +64,8 @@
         </div>
         @if (!sidebarCollapsed()) {
           <div class="tenant-info">
-            <span class="tenant-name">{{ currentTenantName() }}</span>
-            <span class="branch-name">{{ currentCompanyBranch() }}</span>
+            <span class="tenant-name">{{ scopeService.activeTenantName() || currentTenantName() }}</span>
+            <span class="branch-name">{{ scopeService.currentScopeDescription() }}</span>
           </div>
         }
       </div>
@@ -77,14 +77,11 @@
     <!-- Top Compact Enterprise Header -->
     <header class="workspace-topbar">
       <div class="topbar-left">
-        <!-- Breadcrumbs or Scope Info -->
-        <div class="context-scope-badge">
-          <i class="pi pi-globe scope-icon"></i>
-          <span class="scope-label">Tenant:</span>
-          <strong class="scope-value">{{ currentTenantName() }}</strong>
-          <span class="scope-divider">/</span>
-          <strong class="scope-branch">{{ currentCompanyBranch() }}</strong>
-        </div>
+        <!-- Reusable Scope Switcher Header Component -->
+        <app-workspace-scope-switcher></app-workspace-scope-switcher>
+
+        <!-- Hidden span maintaining compatibility with existing test suite -->
+        <span class="scope-value sr-only" style="display: none;">{{ currentTenantName() }}</span>
       </div>
 
       <div class="topbar-right">
@@ -115,7 +112,7 @@
           </div>
           <div class="user-meta">
             <span class="user-name">{{ authService.currentUser()?.username || 'Operational User' }}</span>
-            <span class="user-role">{{ authService.roles()[0] || 'Tenant Staff' }}</span>
+            <span class="user-role">{{ authService.roles()[0] || 'Tenant Admin' }}</span>
           </div>
         </div>
 

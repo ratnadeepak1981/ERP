@@ -1,8 +1,75 @@
-// PrimeNG Component Enterprise Enhancements
+// PrimeNG Component Enterprise & Fluent UI Theme Enhancements
 
 .p-component {
-  font-family: var(--erp-font-sans) !important;
+  font-family: var(--erp-font-sans, 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif) !important;
   font-size: 13.5px;
+}
+
+// Fluent Buttons on top of PrimeNG
+.p-button {
+  font-family: var(--erp-font-sans, 'Segoe UI', sans-serif);
+  border-radius: var(--erp-radius-sm, 4px) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  transition: all 0.15s ease-in-out !important;
+
+  &.p-button-primary {
+    background-color: var(--erp-primary, #0f6cbd) !important;
+    border-color: var(--erp-primary, #0f6cbd) !important;
+    color: #ffffff !important;
+
+    &:hover:not(:disabled) {
+      background-color: var(--erp-primary-hover, #115ea3) !important;
+      border-color: var(--erp-primary-hover, #115ea3) !important;
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.35) !important;
+    }
+  }
+
+  &.p-button-outlined {
+    background: transparent !important;
+    border-color: var(--erp-border-strong, #cbd5e1) !important;
+    color: var(--erp-text-main, #0f172a) !important;
+
+    &:hover:not(:disabled) {
+      background: var(--erp-bg-hover, #f1f5f9) !important;
+      border-color: var(--erp-primary, #0f6cbd) !important;
+      color: var(--erp-primary, #0f6cbd) !important;
+    }
+  }
+
+  &.p-button-secondary {
+    background-color: var(--erp-bg-secondary, #f1f5f9) !important;
+    border-color: var(--erp-border, #cbd5e1) !important;
+    color: var(--erp-text-secondary, #475569) !important;
+
+    &:hover:not(:disabled) {
+      background-color: var(--erp-bg-hover, #e2e8f0) !important;
+      color: var(--erp-text-main, #0f172a) !important;
+    }
+  }
+}
+
+// Fluent Input Controls
+.p-inputtext {
+  font-family: var(--erp-font-sans, 'Segoe UI', sans-serif);
+  border-radius: var(--erp-radius-sm, 4px) !important;
+  border-color: var(--erp-border, #cbd5e1) !important;
+  font-size: 13px !important;
+  padding: 5px 8px !important;
+  transition: border-color 0.15s, box-shadow 0.15s !important;
+
+  &:hover:not(:disabled) {
+    border-color: var(--erp-primary, #0f6cbd) !important;
+  }
+
+  &:focus {
+    border-color: var(--erp-primary, #0f6cbd) !important;
+    box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.25) !important;
+    outline: none !important;
+  }
 }
 
 // High density ERP Table styling
@@ -52,11 +119,12 @@
   }
 }
 
-// Dialog Enterprise Styling
+// Dialog Enterprise & Fluent Styling
 .p-dialog {
   background: var(--erp-bg-surface);
   color: var(--erp-text-main);
   border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-md, 6px) !important;
   box-shadow: var(--erp-shadow-lg);
 
   .p-dialog-header {

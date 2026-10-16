@@ -1,0 +1,267 @@
+.lookup-dropdown-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.8125rem;
+  color: #1f2937;
+
+  &.is-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+.lookup-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 32px;
+  padding: 0.25rem 0.5rem;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: #1f2937;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  text-align: left;
+
+  &:hover:not(:disabled) {
+    border-color: #0f6cbd;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: #0f6cbd;
+    box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.25);
+  }
+
+  .trigger-content {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 0.25rem;
+  }
+
+  .selected-text {
+    font-weight: 500;
+    color: #111827;
+  }
+
+  .placeholder-text {
+    color: #9ca3af;
+  }
+
+  .trigger-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .clear-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    background: transparent;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 0.75rem;
+    border-radius: 3px;
+
+    &:hover {
+      background-color: #f3f4f6;
+      color: #dc2626;
+    }
+  }
+
+  .chevron-icon {
+    font-size: 0.75rem;
+    color: #6b7280;
+    transition: transform 0.2s ease;
+
+    &.rotated {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.lookup-dropdown-container.is-small .lookup-trigger {
+  min-height: 28px;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.lookup-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 280px;
+  max-width: 440px;
+  overflow: hidden;
+  animation: panelSlideIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes panelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.panel-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+
+  .search-icon {
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  .search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 0.8125rem;
+    color: #111827;
+    outline: none;
+
+    &::placeholder {
+      color: #9ca3af;
+    }
+  }
+
+  .search-clear-btn {
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 0.75rem;
+
+    &:hover {
+      color: #4b5563;
+    }
+  }
+}
+
+.filter-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.6rem;
+  background-color: #eff6ff;
+  border-bottom: 1px solid #dbeafe;
+  font-size: 0.7rem;
+
+  .indicator-label {
+    color: #1e40af;
+  }
+
+  .indicator-badge {
+    background: #bfdbfe;
+    color: #1e3a8a;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+  }
+}
+
+.options-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.empty-results {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem 0.5rem;
+  color: #6b7280;
+  font-size: 0.8125rem;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+
+  &:hover,
+  &.is-active {
+    background-color: #f3f4f6;
+  }
+
+  &.is-selected {
+    background-color: #eff6ff;
+    font-weight: 500;
+  }
+
+  .item-primary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    overflow: hidden;
+  }
+
+  .item-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #0f6cbd;
+  }
+
+  .item-name {
+    font-size: 0.8125rem;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: 0.5rem;
+  }
+
+  .item-category-pill {
+    font-size: 0.6875rem;
+    background-color: #f3f4f6;
+    color: #4b5563;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .ineligible-tag {
+    font-size: 0.6875rem;
+    background-color: #fee2e2;
+    color: #991b1b;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+  }
+}

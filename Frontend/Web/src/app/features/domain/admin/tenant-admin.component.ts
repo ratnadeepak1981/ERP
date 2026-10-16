@@ -98,11 +98,18 @@ import { AuthService } from '../../../core/auth/auth.service';
                 <span>Open Master Data, Inventory, Sales &amp; Procurement workspace</span>
               </div>
             </a>
-            <a routerLink="/storefront" class="workspace-btn">
-              <i class="pi pi-shopping-bag"></i>
+            <a routerLink="/app/users" class="workspace-btn">
+              <i class="pi pi-users"></i>
               <div>
-                <strong>Tenant Public Storefront</strong>
-                <span>Customer catalog &amp; public e-commerce store</span>
+                <strong>Users &amp; Roles Administration</strong>
+                <span>Manage user credentials, roles, and capability policies</span>
+              </div>
+            </a>
+            <a routerLink="/app/user-scope" class="workspace-btn">
+              <i class="pi pi-sitemap"></i>
+              <div>
+                <strong>User Operating Scope</strong>
+                <span>Assign and govern company and operating branch authorizations</span>
               </div>
             </a>
           </div>

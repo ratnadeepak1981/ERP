@@ -1,0 +1,1084 @@
+<div class="user-security-page">
+  <!-- Page Header Matching Image 3 (Company & Branch Onboarding) -->
+  <app-page-header
+    title="Users, Roles &amp; Permissions"
+    subtitle="Configure user accounts, capability roles, permissions catalog, and operational facility scopes."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Readiness Overview Banner Matching Image 3 -->
+  <div class="setup-hero erp-card">
+    <div class="hero-left">
+      <div class="hero-icon">
+        <i class="pi pi-shield"></i>
+      </div>
+      <div>
+        <h2>Security Governance &amp; Access Control</h2>
+        <p>
+          Operating Tenant: <strong>{{ scopeService.activeTenantName() || 'Active Tenant' }}</strong>
+          &nbsp;&bull;&nbsp;
+          Status: <strong>Active Security Policies</strong>
+        </p>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <p-button
+        label="New User"
+        icon="pi pi-user-plus"
+        size="small"
+        severity="primary"
+        (onClick)="openCreateUserModal()"
+      ></p-button>
+    </div>
+  </div>
+
+  <!-- 4 Navigational Status Cards (Matching Image 3 4-Card Grid) -->
+  <div class="steps-grid">
+    <!-- Card 1: Users -->
+    <div
+      class="step-card"
+      [class.step-current]="activeTab() === 'users'"
+      (click)="switchTab('users')"
+    >
+      <div class="step-card-top">
+        <div class="step-icon-wrap" [class.active-icon]="activeTab() === 'users'">
+          <i class="pi pi-users"></i>
+        </div>
+        <span class="step-badge" [class.badge-active]="activeTab() === 'users'">
+          {{ users().length }} Active
+        </span>
+      </div>
+      <h4>User Accounts</h4>
+      <p class="step-desc">Manage tenant users, login credentials, and statuses.</p>
+      <div class="step-action-link">
+        <span>Manage Users</span>
+        <i class="pi pi-arrow-right"></i>
+      </div>
+    </div>
+
+    <!-- Card 2: Roles -->
+    <div
+      class="step-card"
+      [class.step-current]="activeTab() === 'roles'"
+      (click)="switchTab('roles')"
+    >
+      <div class="step-card-top">
+        <div class="step-icon-wrap" [class.active-icon]="activeTab() === 'roles'">
+          <i class="pi pi-shield"></i>
+        </div>
+        <span class="step-badge" [class.badge-active]="activeTab() === 'roles'">
+          {{ roles().length }} Roles
+        </span>
+      </div>
+      <h4>Roles &amp; Policies</h4>
+      <p class="step-desc">Define granular roles using templates or dual-list transfer.</p>
+      <div class="step-action-link">
+        <span>Manage Roles</span>
+        <i class="pi pi-arrow-right"></i>
+      </div>
+    </div>
+
+    <!-- Card 3: Permissions -->
+    <div
+      class="step-card"
+      [class.step-current]="activeTab() === 'permissions'"
+      (click)="switchTab('permissions')"
+    >
+      <div class="step-card-top">
+        <div class="step-icon-wrap" [class.active-icon]="activeTab() === 'permissions'">
+          <i class="pi pi-key"></i>
+        </div>
+        <span class="step-badge" [class.badge-active]="activeTab() === 'permissions'">
+          {{ permissions().length }} Catalog
+        </span>
+      </div>
+      <h4>Permissions Catalog</h4>
+      <p class="step-desc">Explore granular security capabilities across supply chain modules.</p>
+      <div class="step-action-link">
+        <span>Explore Capabilities</span>
+        <i class="pi pi-arrow-right"></i>
+      </div>
+    </div>
+
+    <!-- Card 4: User Scope -->
+    <div
+      class="step-card"
+      [class.step-current]="activeTab() === 'user-scope'"
+      (click)="switchTab('user-scope')"
+    >
+      <div class="step-card-top">
+        <div class="step-icon-wrap" [class.active-icon]="activeTab() === 'user-scope'">
+          <i class="pi pi-sitemap"></i>
+        </div>
+        <span class="step-badge" [class.badge-active]="activeTab() === 'user-scope'">
+          {{ userScopes().length }} Assigned
+        </span>
+      </div>
+      <h4>User Operating Scope</h4>
+      <p class="step-desc">Govern company and operating branch facility authorizations.</p>
+      <div class="step-action-link">
+        <span>Assign Scopes</span>
+        <i class="pi pi-arrow-right"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main View Area (Fluent UI Styled) -->
+  <div class="security-main-panel erp-card">
+    <!-- ========================================== -->
+    <!-- VIEW 1: USERS TAB                          -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'users') {
+      <div class="tab-view">
+        <div class="section-title-bar">
+          <div>
+            <h3>Registered User Accounts</h3>
+            <p class="section-subtitle">Manage user accounts and facility access under tenant boundary.</p>
+          </div>
+          <div class="action-btn-row">
+            <p-button
+              label="Add User"
+              icon="pi pi-plus"
+              size="small"
+              severity="primary"
+              (onClick)="openCreateUserModal()"
+            ></p-button>
+            <p-button
+              label="Add Role"
+              icon="pi pi-shield"
+              size="small"
+              [outlined]="true"
+              severity="secondary"
+              (onClick)="openCreateRoleModal()"
+            ></p-button>
+          </div>
+        </div>
+
+        <div class="table-search-row">
+          <div class="search-input-wrap">
+            <i class="pi pi-search"></i>
+            <input
+              pInputText
+              type="text"
+              placeholder="Search users by name, email, or role..."
+              [ngModel]="userSearchQuery()"
+              (ngModelChange)="userSearchQuery.set($event)"
+              class="w-full"
+            />
+          </div>
+          <p-button
+            label="User Scope View"
+            icon="pi pi-sitemap"
+            size="small"
+            [outlined]="true"
+            severity="secondary"
+            (onClick)="switchTab('user-scope')"
+          ></p-button>
+        </div>
+
+        <app-data-table
+          [data]="displayedUsers()"
+          [columns]="userColumns"
+          [rows]="10"
+          [rowsPerPageOptions]="[5, 10, 20]"
+          searchPlaceholder="Filter user records..."
+          emptyTitle="No Users Found"
+          emptyDescription="No registered user accounts match your search query."
+          [actionTemplate]="userActionsTemplate"
+        >
+          <ng-template #cellTemplate let-row="row" let-col="col">
+            @if (col.field === 'fullName') {
+              <div class="user-cell">
+                <div class="user-avatar-circle">
+                  {{ (row.fullName || 'U').substring(0, 2).toUpperCase() }}
+                </div>
+                <div>
+                  <span class="user-name-text">{{ row.fullName }}</span>
+                  <span class="user-username-sub">{{ '@' + row.username }}</span>
+                </div>
+              </div>
+            } @else if (col.field === 'roleName') {
+              <span class="role-pill">
+                <i class="pi pi-shield"></i>
+                <span>{{ row.roleName }}</span>
+              </span>
+            } @else if (col.field === 'primaryScope') {
+              <div class="scope-cell">
+                <span class="font-medium text-main">{{ row.primaryCompanyName }}</span>
+                <span class="text-xs text-muted block"><i class="pi pi-map-marker"></i> {{ row.primaryBranchName }}</span>
+              </div>
+            } @else if (col.field === 'accountStatus') {
+              <app-status-badge
+                [status]="row.accountStatus === 'Active' ? 'active' : 'suspended'"
+                [label]="row.accountStatus"
+              ></app-status-badge>
+            }
+          </ng-template>
+
+          <ng-template #userActionsTemplate let-row="row">
+            <div class="row-actions-group">
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-text p-button-primary"
+                (click)="manageUserScope(row)"
+                title="Manage Company & Branch Scope"
+              >
+                <i class="pi pi-sitemap"></i>
+                <span class="action-btn-text">Manage Scope</span>
+              </button>
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-text"
+                [class.text-danger]="row.accountStatus === 'Active'"
+                [class.text-success]="row.accountStatus !== 'Active'"
+                (click)="toggleUserStatus(row)"
+                [title]="row.accountStatus === 'Active' ? 'Suspend Access' : 'Activate Access'"
+              >
+                <i [class]="row.accountStatus === 'Active' ? 'pi pi-ban' : 'pi pi-check'"></i>
+                <span class="action-btn-text">{{ row.accountStatus === 'Active' ? 'Suspend' : 'Activate' }}</span>
+              </button>
+            </div>
+          </ng-template>
+        </app-data-table>
+      </div>
+    }
+
+    <!-- ============================================================== -->
+    <!-- VIEW 2: ROLES TAB (Master-Detail - Fixed Contrast & Spacing)   -->
+    <!-- ============================================================== -->
+    @if (activeTab() === 'roles') {
+      <div class="tab-view">
+        <div class="section-title-bar">
+          <div>
+            <h3>Roles &amp; Capability Policies</h3>
+            <p class="section-subtitle">Define operational roles and assign granular capability policies.</p>
+          </div>
+          <p-button
+            label="Create Role"
+            icon="pi pi-plus"
+            size="small"
+            severity="primary"
+            (onClick)="openCreateRoleModal()"
+          ></p-button>
+        </div>
+
+        <div class="roles-master-detail">
+          <!-- Left: Roles List Master -->
+          <div class="roles-list-col">
+            <div class="role-search-box">
+              <i class="pi pi-search"></i>
+              <input
+                pInputText
+                type="text"
+                placeholder="Filter roles..."
+                [ngModel]="roleSearchQuery()"
+                (ngModelChange)="roleSearchQuery.set($event)"
+                class="w-full"
+              />
+            </div>
+
+            <div class="roles-scroll-list">
+              @for (role of filteredRoles(); track role.id) {
+                <div
+                  class="role-card-item"
+                  [class.selected]="selectedRole()?.id === role.id"
+                  (click)="selectRole(role)"
+                >
+                  <div class="role-card-top">
+                    <div class="role-card-name">
+                      <i class="pi pi-shield"></i>
+                      <strong>{{ role.name }}</strong>
+                    </div>
+                    @if (role.isSystem) {
+                      <span class="system-tag">System</span>
+                    }
+                  </div>
+                  <p class="role-card-desc">{{ role.description }}</p>
+                  <div class="role-card-footer">
+                    <span class="perm-count"><i class="pi pi-key"></i> {{ role.permissions.length }} permissions</span>
+                    <span class="user-count"><i class="pi pi-user"></i> {{ role.usersCount }} users</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Right: Selected Role Detail -->
+          <div class="role-detail-col">
+            @if (selectedRole()) {
+              <div class="detail-card erp-card">
+                <div class="detail-header">
+                  <div class="detail-title-row">
+                    <h4>{{ selectedRole()?.name }}</h4>
+                    @if (selectedRole()?.isSystem) {
+                      <span class="system-tag">Built-in System Role</span>
+                    }
+                  </div>
+                  <p class="detail-desc">{{ selectedRole()?.description }}</p>
+                </div>
+
+                <div class="detail-meta-grid">
+                  <div class="meta-item">
+                    <span class="meta-label">Assignment Mode</span>
+                    <strong class="capitalize">{{ selectedRole()?.assignmentMode }}</strong>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Total Permissions</span>
+                    <strong>{{ selectedRole()?.permissions?.length }} capabilities granted</strong>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Created Date</span>
+                    <span>{{ selectedRole()?.createdAt | date:'mediumDate' }}</span>
+                  </div>
+                </div>
+
+                <div class="permissions-granted-section">
+                  <h5>Assigned Capabilities &amp; Permissions</h5>
+                  <div class="perm-cards-grid">
+                    @for (perm of selectedRolePermissions(); track perm.id) {
+                      <div class="perm-card-item">
+                        <div class="perm-card-header">
+                          <span class="perm-cat-badge">{{ perm.category }}</span>
+                          <code class="perm-code-tag">{{ perm.code }}</code>
+                        </div>
+                        <div class="perm-card-title">{{ perm.name }}</div>
+                        <p class="perm-card-desc">{{ perm.description }}</p>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div class="empty-selection">
+                <i class="pi pi-shield"></i>
+                <p>Select a role from the left to view assigned permissions.</p>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ============================================================== -->
+    <!-- VIEW 3: PERMISSIONS CATALOG (Fixed Contrast & Title Spacing)    -->
+    <!-- ============================================================== -->
+    @if (activeTab() === 'permissions') {
+      <div class="tab-view">
+        <div class="section-title-bar">
+          <div>
+            <h3>Enterprise Permissions Catalog</h3>
+            <p class="section-subtitle">Granular security capabilities governing operational transactions and facility scope.</p>
+          </div>
+        </div>
+
+        <div class="table-search-row">
+          <div class="search-input-wrap">
+            <i class="pi pi-search"></i>
+            <input
+              pInputText
+              type="text"
+              placeholder="Search capabilities by name, category, or code..."
+              [ngModel]="permissionSearchQuery()"
+              (ngModelChange)="permissionSearchQuery.set($event)"
+              class="w-full"
+            />
+          </div>
+        </div>
+
+        <div class="categories-list">
+          @for (grp of groupedPermissions(); track grp.category) {
+            <div class="category-block erp-card">
+              <div class="category-header">
+                <i class="pi pi-folder"></i>
+                <span class="cat-title-text">{{ grp.category }}</span>
+                <span class="cat-count-badge">({{ grp.items.length }} capabilities)</span>
+              </div>
+              <div class="permission-catalog-grid">
+                @for (p of grp.items; track p.id) {
+                  <div class="permission-catalog-card">
+                    <div class="catalog-card-header">
+                      <strong class="perm-name-title">{{ p.name }}</strong>
+                      <code class="perm-code-badge">{{ p.code }}</code>
+                    </div>
+                    <p class="perm-desc-text">{{ p.description }}</p>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ============================================================== -->
+    <!-- VIEW 4: USER SCOPE (Company & Branch Facility Governance)      -->
+    <!-- ============================================================== -->
+    @if (activeTab() === 'user-scope') {
+      <div class="tab-view">
+        <div class="section-title-bar">
+          <div>
+            <h3>User Scope &amp; Facility Authorizations</h3>
+            <p class="section-subtitle">Assign and govern company and operating branch facility authorizations independently from role permissions.</p>
+          </div>
+          <p-button
+            label="Assign Scope"
+            icon="pi pi-plus"
+            size="small"
+            severity="primary"
+            (onClick)="openAssignScopeModal()"
+          ></p-button>
+        </div>
+
+        <div class="scope-filter-bar erp-card">
+          <div class="filter-field">
+            <label for="scopeUserSelect">Filter by User</label>
+            <select
+              id="scopeUserSelect"
+              class="fluent-select"
+              [ngModel]="selectedScopeUserFilter()"
+              (ngModelChange)="selectedScopeUserFilter.set($event)"
+            >
+              <option value="all">All Users ({{ users().length }})</option>
+              @for (u of users(); track u.id) {
+                <option [value]="u.id">{{ u.fullName }} ({{ u.roleName }})</option>
+              }
+            </select>
+          </div>
+
+          <div class="filter-field search-field">
+            <label for="scopeSearch">Search Scopes</label>
+            <div class="search-input-wrap">
+              <i class="pi pi-search"></i>
+              <input
+                pInputText
+                id="scopeSearch"
+                type="text"
+                placeholder="Filter by company, branch, or user..."
+                [ngModel]="scopeSearchQuery()"
+                (ngModelChange)="scopeSearchQuery.set($event)"
+                class="w-full"
+              />
+            </div>
+          </div>
+
+          <div class="filter-actions">
+            <p-button
+              label="Reset Filters"
+              [outlined]="true"
+              size="small"
+              severity="secondary"
+              (onClick)="selectedScopeUserFilter.set('all'); scopeSearchQuery.set('')"
+            ></p-button>
+          </div>
+        </div>
+
+        <app-data-table
+          [data]="displayedUserScopes()"
+          [columns]="scopeColumns"
+          [rows]="10"
+          [rowsPerPageOptions]="[5, 10, 20]"
+          searchPlaceholder="Filter scope assignments..."
+          emptyTitle="No Scope Authorizations"
+          emptyDescription="No operating scopes match the selected user or filter criteria."
+          [actionTemplate]="scopeActionsTemplate"
+        >
+          <ng-template #cellTemplate let-row="row" let-col="col">
+            @if (col.field === 'userName') {
+              <div class="user-cell">
+                <div class="user-avatar-circle small">
+                  {{ (row.userName || 'U').substring(0, 2).toUpperCase() }}
+                </div>
+                <div>
+                  <span class="user-name-text">{{ row.userName }}</span>
+                  <span class="user-username-sub">{{ row.userEmail }}</span>
+                </div>
+              </div>
+            } @else if (col.field === 'companyName') {
+              <div class="company-cell">
+                <i class="pi pi-building text-primary"></i>
+                <span class="font-medium text-main">{{ row.companyName }}</span>
+              </div>
+            } @else if (col.field === 'branchName') {
+              <div class="branch-cell">
+                <i class="pi pi-map-marker text-secondary"></i>
+                <span>{{ row.branchName }}</span>
+                @if (row.isAllBranches) {
+                  <span class="all-branches-tag">All Facilities</span>
+                }
+              </div>
+            } @else if (col.field === 'scopeType') {
+              @if (row.isPrimary) {
+                <span class="primary-scope-badge">
+                  <i class="pi pi-star-fill"></i> Primary Scope
+                </span>
+              } @else {
+                <span class="additional-scope-badge">
+                  <i class="pi pi-plus-circle"></i> Additional Access
+                </span>
+              }
+            } @else if (col.field === 'status') {
+              <app-status-badge
+                [status]="row.status === 'Authorized' ? 'active' : 'suspended'"
+                [label]="row.status"
+              ></app-status-badge>
+            } @else if (col.field === 'grantedAt') {
+              <span class="text-xs text-muted">{{ row.grantedAt | date:'mediumDate' }}</span>
+            }
+          </ng-template>
+
+          <ng-template #scopeActionsTemplate let-row="row">
+            <div class="row-actions-group">
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-text p-button-primary"
+                (click)="openAssignScopeModal(row.userId)"
+                title="Grant additional branch for this user"
+              >
+                <i class="pi pi-plus"></i>
+                <span class="action-btn-text">Add Branch</span>
+              </button>
+              @if (!row.isPrimary) {
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-text p-button-danger"
+                  (click)="revokeScope(row)"
+                  title="Revoke secondary facility authorization"
+                >
+                  <i class="pi pi-trash"></i>
+                  <span class="action-btn-text">Revoke</span>
+                </button>
+              }
+            </div>
+          </ng-template>
+        </app-data-table>
+      </div>
+    }
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL 1: CREATE USER (Matching Image 4 Fluent Style)           -->
+  <!-- ============================================================== -->
+  <p-dialog
+    header="Create User"
+    [visible]="showCreateUserModal()"
+    (visibleChange)="showCreateUserModal.set($event)"
+    [modal]="true"
+    [style]="{ width: '560px' }"
+    [closable]="true"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    <div class="modal-form-body fluent-form">
+      @if (formError()) {
+        <div class="form-error-banner">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>{{ formError() }}</span>
+        </div>
+      }
+
+      <div class="fluent-section">
+        <h4 class="fluent-section-title">User Details</h4>
+        <div class="field-grid-2">
+          <div class="field-group">
+            <label for="newUserFirstName">First Name <span class="req">*</span></label>
+            <input
+              pInputText
+              id="newUserFirstName"
+              [(ngModel)]="newUserFirstName"
+              placeholder="First name"
+              class="w-full"
+              autofocus
+            />
+          </div>
+          <div class="field-group">
+            <label for="newUserLastName">Last Name <span class="req">*</span></label>
+            <input
+              pInputText
+              id="newUserLastName"
+              [(ngModel)]="newUserLastName"
+              placeholder="Last name"
+              class="w-full"
+            />
+          </div>
+        </div>
+
+        <div class="field-grid-2">
+          <div class="field-group">
+            <label for="newUserEmail">Email Address <span class="req">*</span></label>
+            <input
+              pInputText
+              id="newUserEmail"
+              type="email"
+              [(ngModel)]="newUserEmail"
+              placeholder="user@company.com"
+              class="w-full"
+            />
+          </div>
+          <div class="field-group">
+            <label for="newUserUsername">Username</label>
+            <input
+              pInputText
+              id="newUserUsername"
+              [(ngModel)]="newUserUsername"
+              placeholder="Username"
+              class="w-full"
+            />
+          </div>
+        </div>
+
+        <div class="field-grid-2">
+          <div class="field-group">
+            <label for="newUserPhone">Phone</label>
+            <input
+              pInputText
+              id="newUserPhone"
+              [(ngModel)]="newUserPhone"
+              placeholder="Phone number"
+              class="w-full"
+            />
+          </div>
+          <div class="field-group">
+            <label for="newUserAccountStatus">Account Status</label>
+            <select
+              id="newUserAccountStatus"
+              class="fluent-select"
+              [(ngModel)]="newUserAccountStatus"
+            >
+              <option value="Active">Active</option>
+              <option value="Suspended">Suspended</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="fluent-section">
+        <h4 class="fluent-section-title">Role Assignment</h4>
+        <div class="field-group">
+          <label for="newUserRole">Available Roles <span class="req">*</span></label>
+          <select
+            id="newUserRole"
+            class="fluent-select"
+            [(ngModel)]="newUserRoleId"
+          >
+            <option value="" disabled>Select a role</option>
+            @for (r of roles(); track r.id) {
+              <option [value]="r.id">{{ r.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label for="newUserCompany">Company <span class="req">*</span></label>
+          <select
+            id="newUserCompany"
+            class="fluent-select"
+            [(ngModel)]="newUserCompanyId"
+            (ngModelChange)="onUserCompanyChange($event)"
+          >
+            <option value="" disabled>Select authorised company</option>
+            @for (c of companies(); track c.id) {
+              <option [value]="c.id">{{ c.name }} ({{ c.code }})</option>
+            }
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label for="newUserBranch">Branch <span class="req">*</span></label>
+          <select
+            id="newUserBranch"
+            class="fluent-select"
+            [(ngModel)]="newUserBranchId"
+          >
+            <option value="" disabled>Select authorised branch</option>
+            @for (b of newUserAvailableBranches(); track b.id) {
+              <option [value]="b.id">{{ b.name }} ({{ b.code }})</option>
+            }
+          </select>
+        </div>
+
+        <p class="form-helper-note">
+          Company, branch and role options must be loaded from authorised backend APIs. The form must not grant broader access than the administrator is permitted to assign.
+        </p>
+      </div>
+    </div>
+
+    <!-- Fluent UI Dialog Actions (Matching Image 4) -->
+    <ng-template #footer pTemplate="footer">
+      <div class="dialog-actions-container">
+        <p-button
+          label="Cancel"
+          [text]="true"
+          severity="secondary"
+          (onClick)="showCreateUserModal.set(false)"
+        ></p-button>
+        <p-button
+          label="Save User"
+          icon="pi pi-check"
+          severity="primary"
+          (onClick)="saveUser()"
+        ></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ============================================================== -->
+  <!-- MODAL 2: CREATE ROLE (Matching Image 3 & 4 with Dual List)     -->
+  <!-- ============================================================== -->
+  <p-dialog
+    header="Create Role"
+    [visible]="showCreateRoleModal()"
+    (visibleChange)="showCreateRoleModal.set($event)"
+    [modal]="true"
+    [style]="{ width: '680px' }"
+    [closable]="true"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    <div class="modal-form-body fluent-form">
+      @if (formError()) {
+        <div class="form-error-banner">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>{{ formError() }}</span>
+        </div>
+      }
+
+      <div class="field-group">
+        <label for="newRoleName">Role Name <span class="req">*</span></label>
+        <input
+          pInputText
+          id="newRoleName"
+          [(ngModel)]="newRoleName"
+          placeholder="e.g. Purchasing Officer"
+          class="w-full"
+          autofocus
+        />
+      </div>
+
+      <div class="field-group">
+        <label for="newRoleDescription">Description</label>
+        <input
+          pInputText
+          id="newRoleDescription"
+          [(ngModel)]="newRoleDescription"
+          placeholder="Describe the role's responsibilities"
+          class="w-full"
+        />
+      </div>
+
+      <div class="field-group">
+        <label class="block mb-2 font-medium">Permission Assignment Mode</label>
+        <div class="mode-radios">
+          <label class="radio-label">
+            <input
+              type="radio"
+              name="assignmentMode"
+              value="simple"
+              [checked]="newRoleAssignmentMode === 'simple'"
+              (change)="onRoleAssignmentModeChange('simple')"
+            />
+            <span><strong>Simple</strong> — select a predefined permission template</span>
+          </label>
+          <label class="radio-label">
+            <input
+              type="radio"
+              name="assignmentMode"
+              value="advanced"
+              [checked]="newRoleAssignmentMode === 'advanced'"
+              (change)="onRoleAssignmentModeChange('advanced')"
+            />
+            <span><strong>Advanced</strong> — assign individual permissions</span>
+          </label>
+        </div>
+      </div>
+
+      @if (newRoleAssignmentMode === 'simple') {
+        <div class="field-group">
+          <label for="newRoleTemplate">Permission Template</label>
+          <select
+            id="newRoleTemplate"
+            class="fluent-select"
+            [(ngModel)]="newRoleTemplateId"
+          >
+            <option value="" disabled>Select template</option>
+            @for (t of templates(); track t.id) {
+              <option [value]="t.id">{{ t.name }} — {{ t.description }}</option>
+            }
+          </select>
+          <p class="form-helper-note">Review the template's permissions before saving.</p>
+
+          @if (currentTemplate()) {
+            <div class="template-preview-box">
+              <span class="preview-title"><i class="pi pi-info-circle"></i> Template Includes {{ currentTemplate()?.permissionCodes?.length }} Capabilities:</span>
+              <div class="preview-tags">
+                @for (c of currentTemplate()?.permissionCodes; track c) {
+                  <code class="mini-tag">{{ c }}</code>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      @if (newRoleAssignmentMode === 'advanced') {
+        <div class="dual-list-container">
+          <div class="dual-list-header-note">
+            <i class="pi pi-arrow-right-arrow-left"></i>
+            <span>Select capabilities and use arrows to add or remove individual permissions.</span>
+          </div>
+
+          <div class="dual-list-grid">
+            <!-- Left List -->
+            <div class="dual-list-box">
+              <div class="box-head">
+                <strong>Available Permissions</strong>
+                <span class="count-badge">{{ availablePermissionsList().length }}</span>
+              </div>
+              <div class="box-search">
+                <i class="pi pi-search"></i>
+                <input
+                  type="text"
+                  placeholder="Filter available..."
+                  [ngModel]="availableSearchQuery()"
+                  (ngModelChange)="availableSearchQuery.set($event)"
+                />
+              </div>
+              <div class="box-scroll">
+                @if (filteredAvailablePermissions().length === 0) {
+                  <div class="empty-list-msg">No available permissions</div>
+                }
+                @for (p of filteredAvailablePermissions(); track p.code) {
+                  <div
+                    class="list-item"
+                    [class.selected]="selectedAvailableCodes().has(p.code)"
+                    (click)="toggleSelectAvailable(p.code)"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="selectedAvailableCodes().has(p.code)"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleSelectAvailable(p.code)"
+                    />
+                    <div class="item-text">
+                      <span class="item-name">{{ p.name }}</span>
+                      <code class="item-code">{{ p.code }}</code>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Arrows -->
+            <div class="dual-list-controls">
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveSelectedToAssigned()"
+                [disabled]="selectedAvailableCodes().size === 0"
+                title="Add Selected"
+              >
+                <i class="pi pi-angle-right"></i>
+              </button>
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveAllToAssigned()"
+                [disabled]="availablePermissionsList().length === 0"
+                title="Add All"
+              >
+                <i class="pi pi-angle-double-right"></i>
+              </button>
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveSelectedToAvailable()"
+                [disabled]="selectedAssignedCodes().size === 0"
+                title="Remove Selected"
+              >
+                <i class="pi pi-angle-left"></i>
+              </button>
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveAllToAvailable()"
+                [disabled]="assignedPermissionsList().length === 0"
+                title="Remove All"
+              >
+                <i class="pi pi-angle-double-left"></i>
+              </button>
+            </div>
+
+            <!-- Right List -->
+            <div class="dual-list-box">
+              <div class="box-head">
+                <strong>Assigned Permissions</strong>
+                <span class="count-badge primary">{{ assignedPermissionsList().length }}</span>
+              </div>
+              <div class="box-search">
+                <i class="pi pi-search"></i>
+                <input
+                  type="text"
+                  placeholder="Filter assigned..."
+                  [ngModel]="assignedSearchQuery()"
+                  (ngModelChange)="assignedSearchQuery.set($event)"
+                />
+              </div>
+              <div class="box-scroll">
+                @if (filteredAssignedPermissions().length === 0) {
+                  <div class="empty-list-msg">No permissions assigned yet</div>
+                }
+                @for (p of filteredAssignedPermissions(); track p.code) {
+                  <div
+                    class="list-item"
+                    [class.selected]="selectedAssignedCodes().has(p.code)"
+                    (click)="toggleSelectAssigned(p.code)"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="selectedAssignedCodes().has(p.code)"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleSelectAssigned(p.code)"
+                    />
+                    <div class="item-text">
+                      <span class="item-name">{{ p.name }}</span>
+                      <code class="item-code">{{ p.code }}</code>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Fluent UI Dialog Actions (Matching Image 4) -->
+    <ng-template #footer pTemplate="footer">
+      <div class="dialog-actions-container">
+        <p-button
+          label="Cancel"
+          [text]="true"
+          severity="secondary"
+          (onClick)="showCreateRoleModal.set(false)"
+        ></p-button>
+        <p-button
+          label="Save Role"
+          icon="pi pi-check"
+          severity="primary"
+          (onClick)="saveRole()"
+        ></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ============================================================== -->
+  <!-- MODAL 3: ASSIGN ADDITIONAL SCOPE (Matching Image 4)            -->
+  <!-- ============================================================== -->
+  <p-dialog
+    header="Assign Operating Scope"
+    [visible]="showAssignScopeModal()"
+    (visibleChange)="showAssignScopeModal.set($event)"
+    [modal]="true"
+    [style]="{ width: '540px' }"
+    [closable]="true"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    <div class="modal-form-body fluent-form">
+      @if (formError()) {
+        <div class="form-error-banner">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>{{ formError() }}</span>
+        </div>
+      }
+
+      <div class="field-group">
+        <label for="assignScopeUser">Authorized User <span class="req">*</span></label>
+        <select
+          id="assignScopeUser"
+          class="fluent-select"
+          [(ngModel)]="assignScopeUserId"
+        >
+          <option value="" disabled>Select User</option>
+          @for (u of users(); track u.id) {
+            <option [value]="u.id">{{ u.fullName }} ({{ u.email }}) — {{ u.roleName }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label for="assignScopeCompany">Authorized Legal Company <span class="req">*</span></label>
+        <select
+          id="assignScopeCompany"
+          class="fluent-select"
+          [(ngModel)]="assignScopeCompanyId"
+          (ngModelChange)="onScopeCompanyChange($event)"
+        >
+          <option value="" disabled>Select Operating Company</option>
+          @for (c of companies(); track c.id) {
+            <option [value]="c.id">{{ c.name }} ({{ c.code }})</option>
+          }
+        </select>
+      </div>
+
+      <div class="field-group">
+        <div class="checkbox-row mb-2">
+          <label class="fluent-checkbox-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="assignScopeIsAllBranches"
+            />
+            <span>Authorize access across <strong>All Facilities &amp; Branches</strong> in this Company</span>
+          </label>
+        </div>
+
+        @if (!assignScopeIsAllBranches) {
+          <label for="assignScopeBranch">Specific Operating Branch / Plant <span class="req">*</span></label>
+          <select
+            id="assignScopeBranch"
+            class="fluent-select"
+            [(ngModel)]="assignScopeBranchId"
+          >
+            <option value="" disabled>Select Branch / Plant</option>
+            @for (b of assignScopeAvailableBranches(); track b.id) {
+              <option [value]="b.id">{{ b.name }} ({{ b.code }})</option>
+            }
+          </select>
+        }
+      </div>
+
+      <div class="field-group">
+        <label for="assignScopeNotes">Administrative Notes / Justification</label>
+        <input
+          pInputText
+          id="assignScopeNotes"
+          [(ngModel)]="assignScopeNotes"
+          placeholder="e.g. Cross-plant purchasing authorization approved for Q4 operations."
+          class="w-full"
+        />
+      </div>
+
+      <p class="form-helper-note">
+        This grants the user access to operate inside this company and branch facility. Role capabilities (permissions) will apply within this new scope.
+      </p>
+    </div>
+
+    <!-- Fluent UI Dialog Actions (Matching Image 4) -->
+    <ng-template #footer pTemplate="footer">
+      <div class="dialog-actions-container">
+        <p-button
+          label="Cancel"
+          [text]="true"
+          severity="secondary"
+          (onClick)="showAssignScopeModal.set(false)"
+        ></p-button>
+        <p-button
+          label="Save Scope"
+          icon="pi pi-check"
+          severity="primary"
+          (onClick)="saveScopeAssignment()"
+        ></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+</div>
