@@ -1,130 +1,349 @@
 <div class="erp-table-wrapper">
-  <p-table
-    #dt
-    [value]="data()"
-    [columns]="columns()"
-    [loading]="loading()"
-    [paginator]="paginator()"
-    [rows]="rows()"
-    [rowsPerPageOptions]="rowsPerPageOptions()"
-    [globalFilterFields]="globalFilterFields()"
-    [sortMode]="sortMode()"
-    [selectionMode]="selectionMode() ?? undefined"
-    [selection]="selection()"
-    (selectionChange)="selection.set($event)"
-    styleClass="p-datatable-sm erp-datatable"
-    [rowHover]="true"
-    responsiveLayout="scroll"
-  >
-    <!-- Table Header Toolbar -->
-    @if (showGlobalSearch()) {
-      <ng-template pTemplate="caption">
-        <div class="table-caption-bar">
-          <div class="search-box">
-            <i class="pi pi-search search-icon" aria-hidden="true"></i>
-            <input
-              pInputText
-              type="text"
-              [(ngModel)]="searchValue"
-              (input)="dt.filterGlobal(searchValue, 'contains')"
-              [placeholder]="searchPlaceholder()"
-              [attr.aria-label]="searchPlaceholder()"
-              class="erp-table-search-input"
-            />
-            @if (searchValue) {
-              <button
-                type="button"
-                class="clear-search-btn"
-                (click)="searchValue = ''; dt.filterGlobal('', 'contains')"
-                title="Clear filter"
-                aria-label="Clear filter"
-              >
-                <i class="pi pi-times" aria-hidden="true"></i>
-              </button>
-            }
-          </div>
-          <div class="caption-actions">
-            <ng-content select="[toolbar]"></ng-content>
-          </div>
-        </div>
-      </ng-template>
-    }
+  <!-- Selection Bar -->
+  @if (selectionMode === 'multiple') {
+    <app-table-selection
+      [selectedCount]="selectedCount()"
+      [totalCount]="processedData().length"
+      (selectAll)="selectAllRecords()"
+      (clearSelection)="clearSelection()"
+    >
+      <div actions>
+        <ng-content select="[selectionActions]"></ng-content>
+      </div>
+    </app-table-selection>
+  }
 
-    <!-- Column Headers -->
-    <ng-template pTemplate="header" let-columns>
-      <tr>
-        @for (col of columns; track col.field) {
-          <th
-            [pSortableColumn]="col.sortable !== false ? col.field : undefined"
-            [pSortableColumnDisabled]="col.sortable === false"
-            [style.width]="col.width || 'auto'"
-            [style.textAlign]="col.align || 'left'"
-          >
-            <div class="th-content" [style.justifyContent]="col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start')">
-              <span>{{ col.header }}</span>
-              @if (col.sortable !== false) {
-                <p-sort-icon [field]="col.field"></p-sort-icon>
+  <!-- Header Toolbar Bar -->
+  <div class="table-caption-bar">
+    <div class="left-tools">
+      @if (showGlobalSearch) {
+        <app-table-search
+          [value]="globalSearchTerm()"
+          [placeholder]="searchPlaceholder"
+          (searchChange)="onGlobalSearch($event)"
+          (searchClear)="onGlobalSearch('')"
+        ></app-table-search>
+      }
+    </div>
+
+    <div class="right-tools">
+      @if (showColumnChooser) {
+        <app-table-column-chooser
+          [columns]="columnsSignal()"
+          (columnsChange)="onColumnsChange($event)"
+        ></app-table-column-chooser>
+      }
+
+      @if (showExport) {
+        <p-button
+          label="Export CSV"
+          icon="pi pi-download"
+          [outlined]="true"
+          size="small"
+          severity="secondary"
+          (onClick)="exportCSV()"
+          title="Export current table data to CSV"
+        ></p-button>
+      }
+
+      <ng-content select="[toolbar]"></ng-content>
+
+      @if (showViewSwitcher) {
+        <app-table-view-switcher
+          [view]="currentView()"
+          (viewChange)="setViewMode($event)"
+        ></app-table-view-switcher>
+      }
+    </div>
+  </div>
+
+  <!-- Content State: Loading, Empty, or Data Views -->
+  @if (loading) {
+    <div class="state-container">
+      <app-loading-state message="Loading table records..."></app-loading-state>
+    </div>
+  } @else if (displayedRows().length === 0) {
+    <div class="state-container">
+      <app-empty-state
+        [title]="emptyTitle"
+        [description]="emptyDescription"
+      ></app-empty-state>
+    </div>
+  } @else {
+    @switch (currentView()) {
+      <!-- 1. TABLE VIEW (Default Structured Enterprise Grid) -->
+      @case ('table') {
+        <div class="table-scroll-container">
+          <table class="erp-excel-table" role="grid">
+            <thead>
+              <tr>
+                @if (selectionMode === 'multiple') {
+                  <th class="selection-col-header" style="width: 44px; text-align: center;">
+                    <app-checkbox
+                      [checked]="isAllPageSelected()"
+                      [indeterminate]="isIndeterminatePageSelected()"
+                      (checkedChange)="toggleSelectAllPage($event)"
+                      ariaLabel="Select all records on this page"
+                      size="small"
+                    ></app-checkbox>
+                  </th>
+                }
+
+                @for (col of visibleColumns(); track col.field) {
+                  <th
+                    [style.width]="col.width || 'auto'"
+                    [style.minWidth]="col.minWidth || 'auto'"
+                    [style.maxWidth]="col.maxWidth || 'auto'"
+                    [style.textAlign]="col.align || 'left'"
+                  >
+                    <div class="th-content" [style.justifyContent]="col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start')">
+                      <span class="th-title">{{ col.header }}</span>
+
+                      <div class="th-controls">
+                        @if (showSorting && col.sortable !== false) {
+                          <app-table-sort
+                            [field]="getFieldKey(col)"
+                            [sortMode]="sortMode"
+                            [sortField]="activeSortField()"
+                            [sortOrder]="activeSortOrder()"
+                            [multiSortMeta]="multiSortMeta()"
+                            (sortChange)="onColumnSort($event)"
+                          ></app-table-sort>
+                        }
+
+                        @if (showFilters && col.filterable !== false && col.type !== 'actions') {
+                          <app-table-filter
+                            [column]="col"
+                            [value]="columnFilters()[getFieldKey(col)]?.value"
+                            (filterChange)="onColumnFilter($event)"
+                            (filterClear)="onColumnFilterClear($event)"
+                          ></app-table-filter>
+                        }
+                      </div>
+                    </div>
+                  </th>
+                }
+              </tr>
+            </thead>
+
+            <tbody>
+              @for (rowData of displayedRows(); track getRowKey(rowData)) {
+                <tr
+                  class="erp-table-row"
+                  [class.row-selected]="isRowSelected(rowData)"
+                  (click)="onRowClick(rowData)"
+                  (keydown.enter)="onRowClick(rowData)"
+                  (keydown.space)="$event.preventDefault(); onRowClick(rowData)"
+                  tabindex="0"
+                  role="row"
+                >
+                  @if (selectionMode === 'multiple') {
+                    <td class="selection-cell" style="text-align: center;" (click)="$event.stopPropagation()">
+                      <app-checkbox
+                        [checked]="isRowSelected(rowData)"
+                        (checkedChange)="toggleRowSelection(rowData, $event)"
+                        ariaLabel="Select row"
+                        size="small"
+                      ></app-checkbox>
+                    </td>
+                  }
+
+                  @for (col of visibleColumns(); track col.field) {
+                    <td [style.textAlign]="col.align || 'left'">
+                      @switch (col.type) {
+                        @case ('badge') {
+                          <app-status-badge
+                            [label]="getFieldValue(rowData, col.field)"
+                            [severity]="getBadgeSeverity(col, rowData)"
+                          ></app-status-badge>
+                        }
+                        @case ('actions') {
+                          <div class="row-actions-cell" (click)="$event.stopPropagation()">
+                            @if (actionTemplate || rowActionsTemplate) {
+                              <ng-container
+                                *ngTemplateOutlet="actionTemplate || rowActionsTemplate!; context: { $implicit: rowData }"
+                              ></ng-container>
+                            } @else if (rowActions && rowActions.length > 0) {
+                              @for (act of rowActions; track act.id) {
+                                @if (!act.visible || act.visible(rowData)) {
+                                  <p-button
+                                    [label]="act.label"
+                                    [icon]="act.icon || ''"
+                                    [severity]="getActionSeverity(act.severity)"
+                                    [outlined]="act.outlined !== false"
+                                    size="small"
+                                    [disabled]="act.disabled ? act.disabled(rowData) : false"
+                                    (onClick)="act.action(rowData)"
+                                  ></p-button>
+                                }
+                              }
+                            }
+                          </div>
+                        }
+                        @default {
+                          <span class="cell-text">{{ formatValue(col, rowData) }}</span>
+                        }
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- 2. LIST VIEW (Compact Horizontal Rows) -->
+      @case ('list') {
+        <div class="table-view-list" role="list">
+          @for (rowData of displayedRows(); track getRowKey(rowData)) {
+            <div
+              class="erp-list-row"
+              [class.row-selected]="isRowSelected(rowData)"
+              (click)="onRowClick(rowData)"
+              tabindex="0"
+              role="listitem"
+            >
+              @if (selectionMode === 'multiple') {
+                <div class="list-selection" (click)="$event.stopPropagation()">
+                  <app-checkbox
+                    [checked]="isRowSelected(rowData)"
+                    (checkedChange)="toggleRowSelection(rowData, $event)"
+                    ariaLabel="Select row"
+                    size="small"
+                  ></app-checkbox>
+                </div>
+              }
+
+              <div class="list-primary-info">
+                <strong class="list-item-title">{{ getCardTitle(rowData) }}</strong>
+                @if (getCardSubtitle(rowData)) {
+                  <span class="list-item-subtitle">{{ getCardSubtitle(rowData) }}</span>
+                }
+              </div>
+
+              <div class="list-fields-grid">
+                @for (field of getCardFields(rowData); track field.header) {
+                  <div class="list-field-item">
+                    <span class="field-label">{{ field.header }}:</span>
+                    <span class="field-value">{{ field.value }}</span>
+                  </div>
+                }
+              </div>
+
+              @if (getBadgeColumn(); as badgeCol) {
+                <div class="list-status">
+                  <app-status-badge
+                    [label]="getFieldValue(rowData, badgeCol.field)"
+                    [severity]="getBadgeSeverity(badgeCol, rowData)"
+                  ></app-status-badge>
+                </div>
+              }
+
+              @if (rowActions && rowActions.length > 0) {
+                <div class="list-actions" (click)="$event.stopPropagation()">
+                  @for (act of rowActions; track act.id) {
+                    @if (!act.visible || act.visible(rowData)) {
+                      <p-button
+                        [label]="act.label"
+                        [icon]="act.icon || ''"
+                        [severity]="getActionSeverity(act.severity)"
+                        [outlined]="act.outlined !== false"
+                        size="small"
+                        [disabled]="act.disabled ? act.disabled(rowData) : false"
+                        (onClick)="act.action(rowData)"
+                      ></p-button>
+                    }
+                  }
+                </div>
               }
             </div>
-          </th>
-        }
-      </tr>
-    </ng-template>
+          }
+        </div>
+      }
 
-    <!-- Table Rows -->
-    <ng-template pTemplate="body" let-rowData let-columns="columns">
-      <tr
-        (click)="onRowClick(rowData)"
-        (keydown.enter)="onRowClick(rowData)"
-        (keydown.space)="$event.preventDefault(); onRowClick(rowData)"
-        tabindex="0"
-        role="row"
-        class="erp-table-row"
-      >
-        @for (col of columns; track col.field) {
-          <td [style.textAlign]="col.align || 'left'">
-            @switch (col.type) {
-              @case ('badge') {
-                <app-status-badge
-                  [label]="getFieldValue(rowData, col.field)"
-                  [severity]="getBadgeSeverity(col, rowData)"
-                ></app-status-badge>
-              }
-              @case ('actions') {
-                @if (actionTemplate() || rowActionsTemplate) {
-                  <ng-container
-                    *ngTemplateOutlet="actionTemplate() || rowActionsTemplate!; context: { $implicit: rowData }"
-                  ></ng-container>
+      <!-- 3. CARD VIEW (Summary Cards as specified in Reference Design) -->
+      @case ('card') {
+        <div class="table-view-cards" role="region" aria-label="Card view">
+          @for (rowData of displayedRows(); track getRowKey(rowData)) {
+            <div
+              class="erp-card-item"
+              [class.card-selected]="isRowSelected(rowData)"
+              (click)="onRowClick(rowData)"
+              tabindex="0"
+            >
+              <div class="card-header-line">
+                <div class="card-icon-title">
+                  <i [class]="cardIcon + ' card-brand-icon'" aria-hidden="true"></i>
+                  <div class="title-meta">
+                    <h4 class="card-product-title">{{ getCardTitle(rowData) }}</h4>
+                    <span class="card-product-code">{{ getCardSubtitle(rowData) }}</span>
+                  </div>
+                </div>
+
+                @if (selectionMode === 'multiple') {
+                  <div class="card-select-box" (click)="$event.stopPropagation()">
+                    <app-checkbox
+                      [checked]="isRowSelected(rowData)"
+                      (checkedChange)="toggleRowSelection(rowData, $event)"
+                      ariaLabel="Select card"
+                      size="small"
+                    ></app-checkbox>
+                  </div>
                 }
-              }
-              @default {
-                <span class="cell-text">{{ formatValue(col, rowData) }}</span>
-              }
-            }
-          </td>
-        }
-      </tr>
-    </ng-template>
+              </div>
 
-    <!-- Empty State -->
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td [attr.colspan]="columns().length">
-          <app-empty-state
-            [title]="emptyTitle()"
-            [description]="emptyDescription()"
-          ></app-empty-state>
-        </td>
-      </tr>
-    </ng-template>
+              <div class="card-body-metrics">
+                @for (field of getCardFields(rowData); track field.header) {
+                  <div class="card-metric-row">
+                    <span class="metric-label">{{ field.header }}</span>
+                    <span class="metric-val">{{ field.value }}</span>
+                  </div>
+                }
+              </div>
 
-    <!-- Loading State -->
-    <ng-template pTemplate="loadingbody">
-      <tr>
-        <td [attr.colspan]="columns().length">
-          <app-loading-state message="Loading table records..."></app-loading-state>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
+              <div class="card-footer-line">
+                @if (getBadgeColumn(); as badgeCol) {
+                  <app-status-badge
+                    [label]="getFieldValue(rowData, badgeCol.field)"
+                    [severity]="getBadgeSeverity(badgeCol, rowData)"
+                  ></app-status-badge>
+                } @else {
+                  <span></span>
+                }
+
+                @if (rowActions && rowActions.length > 0) {
+                  <div class="card-actions" (click)="$event.stopPropagation()">
+                    @for (act of rowActions; track act.id) {
+                      @if (!act.visible || act.visible(rowData)) {
+                        <p-button
+                          [icon]="act.icon || ''"
+                          [label]="act.label"
+                          [severity]="getActionSeverity(act.severity)"
+                          [outlined]="true"
+                          size="small"
+                          (onClick)="act.action(rowData)"
+                        ></p-button>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+  }
+
+  <!-- Reusable Table Pagination Component -->
+  @if (paginator && !loading && processedData().length > 0) {
+    <app-table-pagination
+      [first]="pageOffset()"
+      [rows]="rows"
+      [totalRecords]="processedData().length"
+      [rowsPerPageOptions]="rowsPerPageOptions"
+      (pageChange)="onPageChange($event)"
+    ></app-table-pagination>
+  }
 </div>

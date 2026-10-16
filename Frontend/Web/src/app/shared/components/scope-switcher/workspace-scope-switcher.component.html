@@ -1,0 +1,126 @@
+<div class="scope-switcher-wrapper">
+  <div class="scope-header-label">
+    <span>ACTIVE WORKSPACE SCOPE</span>
+  </div>
+
+  <div class="scope-selectors-box">
+    <!-- Company Selector Dropdown -->
+    <div class="selector-row" (click)="toggleCompanyMenu()" [class.active-menu]="companyMenuOpen()">
+      <div class="selector-icon">
+        <i class="pi pi-building"></i>
+      </div>
+      <div class="selector-content">
+        <span class="selector-label">Company</span>
+        <span class="selector-value">
+          {{ scopeService.selectedCompany()?.name || (scopeService.loading() ? 'Loading companies...' : 'No company selected') }}
+        </span>
+      </div>
+      <div class="selector-arrow">
+        <i class="pi" [ngClass]="companyMenuOpen() ? 'pi-chevron-up' : 'pi-sort-alt'"></i>
+      </div>
+
+      <!-- Company Dropdown Menu -->
+      @if (companyMenuOpen()) {
+        <div class="dropdown-menu" (click)="$event.stopPropagation()">
+          <div class="menu-header">Authorized Companies</div>
+          @if (scopeService.companies().length === 0) {
+            <div class="menu-empty">No accessible companies found</div>
+          }
+          @for (company of scopeService.companies(); track company.id) {
+            <button
+              type="button"
+              class="menu-item"
+              [class.selected]="scopeService.selectedCompany()?.id === company.id"
+              (click)="onSelectCompany(company)"
+            >
+              <div class="item-info">
+                <span class="item-title">{{ company.name }}</span>
+                <span class="item-subtitle">{{ company.code }}</span>
+              </div>
+              @if (scopeService.selectedCompany()?.id === company.id) {
+                <i class="pi pi-check check-icon"></i>
+              }
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Branch Selector Dropdown -->
+    <div
+      class="selector-row"
+      (click)="toggleBranchMenu()"
+      [class.active-menu]="branchMenuOpen()"
+      [class.disabled]="!scopeService.selectedCompany()"
+    >
+      <div class="selector-icon">
+        <i class="pi pi-sitemap"></i>
+      </div>
+      <div class="selector-content">
+        <span class="selector-label">Branch</span>
+        <span class="selector-value">
+          @if (scopeService.isAllBranches()) {
+            All permitted branches
+          } @else {
+            {{ scopeService.selectedBranch()?.name || 'No branch selected' }}
+          }
+        </span>
+      </div>
+      <div class="selector-arrow">
+        <i class="pi" [ngClass]="branchMenuOpen() ? 'pi-chevron-up' : 'pi-sort-alt'"></i>
+      </div>
+
+      <!-- Branch Dropdown Menu -->
+      @if (branchMenuOpen()) {
+        <div class="dropdown-menu" (click)="$event.stopPropagation()">
+          <div class="menu-header">Available Branches</div>
+          <!-- Option: All permitted branches -->
+          <button
+            type="button"
+            class="menu-item"
+            [class.selected]="scopeService.isAllBranches()"
+            (click)="onSelectBranch(null)"
+          >
+            <div class="item-info">
+              <span class="item-title">All permitted branches</span>
+              <span class="item-subtitle">Company-wide view</span>
+            </div>
+            @if (scopeService.isAllBranches()) {
+              <i class="pi pi-check check-icon"></i>
+            }
+          </button>
+
+          @for (branch of scopeService.branches(); track branch.id) {
+            <button
+              type="button"
+              class="menu-item"
+              [class.selected]="!scopeService.isAllBranches() && scopeService.selectedBranch()?.id === branch.id"
+              (click)="onSelectBranch(branch)"
+            >
+              <div class="item-info">
+                <span class="item-title">{{ branch.name }}</span>
+                <span class="item-subtitle">{{ branch.code }}</span>
+              </div>
+              @if (!scopeService.isAllBranches() && scopeService.selectedBranch()?.id === branch.id) {
+                <i class="pi pi-check check-icon"></i>
+              }
+            </button>
+          }
+
+          @if (scopeService.branches().length === 0) {
+            <div class="menu-empty">No specific branches configured</div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Tenant Context Subtitle -->
+  <div class="scope-footer-tag">
+    <span class="tenant-identity">
+      Role: <strong>{{ authService.roles()[0] || 'Tenant Admin' }}</strong>
+      &nbsp;&bull;&nbsp;
+      Tenant: <strong>{{ scopeService.activeTenantName() }}</strong>
+    </span>
+  </div>
+</div>

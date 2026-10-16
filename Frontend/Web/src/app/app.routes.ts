@@ -27,11 +27,12 @@ export const routes: Routes = [
     loadChildren: () => import('./features/saas/staff/staff.routes').then(m => m.staffRoutes)
   },
 
-  // 4. Tenant Admin Private (Tenant Organization & User Governance)
+  // 4. Tenant Admin Private (Authenticated Tenant Admin Workspace Shell)
   {
     path: 'tenant-admin',
+    component: WorkspaceLayoutComponent,
     canActivate: [roleGuard(['Tenant Admin', 'Platform Admin'])],
-    loadChildren: () => import('./features/domain/admin/admin.routes').then(m => m.tenantAdminRoutes)
+    loadChildren: () => import('./features/domain/workspace/workspace.routes').then(m => m.workspaceRoutes)
   },
 
   // 5. Tenant Staff Private (Authenticated ERP Operational Workspace Shell)

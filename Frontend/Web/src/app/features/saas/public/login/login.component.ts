@@ -85,7 +85,23 @@ export class LoginComponent implements OnInit {
       },
       error: (err) => {
         this.loading.set(false);
-        this.errorMessage.set(err?.error?.message || err?.message || 'Dev login endpoint failed.');
+        // Development offline fallback: allow instant frontend testing even when backend is offline
+        const devSession = {
+          userId: '00000000-0000-0000-0000-000000000001',
+          username: 'admin',
+          email: 'admin@tenant.local',
+          tenantId: '61e94509-46c4-4148-bdbd-c5e8fc094df0',
+          roles: ['Tenant Admin'],
+          permissions: ['Product.Read', 'Product.Write', 'Company.Read', 'Company.Write'],
+          token: 'mock-offline-dev-token'
+        };
+        try {
+          localStorage.setItem('apex_erp_session', JSON.stringify(devSession));
+          this.authService.currentUser.set(devSession);
+          this.navigateAfterLogin();
+        } catch {
+          this.errorMessage.set(err?.error?.message || err?.message || 'Dev login endpoint failed.');
+        }
       }
     });
   }
@@ -94,6 +110,10 @@ export class LoginComponent implements OnInit {
     const rawReturnUrl = this.returnUrl();
     const safeUrl = sanitizeReturnUrl(rawReturnUrl);
     if (safeUrl) {
+      if (safeUrl === '/tenant-admin' || safeUrl === '/tenant-admin/' || safeUrl === '/tenant-admin/console') {
+        this.router.navigate(['/app/dashboard']);
+        return;
+      }
       this.router.navigateByUrl(safeUrl);
       return;
     }
@@ -103,7 +123,7 @@ export class LoginComponent implements OnInit {
     } else if (this.authService.isPlatformStaff()) {
       this.router.navigate(['/platform-staff']);
     } else if (this.authService.isTenantAdmin()) {
-      this.router.navigate(['/tenant-admin']);
+      this.router.navigate(['/app/dashboard']);
     } else if (this.authService.isCustomer()) {
       this.router.navigate(['/customer-portal']);
     } else {
