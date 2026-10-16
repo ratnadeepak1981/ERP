@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using ERP.Domain.Features.MasterData.Supplier;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,17 @@ namespace API.Features.MasterData.Supplier;
 [ApiController]
 [Route("api/suppliers")]
 [RequirePermission("SUPPLIER.VIEW")]
-public class SupplierController : ControllerBase
+public class SupplierController : BaseApiController
 {
     private readonly ISupplierService _supplierService;
     private readonly ICurrentUserContext _currentUserContext;
+
+    private static readonly SortMapping<global::ERP.Domain.Features.MasterData.Supplier.Supplier> _sortMapping =
+        new SortMapping<global::ERP.Domain.Features.MasterData.Supplier.Supplier>()
+            .Add("supplierCode", s => s.SupplierCode, isDefault: true)
+            .Add("supplierName", s => s.SupplierName)
+            .Add("city", s => s.City ?? "")
+            .SetSecondary(s => s.SupplierId);
 
     public SupplierController(
         ISupplierService supplierService,
@@ -25,15 +34,19 @@ public class SupplierController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetSuppliers()
+    public async Task<IActionResult> GetSuppliers(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var suppliers = await _supplierService.GetSuppliersAsync(tenantId.Value);
-        return Ok(suppliers);
+        return PaginateAndSort(suppliers, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,13 +55,13 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var supplier = await _supplierService.GetSupplierAsync(tenantId.Value, id);
         if (supplier == null)
-            return NotFound(new { status = "FAIL", message = "Supplier not found." });
+            return NotFoundResponse("Supplier not found.");
 
-        return Ok(supplier);
+        return SuccessResponse(supplier);
     }
 
     [HttpPost]
@@ -58,20 +71,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var supplier = await _supplierService.CreateSupplierAsync(tenantId.Value, request);
-            return CreatedAtAction(nameof(GetSupplier), new { id = supplier.SupplierId }, supplier);
+            return CreatedResponse(nameof(GetSupplier), new { id = supplier.SupplierId }, supplier);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -82,24 +91,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var supplier = await _supplierService.UpdateSupplierAsync(tenantId.Value, id, request);
-            return Ok(supplier);
+            return SuccessResponse(supplier);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -110,16 +111,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _supplierService.DeactivateSupplierAsync(tenantId.Value, id);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier not found." });
+            return HandleDomainException(ex);
         }
     }
 
@@ -129,10 +130,10 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var addresses = await _supplierService.GetAddressesAsync(tenantId.Value, id);
-        return Ok(addresses);
+        return SuccessResponse(addresses);
     }
 
     [HttpPost("{id:guid}/addresses")]
@@ -142,24 +143,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var assoc = await _supplierService.LinkAddressAsync(tenantId.Value, id, request);
-            return Ok(assoc);
+            return SuccessResponse(assoc, "Supplier address linked successfully.");
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -170,20 +163,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _supplierService.SetDefaultAddressAsync(tenantId.Value, id, addressAssocId);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier or address association not found." });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -194,20 +183,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _supplierService.RemoveAddressLinkAsync(tenantId.Value, id, addressAssocId);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier address association not found." });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -217,10 +202,10 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var contacts = await _supplierService.GetContactsAsync(tenantId.Value, id);
-        return Ok(contacts);
+        return SuccessResponse(contacts);
     }
 
     [HttpPost("{id:guid}/contacts")]
@@ -230,24 +215,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var assoc = await _supplierService.LinkContactAsync(tenantId.Value, id, request);
-            return Ok(assoc);
+            return SuccessResponse(assoc, "Supplier contact linked successfully.");
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -258,20 +235,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _supplierService.SetPrimaryContactAsync(tenantId.Value, id, contactAssocId);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier or contact association not found." });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -282,20 +255,16 @@ public class SupplierController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _supplierService.RemoveContactLinkAsync(tenantId.Value, id, contactAssocId);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Supplier contact association not found." });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 }

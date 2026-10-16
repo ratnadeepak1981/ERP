@@ -26,8 +26,4 @@
     <ProjectReference Include="..\ERP.AI.Infrastructure\ERP.AI.Infrastructure.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
 </Project>

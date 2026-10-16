@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.Procurement.GoodsReceiptNote;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +13,17 @@ namespace API.Features.Domain;
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches/{branchId:guid}/goods-receipt-notes")]
 [RequirePermission("GRN.VIEW")]
-public class GoodsReceiptNoteController : ControllerBase
+public class GoodsReceiptNoteController : BaseApiController
 {
     private readonly IGoodsReceiptNoteService _grnService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+
+    private static readonly SortMapping<GoodsReceiptNoteDto> _sortMapping = new SortMapping<GoodsReceiptNoteDto>()
+        .Add("grnNumber", g => g.GrnNumber, isDefault: true)
+        .Add("receiptDate", g => g.ReceiptDate)
+        .Add("status", g => g.Status)
+        .SetSecondary(g => g.GoodsReceiptNoteId);
 
     public GoodsReceiptNoteController(
         IGoodsReceiptNoteService grnService,
@@ -28,13 +36,19 @@ public class GoodsReceiptNoteController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetGrns(Guid companyId, Guid branchId)
+    public async Task<IActionResult> GetGrns(
+        Guid companyId,
+        Guid branchId,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         var list = await _grnService.GetGrnsAsync(authResult.TenantId, companyId, branchId);
-        return Ok(list);
+        return PaginateAndSort(list, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -46,14 +60,10 @@ public class GoodsReceiptNoteController : ControllerBase
         var grn = await _grnService.GetGrnByIdAsync(authResult.TenantId, companyId, branchId, id);
         if (grn == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Goods Receipt Note not found in the authorized scope."
-            });
+            return NotFoundResponse("Goods Receipt Note not found in the authorized scope.");
         }
 
-        return Ok(grn);
+        return SuccessResponse(grn);
     }
 
     [HttpPost("from-po/{purchaseOrderId:guid}")]
@@ -82,22 +92,14 @@ public class GoodsReceiptNoteController : ControllerBase
                 warehouseLocationId,
                 remarks);
 
-            return CreatedAtAction(
+            return CreatedResponse(
                 nameof(GetGrn),
                 new { companyId, branchId, id = grn.GoodsReceiptNoteId },
                 grn);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -119,22 +121,14 @@ public class GoodsReceiptNoteController : ControllerBase
                 branchId,
                 request);
 
-            return CreatedAtAction(
+            return CreatedResponse(
                 nameof(GetGrn),
                 new { companyId, branchId, id = grn.GoodsReceiptNoteId },
                 grn);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -158,19 +152,11 @@ public class GoodsReceiptNoteController : ControllerBase
                 id,
                 request);
 
-            return Ok(grn);
+            return SuccessResponse(grn, "Goods Receipt Note draft updated successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -184,15 +170,11 @@ public class GoodsReceiptNoteController : ControllerBase
         try
         {
             var grn = await _grnService.CancelDraftAsync(authResult.TenantId, companyId, branchId, id);
-            return Ok(grn);
+            return SuccessResponse(grn, "Goods Receipt Note cancelled successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -206,15 +188,11 @@ public class GoodsReceiptNoteController : ControllerBase
         try
         {
             var grn = await _grnService.ConfirmGrnAsync(authResult.TenantId, companyId, branchId, id);
-            return Ok(grn);
+            return SuccessResponse(grn, "Goods Receipt Note confirmed successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -228,11 +206,7 @@ public class GoodsReceiptNoteController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(

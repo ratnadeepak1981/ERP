@@ -1,0 +1,31 @@
+<div class="register-page">
+  <div class="register-card erp-card erp-card-elevated">
+    <div class="register-header">
+      <h2>Register Manufacturing Organization</h2>
+      <p>Provision your tenant cloud with dedicated isolation, companies, and branches.</p>
+    </div>
+
+    <form (ngSubmit)="onRegister()" class="register-form">
+      <div class="form-field">
+        <label for="tenantName">Organization / Tenant Name</label>
+        <input pInputText id="tenantName" [(ngModel)]="tenantName" name="tenantName" placeholder="e.g. Acme Manufacturing Corp" class="w-full" required />
+      </div>
+
+      <div class="form-field">
+        <label for="adminEmail">Primary Administrator Email</label>
+        <input pInputText id="adminEmail" type="email" [(ngModel)]="adminEmail" name="adminEmail" placeholder="admin@acme.com" class="w-full" required />
+      </div>
+
+      <div class="form-field">
+        <label for="subdomain">Preferred Tenant Code</label>
+        <input pInputText id="subdomain" [(ngModel)]="subdomain" name="subdomain" placeholder="ACME-CORP" class="w-full" required />
+      </div>
+
+      <p-button type="submit" label="Start Free 30-Day Trial" icon="pi pi-check" severity="primary" styleClass="w-full" class="submit-btn"></p-button>
+    </form>
+
+    <div class="register-footer">
+      <p>Already have an account? <a routerLink="/login">Sign in</a></p>
+    </div>
+  </div>
+</div>

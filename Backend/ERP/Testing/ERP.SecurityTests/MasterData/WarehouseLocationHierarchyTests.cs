@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using ERP.Domain.Features.MasterData.Warehouse;
+using ERP.SecurityTests;
 using Xunit;
 
 namespace ERP.SecurityTests.MasterData;
@@ -38,7 +39,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             City = "Colombo"
         });
         Assert.Equal(HttpStatusCode.Created, whRes.StatusCode);
-        var wh = await whRes.Content.ReadFromJsonAsync<JsonElement>();
+        var wh = await whRes.ReadDataJsonElementAsync();
         var whId = wh.GetProperty("warehouseId").GetGuid();
 
         // 2. Create Location Types: Grouping position (Area / Aisle) and Stock-holding position (Bin)
@@ -52,7 +53,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             CanContainChildren = true
         });
         Assert.Equal(HttpStatusCode.OK, areaTypeRes.StatusCode);
-        var areaType = await areaTypeRes.Content.ReadFromJsonAsync<JsonElement>();
+        var areaType = await areaTypeRes.ReadDataJsonElementAsync();
         var areaTypeId = areaType.GetProperty("locationTypeId").GetGuid();
 
         var binTypeRes = await clientA.PostAsJsonAsync("/api/warehouses/location-types", new CreateLocationTypeRequest
@@ -65,7 +66,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             CanContainChildren = false
         });
         Assert.Equal(HttpStatusCode.OK, binTypeRes.StatusCode);
-        var binType = await binTypeRes.Content.ReadFromJsonAsync<JsonElement>();
+        var binType = await binTypeRes.ReadDataJsonElementAsync();
         var binTypeId = binType.GetProperty("locationTypeId").GetGuid();
 
         // 3. Create unzoned root location (e.g., General Receiving Bay) directly under warehouse
@@ -76,9 +77,9 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             LocationTypeId = areaTypeId
         });
         Assert.Equal(HttpStatusCode.OK, unzonedLocRes.StatusCode);
-        var unzonedLoc = await unzonedLocRes.Content.ReadFromJsonAsync<JsonElement>();
+        var unzonedLoc = await unzonedLocRes.ReadDataJsonElementAsync();
         var unzonedLocId = unzonedLoc.GetProperty("warehouseLocationId").GetGuid();
-        Assert.Null(unzonedLoc.GetProperty("warehouseZoneId").GetString());
+        Assert.True(unzonedLoc.GetProperty("warehouseZoneId").ValueKind == JsonValueKind.Null || unzonedLoc.GetProperty("warehouseZoneId").GetString() == null);
 
         // 4. Create child under unzoned root location
         var childUnzonedRes = await clientA.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
@@ -89,7 +90,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             ParentLocationId = unzonedLocId
         });
         Assert.Equal(HttpStatusCode.OK, childUnzonedRes.StatusCode);
-        var childUnzoned = await childUnzonedRes.Content.ReadFromJsonAsync<JsonElement>();
+        var childUnzoned = await childUnzonedRes.ReadDataJsonElementAsync();
         Assert.Equal(unzonedLocId, childUnzoned.GetProperty("parentLocationId").GetGuid());
 
         // 5. Create Zone in warehouse
@@ -99,7 +100,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             ZoneName = "Cold Storage Zone"
         });
         Assert.Equal(HttpStatusCode.OK, zoneRes.StatusCode);
-        var zone = await zoneRes.Content.ReadFromJsonAsync<JsonElement>();
+        var zone = await zoneRes.ReadDataJsonElementAsync();
         var zoneId = zone.GetProperty("warehouseZoneId").GetGuid();
 
         // 6. Create multi-level zoned storage hierarchy: Zone -> Aisle (Area) -> Rack -> Shelf -> Bin
@@ -111,7 +112,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             LocationTypeId = areaTypeId
         });
         Assert.Equal(HttpStatusCode.OK, aisleRes.StatusCode);
-        var aisle = await aisleRes.Content.ReadFromJsonAsync<JsonElement>();
+        var aisle = await aisleRes.ReadDataJsonElementAsync();
         var aisleId = aisle.GetProperty("warehouseLocationId").GetGuid();
         Assert.Equal(zoneId, aisle.GetProperty("warehouseZoneId").GetGuid());
 
@@ -124,7 +125,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             ParentLocationId = aisleId
         });
         Assert.Equal(HttpStatusCode.OK, rackRes.StatusCode);
-        var rack = await rackRes.Content.ReadFromJsonAsync<JsonElement>();
+        var rack = await rackRes.ReadDataJsonElementAsync();
         var rackId = rack.GetProperty("warehouseLocationId").GetGuid();
 
         // Level 3: Shelf under Rack
@@ -136,7 +137,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             ParentLocationId = rackId
         });
         Assert.Equal(HttpStatusCode.OK, shelfRes.StatusCode);
-        var shelf = await shelfRes.Content.ReadFromJsonAsync<JsonElement>();
+        var shelf = await shelfRes.ReadDataJsonElementAsync();
         var shelfId = shelf.GetProperty("warehouseLocationId").GetGuid();
 
         // Level 4: Bin under Shelf (stock holding)
@@ -148,7 +149,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             ParentLocationId = shelfId
         });
         Assert.Equal(HttpStatusCode.OK, binRes.StatusCode);
-        var bin = await binRes.Content.ReadFromJsonAsync<JsonElement>();
+        var bin = await binRes.ReadDataJsonElementAsync();
         var binId = bin.GetProperty("warehouseLocationId").GetGuid();
         Assert.Equal(shelfId, bin.GetProperty("parentLocationId").GetGuid());
 
@@ -183,7 +184,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             City = "Colombo"
         });
         Assert.Equal(HttpStatusCode.Created, wh1Res.StatusCode);
-        var wh1 = await wh1Res.Content.ReadFromJsonAsync<JsonElement>();
+        var wh1 = await wh1Res.ReadDataJsonElementAsync();
         var wh1Id = wh1.GetProperty("warehouseId").GetGuid();
 
         // Warehouse 2
@@ -194,7 +195,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             City = "Kandy"
         });
         Assert.Equal(HttpStatusCode.Created, wh2Res.StatusCode);
-        var wh2 = await wh2Res.Content.ReadFromJsonAsync<JsonElement>();
+        var wh2 = await wh2Res.ReadDataJsonElementAsync();
         var wh2Id = wh2.GetProperty("warehouseId").GetGuid();
 
         // Location in Warehouse 1
@@ -203,7 +204,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             LocationCode = "WH1_LOC_A",
             LocationName = "WH1 Location A"
         });
-        var loc1 = await loc1Res.Content.ReadFromJsonAsync<JsonElement>();
+        var loc1 = await loc1Res.ReadDataJsonElementAsync();
         var loc1Id = loc1.GetProperty("warehouseLocationId").GetGuid();
 
         // Attempt to create location in Warehouse 2 with Parent from Warehouse 1 -> Rejected
@@ -221,7 +222,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             ZoneCode = "ZA",
             ZoneName = "Zone A"
         });
-        var zoneA = await zoneARes.Content.ReadFromJsonAsync<JsonElement>();
+        var zoneA = await zoneARes.ReadDataJsonElementAsync();
         var zoneAId = zoneA.GetProperty("warehouseZoneId").GetGuid();
 
         var zoneBRes = await clientA.PostAsJsonAsync($"/api/warehouses/{wh1Id}/zones", new CreateWarehouseZoneRequest
@@ -229,7 +230,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             ZoneCode = "ZB",
             ZoneName = "Zone B"
         });
-        var zoneB = await zoneBRes.Content.ReadFromJsonAsync<JsonElement>();
+        var zoneB = await zoneBRes.ReadDataJsonElementAsync();
         var zoneBId = zoneB.GetProperty("warehouseZoneId").GetGuid();
 
         // Location in Zone A
@@ -238,7 +239,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             LocationCode = "ZA_LOC_1",
             LocationName = "Zone A Location 1"
         });
-        var locZoneA = await locZoneARes.Content.ReadFromJsonAsync<JsonElement>();
+        var locZoneA = await locZoneARes.ReadDataJsonElementAsync();
         var locZoneAId = locZoneA.GetProperty("warehouseLocationId").GetGuid();
 
         // Location in Zone B with Parent in Zone A -> Rejected (different zones)
@@ -276,7 +277,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             City = "Colombo"
         });
         Assert.Equal(HttpStatusCode.Created, whRes.StatusCode);
-        var wh = await whRes.Content.ReadFromJsonAsync<JsonElement>();
+        var wh = await whRes.ReadDataJsonElementAsync();
         var whId = wh.GetProperty("warehouseId").GetGuid();
 
         var locRes = await clientA.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
@@ -285,13 +286,13 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             LocationName = "Secret Location"
         });
         Assert.Equal(HttpStatusCode.OK, locRes.StatusCode);
-        var loc = await locRes.Content.ReadFromJsonAsync<JsonElement>();
+        var loc = await locRes.ReadDataJsonElementAsync();
         var locId = loc.GetProperty("warehouseLocationId").GetGuid();
 
         // Tenant B attempts to get Tenant A warehouse locations -> Returns empty list
         var tenantBGetRes = await clientB.GetAsync($"/api/warehouses/{whId}/locations");
         Assert.Equal(HttpStatusCode.OK, tenantBGetRes.StatusCode);
-        var tenantBLocs = await tenantBGetRes.Content.ReadFromJsonAsync<List<JsonElement>>();
+        var tenantBLocs = await tenantBGetRes.ReadApiResponseDataAsync<List<JsonElement>>();
         Assert.Empty(tenantBLocs!);
 
         // Tenant B attempts to create child location under Tenant A location in their own warehouse -> Rejected
@@ -302,7 +303,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
             City = "Kandy"
         });
         Assert.Equal(HttpStatusCode.Created, whBRes.StatusCode);
-        var whB = await whBRes.Content.ReadFromJsonAsync<JsonElement>();
+        var whB = await whBRes.ReadDataJsonElementAsync();
         var whBId = whB.GetProperty("warehouseId").GetGuid();
 
         var crossTenantParentRes = await clientB.PostAsJsonAsync($"/api/warehouses/{whBId}/locations", new CreateWarehouseLocationRequest

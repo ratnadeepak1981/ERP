@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.Sales.SalesOrder;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +13,18 @@ namespace API.Features.Domain;
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches/{branchId:guid}/sales-orders")]
 [RequirePermission("SALES_ORDER.VIEW")]
-public class SalesOrderController : ControllerBase
+public class SalesOrderController : BaseApiController
 {
     private readonly ISalesOrderService _orderService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+
+    private static readonly SortMapping<SalesOrderDto> _sortMapping = new SortMapping<SalesOrderDto>()
+        .Add("orderNumber", o => o.OrderNumber, isDefault: true)
+        .Add("orderDate", o => o.OrderDate)
+        .Add("totalAmount", o => o.TotalAmount)
+        .Add("status", o => o.Status)
+        .SetSecondary(o => o.Id);
 
     public SalesOrderController(
         ISalesOrderService orderService,
@@ -31,7 +40,11 @@ public class SalesOrderController : ControllerBase
     public async Task<IActionResult> GetOrders(
         Guid companyId,
         Guid branchId,
-        [FromQuery] SalesOrderStatus? status = null)
+        [FromQuery] SalesOrderStatus? status = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
@@ -42,7 +55,7 @@ public class SalesOrderController : ControllerBase
             branchId,
             status);
 
-        return Ok(orders);
+        return PaginateAndSort(orders, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -62,14 +75,10 @@ public class SalesOrderController : ControllerBase
 
         if (order == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Sales order not found in the authorized scope."
-            });
+            return NotFoundResponse("Sales order not found in the authorized scope.");
         }
 
-        return Ok(order);
+        return SuccessResponse(order);
     }
 
     [HttpPost]
@@ -92,26 +101,14 @@ public class SalesOrderController : ControllerBase
                 _currentUserContext.UserId,
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
-            return CreatedAtAction(
+            return CreatedResponse(
                 nameof(GetOrder),
                 new { companyId, branchId, id = order.Id },
                 order);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
@@ -135,31 +132,11 @@ public class SalesOrderController : ControllerBase
                 orderId,
                 request);
 
-            return Ok(item);
+            return SuccessResponse(item, "Item added to sales order successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
@@ -183,15 +160,11 @@ public class SalesOrderController : ControllerBase
                 _currentUserContext.UserId,
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
-            return Ok(order);
+            return SuccessResponse(order, "Sales order submitted successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -217,15 +190,11 @@ public class SalesOrderController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks);
 
-            return Ok(order);
+            return SuccessResponse(order, "Sales order confirmed successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -251,19 +220,11 @@ public class SalesOrderController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks ?? string.Empty);
 
-            return Ok(order);
+            return SuccessResponse(order, "Sales order rejected successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -289,15 +250,11 @@ public class SalesOrderController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks);
 
-            return Ok(order);
+            return SuccessResponse(order, "Sales order cancelled successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -313,11 +270,7 @@ public class SalesOrderController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(

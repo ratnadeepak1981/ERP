@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.Sales.Shipment;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +13,17 @@ namespace API.Features.Domain;
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches/{branchId:guid}/sales-shipments")]
 [RequirePermission("SALES_SHIPMENT.VIEW")]
-public class SalesShipmentController : ControllerBase
+public class SalesShipmentController : BaseApiController
 {
     private readonly ISalesShipmentService _shipmentService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+
+    private static readonly SortMapping<SalesShipmentDto> _sortMapping = new SortMapping<SalesShipmentDto>()
+        .Add("shipmentNumber", s => s.ShipmentNumber, isDefault: true)
+        .Add("shipmentDate", s => s.ShipmentDate)
+        .Add("status", s => s.Status)
+        .SetSecondary(s => s.Id);
 
     public SalesShipmentController(
         ISalesShipmentService shipmentService,
@@ -31,7 +39,11 @@ public class SalesShipmentController : ControllerBase
     public async Task<IActionResult> GetShipments(
         Guid companyId,
         Guid branchId,
-        [FromQuery] SalesShipmentStatus? status = null)
+        [FromQuery] SalesShipmentStatus? status = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
@@ -42,7 +54,7 @@ public class SalesShipmentController : ControllerBase
             branchId,
             status);
 
-        return Ok(list);
+        return PaginateAndSort(list, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -59,14 +71,10 @@ public class SalesShipmentController : ControllerBase
 
         if (shipment == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Sales shipment not found in the authorized scope."
-            });
+            return NotFoundResponse("Sales shipment not found in the authorized scope.");
         }
 
-        return Ok(shipment);
+        return SuccessResponse(shipment);
     }
 
     [HttpPost("from-order/{salesOrderId:guid}")]
@@ -89,22 +97,14 @@ public class SalesShipmentController : ControllerBase
                 salesOrderId,
                 request);
 
-            return CreatedAtAction(
+            return CreatedResponse(
                 nameof(GetShipment),
                 new { companyId, branchId, id = shipment.Id },
                 shipment);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -126,22 +126,14 @@ public class SalesShipmentController : ControllerBase
                 branchId,
                 request);
 
-            return CreatedAtAction(
+            return CreatedResponse(
                 nameof(GetShipment),
                 new { companyId, branchId, id = shipment.Id },
                 shipment);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -165,19 +157,11 @@ public class SalesShipmentController : ControllerBase
                 id,
                 request);
 
-            return Ok(shipment);
+            return SuccessResponse(shipment, "Sales shipment draft updated successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -196,15 +180,11 @@ public class SalesShipmentController : ControllerBase
                 branchId,
                 id);
 
-            return Ok(shipment);
+            return SuccessResponse(shipment, "Sales shipment dispatched successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -228,15 +208,11 @@ public class SalesShipmentController : ControllerBase
                 id,
                 request);
 
-            return Ok(shipment);
+            return SuccessResponse(shipment, "Sales shipment delivered successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -255,15 +231,11 @@ public class SalesShipmentController : ControllerBase
                 branchId,
                 id);
 
-            return Ok(shipment);
+            return SuccessResponse(shipment, "Sales shipment cancelled successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -277,11 +249,7 @@ public class SalesShipmentController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(

@@ -34,8 +34,7 @@ public class CompanyScopeTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var companies = await response.Content.ReadFromJsonAsync<List<CompanyDto>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var companies = await response.ReadApiResponseDataAsync<List<CompanyDto>>();
 
         Assert.NotNull(companies);
         Assert.Contains(companies, c => c.Id == TestConstants.CompanyAId);
@@ -60,8 +59,7 @@ public class CompanyScopeTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var companies = await response.Content.ReadFromJsonAsync<List<CompanyDto>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var companies = await response.ReadApiResponseDataAsync<List<CompanyDto>>();
 
         Assert.NotNull(companies);
         Assert.Contains(companies, c => c.Id == TestConstants.CompanyAId);
@@ -124,8 +122,7 @@ public class CompanyScopeTests : IClassFixture<TestSecurityFixture>
         var response = await client.GetAsync("/api/companies");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var companies = await response.Content.ReadFromJsonAsync<List<CompanyDto>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var companies = await response.ReadApiResponseDataAsync<List<CompanyDto>>();
 
         Assert.NotNull(companies);
         Assert.Contains(companies, c => c.Id == TestConstants.CompanyAId);

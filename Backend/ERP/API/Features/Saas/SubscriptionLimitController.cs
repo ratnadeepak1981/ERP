@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using API.Common;
 using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +13,7 @@ namespace SaaS.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class SubscriptionLimitController : ControllerBase
+public class SubscriptionLimitController : BaseApiController
 {
     private readonly ISubscriptionLimitService _service;
     private readonly ICurrentUserContext _currentUserContext;
@@ -25,35 +28,21 @@ public class SubscriptionLimitController : ControllerBase
 
     [HttpPost]
     [RequirePermission("SUBSCRIPTION.EDIT")]
-    public IActionResult Create(
-        [FromBody] CreateSubscriptionLimitRequest request)
+    public IActionResult Create([FromBody] CreateSubscriptionLimitRequest request)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
             return Forbid();
         }
+
         try
         {
             var result = _service.Create(request);
-
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = result.Id },
-                result);
+            return CreatedResponse(nameof(GetById), new { id = result.Id }, result, "Subscription limit created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
@@ -67,16 +56,12 @@ public class SubscriptionLimitController : ControllerBase
         }
 
         var result = _service.GetById(id);
-
         if (result == null)
         {
-            return NotFound(new
-            {
-                message = "Subscription limit was not found."
-            });
+            return NotFoundResponse("Subscription limit was not found.");
         }
 
-        return Ok(result);
+        return SuccessResponse(result);
     }
 
     [HttpGet]
@@ -89,15 +74,12 @@ public class SubscriptionLimitController : ControllerBase
         }
 
         var result = _service.GetAll();
-
-        return Ok(result);
+        return SuccessResponse(result);
     }
 
     [HttpPut("{id:guid}")]
     [RequirePermission("SUBSCRIPTION.EDIT")]
-    public IActionResult Update(
-        Guid id,
-        [FromBody] UpdateSubscriptionLimitRequest request)
+    public IActionResult Update(Guid id, [FromBody] UpdateSubscriptionLimitRequest request)
     {
         if (!_currentUserContext.IsPlatformUser)
         {
@@ -107,22 +89,11 @@ public class SubscriptionLimitController : ControllerBase
         try
         {
             var result = _service.Update(id, request);
-
-            return Ok(result);
+            return SuccessResponse(result, "Subscription limit updated successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using ERP.Domain.Features.CRM;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +14,19 @@ namespace API.Features.Domain.CRM;
 [ApiController]
 [Route("api/companies/{companyId:guid}/crm/leads")]
 [RequirePermission("CRM.LEAD.VIEW")]
-public class LeadController : ControllerBase
+public class LeadController : BaseApiController
 {
     private readonly ILeadService _leadService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
     private readonly global::Domain.Features.MasterData.Company.ICompanyRepository _companyRepository;
+
+    private static readonly SortMapping<LeadDto> _sortMapping = new SortMapping<LeadDto>()
+        .Add("contactName", l => l.ContactName, isDefault: true)
+        .Add("title", l => l.Title)
+        .Add("companyName", l => l.CompanyName ?? "")
+        .Add("status", l => l.Status)
+        .SetSecondary(l => l.LeadId);
 
     public LeadController(
         ILeadService leadService,
@@ -37,6 +46,10 @@ public class LeadController : ControllerBase
         [FromQuery] Guid? branchId = null,
         [FromQuery] Guid? assignedUserId = null,
         [FromQuery] LeadStatus? status = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
@@ -50,7 +63,7 @@ public class LeadController : ControllerBase
             status,
             cancellationToken);
 
-        return Ok(leads);
+        return PaginateAndSort(leads, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -65,7 +78,7 @@ public class LeadController : ControllerBase
         var lead = await _leadService.GetLeadByIdAsync(authResult.TenantId, companyId, id, cancellationToken);
         if (lead == null)
         {
-            return NotFound(new { status = "FAIL", message = "Lead not found in the authorized scope." });
+            return NotFoundResponse("Lead not found in the authorized scope.");
         }
 
         if (lead.BranchId.HasValue)
@@ -74,7 +87,7 @@ public class LeadController : ControllerBase
             if (branchAuth.Action != null) return branchAuth.Action;
         }
 
-        return Ok(lead);
+        return SuccessResponse(lead);
     }
 
     [HttpPost]
@@ -95,11 +108,11 @@ public class LeadController : ControllerBase
                 request,
                 cancellationToken);
 
-            return CreatedAtAction(nameof(GetLeadById), new { companyId, id = lead.LeadId }, lead);
+            return CreatedResponse(nameof(GetLeadById), new { companyId, id = lead.LeadId }, lead);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -123,15 +136,11 @@ public class LeadController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(lead);
+            return SuccessResponse(lead, "Lead updated successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -155,15 +164,11 @@ public class LeadController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(lead);
+            return SuccessResponse(lead, "Lead assigned successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -185,15 +190,11 @@ public class LeadController : ControllerBase
                 id,
                 cancellationToken);
 
-            return Ok(lead);
+            return SuccessResponse(lead, "Lead qualified successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -217,15 +218,11 @@ public class LeadController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(lead);
+            return SuccessResponse(lead, "Lead disqualified successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -249,15 +246,11 @@ public class LeadController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(result);
+            return SuccessResponse(result, "Lead converted successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -271,11 +264,7 @@ public class LeadController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var company = await _companyRepository.GetByIdAsync(tenantId.Value, companyId);

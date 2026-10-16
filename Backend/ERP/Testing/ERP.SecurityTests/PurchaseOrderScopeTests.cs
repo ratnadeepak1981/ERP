@@ -53,8 +53,7 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var created = await response.Content.ReadFromJsonAsync<PurchaseOrderDto>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.ReadApiResponseDataAsync<PurchaseOrderDto>();
 
         Assert.NotNull(created);
         Assert.Equal(uniqueOrderNum, created.OrderNumber);
@@ -219,8 +218,7 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
 
         Assert.Equal(HttpStatusCode.OK, betaOrdersResponse.StatusCode);
 
-        var betaOrders = await betaOrdersResponse.Content.ReadFromJsonAsync<List<PurchaseOrderDto>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var betaOrders = await betaOrdersResponse.ReadApiResponseDataAsync<List<PurchaseOrderDto>>();
 
         Assert.NotNull(betaOrders);
         Assert.DoesNotContain(betaOrders, o => o.OrderNumber == forgedOrderNumber);
@@ -272,8 +270,7 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
 
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
-        var orders = await listResponse.Content.ReadFromJsonAsync<List<PurchaseOrderDto>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var orders = await listResponse.ReadApiResponseDataAsync<List<PurchaseOrderDto>>();
 
         Assert.NotNull(orders);
         Assert.DoesNotContain(orders, o => o.OrderNumber == orderNumber);
@@ -322,8 +319,7 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var created = await response.Content.ReadFromJsonAsync<PurchaseOrderDto>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.ReadApiResponseDataAsync<PurchaseOrderDto>();
 
         Assert.NotNull(created);
         // TotalAmount: 35.17 + 10.33 = 45.50m
@@ -397,8 +393,7 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
         // Assert: Succeeds because Product master table is shared across companies within Tenant Alpha
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var created = await response.Content.ReadFromJsonAsync<PurchaseOrderDto>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.ReadApiResponseDataAsync<PurchaseOrderDto>();
 
         Assert.NotNull(created);
         Assert.Equal(uniqueOrderNum, created.OrderNumber);
@@ -730,8 +725,7 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
                 }
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var createdPO = await createRes.Content.ReadFromJsonAsync<PurchaseOrderDto>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var createdPO = await createRes.ReadApiResponseDataAsync<PurchaseOrderDto>();
         Assert.NotNull(createdPO);
 
         var submitRes = await clientUser.PostAsync(
@@ -814,8 +808,7 @@ public class PurchaseOrderScopeTests : IClassFixture<TestSecurityFixture>
                 }
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var po = await createRes.Content.ReadFromJsonAsync<PurchaseOrderDto>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var po = await createRes.ReadApiResponseDataAsync<PurchaseOrderDto>();
         Assert.NotNull(po);
 
         // Step 2a: Attempt to retrieve that PO using Company B context path

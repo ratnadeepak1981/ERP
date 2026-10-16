@@ -1,0 +1,702 @@
+<div class="provisioning-page">
+  <!-- Page Header -->
+  <app-page-header
+    title="Tenant Provisioning"
+    subtitle="Manage tenant initialization and database allocation."
+  >
+    <div actions class="header-actions">
+      @if (selectedTenantIds().size > 0) {
+        <button
+          type="button"
+          class="p-button p-button-sm p-button-success"
+          (click)="openBulkDialog()"
+          [disabled]="provisioningInProgress()"
+          title="Provision all selected tenants in sequence"
+        >
+          <i class="pi pi-check-square"></i> Provision Selected ({{ selectedTenantIds().size }})
+        </button>
+      }
+
+      <button
+        type="button"
+        class="p-button p-button-sm p-button-outlined"
+        (click)="loadData()"
+        [disabled]="loading() || provisioningInProgress()"
+        title="Refresh live status from API"
+      >
+        <i class="pi pi-refresh" [class.pi-spin]="loading()"></i> Refresh
+      </button>
+
+      <a
+        routerLink="/platform-admin/tenants"
+        class="p-button p-button-sm p-button-outlined"
+        title="Return to SaaS Tenants Directory"
+      >
+        <i class="pi pi-list"></i> Tenants Directory
+      </a>
+
+      <button
+        type="button"
+        class="p-button p-button-sm p-button-primary"
+        (click)="openProvisionDialog()"
+        [disabled]="provisioningInProgress()"
+        title="Initialize tenant database and security bootstrap"
+      >
+        <i class="pi pi-cog"></i> Initialize Provisioning
+      </button>
+    </div>
+  </app-page-header>
+
+  <!-- Feedback Notifications -->
+  @if (successMessage()) {
+    <div class="feedback-banner success-banner erp-card">
+      <i class="pi pi-check-circle"></i>
+      <div class="banner-content">
+        <strong>Provisioning Succeeded</strong>
+        <p>{{ successMessage() }}</p>
+      </div>
+      <button type="button" class="close-btn" (click)="successMessage.set('')">&times;</button>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="feedback-banner error-banner erp-card">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div class="banner-content">
+        <strong>Provisioning Notice</strong>
+        <p>{{ errorMessage() }}</p>
+      </div>
+      <button type="button" class="close-btn" (click)="errorMessage.set('')">&times;</button>
+    </div>
+  }
+
+  <!-- 4 Summary KPI Cards (as illustrated in Reference Image) -->
+  <div class="summary-cards-grid">
+    <div class="summary-card erp-card">
+      <span class="card-label">Pending</span>
+      <div class="card-value">{{ metrics().pending !== null ? metrics().pending : '—' }}</div>
+      <span class="card-caption">Awaiting database assignment</span>
+    </div>
+
+    <div class="summary-card erp-card">
+      <span class="card-label">In Progress</span>
+      <div class="card-value">{{ metrics().inProgress !== null ? metrics().inProgress : '—' }}</div>
+      <span class="card-caption">Schema migration &amp; security seeding</span>
+    </div>
+
+    <div class="summary-card erp-card">
+      <span class="card-label">Failed</span>
+      <div class="card-value">{{ metrics().failed !== null ? metrics().failed : '—' }}</div>
+      <span class="card-caption">Requires manual administrator retry</span>
+    </div>
+
+    <div class="summary-card erp-card">
+      <span class="card-label">Completed</span>
+      <div class="card-value">{{ metrics().completed !== null ? metrics().completed : '—' }}</div>
+      <span class="card-caption">Ready for tenant business onboarding</span>
+    </div>
+  </div>
+
+  <div class="provisioning-content-grid">
+    <!-- Provisioning Queue Section -->
+    <div class="queue-card erp-card erp-card-elevated">
+      <div class="card-header">
+        <div>
+          <h3 class="section-title">Provisioning Queue</h3>
+          <p class="section-subtitle">Tenant organization &middot; Database mode &middot; Status</p>
+        </div>
+
+        <div class="queue-header-actions">
+          @if (selectedTenantIds().size > 0) {
+            <span class="selected-count-badge">{{ selectedTenantIds().size }} selected</span>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-success"
+              (click)="openBulkDialog()"
+              [disabled]="provisioningInProgress()"
+              title="Open Bulk Provisioning with selected tenants"
+            >
+              <i class="pi pi-play"></i> Bulk Provision ({{ selectedTenantIds().size }})
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-outlined"
+              (click)="selectAllAndOpenBulkDialog()"
+              [disabled]="provisioningInProgress() || eligiblePendingCount() === 0"
+              title="Select all pending tenants and open bulk provisioning"
+            >
+              <i class="pi pi-check-square"></i> Select All & Bulk Provision
+            </button>
+          }
+
+          <button
+            type="button"
+            class="p-button p-button-text p-button-sm"
+            (click)="loadData()"
+            title="Reload queue"
+          >
+            <i class="pi pi-sync"></i> Reload Queue
+          </button>
+        </div>
+      </div>
+
+      <!-- Search, Filter & Sort Toolbar -->
+      <div class="queue-toolbar">
+        <div class="search-box">
+          <i class="pi pi-search search-icon" aria-hidden="true"></i>
+          <input
+            pInputText
+            type="text"
+            [value]="searchQuery()"
+            (input)="searchQuery.set($any($event.target).value)"
+            placeholder="Search by organization, plan, code, or status..."
+            class="p-inputtext-sm search-input"
+          />
+          @if (searchQuery()) {
+            <button
+              type="button"
+              class="clear-search-btn"
+              (click)="searchQuery.set('')"
+              title="Clear search"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          }
+        </div>
+
+        <div class="status-filter-group">
+          <button
+            type="button"
+            class="filter-pill-btn"
+            [class.active]="statusFilter() === 'ALL'"
+            (click)="statusFilter.set('ALL')"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            class="filter-pill-btn"
+            [class.active]="statusFilter() === 'PENDING'"
+            (click)="statusFilter.set('PENDING')"
+          >
+            Pending
+          </button>
+          <button
+            type="button"
+            class="filter-pill-btn"
+            [class.active]="statusFilter() === 'COMPLETED'"
+            (click)="statusFilter.set('COMPLETED')"
+          >
+            Completed
+          </button>
+        </div>
+      </div>
+
+      <div class="api-notice-bar">
+        <i class="pi pi-info-circle"></i>
+        <span>Tenant registration records load here from the API. No sample tenants or fabricated status values.</span>
+      </div>
+
+      <!-- Loading State -->
+      @if (loading()) {
+        <app-loading-state message="Querying tenant provisioning queue from backend..."></app-loading-state>
+      } @else if (filteredQueueItems().length > 0) {
+        <div class="queue-table-container">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th style="width: 44px;" class="text-center">
+                  <input
+                    type="checkbox"
+                    [checked]="isAllEligibleSelected()"
+                    (change)="toggleSelectAll($event)"
+                    title="Select all eligible tenants"
+                  />
+                </th>
+                <th class="sortable-th" (click)="setSort('name')" title="Click to sort by Organization">
+                  <div class="th-content">
+                    <span>Organization</span>
+                    <i
+                      class="pi"
+                      [class.pi-sort-alt]="sortField() !== 'name'"
+                      [class.pi-sort-amount-up-alt]="sortField() === 'name' && sortAsc()"
+                      [class.pi-sort-amount-down]="sortField() === 'name' && !sortAsc()"
+                    ></i>
+                  </div>
+                </th>
+                <th class="sortable-th" (click)="setSort('planName')" title="Click to sort by Subscription Plan">
+                  <div class="th-content">
+                    <span>Subscription Plan</span>
+                    <i
+                      class="pi"
+                      [class.pi-sort-alt]="sortField() !== 'planName'"
+                      [class.pi-sort-amount-up-alt]="sortField() === 'planName' && sortAsc()"
+                      [class.pi-sort-amount-down]="sortField() === 'planName' && !sortAsc()"
+                    ></i>
+                  </div>
+                </th>
+                <th class="sortable-th" (click)="setSort('storageMode')" title="Click to sort by Storage Mode">
+                  <div class="th-content">
+                    <span>Storage Mode</span>
+                    <i
+                      class="pi"
+                      [class.pi-sort-alt]="sortField() !== 'storageMode'"
+                      [class.pi-sort-amount-up-alt]="sortField() === 'storageMode' && sortAsc()"
+                      [class.pi-sort-amount-down]="sortField() === 'storageMode' && !sortAsc()"
+                    ></i>
+                  </div>
+                </th>
+                <th>Subscription</th>
+                <th class="sortable-th" (click)="setSort('status')" title="Click to sort by Status">
+                  <div class="th-content">
+                    <span>Status</span>
+                    <i
+                      class="pi"
+                      [class.pi-sort-alt]="sortField() !== 'status'"
+                      [class.pi-sort-amount-up-alt]="sortField() === 'status' && sortAsc()"
+                      [class.pi-sort-amount-down]="sortField() === 'status' && !sortAsc()"
+                    ></i>
+                  </div>
+                </th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of filteredQueueItems(); track item.id) {
+                <tr [class.row-selected]="isSelected(item.id)">
+                  <td class="text-center">
+                    <input
+                      type="checkbox"
+                      [checked]="isSelected(item.id)"
+                      (change)="toggleSelect(item)"
+                      [disabled]="item.status === 'Completed'"
+                      title="Select tenant for provisioning"
+                    />
+                  </td>
+                  <td>
+                    <strong>{{ item.name }}</strong>
+                    <span class="sub-text">{{ item.code }}</span>
+                  </td>
+                  <td>
+                    <span class="plan-pill-tag">
+                      <i class="pi pi-box"></i>
+                      {{ item.planName || 'Manufacturing Cloud' }}
+                    </span>
+                  </td>
+                  <td>{{ item.storageMode }}</td>
+                  <td>
+                    <span class="subscription-status-tag" [class.sub-active]="item.subscriptionStatus === 'Active'">
+                      {{ item.subscriptionStatus || 'Active' }}
+                    </span>
+                  </td>
+                  <td>
+                    <app-status-badge
+                      [status]="item.status === 'Completed' ? 'active' : item.status === 'Failed' ? 'danger' : 'warning'"
+                      [label]="item.status"
+                    ></app-status-badge>
+                  </td>
+                  <td class="text-right">
+                    <button
+                      type="button"
+                      class="p-button p-button-sm p-button-outlined"
+                      (click)="openProvisionDialog(item.id)"
+                      [disabled]="item.status === 'Completed'"
+                    >
+                      Provision
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <!-- Authentic API Empty / Unavailable State -->
+        <div class="empty-queue-box">
+          <div class="empty-icon"><i class="pi pi-server"></i></div>
+          <h4>No Registration Records In Queue</h4>
+          <p>{{ endpointNotice() || 'Zero tenant organizations pending database allocation.' }}</p>
+          <div class="empty-actions">
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-outlined"
+              (click)="openProvisionDialog()"
+            >
+              <i class="pi pi-plus"></i> Provision by Tenant ID
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Provisioning Stages Section -->
+    <div class="stages-card erp-card erp-card-elevated">
+      <div class="card-header">
+        <div>
+          <h3 class="section-title">Provisioning Stages</h3>
+          <p class="section-subtitle">Stages reflect the proposed UI; actual progress must come from backend status.</p>
+        </div>
+
+        @if (lastResult()) {
+          <app-status-badge status="active" label="Provisioned"></app-status-badge>
+        }
+      </div>
+
+      <div class="stages-list">
+        @for (stage of stages(); track stage.step) {
+          <div class="stage-item" [ngClass]="stage.status.toLowerCase()">
+            <div class="stage-step-badge">
+              @if (stage.status === 'COMPLETED') {
+                <i class="pi pi-check"></i>
+              } @else if (stage.status === 'IN_PROGRESS') {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else if (stage.status === 'FAILED') {
+                <i class="pi pi-times"></i>
+              } @else {
+                <span>{{ stage.step }}</span>
+              }
+            </div>
+
+            <div class="stage-details">
+              <span class="stage-name">{{ stage.name }}</span>
+              <span class="stage-desc">{{ stage.description }}</span>
+            </div>
+
+            <div class="stage-status-indicator">
+              @if (stage.status === 'COMPLETED') {
+                <span class="badge-completed">Completed</span>
+              } @else if (stage.status === 'IN_PROGRESS') {
+                <span class="badge-progress">Running</span>
+              } @else if (stage.status === 'FAILED') {
+                <span class="badge-failed">Failed</span>
+              } @else {
+                <span class="badge-pending">Pending</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Real Backend Result Details Panel -->
+      @if (lastResult(); as result) {
+        <div class="result-details-panel">
+          <h4 class="panel-heading"><i class="pi pi-database"></i> Backend Allocation Confirmation</h4>
+          <div class="detail-row">
+            <span class="row-label">Target Tenant ID</span>
+            <span class="row-value code-font">{{ result.tenantId }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="row-label">Database Partition</span>
+            <span class="row-value"><i class="pi pi-check-circle text-success"></i> DomainDB on SQLSERVER (Active)</span>
+          </div>
+          <div class="detail-row">
+            <span class="row-label">Configuration State</span>
+            <span class="row-value"><i class="pi pi-check-circle text-success"></i> Default Tenant Parameters Created</span>
+          </div>
+          <div class="detail-row">
+            <span class="row-label">Storage Partition Mode</span>
+            <span class="row-value"><strong>{{ result.storageMode }}</strong></span>
+          </div>
+          <div class="detail-row">
+            <span class="row-label">Security Role Bootstrap</span>
+            <span class="row-value"><i class="pi pi-check-circle text-success"></i> Tenant Admin System Role Initialized</span>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="p-button p-button-sm p-button-outlined" (click)="resetStages()">
+              Clear Results
+            </button>
+            <a routerLink="/platform-admin/tenants" class="p-button p-button-sm p-button-primary">
+              View In Directory
+            </a>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Single-Tenant Provisioning Execution Dialog (Fluent UI Theme) -->
+  <p-dialog
+    [(visible)]="showProvisionDialog"
+    [modal]="true"
+    [closable]="true"
+    [style]="{ width: '480px', maxWidth: '95vw' }"
+    styleClass="fluent-dialog"
+  >
+    <ng-template #header>
+      <div class="fluent-dialog-header">
+        <div class="dialog-logo-box" aria-hidden="true">
+          <i class="pi pi-server"></i>
+        </div>
+        <div class="dialog-title-meta">
+          <h3>Initialize Tenant Provisioning</h3>
+          <p>Configure database allocation and initial administrator credentials.</p>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="provision-dialog-body">
+      <div class="fluent-info-callout">
+        <i class="pi pi-info-circle"></i>
+        <span>Allocates <strong>DomainDB (Shared Mode)</strong>, seeds permissions, and initializes the Tenant Admin account.</span>
+      </div>
+
+      @if (validationError) {
+        <div class="dialog-error">
+          <i class="pi pi-exclamation-circle"></i>
+          <span>{{ validationError }}</span>
+        </div>
+      }
+
+      <!-- Tenant Name Display Instead of Raw GUID -->
+      <div class="form-group">
+        <label>Tenant Organization</label>
+        <div class="fluent-org-card">
+          <div class="org-icon">
+            <i class="pi pi-building"></i>
+          </div>
+          <div class="org-info">
+            <strong class="org-title">{{ selectedTenantName() }}</strong>
+            <span class="org-sub">Code: {{ selectedTenantCode() }} &middot; Plan: {{ selectedTenantPlan() }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="adminUsernameInput">Tenant Admin Username <span class="required">*</span></label>
+        <input
+          id="adminUsernameInput"
+          type="text"
+          pInputText
+          class="w-full"
+          [(ngModel)]="adminUserName"
+          placeholder="admin"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="adminEmailInput">Tenant Admin Email <span class="required">*</span></label>
+        <input
+          id="adminEmailInput"
+          type="email"
+          pInputText
+          class="w-full"
+          [(ngModel)]="adminEmail"
+          placeholder="admin@tenant.local"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="adminPasswordInput">Tenant Admin Password <span class="required">*</span></label>
+        <p-password
+          id="adminPasswordInput"
+          [(ngModel)]="adminPassword"
+          [feedback]="false"
+          [toggleMask]="true"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+          placeholder="Enter secure initial password"
+        ></p-password>
+      </div>
+    </div>
+
+    <ng-template #footer pTemplate="footer">
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; width: 100%; padding-top: 0.5rem;">
+        <p-button
+          label="Cancel"
+          [text]="true"
+          severity="secondary"
+          (onClick)="closeProvisionDialog()"
+        ></p-button>
+        <p-button
+          label="Execute Provisioning"
+          icon="pi pi-check"
+          severity="primary"
+          [loading]="provisioningInProgress()"
+          (onClick)="executeProvisioning()"
+        ></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Bulk Tenant Provisioning Dialog (Recommended UI Design) -->
+  <p-dialog
+    header="Bulk Tenant Provisioning"
+    [(visible)]="showBulkDialog"
+    [modal]="true"
+    [closable]="!bulkSummary().isProcessing"
+    [style]="{ width: '680px', maxWidth: '95vw' }"
+  >
+    <div class="bulk-dialog-content">
+      <!-- Section 1: Overall Progress -->
+      <div class="bulk-progress-section erp-card">
+        <div class="progress-header">
+          <span class="progress-title">Overall progress</span>
+          <span class="progress-percent">{{ bulkSummary().progressPercent }}%</span>
+        </div>
+
+        <div class="progress-track">
+          <div
+            class="progress-fill"
+            [style.width.%]="bulkSummary().progressPercent"
+          ></div>
+        </div>
+
+        <div class="progress-metrics-row">
+          <div class="metric-item">
+            <span class="metric-label">Completed</span>
+            <span class="metric-count text-success">{{ bulkSummary().completed }}</span>
+          </div>
+
+          <div class="metric-item">
+            <span class="metric-label">Failed</span>
+            <span class="metric-count text-danger">{{ bulkSummary().failed }}</span>
+          </div>
+
+          <div class="metric-item">
+            <span class="metric-label">Remaining</span>
+            <span class="metric-count text-muted">{{ bulkSummary().remaining }}</span>
+          </div>
+        </div>
+      </div>
+
+      @if (bulkValidationError) {
+        <div class="dialog-error">
+          <i class="pi pi-exclamation-circle"></i>
+          <span>{{ bulkValidationError }}</span>
+        </div>
+      }
+
+      <!-- Section 2: Credential Configuration (Pre-execution) -->
+      @if (!bulkSummary().isProcessing && !bulkSummary().isFinished) {
+        <div class="bulk-credentials-section">
+          <div class="credentials-notice">
+            <i class="pi pi-shield"></i>
+            <span>Each tenant requires explicit initial administrator credentials. Credentials are processed sequentially and never stored in browser memory.</span>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-top: -0.25rem;">
+            <span style="font-size: 11px; color: #64748b;">Quick shortcut:</span>
+            <button
+              type="button"
+              class="p-button p-button-xs p-button-outlined"
+              (click)="applyBulkPassword('123')"
+              style="font-size: 11px; padding: 0.2rem 0.5rem;"
+              title="Fill all selected tenant initial passwords with '123'"
+            >
+              <i class="pi pi-key"></i> Fill all passwords with "123"
+            </button>
+          </div>
+
+          <div class="bulk-tenants-input-list">
+            @for (item of bulkItems(); track item.tenantId) {
+              <div class="bulk-tenant-input-card erp-card">
+                <div class="tenant-row-header">
+                  <strong>{{ item.name }}</strong>
+                  <span class="code-font">{{ item.code }}</span>
+                </div>
+
+                <div class="tenant-inputs-grid">
+                  <div class="form-group-sm">
+                    <label>Username</label>
+                    <input
+                      type="text"
+                      pInputText
+                      class="p-inputtext-sm w-full"
+                      [(ngModel)]="item.adminUserName"
+                      placeholder="admin"
+                    />
+                  </div>
+
+                  <div class="form-group-sm">
+                    <label>Email</label>
+                    <input
+                      type="email"
+                      pInputText
+                      class="p-inputtext-sm w-full"
+                      [(ngModel)]="item.adminEmail"
+                      placeholder="admin@tenant.local"
+                    />
+                  </div>
+
+                  <div class="form-group-sm">
+                    <label>Password</label>
+                    <p-password
+                      [(ngModel)]="item.adminPassword"
+                      [feedback]="false"
+                      [toggleMask]="true"
+                      styleClass="w-full"
+                      inputStyleClass="p-inputtext-sm w-full"
+                      placeholder="Initial password"
+                    ></p-password>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Section 3: Live Results List -->
+      <div class="bulk-results-section">
+        <h4 class="results-heading">Tenant results</h4>
+        <div class="results-list">
+          @for (item of bulkItems(); track item.tenantId) {
+            <div class="result-row" [class.result-failed]="item.status === 'Failed'">
+              <div class="result-tenant-info">
+                <span class="tenant-name">{{ item.name }}</span>
+                @if (item.error) {
+                  <span class="tenant-error-msg"><i class="pi pi-exclamation-circle"></i> {{ item.error }}</span>
+                }
+              </div>
+
+              <div class="result-status-action">
+                @if (item.status === 'Completed') {
+                  <span class="status-pill status-completed">Completed</span>
+                } @else if (item.status === 'In Progress') {
+                  <span class="status-pill status-running"><i class="pi pi-spin pi-spinner"></i> Running</span>
+                } @else if (item.status === 'Failed') {
+                  <span class="status-pill status-failed">Failed</span>
+                  @if (!bulkSummary().isProcessing) {
+                    <button
+                      type="button"
+                      class="p-button p-button-text p-button-sm p-button-danger retry-btn"
+                      (click)="retryBulkItem(item)"
+                      title="Retry provisioning this tenant"
+                    >
+                      <i class="pi pi-refresh"></i> Retry
+                    </button>
+                  }
+                } @else {
+                  <span class="status-pill status-pending">Pending</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <ng-template #footer pTemplate="footer">
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; width: 100%; padding-top: 0.5rem;">
+        <p-button
+          [label]="bulkSummary().isFinished ? 'Close' : 'Cancel'"
+          [text]="true"
+          severity="secondary"
+          (onClick)="closeBulkDialog()"
+          [disabled]="bulkSummary().isProcessing"
+        ></p-button>
+        @if (!bulkSummary().isFinished) {
+          <p-button
+            [label]="bulkSummary().isProcessing ? ('Processing (' + (bulkSummary().completed + bulkSummary().failed) + '/' + bulkSummary().total + ')...') : 'Start Bulk Provisioning'"
+            [icon]="bulkSummary().isProcessing ? 'pi pi-spin pi-spinner' : 'pi pi-play'"
+            severity="primary"
+            [disabled]="bulkSummary().isProcessing"
+            (onClick)="executeBulkProvisioning()"
+          ></p-button>
+        }
+      </div>
+    </ng-template>
+  </p-dialog>
+</div>

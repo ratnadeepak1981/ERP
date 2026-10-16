@@ -348,7 +348,7 @@ public class InventoryPostingEngineTests : IClassFixture<TestSecurityFixture>
         // Create location type with CanStoreInventory = false (e.g. Aisle)
         var nonStorableType = LocationType.Create(
             tenantId,
-            $"AISLE_{Guid.NewGuid():N}"[..8],
+            $"AISLE_{Guid.NewGuid():N}"[..18],
             "Aisle Grouping",
             canStoreInventory: false,
             canPick: false,
@@ -487,7 +487,7 @@ public class InventoryPostingEngineTests : IClassFixture<TestSecurityFixture>
     // Helper setup methods
     private static async Task<Warehouse> CreateTestWarehouseAsync(DomainDbContext db, Guid tenantId)
     {
-        string code = $"WH_{Guid.NewGuid():N}"[..8];
+        string code = $"WH_{Guid.NewGuid():N}"[..18];
         var wh = Warehouse.Create(tenantId, code, $"Warehouse_{code}", city: "Colombo");
         await db.Warehouses.AddAsync(wh);
         await db.SaveChangesAsync();
@@ -501,7 +501,7 @@ public class InventoryPostingEngineTests : IClassFixture<TestSecurityFixture>
         string prefix,
         Guid? locationTypeId = null)
     {
-        string code = $"{prefix}_{Guid.NewGuid():N}"[..8];
+        string code = $"{prefix}_{Guid.NewGuid():N}"[..18];
         var loc = WarehouseLocation.Create(
             tenantId,
             warehouseId,
@@ -519,7 +519,7 @@ public class InventoryPostingEngineTests : IClassFixture<TestSecurityFixture>
         Guid tenantId,
         TrackingMode trackingMode)
     {
-        string code = $"PRD_{Guid.NewGuid():N}"[..8];
+        string code = $"PRD_{Guid.NewGuid():N}"[..18];
         var cat = await db.Categories.FirstOrDefaultAsync(c => c.TenantId == tenantId);
         Guid catId = cat?.CategoryId ?? Guid.NewGuid();
 

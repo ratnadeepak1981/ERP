@@ -53,7 +53,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/leads",
             createReq);
         Assert.Equal(HttpStatusCode.Created, postRes.StatusCode);
-        var createdLead = await postRes.Content.ReadFromJsonAsync<LeadDto>(_jsonOpts);
+        var createdLead = await postRes.ReadApiResponseDataAsync<LeadDto>(_jsonOpts);
         Assert.NotNull(createdLead);
         Assert.Equal(LeadStatus.New, createdLead.Status);
         Assert.Equal(uniqueNumber, createdLead.LeadNumber);
@@ -63,7 +63,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/leads/{createdLead.LeadId}/qualify",
             null);
         Assert.Equal(HttpStatusCode.OK, qualifyRes.StatusCode);
-        var qualifiedLead = await qualifyRes.Content.ReadFromJsonAsync<LeadDto>(_jsonOpts);
+        var qualifiedLead = await qualifyRes.ReadApiResponseDataAsync<LeadDto>(_jsonOpts);
         Assert.NotNull(qualifiedLead);
         Assert.Equal(LeadStatus.Qualified, qualifiedLead.Status);
         Assert.NotNull(qualifiedLead.QualifiedAt);
@@ -80,7 +80,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/leads/{createdLead.LeadId}/convert",
             convertReq);
         Assert.Equal(HttpStatusCode.OK, convertRes.StatusCode);
-        var convertResult = await convertRes.Content.ReadFromJsonAsync<ConvertLeadResult>(_jsonOpts);
+        var convertResult = await convertRes.ReadApiResponseDataAsync<ConvertLeadResult>(_jsonOpts);
         Assert.NotNull(convertResult);
         Assert.False(convertResult.WasExistingCustomer);
 
@@ -139,7 +139,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/leads",
             createReq);
         Assert.Equal(HttpStatusCode.Created, postRes.StatusCode);
-        var createdLead = await postRes.Content.ReadFromJsonAsync<LeadDto>(_jsonOpts);
+        var createdLead = await postRes.ReadApiResponseDataAsync<LeadDto>(_jsonOpts);
         Assert.NotNull(createdLead);
 
         // Qualify
@@ -159,7 +159,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/leads/{createdLead.LeadId}/convert",
             convertReq);
         Assert.Equal(HttpStatusCode.OK, convertRes.StatusCode);
-        var convertResult = await convertRes.Content.ReadFromJsonAsync<ConvertLeadResult>(_jsonOpts);
+        var convertResult = await convertRes.ReadApiResponseDataAsync<ConvertLeadResult>(_jsonOpts);
         Assert.NotNull(convertResult);
         Assert.True(convertResult.WasExistingCustomer);
 
@@ -211,7 +211,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/opportunities",
             createReq);
         Assert.Equal(HttpStatusCode.Created, postRes.StatusCode);
-        var createdOpp = await postRes.Content.ReadFromJsonAsync<OpportunityDto>(_jsonOpts);
+        var createdOpp = await postRes.ReadApiResponseDataAsync<OpportunityDto>(_jsonOpts);
         Assert.NotNull(createdOpp);
         Assert.Equal(OpportunityStage.Prospecting, createdOpp.Stage);
         Assert.Equal(10m, createdOpp.ProbabilityPercent);
@@ -225,7 +225,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/opportunities/{createdOpp.OpportunityId}/stage",
             stageReq);
         Assert.Equal(HttpStatusCode.OK, stageRes.StatusCode);
-        var updatedOpp = await stageRes.Content.ReadFromJsonAsync<OpportunityDto>(_jsonOpts);
+        var updatedOpp = await stageRes.ReadApiResponseDataAsync<OpportunityDto>(_jsonOpts);
         Assert.NotNull(updatedOpp);
         Assert.Equal(OpportunityStage.ClosedWon, updatedOpp.Stage);
         Assert.Equal(100m, updatedOpp.ProbabilityPercent);
@@ -267,7 +267,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/activities",
             createReq);
         Assert.Equal(HttpStatusCode.Created, postRes.StatusCode);
-        var createdAct = await postRes.Content.ReadFromJsonAsync<CrmActivityDto>(_jsonOpts);
+        var createdAct = await postRes.ReadApiResponseDataAsync<CrmActivityDto>(_jsonOpts);
         Assert.NotNull(createdAct);
         Assert.False(createdAct.IsCompleted);
 
@@ -280,7 +280,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
             $"/api/companies/{TestConstants.CompanyAId}/crm/activities/{createdAct.CrmActivityId}/complete",
             compReq);
         Assert.Equal(HttpStatusCode.OK, compRes.StatusCode);
-        var completedAct = await compRes.Content.ReadFromJsonAsync<CrmActivityDto>(_jsonOpts);
+        var completedAct = await compRes.ReadApiResponseDataAsync<CrmActivityDto>(_jsonOpts);
         Assert.NotNull(completedAct);
         Assert.True(completedAct.IsCompleted);
         Assert.NotNull(completedAct.CompletedAt);
@@ -381,7 +381,7 @@ public class CrmWorkflowAndScopeIntegrationTests : IClassFixture<TestSecurityFix
                 ContactName = "Carol"
             });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var lead = await createRes.Content.ReadFromJsonAsync<LeadDto>(_jsonOpts);
+        var lead = await createRes.ReadApiResponseDataAsync<LeadDto>(_jsonOpts);
         Assert.NotNull(lead);
 
         // Convert without permission must fail

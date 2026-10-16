@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using API.Common;
 using API.Security.Authorization;
 using ERP.AI.Infrastructure.Core.Entities;
 using ERP.AI.Infrastructure.Infrastructure.Persistence;
@@ -33,7 +34,7 @@ public record AIProviderCredentialResponse(
 [ApiController]
 [Route("api/ai/credentials")]
 [Authorize]
-public class AICredentialsController : ControllerBase
+public class AICredentialsController : BaseApiController
 {
     private readonly AIDbContext _aiDbContext;
 
@@ -60,16 +61,16 @@ public class AICredentialsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (request == null)
-            return BadRequest(new { message = "Request body cannot be null." });
+            return BadRequestResponse("Request body cannot be null.");
 
         if (string.IsNullOrWhiteSpace(request.ProviderCode))
-            return BadRequest(new { message = "Provider code is required." });
+            return BadRequestResponse("Provider code is required.");
 
         if (string.IsNullOrWhiteSpace(request.KeyReferenceCode))
-            return BadRequest(new { message = "Key reference code is required." });
+            return BadRequestResponse("Key reference code is required.");
 
         if (string.IsNullOrWhiteSpace(request.EncryptedSecret))
-            return BadRequest(new { message = "Encrypted secret cannot be empty." });
+            return BadRequestResponse("Encrypted secret cannot be empty.");
 
         string providerCodeNorm = request.ProviderCode.Trim().ToUpperInvariant();
         string keyRefNorm = request.KeyReferenceCode.Trim();
@@ -80,7 +81,7 @@ public class AICredentialsController : ControllerBase
 
         if (provider == null)
         {
-            return NotFound(new { message = $"AI Provider '{providerCodeNorm}' was not found in catalog." });
+            return NotFoundResponse($"AI Provider '{providerCodeNorm}' was not found in catalog.");
         }
 
         var existingCredential = await _aiDbContext.AIProviderCredentials
@@ -119,14 +120,12 @@ public class AICredentialsController : ControllerBase
 
         await _aiDbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new
+        return SuccessResponse(new
         {
-            status = "SUCCESS",
-            message = $"Credential for provider '{providerCodeNorm}' securely saved in AIDatabase.",
             provider = providerCodeNorm,
             keyReferenceCode = keyRefNorm,
             environment = envNorm
-        });
+        }, $"Credential for provider '{providerCodeNorm}' securely saved in AIDatabase.");
     }
 
     [HttpGet("{providerCode}")]
@@ -137,7 +136,7 @@ public class AICredentialsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(providerCode))
-            return BadRequest(new { message = "Provider code is required." });
+            return BadRequestResponse("Provider code is required.");
 
         string providerCodeNorm = providerCode.Trim().ToUpperInvariant();
         string envNorm = string.IsNullOrWhiteSpace(environment) ? "Production" : environment.Trim();
@@ -147,7 +146,7 @@ public class AICredentialsController : ControllerBase
 
         if (provider == null)
         {
-            return NotFound(new { message = $"AI Provider '{providerCodeNorm}' was not found in catalog." });
+            return NotFoundResponse($"AI Provider '{providerCodeNorm}' was not found in catalog.");
         }
 
         var credential = await _aiDbContext.AIProviderCredentials
@@ -157,10 +156,10 @@ public class AICredentialsController : ControllerBase
 
         if (credential == null)
         {
-            return NotFound(new { message = $"No active credential found for provider '{providerCodeNorm}' in environment '{envNorm}'." });
+            return NotFoundResponse($"No active credential found for provider '{providerCodeNorm}' in environment '{envNorm}'.");
         }
 
-        return Ok(new AIProviderCredentialResponse(
+        return SuccessResponse(new AIProviderCredentialResponse(
             credential.Id,
             providerCodeNorm,
             credential.KeyReferenceCode,

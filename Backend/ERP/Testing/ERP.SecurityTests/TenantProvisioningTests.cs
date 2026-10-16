@@ -136,7 +136,7 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
 
             // Assert API response
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var result = await response.Content.ReadFromJsonAsync<TenantProvisioningResult>(_jsonOpts);
+            var result = await response.ReadApiResponseDataAsync<TenantProvisioningResult>(_jsonOpts);
             Assert.NotNull(result);
             Assert.True(result.IsProvisioned);
             Assert.True(result.DatabaseProvisioned);

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using ERP.Domain.Features.CRM;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +14,20 @@ namespace API.Features.Domain.CRM;
 [ApiController]
 [Route("api/companies/{companyId:guid}/crm/opportunities")]
 [RequirePermission("CRM.OPPORTUNITY.VIEW")]
-public class OpportunityController : ControllerBase
+public class OpportunityController : BaseApiController
 {
     private readonly IOpportunityService _opportunityService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
     private readonly global::Domain.Features.MasterData.Company.ICompanyRepository _companyRepository;
+
+    private static readonly SortMapping<OpportunityDto> _sortMapping = new SortMapping<OpportunityDto>()
+        .Add("title", o => o.Title, isDefault: true)
+        .Add("opportunityNumber", o => o.OpportunityNumber)
+        .Add("stage", o => o.Stage)
+        .Add("estimatedValue", o => o.EstimatedValue)
+        .Add("createdAt", o => o.CreatedAt)
+        .SetSecondary(o => o.OpportunityId);
 
     public OpportunityController(
         IOpportunityService opportunityService,
@@ -37,6 +47,10 @@ public class OpportunityController : ControllerBase
         [FromQuery] Guid? branchId = null,
         [FromQuery] Guid? customerId = null,
         [FromQuery] OpportunityStage? stage = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
@@ -50,7 +64,7 @@ public class OpportunityController : ControllerBase
             stage,
             cancellationToken);
 
-        return Ok(opportunities);
+        return PaginateAndSort(opportunities, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -70,7 +84,7 @@ public class OpportunityController : ControllerBase
 
         if (opp == null)
         {
-            return NotFound(new { status = "FAIL", message = "Opportunity not found in the authorized scope." });
+            return NotFoundResponse("Opportunity not found in the authorized scope.");
         }
 
         if (opp.BranchId.HasValue)
@@ -79,7 +93,7 @@ public class OpportunityController : ControllerBase
             if (branchAuth.Action != null) return branchAuth.Action;
         }
 
-        return Ok(opp);
+        return SuccessResponse(opp);
     }
 
     [HttpPost]
@@ -100,11 +114,11 @@ public class OpportunityController : ControllerBase
                 request,
                 cancellationToken);
 
-            return CreatedAtAction(nameof(GetOpportunityById), new { companyId, id = opp.OpportunityId }, opp);
+            return CreatedResponse(nameof(GetOpportunityById), new { companyId, id = opp.OpportunityId }, opp, "Opportunity created successfully.");
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -128,15 +142,11 @@ public class OpportunityController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(opp);
+            return SuccessResponse(opp, "Opportunity updated successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -160,15 +170,11 @@ public class OpportunityController : ControllerBase
                 request,
                 cancellationToken);
 
-            return Ok(opp);
+            return SuccessResponse(opp, "Opportunity stage updated successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -182,11 +188,7 @@ public class OpportunityController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var company = await _companyRepository.GetByIdAsync(tenantId.Value, companyId);

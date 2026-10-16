@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+using API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Security.Application.DTOs;
@@ -9,7 +12,7 @@ namespace API.Features.Security;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class UserController : ControllerBase
+public class UserController : BaseApiController
 {
     private readonly IUserService _userService;
     private readonly ICurrentUserContext _currentUserContext;
@@ -26,27 +29,21 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("access-test/company/{companyId:guid}")]
-    public async Task<IActionResult> TestCompanyAccess(
-        Guid companyId)
+    public async Task<IActionResult> TestCompanyAccess(Guid companyId)
     {
         var tenantId = _currentUserContext.TenantId;
 
         if (!tenantId.HasValue)
         {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing."
-            });
+            return UnauthorizedResponse("Tenant identity is missing.");
         }
 
-        var canAccess =
-            await _userAccessService.CanAccessCompanyAsync(
-                _currentUserContext.UserId,
-                tenantId.Value,
-                companyId);
+        var canAccess = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
 
-        return Ok(new
+        return SuccessResponse(new
         {
             status = canAccess ? "PASS" : "DENY",
             userId = _currentUserContext.UserId,
@@ -59,7 +56,7 @@ public class UserController : ControllerBase
     [HttpGet("context")]
     public IActionResult GetContext()
     {
-        return Ok(new
+        return SuccessResponse(new
         {
             userId = _currentUserContext.UserId,
             tenantId = _currentUserContext.TenantId,
@@ -72,8 +69,7 @@ public class UserController : ControllerBase
 
     [HttpPost]
     [Authorize(Roles = "Platform Admin, Security Manager")]
-    public async Task<IActionResult> CreateUser(
-        [FromBody] CreateUserRequest request)
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
         try
         {
@@ -82,32 +78,18 @@ public class UserController : ControllerBase
                 request.Email,
                 request.Password);
 
-            return Ok(new
+            return CreatedResponse("", null, new
             {
-                status = "PASS",
-                message = "User created successfully.",
                 userId = user.Id,
                 username = user.Username,
                 email = user.Email,
                 tenantId = user.TenantId,
                 isActive = user.IsActive
-            });
+            }, "User created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

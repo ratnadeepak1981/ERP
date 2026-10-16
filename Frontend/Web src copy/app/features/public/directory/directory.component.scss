@@ -1,0 +1,105 @@
+.directory-page {
+  padding: var(--erp-space-8) var(--erp-space-4);
+
+  .directory-header {
+    max-width: 680px;
+    margin-bottom: var(--erp-space-8);
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      font-size: 15px;
+      color: var(--erp-text-secondary);
+      margin-bottom: var(--erp-space-4);
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2);
+      position: relative;
+
+      i {
+        position: absolute;
+        left: 12px;
+        color: var(--erp-text-muted);
+      }
+
+      input {
+        flex: 1;
+        padding-left: 36px;
+        height: 40px;
+      }
+    }
+  }
+
+  .listings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--erp-space-4);
+
+    .directory-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--erp-space-3);
+
+      .card-top {
+        display: flex;
+        align-items: center;
+        gap: var(--erp-space-3);
+
+        .org-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--erp-radius-sm);
+          background: var(--erp-primary-light);
+          color: var(--erp-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+        }
+
+        .org-info {
+          flex: 1;
+          h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0;
+          }
+          .org-location {
+            font-size: 12px;
+            color: var(--erp-text-muted);
+            i { font-size: 10px; margin-right: 2px; }
+          }
+        }
+      }
+
+      .card-meta {
+        display: flex;
+        justify-content: space-between;
+        background: var(--erp-bg-secondary);
+        padding: 8px 12px;
+        border-radius: var(--erp-radius-sm);
+        font-size: 12.5px;
+
+        .meta-item {
+          display: flex;
+          gap: 4px;
+          .meta-label { color: var(--erp-text-muted); }
+          .meta-val { font-weight: 500; color: var(--erp-text-main); }
+        }
+      }
+
+      .card-footer {
+        margin-top: auto;
+        padding-top: var(--erp-space-2);
+        border-top: 1px solid var(--erp-border-subtle);
+      }
+    }
+  }
+}
