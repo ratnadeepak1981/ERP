@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,16 @@ namespace API.Features.MasterData.Warehouse;
 [ApiController]
 [Route("api/warehouses")]
 [RequirePermission("WAREHOUSE.VIEW")]
-public class WarehouseController : ControllerBase
+public class WarehouseController : BaseApiController
 {
     private readonly IWarehouseService _warehouseService;
     private readonly ICurrentUserContext _currentUserContext;
+
+    private static readonly SortMapping<global::ERP.Domain.Features.MasterData.Warehouse.Warehouse> _sortMapping = new SortMapping<global::ERP.Domain.Features.MasterData.Warehouse.Warehouse>()
+        .Add("warehouseCode", w => w.WarehouseCode, isDefault: true)
+        .Add("warehouseName", w => w.WarehouseName)
+        .Add("city", w => w.City ?? "")
+        .SetSecondary(w => w.WarehouseId);
 
     public WarehouseController(
         IWarehouseService warehouseService,
@@ -25,15 +33,19 @@ public class WarehouseController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetWarehouses()
+    public async Task<IActionResult> GetWarehouses(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var warehouses = await _warehouseService.GetWarehousesAsync(tenantId.Value);
-        return Ok(warehouses);
+        return PaginateAndSort(warehouses, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,13 +54,13 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var warehouse = await _warehouseService.GetWarehouseAsync(tenantId.Value, id);
         if (warehouse == null)
-            return NotFound(new { status = "FAIL", message = "Warehouse not found." });
+            return NotFoundResponse("Warehouse not found.");
 
-        return Ok(warehouse);
+        return SuccessResponse(warehouse);
     }
 
     [HttpPost]
@@ -58,20 +70,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var warehouse = await _warehouseService.CreateWarehouseAsync(tenantId.Value, request);
-            return CreatedAtAction(nameof(GetWarehouse), new { id = warehouse.WarehouseId }, warehouse);
+            return CreatedResponse(nameof(GetWarehouse), new { id = warehouse.WarehouseId }, warehouse);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -82,24 +90,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var warehouse = await _warehouseService.UpdateWarehouseAsync(tenantId.Value, id, request);
-            return Ok(warehouse);
+            return SuccessResponse(warehouse);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Warehouse not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -110,16 +110,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _warehouseService.DeactivateWarehouseAsync(tenantId.Value, id);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Warehouse not found." });
+            return HandleDomainException(ex);
         }
     }
 
@@ -130,10 +130,10 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var zones = await _warehouseService.GetZonesAsync(tenantId.Value, id);
-        return Ok(zones);
+        return SuccessResponse(zones);
     }
 
     [HttpPost("{id:guid}/zones")]
@@ -143,24 +143,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var zone = await _warehouseService.CreateZoneAsync(tenantId.Value, id, request);
-            return Ok(zone);
+            return SuccessResponse(zone, "Warehouse zone created successfully.");
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Warehouse not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -172,10 +164,30 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var locations = await _warehouseService.GetLocationsAsync(tenantId.Value, id, zoneId);
-        return Ok(locations);
+        return SuccessResponse(locations);
+    }
+
+    [HttpPost("{id:guid}/locations")]
+    [RequirePermission("LOCATION.CREATE")]
+    public async Task<IActionResult> CreateLocationDirect(Guid id, [FromBody] CreateWarehouseLocationRequest request)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var location = await _warehouseService.CreateLocationAsync(tenantId.Value, id, request.WarehouseZoneId, request);
+            return SuccessResponse(location, "Warehouse location created successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
     }
 
     [HttpPost("{id:guid}/zones/{zoneId:guid}/locations")]
@@ -185,24 +197,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var location = await _warehouseService.CreateLocationAsync(tenantId.Value, id, zoneId, request);
-            return Ok(location);
+            return SuccessResponse(location, "Warehouse location created successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -213,24 +217,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var location = await _warehouseService.UpdateLocationAsync(tenantId.Value, locationId, request);
-            return Ok(location);
+            return SuccessResponse(location, "Warehouse location updated successfully.");
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Warehouse location not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -241,16 +237,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _warehouseService.DeactivateLocationAsync(tenantId.Value, locationId);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Warehouse location not found." });
+            return HandleDomainException(ex);
         }
     }
 
@@ -262,10 +258,10 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var types = await _warehouseService.GetLocationTypesAsync(tenantId.Value);
-        return Ok(types);
+        return SuccessResponse(types);
     }
 
     [HttpPost("location-types")]
@@ -275,20 +271,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var locType = await _warehouseService.CreateLocationTypeAsync(tenantId.Value, request);
-            return Ok(locType);
+            return SuccessResponse(locType, "Location type created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -299,10 +291,10 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var addresses = await _warehouseService.GetAddressesAsync(tenantId.Value, id);
-        return Ok(addresses);
+        return SuccessResponse(addresses);
     }
 
     [HttpPost("{id:guid}/addresses")]
@@ -312,24 +304,16 @@ public class WarehouseController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var assoc = await _warehouseService.LinkAddressAsync(tenantId.Value, id, request);
-            return Ok(assoc);
+            return SuccessResponse(assoc, "Warehouse address linked successfully.");
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Warehouse not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 }

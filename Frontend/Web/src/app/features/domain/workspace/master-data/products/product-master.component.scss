@@ -1,0 +1,247 @@
+.product-master-page {
+  padding: var(--erp-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--erp-space-4);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.scope-prompt-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--erp-space-3);
+  padding: 10px 16px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #d97706;
+  border-radius: var(--erp-radius-md);
+
+  .alert-icon {
+    font-size: 18px;
+    color: #d97706;
+  }
+
+  span {
+    flex: 1;
+    font-size: 13px;
+    color: #92400e;
+  }
+}
+
+.product-table-card {
+  padding: var(--erp-space-4);
+  background: var(--erp-bg-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-md);
+}
+
+.table-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--erp-space-3);
+  margin-bottom: var(--erp-space-4);
+  flex-wrap: wrap;
+
+  .search-and-filters {
+    display: flex;
+    align-items: center;
+    gap: var(--erp-space-3);
+    flex-wrap: wrap;
+    flex: 1;
+
+    .search-input-box {
+      position: relative;
+      min-width: 260px;
+
+      .search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--erp-text-muted);
+        font-size: 13px;
+      }
+
+      .search-field {
+        width: 100%;
+        padding-left: 32px;
+      }
+    }
+
+    .filter-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+
+      .filter-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        border: 1px solid var(--erp-border);
+        border-radius: var(--erp-radius-pill);
+        background: var(--erp-bg-secondary);
+        color: var(--erp-text-secondary);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        .pill-icon {
+          font-size: 11px;
+        }
+
+        &:hover {
+          background: #e2e8f0;
+          color: var(--erp-text-main);
+        }
+
+        &.active {
+          background: #e0effb;
+          border-color: #80bff1;
+          color: #0f6cbd;
+          font-weight: 600;
+        }
+      }
+    }
+  }
+}
+
+.data-table-wrapper {
+  overflow-x: auto;
+}
+
+.enterprise-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--erp-text-main);
+    vertical-align: middle;
+  }
+
+  tbody tr:hover {
+    background: #f8fafc;
+  }
+}
+
+.code-badge {
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f6cbd;
+}
+
+.product-cell {
+  display: flex;
+  flex-direction: column;
+
+  .product-subtext {
+    font-size: 11px;
+    color: var(--erp-text-muted);
+    margin-top: 2px;
+  }
+}
+
+.usage-text {
+  font-size: 12px;
+  color: #475569;
+}
+
+.action-buttons-cell {
+  display: inline-flex;
+  gap: 4px;
+}
+
+// Dialog Form
+.dialog-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 10px;
+
+  .form-row {
+    display: flex;
+    gap: 12px;
+
+    .form-group {
+      flex: 1;
+    }
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+
+      .required {
+        color: #dc2626;
+      }
+    }
+
+    input, select, textarea {
+      width: 100%;
+    }
+
+    .select-input {
+      padding: 6px 10px;
+    }
+  }
+
+  .form-capabilities-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+
+    .box-heading {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+  }
+}
+
+.form-error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}

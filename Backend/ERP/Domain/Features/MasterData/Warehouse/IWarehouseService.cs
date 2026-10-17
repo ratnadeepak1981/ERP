@@ -20,7 +20,7 @@ public interface IWarehouseService
 
     Task<List<WarehouseLocation>> GetLocationsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null);
     Task<WarehouseLocation?> GetLocationAsync(Guid tenantId, Guid locationId);
-    Task<WarehouseLocation> CreateLocationAsync(Guid tenantId, Guid warehouseId, Guid zoneId, CreateWarehouseLocationRequest request);
+    Task<WarehouseLocation> CreateLocationAsync(Guid tenantId, Guid warehouseId, Guid? zoneId, CreateWarehouseLocationRequest request);
     Task<WarehouseLocation> UpdateLocationAsync(Guid tenantId, Guid locationId, UpdateWarehouseLocationRequest request);
     Task DeactivateLocationAsync(Guid tenantId, Guid locationId);
 

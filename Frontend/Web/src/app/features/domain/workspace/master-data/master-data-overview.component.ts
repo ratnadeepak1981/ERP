@@ -1,0 +1,105 @@
+import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { AppStatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
+import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
+
+interface MasterDataCard {
+  title: string;
+  badge: string;
+  badgeSeverity: 'success' | 'info' | 'neutral' | 'warning';
+  icon: string;
+  description: string;
+  route?: string;
+  available: boolean;
+  footnote?: string;
+}
+
+@Component({
+  selector: 'app-master-data-overview',
+  standalone: true,
+  imports: [CommonModule, RouterLink, AppPageHeaderComponent, AppStatusBadgeComponent],
+  templateUrl: './master-data-overview.component.html',
+  styleUrl: './master-data-overview.component.scss'
+})
+export class MasterDataOverviewComponent {
+  readonly scopeService = inject(WorkspaceScopeService);
+
+  readonly breadcrumbs = [
+    { label: 'Workspace', routerLink: '/app/dashboard' },
+    { label: 'Supply Chain Masters' }
+  ];
+
+  readonly masterCards: MasterDataCard[] = [
+    {
+      title: 'Product Master',
+      badge: 'Core master',
+      badgeSeverity: 'info',
+      icon: 'pi pi-box',
+      description: 'Products, services, codes, categories, units and purchase/sales/manufacturing flags.',
+      route: '/app/master-data/products',
+      available: true
+    },
+    {
+      title: 'Supplier Master',
+      badge: 'Core master',
+      badgeSeverity: 'info',
+      icon: 'pi pi-truck',
+      description: 'Supplier details, contacts, addresses, payment terms and active status.',
+      route: '/app/master-data/suppliers',
+      available: true
+    },
+    {
+      title: 'Categories & Brands',
+      badge: 'Classification',
+      badgeSeverity: 'neutral',
+      icon: 'pi pi-tag',
+      description: 'Product classification, brand, category hierarchy and reporting groups.',
+      available: true
+    },
+    {
+      title: 'Units of Measure',
+      badge: 'Standards',
+      badgeSeverity: 'neutral',
+      icon: 'pi pi-sliders-v',
+      description: 'Each, box, kg, litre, pack and controlled conversion rules.',
+      available: true
+    },
+    {
+      title: 'Warehouse & Locations',
+      badge: 'Operational',
+      badgeSeverity: 'neutral',
+      icon: 'pi pi-building',
+      description: 'Warehouses, zones, locations, racks, shelves and bins where required.',
+      available: true
+    },
+    {
+      title: 'Operational Reference Data',
+      badge: 'Defaults',
+      badgeSeverity: 'neutral',
+      icon: 'pi pi-sliders-h',
+      description: 'Receiving, QC, putaway, picking, rejected, staging and dispatch locations.',
+      available: false,
+      footnote: 'Configured per warehouse operational policy.'
+    },
+    {
+      title: 'Supplier–Product Links',
+      badge: 'Purchasing',
+      badgeSeverity: 'neutral',
+      icon: 'pi pi-link',
+      description: 'Supplier item codes, preferred supplier, lead time and purchasing units.',
+      available: false,
+      footnote: 'Active when supplier pricing agreements are established.'
+    },
+    {
+      title: 'Tracking & Replenishment',
+      badge: 'Inventory Policy',
+      badgeSeverity: 'neutral',
+      icon: 'pi pi-calendar-plus',
+      description: 'Batch/expiry requirements, reorder levels and minimum/maximum stock settings.',
+      available: false,
+      footnote: 'Add when supported by the domain APIs.'
+    }
+  ];
+}

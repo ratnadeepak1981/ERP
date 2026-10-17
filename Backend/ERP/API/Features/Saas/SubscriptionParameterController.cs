@@ -1,113 +1,100 @@
+using System;
+using System.Collections.Generic;
+using API.Common;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
+using Security.Interfaces;
 
 namespace SaaS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class SubscriptionParameterController : ControllerBase
+[Authorize]
+public class SubscriptionParameterController : BaseApiController
 {
     private readonly ISubscriptionParameterService _service;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public SubscriptionParameterController(
-        ISubscriptionParameterService service)
+        ISubscriptionParameterService service,
+        ICurrentUserContext currentUserContext)
     {
         _service = service;
+        _currentUserContext = currentUserContext;
     }
 
     [HttpPost]
-    public IActionResult Create(
-        [FromBody] CreateSubscriptionParameterRequest request)
+    [RequirePermission("SUBSCRIPTION.CREATE")]
+    public IActionResult Create([FromBody] CreateSubscriptionParameterRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
-            SubscriptionParameter result =
-                _service.Create(request);
-
-            return Ok(result);
+            SubscriptionParameter result = _service.Create(request);
+            return CreatedResponse(nameof(GetById), new { id = result.Id }, result, "Subscription parameter created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
     [HttpGet]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetAll()
     {
-        IReadOnlyList<SubscriptionParameter> result =
-            _service.GetAll();
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
 
-        return Ok(result);
+        IReadOnlyList<SubscriptionParameter> result = _service.GetAll();
+        return SuccessResponse(result);
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetById(Guid id)
     {
-        SubscriptionParameter? result =
-            _service.GetById(id);
-
-        if (result == null)
+        if (!_currentUserContext.IsPlatformUser)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Subscription parameter not found."
-            });
+            return Forbid();
         }
 
-        return Ok(result);
+        SubscriptionParameter? result = _service.GetById(id);
+        if (result == null)
+        {
+            return NotFoundResponse("Subscription parameter not found.");
+        }
+
+        return SuccessResponse(result);
     }
 
     [HttpPut("{id:guid}")]
-    public IActionResult Update(
-        Guid id,
-        [FromBody] UpdateSubscriptionParameterRequest request)
+    [RequirePermission("SUBSCRIPTION.EDIT")]
+    public IActionResult Update(Guid id, [FromBody] UpdateSubscriptionParameterRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
-            SubscriptionParameter result =
-                _service.Update(id, request);
-
-            return Ok(result);
+            SubscriptionParameter result = _service.Update(id, request);
+            return SuccessResponse(result, "Subscription parameter updated successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Address;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,16 @@ namespace API.Features.MasterData.Contact;
 [ApiController]
 [Route("api/contacts")]
 [RequirePermission("CONTACT.VIEW")]
-public class ContactController : ControllerBase
+public class ContactController : BaseApiController
 {
     private readonly IAddressService _addressService;
     private readonly ICurrentUserContext _currentUserContext;
+
+    private static readonly SortMapping<global::Domain.Features.MasterData.Contact.Contact> _sortMapping = new SortMapping<global::Domain.Features.MasterData.Contact.Contact>()
+        .Add("contactName", c => c.ContactName, isDefault: true)
+        .Add("email", c => c.Email ?? "")
+        .Add("phone", c => c.Phone ?? "")
+        .SetSecondary(c => c.ContactId);
 
     public ContactController(
         IAddressService addressService,
@@ -25,15 +33,19 @@ public class ContactController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetContacts()
+    public async Task<IActionResult> GetContacts(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var contacts = await _addressService.GetContactsAsync(tenantId.Value);
-        return Ok(contacts);
+        return PaginateAndSort(contacts, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,13 +54,13 @@ public class ContactController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var contact = await _addressService.GetContactAsync(tenantId.Value, id);
         if (contact == null)
-            return NotFound(new { status = "FAIL", message = "Contact not found." });
+            return NotFoundResponse("Contact not found.");
 
-        return Ok(contact);
+        return SuccessResponse(contact);
     }
 
     [HttpPost]
@@ -58,16 +70,16 @@ public class ContactController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var contact = await _addressService.CreateContactAsync(tenantId.Value, request);
-            return CreatedAtAction(nameof(GetContact), new { id = contact.ContactId }, contact);
+            return CreatedResponse(nameof(GetContact), new { id = contact.ContactId }, contact);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -78,20 +90,16 @@ public class ContactController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var contact = await _addressService.UpdateContactAsync(tenantId.Value, id, request);
-            return Ok(contact);
+            return SuccessResponse(contact);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Contact not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -102,16 +110,16 @@ public class ContactController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _addressService.DeactivateContactAsync(tenantId.Value, id);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Contact not found." });
+            return HandleDomainException(ex);
         }
     }
 
@@ -122,10 +130,10 @@ public class ContactController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var types = await _addressService.GetContactTypesAsync(tenantId.Value);
-        return Ok(types);
+        return SuccessResponse(types);
     }
 
     [HttpPost("types")]
@@ -135,20 +143,16 @@ public class ContactController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var type = await _addressService.CreateContactTypeAsync(tenantId.Value, request);
-            return Ok(type);
+            return SuccessResponse(type, "Contact type created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 }

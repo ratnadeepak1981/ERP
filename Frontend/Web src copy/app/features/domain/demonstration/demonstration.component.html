@@ -1,0 +1,106 @@
+<div class="demonstration-page">
+  <app-page-header
+    title="UI Component Showcase"
+    subtitle="Enterprise proof of concept for PrimeNG + Clean Enterprise design tokens & Fluent-inspired elements."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions>
+      <p-button label="Simulate Loading" icon="pi pi-spin pi-spinner" [outlined]="true" (click)="toggleLoadingSimulation()" size="small" severity="secondary"></p-button>
+      <p-button [label]="isSimulatingEmpty() ? 'Show Data' : 'Simulate Empty'" icon="pi pi-inbox" [outlined]="true" (click)="toggleEmptySimulation()" size="small" severity="secondary"></p-button>
+      <p-button [label]="isSimulatingError() ? 'Clear Error' : 'Simulate Error'" icon="pi pi-exclamation-circle" [outlined]="true" (click)="toggleErrorSimulation()" size="small" severity="secondary"></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Showcase 1: Status Badges -->
+  <section class="showcase-card erp-card">
+    <div class="card-header-bar">
+      <h3>1. Clean Enterprise Status Badges</h3>
+      <span class="text-sm text-muted">WCAG-compliant semantic states with high-contrast borders</span>
+    </div>
+    <div class="badges-row">
+      <app-status-badge label="Fulfilled / Active" severity="success" icon="pi pi-check"></app-status-badge>
+      <app-status-badge label="Pending Approval" severity="warning" icon="pi pi-clock"></app-status-badge>
+      <app-status-badge label="Cancelled / Rejected" severity="danger" icon="pi pi-times"></app-status-badge>
+      <app-status-badge label="Shipped / In Transit" severity="info" icon="pi pi-send"></app-status-badge>
+      <app-status-badge label="Draft / Inactive" severity="neutral" icon="pi pi-pencil"></app-status-badge>
+    </div>
+  </section>
+
+  <!-- Showcase 2: Reusable Data Table / Error State -->
+  <section class="showcase-card erp-card">
+    <div class="card-header-bar">
+      <h3>2. High-Density Enterprise Data Table (PrimeNG Wrapped)</h3>
+      <span class="text-sm text-muted">Supports global search, multi-column sorting, pagination, and row click inspection</span>
+    </div>
+
+    @if (isSimulatingError()) {
+      <app-error-state
+        title="Failed to Retrieve Enterprise Records"
+        message="Simulated API boundary error (500 Internal Server Error with trace-id correlation)."
+        (retry)="onRetry()"
+      ></app-error-state>
+    } @else {
+      <app-data-table
+        #table
+        [data]="displayedData"
+        [columns]="columns"
+        [loading]="isSimulatingLoading()"
+        [rows]="5"
+        [rowsPerPageOptions]="[5, 10, 20]"
+        searchPlaceholder="Search by customer, order #, or branch..."
+        (rowClick)="onRowClick($event)"
+      >
+        <div toolbar>
+          <p-button label="Export CSV" icon="pi pi-download" [outlined]="true" size="small" severity="secondary" (onClick)="table.exportCSV()"></p-button>
+          <p-button label="Create Order" icon="pi pi-plus" size="small"></p-button>
+        </div>
+      </app-data-table>
+    }
+  </section>
+
+  <!-- Order Details Inspection Dialog -->
+  <p-dialog
+    header="Order Summary Inspection"
+    [(visible)]="detailsDialogVisible"
+    [modal]="true"
+    [style]="{ width: '480px' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    @if (selectedOrder(); as order) {
+      <div class="dialog-content">
+        <div class="dialog-field-row">
+          <span class="dialog-label">Order Number:</span>
+          <strong>{{ order.orderNumber }}</strong>
+        </div>
+        <div class="dialog-field-row">
+          <span class="dialog-label">Customer Name:</span>
+          <span>{{ order.customerName }}</span>
+        </div>
+        <div class="dialog-field-row">
+          <span class="dialog-label">Fulfillment Branch:</span>
+          <span>{{ order.branch }}</span>
+        </div>
+        <div class="dialog-field-row">
+          <span class="dialog-label">Order Placement Date:</span>
+          <span>{{ order.orderDate }}</span>
+        </div>
+        <div class="dialog-field-row">
+          <span class="dialog-label">Total Amount:</span>
+          <strong>{{ order.totalAmount | currency }}</strong>
+        </div>
+        <div class="dialog-field-row">
+          <span class="dialog-label">Status:</span>
+          <app-status-badge
+            [label]="order.status"
+            [severity]="order.status === 'Fulfilled' ? 'success' : (order.status === 'Cancelled' ? 'danger' : 'warning')"
+          ></app-status-badge>
+        </div>
+      </div>
+    }
+    <ng-template pTemplate="footer">
+      <p-button label="Close" [text]="true" (click)="detailsDialogVisible.set(false)" severity="secondary"></p-button>
+      <p-button label="Print Delivery Slip" icon="pi pi-print" (click)="detailsDialogVisible.set(false)"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

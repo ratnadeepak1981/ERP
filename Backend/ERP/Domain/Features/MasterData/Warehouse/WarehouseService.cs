@@ -215,18 +215,23 @@ public class WarehouseService : IWarehouseService
         return await _repository.GetLocationByIdAsync(tenantId, locationId);
     }
 
-    public async Task<WarehouseLocation> CreateLocationAsync(Guid tenantId, Guid warehouseId, Guid zoneId, CreateWarehouseLocationRequest request)
+    public async Task<WarehouseLocation> CreateLocationAsync(Guid tenantId, Guid warehouseId, Guid? zoneId, CreateWarehouseLocationRequest request)
     {
         if (request == null) throw new ArgumentNullException(nameof(request));
 
         var warehouse = await _repository.GetWarehouseByIdAsync(tenantId, warehouseId)
             ?? throw new KeyNotFoundException("Warehouse not found.");
 
-        var zone = await _repository.GetZoneByIdAsync(tenantId, zoneId)
-            ?? throw new KeyNotFoundException("Warehouse zone not found.");
+        var effectiveZoneId = zoneId ?? request.WarehouseZoneId;
 
-        if (zone.WarehouseId != warehouseId)
-            throw new InvalidOperationException("Specified zone does not belong to this warehouse.");
+        if (effectiveZoneId.HasValue)
+        {
+            var zone = await _repository.GetZoneByIdAsync(tenantId, effectiveZoneId.Value)
+                ?? throw new KeyNotFoundException("Warehouse zone not found.");
+
+            if (zone.WarehouseId != warehouseId)
+                throw new InvalidOperationException("Specified zone does not belong to this warehouse.");
+        }
 
         if (string.IsNullOrWhiteSpace(request.LocationCode))
             throw new ArgumentException("Location code is required.", nameof(request.LocationCode));
@@ -248,14 +253,17 @@ public class WarehouseService : IWarehouseService
         if (request.ParentLocationId.HasValue)
         {
             var parent = await _repository.GetLocationByIdAsync(tenantId, request.ParentLocationId.Value);
-            if (parent == null || parent.WarehouseId != warehouseId || parent.WarehouseZoneId != zoneId)
-                throw new InvalidOperationException("Parent location must belong to the exact same tenant, warehouse, and zone.");
+            if (parent == null || parent.WarehouseId != warehouseId)
+                throw new InvalidOperationException("Parent location must belong to the exact same tenant and warehouse.");
+
+            if (effectiveZoneId.HasValue && parent.WarehouseZoneId.HasValue && effectiveZoneId.Value != parent.WarehouseZoneId.Value)
+                throw new InvalidOperationException("Parent location must belong to the same zone if both locations have zones assigned.");
         }
 
         var location = WarehouseLocation.Create(
             tenantId,
             warehouseId,
-            zoneId,
+            effectiveZoneId,
             code,
             request.LocationName.Trim(),
             request.LocationTypeId,
@@ -289,8 +297,11 @@ public class WarehouseService : IWarehouseService
                 throw new InvalidOperationException("A location cannot be its own parent.");
 
             var parent = await _repository.GetLocationByIdAsync(tenantId, request.ParentLocationId.Value);
-            if (parent == null || parent.WarehouseId != location.WarehouseId || parent.WarehouseZoneId != location.WarehouseZoneId)
-                throw new InvalidOperationException("Parent location must belong to the exact same tenant, warehouse, and zone.");
+            if (parent == null || parent.WarehouseId != location.WarehouseId)
+                throw new InvalidOperationException("Parent location must belong to the exact same tenant and warehouse.");
+
+            if (location.WarehouseZoneId.HasValue && parent.WarehouseZoneId.HasValue && location.WarehouseZoneId.Value != parent.WarehouseZoneId.Value)
+                throw new InvalidOperationException("Parent location must belong to the same zone if both locations have zones assigned.");
 
             // Recursive cycle detection
             var currentParentId = parent.ParentLocationId;
@@ -318,6 +329,15 @@ public class WarehouseService : IWarehouseService
     {
         var location = await _repository.GetLocationByIdAsync(tenantId, locationId)
             ?? throw new KeyNotFoundException("Warehouse location not found.");
+
+        // Safe structural change safeguard: Check if location has child locations before deactivating
+        var childLocations = (await _repository.GetLocationsAsync(tenantId, location.WarehouseId))
+            .Where(x => x.ParentLocationId == locationId && x.IsActive)
+            .ToList();
+        if (childLocations.Any())
+        {
+            throw new InvalidOperationException("Cannot deactivate a location that currently has active child locations.");
+        }
 
         location.Deactivate();
         await _repository.SaveChangesAsync();

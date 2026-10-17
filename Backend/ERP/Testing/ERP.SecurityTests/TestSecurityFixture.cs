@@ -12,6 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 using SaaS.Infrastructure.Persistence;
 using Security.Infrastructure.Persistence;
 using Security.Interfaces;
+using Xunit;
+
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace ERP.SecurityTests;
 
@@ -26,6 +29,7 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
         DatabaseSafetyGuard.AssertSafeTestDatabase(TestConstants.PlatformDbTest);
         DatabaseSafetyGuard.AssertSafeTestDatabase(TestConstants.SecurityDbTest);
         DatabaseSafetyGuard.AssertSafeTestDatabase(TestConstants.DomainDbTest);
+        DatabaseSafetyGuard.AssertSafeTestDatabase(TestConstants.AIDbTest);
 
         // Walk up to find the repository root containing SecureVault
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -55,10 +59,27 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
                 ["ConnectionStrings:PlatformDatabase"] = TestConstants.PlatformDbTest,
                 ["ConnectionStrings:SecurityDatabase"] = TestConstants.SecurityDbTest,
                 ["ConnectionStrings:DomainDatabase"] = TestConstants.DomainDbTest,
+                ["ConnectionStrings:AIDatabase"] = TestConstants.AIDbTest,
                 ["Migrations:TargetPlatformMigration"] = "20261010064836_AddProcurementApprovalSettings"
             };
 
             config.AddInMemoryCollection(testSettings);
+        });
+
+        builder.ConfigureServices(services =>
+        {
+            // Ensure AIDbContext points to AIDatabase_Test
+            var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(DbContextOptions<ERP.AI.Infrastructure.Infrastructure.Persistence.AIDbContext>));
+            if (descriptor != null)
+            {
+                services.Remove(descriptor);
+            }
+
+            services.AddDbContext<ERP.AI.Infrastructure.Infrastructure.Persistence.AIDbContext>((sp, options) =>
+            {
+                options.UseSqlServer(TestConstants.AIDbTest);
+                options.AddInterceptors(sp.GetRequiredService<ERP.AI.Infrastructure.Infrastructure.Persistence.Auditing.AIAuditSaveChangesInterceptor>());
+            });
         });
     }
 

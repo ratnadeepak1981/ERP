@@ -1,0 +1,25 @@
+<div class="tenants-page">
+  <app-page-header
+    title="SaaS Tenant Directory"
+    subtitle="Provisioned manufacturing client organizations and database partitioning state."
+  >
+    <div actions class="header-actions">
+      <a routerLink="/platform-admin/tenants/provisioning" class="p-button p-button-sm p-button-outlined">
+        <i class="pi pi-cog"></i> Tenant Provisioning
+      </a>
+      <button type="button" class="p-button p-button-sm">
+        <i class="pi pi-plus"></i> Enroll Tenant
+      </button>
+    </div>
+  </app-page-header>
+
+  <div class="tenants-table-card erp-card erp-card-elevated">
+    <app-data-table
+      [data]="tenants()"
+      [columns]="columns"
+      searchPlaceholder="Filter tenants by name, code or plan..."
+      emptyTitle="No tenant records registered"
+      emptyDescription="No multi-tenant organizations found in this cluster."
+    ></app-data-table>
+  </div>
+</div>

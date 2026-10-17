@@ -45,6 +45,7 @@ public class UpdateWarehouseZoneRequest
 
 public class CreateWarehouseLocationRequest
 {
+    public Guid? WarehouseZoneId { get; set; }
     public string LocationCode { get; set; } = string.Empty;
     public string LocationName { get; set; } = string.Empty;
     public Guid? LocationTypeId { get; set; }

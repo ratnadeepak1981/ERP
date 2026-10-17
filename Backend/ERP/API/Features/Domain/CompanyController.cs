@@ -1,4 +1,9 @@
-﻿using API.Security.Authorization;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
+using API.Security.Authorization;
 using Domain.Features.MasterData.Company;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
@@ -9,11 +14,16 @@ namespace API.Features.MasterMasterData.Company;
 [ApiController]
 [Route("api/companies")]
 [RequirePermission("COMPANY.VIEW")]
-public class CompanyController : ControllerBase
+public class CompanyController : BaseApiController
 {
     private readonly ICompanyService _companyService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+
+    private static readonly SortMapping<CompanyEntity> _sortMapping = new SortMapping<CompanyEntity>()
+        .Add("name", c => c.Name, isDefault: true)
+        .Add("code", c => c.Code)
+        .SetSecondary(c => c.Id);
 
     public CompanyController(
         ICompanyService companyService,
@@ -26,7 +36,11 @@ public class CompanyController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetCompanies()
+    public async Task<IActionResult> GetCompanies(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser)
         {
@@ -34,30 +48,20 @@ public class CompanyController : ControllerBase
         }
 
         var tenantId = _currentUserContext.TenantId;
-
         if (!tenantId.HasValue)
         {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
         }
 
-        var companies =
-            await _companyService.GetCompaniesAsync(
-                tenantId.Value);
-
-        var accessibleCompanies =
-            new List<CompanyEntity>();
+        var companies = await _companyService.GetCompaniesAsync(tenantId.Value);
+        var accessibleCompanies = new List<CompanyEntity>();
 
         foreach (var company in companies)
         {
-            var canAccess =
-                await _userAccessService.CanAccessCompanyAsync(
-                    _currentUserContext.UserId,
-                    tenantId.Value,
-                    company.Id);
+            var canAccess = await _userAccessService.CanAccessCompanyAsync(
+                _currentUserContext.UserId,
+                tenantId.Value,
+                company.Id);
 
             if (canAccess)
             {
@@ -65,12 +69,11 @@ public class CompanyController : ControllerBase
             }
         }
 
-        return Ok(accessibleCompanies);
+        return PaginateAndSort(accessibleCompanies, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetCompany(
-        Guid id)
+    public async Task<IActionResult> GetCompany(Guid id)
     {
         if (_currentUserContext.IsPlatformUser)
         {
@@ -78,41 +81,27 @@ public class CompanyController : ControllerBase
         }
 
         var tenantId = _currentUserContext.TenantId;
-
         if (!tenantId.HasValue)
         {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
         }
 
-        var company =
-            await _companyService.GetCompanyAsync(
-                tenantId.Value,
-                id);
-
+        var company = await _companyService.GetCompanyAsync(tenantId.Value, id);
         if (company == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Company not found."
-            });
+            return NotFoundResponse("Company not found.");
         }
 
-        var canAccess =
-            await _userAccessService.CanAccessCompanyAsync(
-                _currentUserContext.UserId,
-                tenantId.Value,
-                id);
+        var canAccess = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            id);
 
         if (!canAccess)
         {
             return Forbid();
         }
 
-        return Ok(company);
+        return SuccessResponse(company);
     }
 }

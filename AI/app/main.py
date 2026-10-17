@@ -64,6 +64,57 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Configure structured logging and correlation middleware
+from datetime import datetime, timezone
+from fastapi.responses import JSONResponse
+from starlette.requests import Request
+from app.core.errors import (
+    AiBaseException,
+    AuthenticationError,
+    AuthorizationError,
+)
+from app.core.logging import (
+    CorrelationIdMiddleware,
+    configure_logging,
+    correlation_id_ctx,
+)
+
+configure_logging()
+app.add_middleware(CorrelationIdMiddleware)
+
+
+@app.exception_handler(AiBaseException)
+async def ai_exception_handler(request: Request, exc: AiBaseException):
+    cid = correlation_id_ctx.get()
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "FAIL",
+            "error_code": exc.error_code,
+            "message": exc.message,
+            "correlation_id": cid,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    cid = correlation_id_ctx.get()
+    # Log the full unexpected error internally while shielding clients from internal details
+    import logging
+    logging.getLogger("app.main").exception(f"Unhandled server error [corr_id={cid}]: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "FAIL",
+            "error_code": "INTERNAL_SERVER_ERROR",
+            "message": "An unexpected error occurred. Please contact system support.",
+            "correlation_id": cid,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
 
 security_scheme = HTTPBearer()
 
@@ -85,9 +136,23 @@ def security_handshake(
         security_scheme
     )
 ):
-    return handshake_service.validate_token(
+    result = handshake_service.validate_token(
         credentials.credentials
     )
+    if result.get("status") != "PASS":
+        stage = result.get("stage")
+        if stage == "Authorization":
+            raise AuthorizationError(
+                message=result.get("message", "Service authorization failed."),
+                details={"stage": stage}
+            )
+        # Authentication / cryptographic validation failure:
+        # Return generic safe authentication error message without leaking sensitive token/key internals
+        raise AuthenticationError(
+            message="Token authentication failed.",
+            details={"stage": stage}
+        )
+    return result
 
 
 @app.get("/security/protected-test")
@@ -106,6 +171,11 @@ def protected_test(
             "permissions": security_context.permissions
         }
     }
+
+
+# Include AI Control Center Router
+from app.control_center.router import router as control_center_router
+app.include_router(control_center_router)
 
 
 def open_swagger():

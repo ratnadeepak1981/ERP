@@ -1,3 +1,4 @@
+using API.Common;
 using API.Configuration;
 using API.Security.Authorization;
 using Hangfire;
@@ -25,8 +26,20 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        // CORS
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
+                      .AllowAnyHeader()
+                      .AllowAnyMethod()
+                      .AllowCredentials();
+            });
+        });
+
         // DI
-        builder.Services.AddApplicationServices();
+        builder.Services.AddApplicationServices(builder.Configuration);
         builder.Services.AddApplicationRepositories();
         builder.Services.AddBootstrapServices();
 
@@ -147,6 +160,8 @@ public class Program
             PermissionAuthorizationHandler>();
 
         builder.Services.AddAuthorization();
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+        builder.Services.AddProblemDetails();
 
         // Controllers / Swagger
         builder.Services.AddControllers();
@@ -235,13 +250,19 @@ public class Program
         }
 
         // HTTP Pipeline
+        app.UseExceptionHandler();
+
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
             app.UseSwaggerUI();
         }
 
-        app.UseHttpsRedirection();
+        app.UseCors();
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseHttpsRedirection();
+        }
 
         app.UseAuthentication();
         app.UseAuthorization();

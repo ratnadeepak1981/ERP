@@ -14,9 +14,14 @@ public class PurchaseOrderItem
 
     public decimal Quantity { get; set; }
 
+    public decimal ReceivedQuantity { get; set; } = 0;
+
     public decimal UnitPrice { get; set; }
 
     public decimal LineTotal { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }
+
