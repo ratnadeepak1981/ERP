@@ -104,12 +104,17 @@ pnpm-debug.log*
 # ==============================
 
 **/.cache/
-# Ignore generated model directories, but keep ERP domain source models
-**/models/
-!Backend/ERP/Security/Core/Models/
-!Backend/ERP/SaaS/Core/Models/
-
 **/model_cache/
+
+# Do not globally ignore directories named "models".
+# Application source models must remain eligible for Git tracking.
+# Add narrowly scoped rules for generated model directories if needed.
+
+# ==============================
+# Recovery / Local Temporary Data
+# ==============================
+
+/_keygen/
 
 # ==============================
 # OS Files
