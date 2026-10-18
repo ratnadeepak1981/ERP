@@ -57,15 +57,17 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
         Guid companyId,
         Guid branchId,
         Guid purchaseOrderId,
-        string grnNumber,
+        string? grnNumber = null,
         Guid? defaultWarehouseId = null,
         Guid? defaultLocationId = null,
         string? remarks = null)
     {
-        if (string.IsNullOrWhiteSpace(grnNumber))
-            throw new ArgumentException("GRN number is required.", nameof(grnNumber));
+        string normGrnNumber = grnNumber?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normGrnNumber))
+        {
+            normGrnNumber = $"GRN-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..18].ToUpperInvariant();
+        }
 
-        string normGrnNumber = grnNumber.Trim();
         if (await _grnRepository.ExistsGrnNumberAsync(tenantId, companyId, normGrnNumber))
             throw new InvalidOperationException($"GRN number '{normGrnNumber}' already exists for this company.");
 
@@ -145,10 +147,12 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
     {
         if (request == null) throw new ArgumentNullException(nameof(request));
 
-        if (string.IsNullOrWhiteSpace(request.GrnNumber))
-            throw new ArgumentException("GRN number is required.", nameof(request.GrnNumber));
+        string normGrnNumber = request.GrnNumber?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normGrnNumber))
+        {
+            normGrnNumber = $"GRN-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..18].ToUpperInvariant();
+        }
 
-        string normGrnNumber = request.GrnNumber.Trim();
         if (await _grnRepository.ExistsGrnNumberAsync(tenantId, companyId, normGrnNumber))
             throw new InvalidOperationException($"GRN number '{normGrnNumber}' already exists for this company.");
 
@@ -172,6 +176,9 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
             request.DeliveryNoteNumber,
             request.Remarks);
 
+        Guid defaultWhId = Guid.Empty;
+        Guid defaultLocId = Guid.Empty;
+
         foreach (var lineReq in request.Lines)
         {
             var poItem = po.Items.FirstOrDefault(i => i.Id == lineReq.PurchaseOrderItemId && i.IsActive)
@@ -180,14 +187,36 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
             if (poItem.ProductId != lineReq.ProductId)
                 throw new InvalidOperationException($"Product mismatch for PO item '{poItem.Id}'.");
 
+            Guid targetWhId = lineReq.WarehouseId;
+            Guid targetLocId = lineReq.WarehouseLocationId;
+
+            if (targetWhId == Guid.Empty || targetLocId == Guid.Empty)
+            {
+                if (defaultWhId == Guid.Empty || defaultLocId == Guid.Empty)
+                {
+                    var warehouses = await _warehouseRepository.GetWarehousesAsync(tenantId);
+                    var wh = warehouses.FirstOrDefault(w => w.IsActive);
+                    if (wh != null)
+                    {
+                        defaultWhId = wh.WarehouseId;
+                        var locations = await _warehouseRepository.GetLocationsAsync(tenantId, wh.WarehouseId);
+                        var loc = locations.FirstOrDefault(l => l.IsActive);
+                        if (loc != null) defaultLocId = loc.WarehouseLocationId;
+                    }
+                }
+                if (targetWhId == Guid.Empty) targetWhId = defaultWhId;
+                if (targetLocId == Guid.Empty) targetLocId = defaultLocId;
+            }
+
+            // CRITICAL BUSINESS RULE: Price protection - unit price is copied from approved PO line by server; client prices are ignored
             var line = GoodsReceiptNoteLine.Create(
                 grn.GoodsReceiptNoteId,
                 poItem.Id,
                 lineReq.ProductId,
-                lineReq.WarehouseId,
-                lineReq.WarehouseLocationId,
+                targetWhId,
+                targetLocId,
                 lineReq.QuantityReceived,
-                lineReq.UnitCost,
+                poItem.UnitPrice, // Authoritative price from approved PO
                 lineReq.UnitOfMeasureId ?? poItem.UnitOfMeasureId,
                 lineReq.BatchNumber,
                 lineReq.SerialNumber,
@@ -236,19 +265,44 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
             grn.Lines.Clear();
             _context.GoodsReceiptNoteLines.RemoveRange(existingLines);
 
+            Guid defaultWhId = Guid.Empty;
+            Guid defaultLocId = Guid.Empty;
+
             foreach (var lineReq in request.Lines)
             {
                 var poItem = po.Items.FirstOrDefault(i => i.Id == lineReq.PurchaseOrderItemId && i.IsActive)
                     ?? throw new InvalidOperationException($"PO item '{lineReq.PurchaseOrderItemId}' not found on PO.");
 
+                Guid targetWhId = lineReq.WarehouseId;
+                Guid targetLocId = lineReq.WarehouseLocationId;
+
+                if (targetWhId == Guid.Empty || targetLocId == Guid.Empty)
+                {
+                    if (defaultWhId == Guid.Empty || defaultLocId == Guid.Empty)
+                    {
+                        var warehouses = await _warehouseRepository.GetWarehousesAsync(tenantId);
+                        var wh = warehouses.FirstOrDefault(w => w.IsActive);
+                        if (wh != null)
+                        {
+                            defaultWhId = wh.WarehouseId;
+                            var locations = await _warehouseRepository.GetLocationsAsync(tenantId, wh.WarehouseId);
+                            var loc = locations.FirstOrDefault(l => l.IsActive);
+                            if (loc != null) defaultLocId = loc.WarehouseLocationId;
+                        }
+                    }
+                    if (targetWhId == Guid.Empty) targetWhId = defaultWhId;
+                    if (targetLocId == Guid.Empty) targetLocId = defaultLocId;
+                }
+
+                // CRITICAL BUSINESS RULE: Price protection - unit price is copied from approved PO line by server; client prices are ignored
                 var line = GoodsReceiptNoteLine.Create(
                     grn.GoodsReceiptNoteId,
                     poItem.Id,
                     lineReq.ProductId,
-                    lineReq.WarehouseId,
-                    lineReq.WarehouseLocationId,
+                    targetWhId,
+                    targetLocId,
                     lineReq.QuantityReceived,
-                    lineReq.UnitCost,
+                    poItem.UnitPrice, // Authoritative price from approved PO
                     lineReq.UnitOfMeasureId ?? poItem.UnitOfMeasureId,
                     lineReq.BatchNumber,
                     lineReq.SerialNumber,

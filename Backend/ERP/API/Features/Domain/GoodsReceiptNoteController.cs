@@ -72,7 +72,7 @@ public class GoodsReceiptNoteController : BaseApiController
         Guid companyId,
         Guid branchId,
         Guid purchaseOrderId,
-        [FromQuery] string grnNumber,
+        [FromQuery] string? grnNumber = null,
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] Guid? warehouseLocationId = null,
         [FromQuery] string? remarks = null)

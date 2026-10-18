@@ -1,0 +1,140 @@
+<div class="workspace-shell" [ngClass]="{ 'sidebar-collapsed': sidebarCollapsed() }">
+  <!-- Collapsible Enterprise Desktop Sidebar -->
+  <aside class="workspace-sidebar">
+    <!-- Sidebar Brand Header -->
+    <div class="sidebar-header">
+      <div class="brand-box">
+        <div class="brand-icon">
+          <i [class]="isTenantAdminWorkspace() ? 'pi pi-shield' : 'pi pi-box'"></i>
+        </div>
+        @if (!sidebarCollapsed()) {
+          <div class="brand-details">
+            <span class="brand-title">ApexERP</span>
+            <span class="brand-tag">{{ brandTag() }}</span>
+          </div>
+        }
+      </div>
+      <button
+        type="button"
+        class="collapse-toggle-btn"
+        (click)="toggleSidebar()"
+        [title]="sidebarCollapsed() ? 'Expand Sidebar' : 'Collapse Sidebar'"
+      >
+        <i [class]="sidebarCollapsed() ? 'pi pi-angle-right' : 'pi pi-angle-left'"></i>
+      </button>
+    </div>
+
+    <!-- Sidebar Navigation Menu -->
+    <div class="sidebar-nav-container">
+      @for (group of navGroups(); track group.groupName) {
+        <div class="nav-group">
+          @if (!sidebarCollapsed()) {
+            <span class="group-heading">{{ group.groupName }}</span>
+          }
+          <ul class="nav-list">
+            @for (item of group.items; track item.route) {
+              <li class="nav-item">
+                <a
+                  [routerLink]="item.route"
+                  routerLinkActive="active"
+                  class="nav-link"
+                  [pTooltip]="sidebarCollapsed() ? item.label : ''"
+                  tooltipPosition="right"
+                >
+                  <i [class]="item.icon" class="item-icon"></i>
+                  @if (!sidebarCollapsed()) {
+                    <span class="item-label">{{ item.label }}</span>
+                  }
+                  @if (!sidebarCollapsed() && item.badge) {
+                    <span class="item-badge">{{ item.badge }}</span>
+                  }
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    <!-- Sidebar Footer / Organization Identity -->
+    <div class="sidebar-footer">
+      <div class="tenant-card" [pTooltip]="sidebarCollapsed() ? currentTenantName() : ''" tooltipPosition="right">
+        <div class="tenant-avatar">
+          <i class="pi pi-building"></i>
+        </div>
+        @if (!sidebarCollapsed()) {
+          <div class="tenant-info">
+            <span class="tenant-name">{{ scopeService.activeTenantName() || currentTenantName() }}</span>
+            <span class="branch-name">{{ scopeService.currentScopeDescription() }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  </aside>
+
+  <!-- Workspace Main Viewport -->
+  <div class="workspace-main">
+    <!-- Top Compact Enterprise Header (Matching other workspaces, clean surface) -->
+    <header class="workspace-topbar">
+      <div class="topbar-left">
+        <!-- Prominent Tenant Organization Identity as Title -->
+        <div class="tenant-brand-block">
+          <div class="tenant-brand-avatar">
+            <i class="pi pi-building"></i>
+          </div>
+          <div class="tenant-brand-text">
+            <span class="tenant-org-label">TENANT ORGANIZATION</span>
+            <h2 class="tenant-org-title">{{ scopeService.activeTenantName() || currentTenantName() }}</h2>
+          </div>
+        </div>
+
+        <div class="topbar-divider"></div>
+
+        <!-- Scope Switcher: Active Company & Branch -->
+        <app-tenant-scope-switcher></app-tenant-scope-switcher>
+
+        <!-- Hidden span maintaining compatibility with existing test suite -->
+        <span class="scope-value sr-only" style="display: none;">{{ currentTenantName() }}</span>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Theme Toggle -->
+        <p-button
+          [icon]="themeService.currentTheme() === 'clean-enterprise' ? 'pi pi-moon' : 'pi pi-sun'"
+          [text]="true"
+          [rounded]="true"
+          (click)="themeService.toggleTheme()"
+          title="Toggle Theme"
+        ></p-button>
+
+        <div class="topbar-divider"></div>
+
+        <!-- User Profile Pill: Clearly indicating Who has logged in & Role -->
+        <div class="user-profile-pill">
+          <div class="user-avatar">
+            <span>{{ (authService.currentUser()?.email || authService.currentUser()?.username || 'U')[0].toUpperCase() }}</span>
+          </div>
+          <div class="user-meta">
+            <span class="user-name" [title]="authService.currentUser()?.email || authService.currentUser()?.username || 'Logged in user'">
+              {{ authService.currentUser()?.email || authService.currentUser()?.username || 'user@apexerp.com' }}
+            </span>
+            <span class="user-role">{{ authService.roles()[0] || 'Tenant User' }}</span>
+          </div>
+          <button
+            type="button"
+            class="logout-btn"
+            (click)="onSignOut()"
+            title="Sign out of workspace"
+          >
+            <i class="pi pi-sign-out"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="workspace-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

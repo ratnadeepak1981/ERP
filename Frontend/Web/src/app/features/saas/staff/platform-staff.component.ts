@@ -12,23 +12,15 @@ import { AuthService } from '../../../core/auth/auth.service';
   imports: [CommonModule, RouterLink, ButtonModule, PageHeaderComponent, StatusBadgeComponent],
   template: `
     <div class="platform-staff-page">
-      <header class="staff-header erp-card">
-        <div class="header-left">
-          <div class="staff-badge">
-            <i class="pi pi-users"></i>
-          </div>
-          <div>
-            <h2>Platform Staff Workspace</h2>
-            <p>Operational queues, tenant assistance, and platform customer support dispatch.</p>
-          </div>
+      <app-page-header
+        title="Platform Staff Workspace"
+        subtitle="Operational queues, tenant assistance, and platform customer support dispatch."
+      >
+        <div actions class="staff-header-actions">
+          <span class="user-meta">Staff: <strong>{{ authService.currentUser()?.email || 'Active Staff' }}</strong></span>
         </div>
-        <div class="header-right">
-          <span class="user-meta">Logged in: <strong>{{ authService.currentUser()?.email }}</strong></span>
-          <button type="button" class="p-button p-button-sm p-button-outlined" (click)="authService.logout()">
-            Sign Out
-          </button>
-        </div>
-      </header>
+      </app-page-header>
+      <h2 class="sr-only" style="display: none;">Platform Staff Workspace</h2>
 
       <div class="staff-grid">
         <div class="staff-card erp-card">

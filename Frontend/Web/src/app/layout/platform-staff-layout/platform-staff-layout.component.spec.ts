@@ -3,15 +3,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { WorkspaceLayoutComponent } from './workspace-layout.component';
+import { PlatformStaffLayoutComponent } from './platform-staff-layout.component';
 
-describe('WorkspaceLayoutComponent', () => {
-  let component: WorkspaceLayoutComponent;
-  let fixture: ComponentFixture<WorkspaceLayoutComponent>;
+describe('PlatformStaffLayoutComponent', () => {
+  let component: PlatformStaffLayoutComponent;
+  let fixture: ComponentFixture<PlatformStaffLayoutComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [WorkspaceLayoutComponent],
+      imports: [PlatformStaffLayoutComponent],
       providers: [
         provideRouter([]),
         provideHttpClient(),
@@ -19,14 +19,15 @@ describe('WorkspaceLayoutComponent', () => {
       ]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(WorkspaceLayoutComponent);
+    fixture = TestBed.createComponent(PlatformStaffLayoutComponent);
     component = fixture.componentInstance;
   });
 
-  it('should create and render tenant name in header', () => {
+  it('should create and render staff layout', () => {
     fixture.detectChanges();
+    expect(component).toBeTruthy();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.scope-value')?.textContent).toContain('Alpha Manufacturing Ltd');
+    expect(compiled.querySelector('.staff-tag')?.textContent).toContain('Platform Staff');
   });
 
   it('should toggle sidebar collapsed state', () => {

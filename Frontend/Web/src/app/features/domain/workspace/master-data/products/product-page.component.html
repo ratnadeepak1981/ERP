@@ -1,0 +1,179 @@
+<div class="product-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Products"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (currentProduct() && mode() !== 'create') {
+        <app-status-badge
+          [label]="currentProduct()?.isActive ? 'Active' : 'Inactive'"
+          [severity]="currentProduct()?.isActive ? 'success' : 'neutral'"
+        ></app-status-badge>
+      }
+
+      <p-button
+        [label]="mode() === 'create' ? 'Save Product' : 'Update Product'"
+        icon="pi pi-check"
+        size="small"
+        severity="primary"
+        [loading]="saving()"
+        (onClick)="saveProduct()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Global Banner Messages -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading product definition from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state
+        title="Unable to load product"
+        [message]="error()!"
+        (retry)="loadProduct(productId()!)"
+      ></app-error-state>
+    </div>
+  } @else {
+    <div class="product-form-layout">
+      <!-- Section 1: Item Identification & Classification -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">1</span>
+            <div class="section-headings">
+              <h2 class="section-title">Item Identification & Taxonomy</h2>
+              <span class="section-subtitle">
+                Define the primary stock code, item description, category classification, and standard unit of measure.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <app-reactive-form
+          [form]="productForm"
+          [fields]="identificationFields()"
+          [serverErrors]="serverErrors()"
+          [columns]="2"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Section 2: Valuation & Stock Planning -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">2</span>
+            <div class="section-headings">
+              <h2 class="section-title">Valuation & Inventory Planning</h2>
+              <span class="section-subtitle">
+                Establish baseline purchase costs, list selling price, and safety stock reorder thresholds.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <app-reactive-form
+          [form]="productForm"
+          [fields]="financialFields()"
+          [serverErrors]="serverErrors()"
+          [columns]="3"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Section 3: Item Capabilities & Operational Flags -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">3</span>
+            <div class="section-headings">
+              <h2 class="section-title">Item Capabilities & Operational Flags</h2>
+              <span class="section-subtitle">
+                Configure module eligibility across Purchasing, Sales, Manufacturing BOM, and Warehouse balance tracking.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <app-reactive-form
+          [form]="productForm"
+          [fields]="capabilityFields()"
+          [serverErrors]="serverErrors()"
+          [columns]="3"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Section 4: Specifications & Notes -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">4</span>
+            <div class="section-headings">
+              <h2 class="section-title">Description & Technical Specifications</h2>
+              <span class="section-subtitle">
+                Add optional catalog notes, material specifications, or operational instructions.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <app-reactive-form
+          [form]="productForm"
+          [fields]="notesFields()"
+          [serverErrors]="serverErrors()"
+          [columns]="1"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Bottom Action Footer -->
+      <div class="form-bottom-actions erp-card">
+        <div class="footer-hint">
+          <i class="pi pi-info-circle"></i>
+          <span>Fields marked with an asterisk (<strong class="required-mark">*</strong>) are mandatory.</span>
+        </div>
+        <div class="footer-buttons">
+          <p-button
+            label="Cancel"
+            [outlined]="true"
+            size="small"
+            severity="secondary"
+            (onClick)="navigateBack()"
+          ></p-button>
+          <p-button
+            [label]="mode() === 'create' ? 'Save Product' : 'Update Product'"
+            icon="pi pi-check"
+            size="small"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveProduct()"
+          ></p-button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

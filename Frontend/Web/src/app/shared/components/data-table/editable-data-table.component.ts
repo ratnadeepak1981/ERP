@@ -104,6 +104,8 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
   @Input() selectionMode: 'single' | 'multiple' | null = 'multiple';
   @Input() allowAddRow: boolean = true;
   @Input() allowDeleteRow: boolean = true;
+  @Input() readonly: boolean = false;
+  @Input() showActionBar: boolean = true;
   @Input() defaultNewRow?: () => Partial<T>;
   @Input() rowActions?: DataTableAction<T>[];
   @Input() currencyCode: string = 'USD';
@@ -288,7 +290,7 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
   }
 
   startEditing(row: T, col: DataTableColumn<T>, event?: Event): void {
-    if (!col.editable) return;
+    if (this.readonly || !col.editable) return;
     if (event) {
       event.stopPropagation();
     }

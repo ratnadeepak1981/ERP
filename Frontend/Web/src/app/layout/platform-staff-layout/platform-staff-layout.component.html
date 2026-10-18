@@ -1,16 +1,15 @@
 <div class="workspace-shell" [ngClass]="{ 'sidebar-collapsed': sidebarCollapsed() }">
-  <!-- Collapsible Enterprise Desktop Sidebar -->
+  <!-- Desktop Sidebar -->
   <aside class="workspace-sidebar">
-    <!-- Sidebar Brand Header -->
     <div class="sidebar-header">
       <div class="brand-box">
-        <div class="brand-icon">
-          <i class="pi pi-box"></i>
+        <div class="brand-icon staff-icon">
+          <i class="pi pi-users"></i>
         </div>
         @if (!sidebarCollapsed()) {
           <div class="brand-details">
             <span class="brand-title">ApexERP</span>
-            <span class="brand-tag">Workspace</span>
+            <span class="brand-tag staff-tag">Platform Staff</span>
           </div>
         }
       </div>
@@ -24,7 +23,7 @@
       </button>
     </div>
 
-    <!-- Sidebar Navigation Menu -->
+    <!-- Sidebar Navigation -->
     <div class="sidebar-nav-container">
       @for (group of navGroups; track group.groupName) {
         <div class="nav-group">
@@ -56,16 +55,16 @@
       }
     </div>
 
-    <!-- Sidebar Footer / Organization Identity -->
+    <!-- Sidebar Footer -->
     <div class="sidebar-footer">
-      <div class="tenant-card" [pTooltip]="sidebarCollapsed() ? currentTenantName() : ''" tooltipPosition="right">
-        <div class="tenant-avatar">
-          <i class="pi pi-building"></i>
+      <div class="tenant-card" [pTooltip]="sidebarCollapsed() ? 'Platform Staff Scope' : ''" tooltipPosition="right">
+        <div class="tenant-avatar staff-avatar">
+          <i class="pi pi-wrench"></i>
         </div>
         @if (!sidebarCollapsed()) {
           <div class="tenant-info">
-            <span class="tenant-name">{{ scopeService.activeTenantName() || currentTenantName() }}</span>
-            <span class="branch-name">{{ scopeService.currentScopeDescription() }}</span>
+            <span class="tenant-name">Platform Operations</span>
+            <span class="branch-name">Support &amp; Customer Success</span>
           </div>
         }
       </div>
@@ -74,18 +73,18 @@
 
   <!-- Workspace Main Viewport -->
   <div class="workspace-main">
-    <!-- Top Compact Enterprise Header -->
     <header class="workspace-topbar">
       <div class="topbar-left">
-        <!-- Reusable Scope Switcher Header Component -->
-        <app-workspace-scope-switcher></app-workspace-scope-switcher>
-
-        <!-- Hidden span maintaining compatibility with existing test suite -->
-        <span class="scope-value sr-only" style="display: none;">{{ currentTenantName() }}</span>
+        <div class="context-scope-badge staff-scope-badge">
+          <i class="pi pi-users scope-icon"></i>
+          <span class="scope-label">Scope:</span>
+          <strong class="scope-value">Platform Staff Operations</strong>
+          <span class="scope-divider">/</span>
+          <strong class="scope-branch">Support Portal</strong>
+        </div>
       </div>
 
       <div class="topbar-right">
-        <!-- Theme Toggle -->
         <p-button
           [icon]="themeService.currentTheme() === 'clean-enterprise' ? 'pi pi-moon' : 'pi pi-sun'"
           [text]="true"
@@ -94,40 +93,28 @@
           title="Toggle Theme"
         ></p-button>
 
-        <!-- Notifications -->
-        <p-button
-          icon="pi pi-bell"
-          [text]="true"
-          [rounded]="true"
-          title="Notifications"
-        ></p-button>
-
-        <!-- Divider -->
         <div class="topbar-divider"></div>
 
-        <!-- User Profile Pill -->
         <div class="user-profile-pill">
-          <div class="user-avatar">
-            <span>{{ (authService.currentUser()?.username || 'AU').substring(0, 2).toUpperCase() }}</span>
+          <div class="user-avatar staff-user-avatar">
+            <span>PS</span>
           </div>
           <div class="user-meta">
-            <span class="user-name">{{ authService.currentUser()?.username || 'Operational User' }}</span>
-            <span class="user-role">{{ authService.roles()[0] || 'Tenant Admin' }}</span>
+            <span class="user-name">{{ authService.currentUser()?.email || 'Platform Staff' }}</span>
+            <span class="user-role">{{ authService.roles()[0] || 'Platform Staff' }}</span>
           </div>
+          <button
+            type="button"
+            class="logout-btn"
+            (click)="onSignOut()"
+            title="Sign out of Platform Staff"
+          >
+            <i class="pi pi-sign-out"></i>
+          </button>
         </div>
-
-        <p-button
-          icon="pi pi-sign-out"
-          [text]="true"
-          [rounded]="true"
-          severity="danger"
-          (click)="onSignOut()"
-          title="Sign Out"
-        ></p-button>
       </div>
     </header>
 
-    <!-- Workspace Content Scrollable Area -->
     <main class="workspace-content">
       <router-outlet></router-outlet>
     </main>

@@ -4,7 +4,7 @@ import { Router, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@a
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { authGuard, roleGuard } from './auth.guard';
+import { authGuard, roleGuard, permissionGuard } from './auth.guard';
 import { AuthService } from '../auth/auth.service';
 import { UserSession } from '../models/auth.models';
 
@@ -156,6 +156,58 @@ describe('Auth Guards', () => {
         expect(tree.toString()).toContain('/access-denied');
         expect(tree.queryParams['required']).toBe('Customer');
       }
+    });
+  });
+
+  describe('permissionGuard', () => {
+    const permGuard = permissionGuard(['PURCHASE_ORDER.VIEW']);
+
+    it('should redirect unauthenticated user to login with returnUrl', () => {
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/procurement' } as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() => permGuard(route, state));
+      expect(result instanceof UrlTree).toBe(true);
+      const tree = result as UrlTree;
+      expect(tree.toString()).toContain('/login?returnUrl=%2Fapp%2Fprocurement');
+    });
+
+    it('should permit authenticated user having required permission', () => {
+      const session = createSession(['Tenant User']);
+      session.permissions = ['PURCHASE_ORDER.VIEW'];
+      authService.currentUser.set(session);
+
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/procurement' } as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() => permGuard(route, state));
+      expect(result).toBe(true);
+    });
+
+    it('should permit tenant admin by default regardless of explicit permission', () => {
+      authService.currentUser.set(createSession(['Tenant Admin']));
+
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/procurement' } as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() => permGuard(route, state));
+      expect(result).toBe(true);
+    });
+
+    it('should redirect to /access-denied when user lacks permission', () => {
+      const session = createSession(['Tenant User']);
+      session.permissions = ['INVENTORY.VIEW'];
+      authService.currentUser.set(session);
+
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/procurement' } as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() => permGuard(route, state));
+      expect(result instanceof UrlTree).toBe(true);
+      const tree = result as UrlTree;
+      expect(tree.toString()).toContain('/access-denied');
+      expect(tree.queryParams['attempted']).toBe('/app/procurement');
+      expect(tree.queryParams['required']).toBe('PURCHASE_ORDER.VIEW');
     });
   });
 });

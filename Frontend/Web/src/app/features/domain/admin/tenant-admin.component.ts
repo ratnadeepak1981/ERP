@@ -12,26 +12,18 @@ import { AuthService } from '../../../core/auth/auth.service';
   imports: [CommonModule, RouterLink, ButtonModule, PageHeaderComponent, StatusBadgeComponent],
   template: `
     <div class="tenant-admin-page">
-      <header class="tenant-header erp-card">
-        <div class="header-left">
-          <div class="tenant-badge">
-            <i class="pi pi-building"></i>
-          </div>
-          <div>
-            <h2>Tenant Administration Console</h2>
-            <p>Organization settings, branches, user access roles, and subscription quotas.</p>
-          </div>
-        </div>
-        <div class="header-right">
+      <app-page-header
+        title="Tenant Administration Console"
+        subtitle="Organization settings, branches, user access roles, and subscription quotas."
+      >
+        <div actions class="tenant-header-actions">
           <div class="scope-pill">
             <i class="pi pi-shield"></i>
             <span>Role: <strong>{{ authService.roles()[0] || 'Tenant Admin' }}</strong></span>
           </div>
-          <button type="button" class="p-button p-button-sm p-button-outlined" (click)="authService.logout()">
-            Sign Out
-          </button>
         </div>
-      </header>
+      </app-page-header>
+      <h2 class="sr-only" style="display: none;">Tenant Administration Console</h2>
 
       <div class="tenant-admin-grid">
         <!-- Organization Profile Card -->
@@ -88,28 +80,35 @@ import { AuthService } from '../../../core/auth/auth.service';
         <div class="admin-card erp-card full-width">
           <div class="card-head">
             <i class="pi pi-external-link"></i>
-            <h3>Tenant Workspaces</h3>
+            <h3>Tenant Administration &amp; Operations</h3>
           </div>
           <div class="links-row">
-            <a routerLink="/app/dashboard" class="workspace-btn primary">
-              <i class="pi pi-desktop"></i>
+            <a routerLink="/tenant-admin/companies" class="workspace-btn">
+              <i class="pi pi-building"></i>
               <div>
-                <strong>Tenant Operational ERP</strong>
-                <span>Open Master Data, Inventory, Sales &amp; Procurement workspace</span>
+                <strong>Company &amp; Branch Setup</strong>
+                <span>Configure registered operating companies and branch networks</span>
               </div>
             </a>
-            <a routerLink="/app/users" class="workspace-btn">
+            <a routerLink="/tenant-admin/users" class="workspace-btn">
               <i class="pi pi-users"></i>
               <div>
                 <strong>Users &amp; Roles Administration</strong>
                 <span>Manage user credentials, roles, and capability policies</span>
               </div>
             </a>
-            <a routerLink="/app/user-scope" class="workspace-btn">
+            <a routerLink="/tenant-admin/user-scope" class="workspace-btn">
               <i class="pi pi-sitemap"></i>
               <div>
                 <strong>User Operating Scope</strong>
                 <span>Assign and govern company and operating branch authorizations</span>
+              </div>
+            </a>
+            <a routerLink="/app/dashboard" class="workspace-btn primary">
+              <i class="pi pi-desktop"></i>
+              <div>
+                <strong>Tenant Operational ERP</strong>
+                <span>Open Master Data, Inventory, Sales &amp; Procurement workspace</span>
               </div>
             </a>
           </div>

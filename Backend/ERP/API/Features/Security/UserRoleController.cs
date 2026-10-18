@@ -21,7 +21,7 @@ public class UserRoleController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Platform Admin, Security Manager")]
+    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
     public async Task<IActionResult> AssignRoleToUser([FromBody] AssignRoleToUserRequest request)
     {
         try

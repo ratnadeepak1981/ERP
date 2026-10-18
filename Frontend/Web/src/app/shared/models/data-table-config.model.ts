@@ -90,6 +90,8 @@ export interface DataTableConfig<T = any> {
   showSelection?: boolean;
   showColumnChooser?: boolean;
   showExport?: boolean;
+  showViewSwitcher?: boolean;
+  availableViews?: ('table' | 'list' | 'card')[];
 
   filterMode?: 'menu' | 'inline';
   sortingMode?: 'single' | 'multiple';

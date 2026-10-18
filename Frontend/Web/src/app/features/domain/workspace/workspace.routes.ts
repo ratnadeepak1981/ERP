@@ -11,46 +11,6 @@ export const workspaceRoutes: Routes = [
     loadComponent: () => import('./dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   {
-    path: 'company-setup',
-    loadComponent: () => import('./company-setup/company-setup.component').then(m => m.CompanySetupComponent)
-  },
-  {
-    path: 'companies',
-    loadComponent: () => import('./company-setup/company-setup.component').then(m => m.CompanySetupComponent)
-  },
-  {
-    path: 'branches',
-    loadComponent: () => import('./company-setup/company-setup.component').then(m => m.CompanySetupComponent)
-  },
-  {
-    path: 'users',
-    loadComponent: () =>
-      import('../admin/user-security/user-security.component').then(m => m.UserSecurityComponent),
-    data: { defaultTab: 'users' }
-  },
-  {
-    path: 'roles',
-    loadComponent: () =>
-      import('../admin/user-security/user-security.component').then(m => m.UserSecurityComponent),
-    data: { defaultTab: 'roles' }
-  },
-  {
-    path: 'permissions',
-    loadComponent: () =>
-      import('../admin/user-security/user-security.component').then(m => m.UserSecurityComponent),
-    data: { defaultTab: 'permissions' }
-  },
-  {
-    path: 'user-scope',
-    loadComponent: () =>
-      import('../admin/user-security/user-security.component').then(m => m.UserSecurityComponent),
-    data: { defaultTab: 'user-scope' }
-  },
-  {
-    path: 'tenant-admin-console',
-    loadComponent: () => import('../admin/tenant-admin.component').then(m => m.TenantAdminComponent)
-  },
-  {
     path: 'master-data',
     children: [
       {
@@ -60,13 +20,53 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'products',
-        loadComponent: () =>
-          import('./master-data/products/product-master.component').then(m => m.ProductMasterComponent)
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./master-data/products/product-master.component').then(m => m.ProductMasterComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./master-data/products/product-page.component').then(m => m.ProductPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./master-data/products/product-page.component').then(m => m.ProductPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./master-data/products/product-page.component').then(m => m.ProductPageComponent)
+          }
+        ]
       },
       {
         path: 'suppliers',
-        loadComponent: () =>
-          import('./master-data/suppliers/supplier-master.component').then(m => m.SupplierMasterComponent)
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./master-data/suppliers/supplier-master.component').then(m => m.SupplierMasterComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./master-data/suppliers/supplier-page.component').then(m => m.SupplierPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./master-data/suppliers/supplier-page.component').then(m => m.SupplierPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./master-data/suppliers/supplier-page.component').then(m => m.SupplierPageComponent)
+          }
+        ]
       }
     ]
   },
@@ -80,7 +80,63 @@ export const workspaceRoutes: Routes = [
   },
   {
     path: 'procurement',
-    redirectTo: 'demonstration'
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./procurement/procurement-overview.component').then(m => m.ProcurementOverviewComponent)
+      },
+      {
+        path: 'overview',
+        redirectTo: '',
+        pathMatch: 'full'
+      },
+      {
+        path: 'purchase-orders',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./procurement/purchase-order.component').then(m => m.PurchaseOrderComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./procurement/purchase-order-page.component').then(m => m.PurchaseOrderPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./procurement/purchase-order-page.component').then(m => m.PurchaseOrderPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./procurement/purchase-order-page.component').then(m => m.PurchaseOrderPageComponent)
+          }
+        ]
+      },
+      {
+        path: 'goods-receipts',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./procurement/goods-receipt-register.component').then(m => m.GoodsReceiptRegisterComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./procurement/goods-receipt-page.component').then(m => m.GoodsReceiptPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./procurement/goods-receipt-page.component').then(m => m.GoodsReceiptPageComponent)
+          }
+        ]
+      }
+    ]
   },
   {
     path: 'inventory',
@@ -94,8 +150,42 @@ export const workspaceRoutes: Routes = [
     path: 'saas',
     redirectTo: 'demonstration'
   },
+
+  // Backward-compatibility guarded redirects to dedicated Tenant Admin workspace
+  {
+    path: 'company-setup',
+    redirectTo: '/tenant-admin/company-setup'
+  },
+  {
+    path: 'companies',
+    redirectTo: '/tenant-admin/companies'
+  },
+  {
+    path: 'branches',
+    redirectTo: '/tenant-admin/branches'
+  },
+  {
+    path: 'users',
+    redirectTo: '/tenant-admin/users'
+  },
+  {
+    path: 'roles',
+    redirectTo: '/tenant-admin/roles'
+  },
+  {
+    path: 'permissions',
+    redirectTo: '/tenant-admin/permissions'
+  },
+  {
+    path: 'user-scope',
+    redirectTo: '/tenant-admin/user-scope'
+  },
+  {
+    path: 'tenant-admin-console',
+    redirectTo: '/tenant-admin/console'
+  },
   {
     path: 'security',
-    redirectTo: 'users'
+    redirectTo: '/tenant-admin/users'
   }
 ];
