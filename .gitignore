@@ -104,8 +104,17 @@ pnpm-debug.log*
 # ==============================
 
 **/.cache/
-**/models/
 **/model_cache/
+
+# Do not globally ignore directories named "models".
+# Application source models must remain eligible for Git tracking.
+# Add narrowly scoped rules for generated model directories if needed.
+
+# ==============================
+# Recovery / Local Temporary Data
+# ==============================
+
+/_keygen/
 
 # ==============================
 # OS Files
