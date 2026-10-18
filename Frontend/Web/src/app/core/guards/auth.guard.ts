@@ -38,3 +38,31 @@ export function roleGuard(allowedRoles: string[]): CanActivateFn {
     });
   };
 }
+
+export function permissionGuard(requiredPermissions: string[]): CanActivateFn {
+  return (_route, state) => {
+    const authService = inject(AuthService);
+    const router = inject(Router);
+
+    if (!authService.isAuthenticated()) {
+      return router.createUrlTree(['/login'], {
+        queryParams: { returnUrl: state.url }
+      });
+    }
+
+    if (
+      authService.isTenantAdmin() ||
+      authService.isPlatformAdmin() ||
+      requiredPermissions.some(p => authService.hasPermission(p))
+    ) {
+      return true;
+    }
+
+    return router.createUrlTree(['/access-denied'], {
+      queryParams: {
+        attempted: state.url,
+        required: requiredPermissions.join(',')
+      }
+    });
+  };
+}

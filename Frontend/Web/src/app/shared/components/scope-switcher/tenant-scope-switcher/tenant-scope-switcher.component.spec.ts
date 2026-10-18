@@ -2,18 +2,17 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { WorkspaceScopeSwitcherComponent } from './workspace-scope-switcher.component';
-import { WorkspaceScopeService } from '../../../core/services/workspace-scope.service';
-import { of } from 'rxjs';
+import { TenantScopeSwitcherComponent } from './tenant-scope-switcher.component';
+import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 
-describe('WorkspaceScopeSwitcherComponent', () => {
-  let component: WorkspaceScopeSwitcherComponent;
-  let fixture: ComponentFixture<WorkspaceScopeSwitcherComponent>;
+describe('TenantScopeSwitcherComponent', () => {
+  let component: TenantScopeSwitcherComponent;
+  let fixture: ComponentFixture<TenantScopeSwitcherComponent>;
   let scopeService: WorkspaceScopeService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [WorkspaceScopeSwitcherComponent],
+      imports: [TenantScopeSwitcherComponent],
       providers: [
         WorkspaceScopeService,
         provideHttpClient(),
@@ -21,7 +20,7 @@ describe('WorkspaceScopeSwitcherComponent', () => {
       ]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(WorkspaceScopeSwitcherComponent);
+    fixture = TestBed.createComponent(TenantScopeSwitcherComponent);
     component = fixture.componentInstance;
     scopeService = TestBed.inject(WorkspaceScopeService);
   });
@@ -30,7 +29,7 @@ describe('WorkspaceScopeSwitcherComponent', () => {
     fixture.detectChanges();
     expect(component).toBeTruthy();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.scope-header-label')?.textContent).toContain('ACTIVE WORKSPACE SCOPE');
+    expect(compiled.querySelector('.scope-header-label')?.textContent).toContain('ACTIVE TENANT SCOPE');
   });
 
   it('should toggle company and branch menus', () => {

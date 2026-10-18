@@ -478,9 +478,9 @@ export class CatalogueSectionComponent {
       recommendedImprovements: 'Include "Request Access" workflow button emitting privilege request'
     },
     {
-      name: 'WorkspaceLayoutComponent & Shell Navigation',
+      name: 'TenantLayoutComponent & Shell Navigation',
       category: 'Navigation',
-      location: 'src/app/layout/workspace-layout/workspace-layout.component.ts',
+      location: 'src/app/layout/tenant-layout/tenant-layout.component.ts',
       library: 'Shared Custom Angular',
       reuseStatus: 'Reusable & Implemented',
       inputs: 'None (Shell layout with router-outlet)',

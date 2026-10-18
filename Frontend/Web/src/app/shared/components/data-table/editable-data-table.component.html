@@ -13,58 +13,60 @@
   }
 
   <!-- Action Bar: Add Line, Save, Cancel, Dirty indicator -->
-  <div class="editable-action-bar">
-    <div class="dirty-state-info">
-      @if (dirtyCount() > 0) {
-        <span class="dirty-badge">
-          <i class="pi pi-exclamation-triangle"></i>
-          {{ dirtyCount() }} unsaved change(s)
-        </span>
-      } @else {
-        <span class="clean-badge">
-          <i class="pi pi-check"></i> All changes saved
-        </span>
-      }
+  @if (!readonly && showActionBar) {
+    <div class="editable-action-bar">
+      <div class="dirty-state-info">
+        @if (dirtyCount() > 0) {
+          <span class="dirty-badge">
+            <i class="pi pi-exclamation-triangle"></i>
+            {{ dirtyCount() }} unsaved change(s)
+          </span>
+        } @else {
+          <span class="clean-badge">
+            <i class="pi pi-check"></i> All changes saved
+          </span>
+        }
 
-      @if (hasErrors()) {
-        <span class="error-badge">
-          <i class="pi pi-times-circle"></i> Validation errors exist
-        </span>
-      }
-    </div>
+        @if (hasErrors()) {
+          <span class="error-badge">
+            <i class="pi pi-times-circle"></i> Validation errors exist
+          </span>
+        }
+      </div>
 
-    <div class="action-buttons">
-      @if (allowAddRow) {
+      <div class="action-buttons">
+        @if (allowAddRow) {
+          <p-button
+            label="Add Blank Row"
+            icon="pi pi-plus"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="addNewRow('start')"
+          ></p-button>
+        }
+
         <p-button
-          label="Add Blank Row"
-          icon="pi pi-plus"
+          label="Discard"
+          icon="pi pi-undo"
           size="small"
           severity="secondary"
           [outlined]="true"
-          (onClick)="addNewRow('start')"
+          [disabled]="dirtyCount() === 0"
+          (onClick)="cancelAllChanges()"
         ></p-button>
-      }
 
-      <p-button
-        label="Discard"
-        icon="pi pi-undo"
-        size="small"
-        severity="secondary"
-        [outlined]="true"
-        [disabled]="dirtyCount() === 0"
-        (onClick)="cancelAllChanges()"
-      ></p-button>
-
-      <p-button
-        label="Save Changes"
-        icon="pi pi-check"
-        size="small"
-        severity="primary"
-        [disabled]="dirtyCount() === 0 || hasErrors()"
-        (onClick)="saveChanges()"
-      ></p-button>
+        <p-button
+          label="Save Changes"
+          icon="pi pi-check"
+          size="small"
+          severity="primary"
+          [disabled]="dirtyCount() === 0 || hasErrors()"
+          (onClick)="saveChanges()"
+        ></p-button>
+      </div>
     </div>
-  </div>
+  }
 
   <!-- Selection Bar -->
   @if (selectionMode === 'multiple') {
@@ -312,7 +314,7 @@
                 >
                   <i class="pi pi-plus" aria-hidden="true"></i>
                 </button>
-                @if (allowDeleteRow) {
+                @if (allowDeleteRow && !readonly) {
                   <button
                     type="button"
                     class="row-action-btn row-delete-btn"

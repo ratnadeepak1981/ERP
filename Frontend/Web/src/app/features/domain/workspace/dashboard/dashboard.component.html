@@ -5,10 +5,12 @@
     [breadcrumbs]="breadcrumbs"
   >
     <div actions class="header-action-btns">
-      <a routerLink="/app/company-setup" class="p-button p-button-sm p-button-outlined">
-        <i class="pi pi-cog p-button-icon-left"></i>
-        <span class="p-button-label">Company Setup</span>
-      </a>
+      @if (authService.isTenantAdmin() || authService.isPlatformAdmin()) {
+        <a routerLink="/tenant-admin/company-setup" class="p-button p-button-sm p-button-outlined">
+          <i class="pi pi-cog p-button-icon-left"></i>
+          <span class="p-button-label">Company Setup</span>
+        </a>
+      }
       <a routerLink="/app/master-data" class="p-button p-button-sm p-button-primary">
         <i class="pi pi-database p-button-icon-left"></i>
         <span class="p-button-label">Supply Chain Masters</span>
@@ -16,31 +18,33 @@
     </div>
   </app-page-header>
 
-  <!-- Complete Your Setup Card (Matching Image 1) -->
-  <div class="setup-notice-card erp-card">
-    <div class="notice-left">
-      <div class="notice-icon">
-        <i class="pi pi-bookmark"></i>
+  <!-- Complete Your Setup Card (Shown only to Administrators) -->
+  @if (authService.isTenantAdmin() || authService.isPlatformAdmin()) {
+    <div class="setup-notice-card erp-card">
+      <div class="notice-left">
+        <div class="notice-icon">
+          <i class="pi pi-bookmark"></i>
+        </div>
+        <div class="notice-details">
+          <h3>Complete your setup</h3>
+          <p class="notice-subtitle">Configure your company before starting daily operations.</p>
+          <ul class="setup-checklist">
+            <li><i class="pi pi-check-circle" [class.check-on]="liveCompanyCount() > 0"></i> 1. Company details ({{ liveCompanyCount() }} registered)</li>
+            <li><i class="pi pi-check-circle" [class.check-on]="scopeService.branches().length > 0"></i> 2. Branch configuration ({{ scopeService.branches().length }} linked)</li>
+            <li><i class="pi pi-check-circle" [class.check-on]="liveProductCount() > 0"></i> 3. Supply chain products ({{ liveProductCount() }} items)</li>
+            <li><i class="pi pi-check-circle" [class.check-on]="liveWarehouseCount() > 0"></i> 4. Warehouse & operational setup ({{ liveWarehouseCount() }} locations)</li>
+          </ul>
+        </div>
       </div>
-      <div class="notice-details">
-        <h3>Complete your setup</h3>
-        <p class="notice-subtitle">Configure your company before starting daily operations.</p>
-        <ul class="setup-checklist">
-          <li><i class="pi pi-check-circle" [class.check-on]="liveCompanyCount() > 0"></i> 1. Company details ({{ liveCompanyCount() }} registered)</li>
-          <li><i class="pi pi-check-circle" [class.check-on]="scopeService.branches().length > 0"></i> 2. Branch configuration ({{ scopeService.branches().length }} linked)</li>
-          <li><i class="pi pi-check-circle" [class.check-on]="liveProductCount() > 0"></i> 3. Supply chain products ({{ liveProductCount() }} items)</li>
-          <li><i class="pi pi-check-circle" [class.check-on]="liveWarehouseCount() > 0"></i> 4. Warehouse & operational setup ({{ liveWarehouseCount() }} locations)</li>
-        </ul>
+      <div class="notice-action">
+        <a routerLink="/tenant-admin/company-setup" class="continue-setup-link">
+          Continue setup <i class="pi pi-arrow-right"></i>
+        </a>
       </div>
     </div>
-    <div class="notice-action">
-      <a routerLink="/app/company-setup" class="continue-setup-link">
-        Continue setup <i class="pi pi-arrow-right"></i>
-      </a>
-    </div>
-  </div>
+  }
 
-  <!-- Operational Scope Readiness Alerts (Per Specification) -->
+  <!-- Operational Scope Readiness Alerts -->
   @if (!scopeService.hasCompany()) {
     <div class="scope-alert-banner alert-warning erp-card">
       <div class="alert-content">
@@ -49,14 +53,20 @@
         </div>
         <div>
           <h4>Select a company to continue</h4>
-          <p>Company-specific operations and transactional entries are disabled until an operating company is configured or selected.</p>
+          @if (authService.isTenantAdmin() || authService.isPlatformAdmin()) {
+            <p>Company-specific operations and transactional entries are disabled until an operating company is configured or selected.</p>
+          } @else {
+            <p>Company-specific operations and transactional entries are disabled until an authorized operating company is selected in the scope switcher above.</p>
+          }
         </div>
       </div>
-      <div class="alert-actions">
-        <a routerLink="/app/company-setup" class="p-button p-button-sm p-button-warning">
-          <i class="pi pi-cog p-button-icon-left"></i> Set Up Company
-        </a>
-      </div>
+      @if (authService.isTenantAdmin() || authService.isPlatformAdmin()) {
+        <div class="alert-actions">
+          <a routerLink="/tenant-admin/company-setup" class="p-button p-button-sm p-button-warning">
+            <i class="pi pi-cog p-button-icon-left"></i> Set Up Company
+          </a>
+        </div>
+      }
     </div>
   } @else if (!scopeService.hasBranch()) {
     <div class="scope-alert-banner alert-info erp-card">
@@ -69,11 +79,13 @@
           <p>Company-wide master data and summaries are active. Branch-specific transactions (Purchase Orders, GRNs, Shipments) require selecting an operating branch.</p>
         </div>
       </div>
-      <div class="alert-actions">
-        <a routerLink="/app/company-setup" class="p-button p-button-sm p-button-outlined">
-          <i class="pi pi-sitemap p-button-icon-left"></i> Manage Branches
-        </a>
-      </div>
+      @if (authService.isTenantAdmin() || authService.isPlatformAdmin()) {
+        <div class="alert-actions">
+          <a routerLink="/tenant-admin/company-setup" class="p-button p-button-sm p-button-outlined">
+            <i class="pi pi-sitemap p-button-icon-left"></i> Manage Branches
+          </a>
+        </div>
+      }
     </div>
   }
 

@@ -61,6 +61,16 @@ describe('App Route Composition & Navigation', () => {
     expect(location.path()).toContain('/login?returnUrl=%2Fapp');
   });
 
+  it('should redirect unauthenticated users navigating to /tenant-admin to /login', async () => {
+    await router.navigate(['/tenant-admin']);
+    expect(location.path()).toContain('/login?returnUrl=%2Ftenant-admin');
+  });
+
+  it('should redirect unauthenticated users navigating to /platform-staff to /login', async () => {
+    await router.navigate(['/platform-staff']);
+    expect(location.path()).toContain('/login?returnUrl=%2Fplatform-staff');
+  });
+
   it('should redirect unauthenticated users navigating to /customer-portal to /login', async () => {
     await router.navigate(['/customer-portal']);
     expect(location.path()).toContain('/login?returnUrl=%2Fcustomer-portal');

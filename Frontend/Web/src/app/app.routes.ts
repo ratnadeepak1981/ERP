@@ -1,7 +1,8 @@
 import { Routes } from '@angular/router';
 import { PublicLayoutComponent } from './layout/public-layout/public-layout.component';
-import { WorkspaceLayoutComponent } from './layout/workspace-layout/workspace-layout.component';
+import { TenantLayoutComponent } from './layout/tenant-layout/tenant-layout.component';
 import { PlatformAdminLayoutComponent } from './layout/platform-admin-layout/platform-admin-layout.component';
+import { PlatformStaffLayoutComponent } from './layout/platform-staff-layout/platform-staff-layout.component';
 import { roleGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -17,12 +18,13 @@ export const routes: Routes = [
     path: 'platform-admin',
     component: PlatformAdminLayoutComponent,
     canActivate: [roleGuard(['Platform Admin', 'Security Manager'])],
-    loadChildren: () => import('./features/saas/admin/admin.routes').then(m => m.adminRoutes)
+    loadChildren: () => import('./features/saas/admin/platform-admin.routes').then(m => m.platformAdminRoutes)
   },
 
-  // 3. Platform Staff Private (Platform Staff Operations)
+  // 3. Platform Staff Private (Platform Staff Operations Shell)
   {
     path: 'platform-staff',
+    component: PlatformStaffLayoutComponent,
     canActivate: [roleGuard(['Platform Staff', 'Platform Admin', 'Security Manager'])],
     loadChildren: () => import('./features/saas/staff/staff.routes').then(m => m.staffRoutes)
   },
@@ -30,15 +32,15 @@ export const routes: Routes = [
   // 4. Tenant Admin Private (Authenticated Tenant Admin Workspace Shell)
   {
     path: 'tenant-admin',
-    component: WorkspaceLayoutComponent,
+    component: TenantLayoutComponent,
     canActivate: [roleGuard(['Tenant Admin', 'Platform Admin'])],
-    loadChildren: () => import('./features/domain/workspace/workspace.routes').then(m => m.workspaceRoutes)
+    loadChildren: () => import('./features/domain/admin/tenant-admin.routes').then(m => m.tenantAdminRoutes)
   },
 
   // 5. Tenant Staff Private (Authenticated ERP Operational Workspace Shell)
   {
     path: 'app',
-    component: WorkspaceLayoutComponent,
+    component: TenantLayoutComponent,
     canActivate: [roleGuard(['Tenant Admin', 'Tenant User', 'Branch User', 'Viewer', 'Platform Admin'])],
     loadChildren: () => import('./features/domain/workspace/workspace.routes').then(m => m.workspaceRoutes)
   },

@@ -247,95 +247,114 @@
     overflow: hidden;
 
     .workspace-topbar {
-      min-height: var(--erp-header-height);
-      background-color: var(--erp-primary);
+      min-height: var(--erp-header-height, 56px);
+      background-color: var(--erp-bg-surface);
       border-bottom: 1px solid var(--erp-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 6px var(--erp-space-4);
-      box-shadow: var(--erp-shadow-xs);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
       z-index: 40;
 
       .topbar-left {
         display: flex;
         align-items: center;
+        gap: var(--erp-space-3);
 
-        .context-scope-badge {
-          display: inline-flex;
+        .tenant-brand-block {
+          display: flex;
           align-items: center;
-          gap: 6px;
-          background: var(--erp-bg-secondary);
-          border: 1px solid var(--erp-border);
-          padding: 4px 10px;
-          border-radius: var(--erp-radius-sm);
-          font-size: 12px;
+          gap: 10px;
 
-          .scope-icon {
-            color: var(--erp-primary);
-            font-size: 12px;
+          .tenant-brand-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--erp-radius-md, 6px);
+            background: linear-gradient(135deg, var(--erp-primary, #0f6cbd), #075985);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
           }
 
-          .scope-label {
-            color: var(--erp-text-muted);
-          }
+          .tenant-brand-text {
+            display: flex;
+            flex-direction: column;
 
-          .scope-value {
-            color: var(--erp-text-main);
-          }
+            .tenant-org-label {
+              font-size: 9.5px;
+              font-weight: 700;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              color: var(--erp-text-muted, #64748b);
+              line-height: 1.1;
+            }
 
-          .scope-divider {
-            color: var(--erp-text-disabled);
+            .tenant-org-title {
+              margin: 0;
+              font-size: 14px;
+              font-weight: 700;
+              color: var(--erp-text-main, #0f172a);
+              letter-spacing: -0.01em;
+              line-height: 1.2;
+              white-space: nowrap;
+            }
           }
+        }
 
-          .scope-branch {
-            color: var(--erp-text-secondary);
-          }
+        .topbar-divider {
+          width: 1px;
+          height: 28px;
+          background-color: var(--erp-border, #e2e8f0);
+          margin: 0 4px;
         }
       }
 
       .topbar-right {
         display: flex;
         align-items: center;
+        gap: 8px;
+
         ::ng-deep .p-button.p-button-text {
-          color: #ffffff !important;
+          color: var(--erp-text-secondary, #475569) !important;
           &:hover {
-            background-color: rgba(255, 255, 255, 0.18) !important;
+            background-color: var(--erp-bg-hover, #f1f5f9) !important;
+            color: var(--erp-text-main, #0f172a) !important;
           }
         }
 
         .topbar-divider {
           width: 1px;
           height: 24px;
-          background-color: rgba(255, 255, 255, 0.3);
-          margin: 0 var(--erp-space-2);
+          background-color: var(--erp-border, #e2e8f0);
+          margin: 0 4px;
         }
 
         .user-profile-pill {
           display: flex;
           align-items: center;
-          gap: var(--erp-space-2);
+          gap: 8px;
           padding: 3px 8px 3px 4px;
-          border-radius: var(--erp-radius-pill);
-          cursor: pointer;
-          background: rgba(255, 255, 255, 0.15);
-          transition: background-color 0.15s;
-
-          &:hover {
-            background-color: rgba(255, 255, 255, 0.25);
-          }
+          border-radius: 20px;
+          background: var(--erp-bg-surface, #ffffff);
+          border: 1px solid var(--erp-border, #cbd5e1);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
           .user-avatar {
-            width: 28px;
-            height: 28px;
-            border-radius: var(--erp-radius-pill);
-            background: #ffffff;
-            color: var(--erp-primary);
-            font-size: 11px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--erp-primary, #0f6cbd), #075985);
+            color: #ffffff;
+            font-size: 12px;
             font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
           }
 
           .user-meta {
@@ -344,22 +363,41 @@
             text-align: left;
 
             .user-name {
-              font-size: 12.5px;
+              font-size: 11.5px;
               font-weight: 600;
-              color: #ffffff;
-              line-height: 1.1;
+              color: var(--erp-text-main, #0f172a);
+              line-height: 1.2;
+              max-width: 160px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
 
             .user-role {
-              font-size: 10.5px;
-              color: rgba(255, 255, 255, 0.85);
+              font-size: 9.5px;
+              color: var(--erp-text-muted, #64748b);
+              font-weight: 500;
+              line-height: 1;
             }
           }
 
-          .pill-chevron {
-            font-size: 10px;
-            color: var(--erp-text-muted);
+          .logout-btn {
+            background: transparent;
+            border: none;
+            color: var(--erp-text-muted, #64748b);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
             margin-left: 2px;
+
+            &:hover {
+              color: var(--erp-danger, #ef4444);
+              background: rgba(239, 68, 68, 0.08);
+            }
           }
         }
       }

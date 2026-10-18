@@ -1,0 +1,464 @@
+.process-flow-container {
+  background-color: var(--erp-bg-surface, #ffffff);
+  border: 1px solid var(--erp-border, #e2e8f0);
+  border-radius: var(--erp-radius-lg, 8px);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+
+  .flow-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+
+    .flow-title-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+
+      .flow-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--erp-text-main, #0f172a);
+        margin: 0;
+      }
+
+      .flow-subtitle {
+        font-size: 0.8125rem;
+        color: var(--erp-text-secondary, #64748b);
+      }
+    }
+
+    .flow-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      .flow-badge {
+        font-size: 0.75rem;
+        color: var(--erp-text-secondary, #94a3b8);
+        font-weight: 500;
+
+        &.flow-badge-info {
+          background-color: #eff6fc;
+          color: #0f6cbd;
+          border: 1px solid #bfdbfe;
+          padding: 1px 6px;
+          border-radius: 4px;
+        }
+      }
+    }
+  }
+
+  .flow-stages-track {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+
+    .stage-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1 1 110px;
+      min-width: 90px;
+      max-width: 200px;
+      padding: 0.5rem 0.25rem;
+      border-radius: var(--erp-radius-md, 6px);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+      user-select: none;
+      outline: none;
+
+      &.clickable {
+        cursor: pointer;
+
+        &:hover {
+          background-color: #f8fafc;
+
+          .stage-icon-circle {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          }
+        }
+
+        &:focus-visible {
+          outline: 2px solid var(--erp-primary, #0f6cbd);
+          outline-offset: 2px;
+        }
+      }
+
+      &.disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+      }
+
+      // Icon Circle Box
+      .stage-icon-circle-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        position: relative;
+
+        .stage-icon-circle {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          background-color: #f8fafc;
+          border: 1.5px solid #cbd5e1;
+          color: #64748b;
+          transition: all 0.15s ease-in-out;
+
+          .stage-svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2;
+          }
+
+          .stage-pi-icon {
+            font-size: 1.125rem;
+          }
+
+          .stage-metric-badge {
+            position: absolute;
+            top: -5px;
+            right: -6px;
+            background-color: var(--erp-primary, #0f6cbd);
+            color: #ffffff;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 9999px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+          }
+        }
+
+        .stage-code-text {
+          font-size: 0.6875rem;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+      }
+
+      // State variations
+      &.status-completed {
+        .stage-icon-circle {
+          background-color: #dcfce7;
+          border-color: #86efac;
+          color: #16a34a;
+        }
+
+        .stage-code-text {
+          color: #16a34a;
+        }
+      }
+
+      &.status-current,
+      &.status-active {
+        .stage-icon-circle {
+          background-color: #0f6cbd;
+          border-color: #0f6cbd;
+          color: #ffffff;
+          box-shadow: 0 0 0 3px rgba(15, 108, 189, 0.2);
+
+          .stage-metric-badge {
+            background-color: #ffffff;
+            color: #0f6cbd;
+            border: 1px solid #bfdbfe;
+          }
+        }
+
+        .stage-code-text {
+          color: #0f6cbd;
+          font-weight: 800;
+        }
+      }
+
+      &.status-upcoming {
+        .stage-icon-circle {
+          background-color: #f8fafc;
+          border-color: #e2e8f0;
+          color: #94a3b8;
+        }
+
+        .stage-code-text {
+          color: #94a3b8;
+        }
+      }
+
+      &.status-not-applicable {
+        opacity: 0.6;
+
+        .stage-icon-circle {
+          background-color: #f1f5f9;
+          border: 1.5px dashed #cbd5e1;
+          color: #cbd5e1;
+        }
+      }
+
+      &.status-blocked {
+        .stage-icon-circle {
+          background-color: #fef2f2;
+          border-color: #fca5a5;
+          color: #dc2626;
+        }
+
+        .stage-code-text {
+          color: #dc2626;
+        }
+      }
+
+      &.status-planned {
+        opacity: 0.7;
+
+        .stage-icon-circle {
+          background-color: #f8fafc;
+          border-color: #e2e8f0;
+          color: #cbd5e1;
+        }
+      }
+
+      // Stage Details
+      .stage-details {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        width: 100%;
+
+        .stage-label-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.375rem;
+          flex-wrap: wrap;
+
+          .stage-label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--erp-text-main, #0f172a);
+            text-align: center;
+            line-height: 1.25;
+            word-break: break-word;
+          }
+        }
+
+        .stage-tag {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          padding: 1px 5px;
+          border-radius: 4px;
+          line-height: 1.2;
+          white-space: nowrap;
+
+          &.tag-optional {
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+          }
+
+          &.tag-conditional {
+            background-color: #eff6fc;
+            color: #0f6cbd;
+            border: 1px solid #bfdbfe;
+            cursor: help;
+          }
+
+          &.tag-alternative {
+            background-color: #f3e8ff;
+            color: #7e22ce;
+            border: 1px solid #e9d5ff;
+          }
+
+          &.tag-planned {
+            background-color: #f8fafc;
+            color: #94a3b8;
+            border: 1px solid #e2e8f0;
+          }
+
+          &.tag-blocked {
+            background-color: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+          }
+        }
+
+        .stage-status-text {
+          font-size: 0.75rem;
+          font-weight: 500;
+          text-align: center;
+
+          &.status-text-completed {
+            color: #15803d;
+            font-weight: 600;
+          }
+
+          &.status-text-current,
+          &.status-text-active {
+            color: #0f6cbd;
+            font-weight: 600;
+          }
+
+          &.status-text-upcoming {
+            color: #94a3b8;
+          }
+
+          &.status-text-blocked {
+            color: #b91c1c;
+            font-weight: 600;
+          }
+
+          &.status-text-disabled,
+          &.status-text-planned {
+            color: #94a3b8;
+          }
+        }
+      }
+    }
+
+    // Connectors
+    .stage-divider {
+      flex: 1 1 24px;
+      min-width: 16px;
+      max-width: 48px;
+      height: 2px;
+      background-color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      position: relative;
+      margin-bottom: 2.25rem;
+      flex-shrink: 0;
+
+      .divider-line {
+        display: block;
+        width: 100%;
+        height: 2px;
+      }
+
+      .chevron-icon {
+        color: #94a3b8;
+        flex-shrink: 0;
+        margin-right: -4px;
+      }
+
+      &.divider-completed {
+        background-color: #22c55e;
+
+        .chevron-icon {
+          color: #22c55e;
+        }
+      }
+
+      &.divider-progress {
+        background: linear-gradient(90deg, #22c55e 0%, #0f6cbd 100%);
+
+        .chevron-icon {
+          color: #0f6cbd;
+        }
+      }
+    }
+
+    // OR Divider for alternative entry paths
+    .or-connector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2.25rem;
+      flex-shrink: 0;
+
+      .or-line {
+        width: 12px;
+        height: 1px;
+        background-color: #cbd5e1;
+      }
+
+      .or-badge {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        color: #64748b;
+        background-color: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        padding: 1px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.04em;
+      }
+    }
+
+    // Converging path indicator
+    .converge-connector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 2.25rem;
+      flex-shrink: 0;
+
+      .converge-track {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        .converge-line {
+          width: 8px;
+          height: 1px;
+          background-color: #bfdbfe;
+        }
+
+        .converge-label {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: #0f6cbd;
+          background-color: #eff6fc;
+          border: 1px solid #bfdbfe;
+          padding: 2px 7px;
+          border-radius: 9999px;
+          white-space: nowrap;
+        }
+      }
+
+      .chevron-icon {
+        color: #0f6cbd;
+      }
+    }
+  }
+
+  // Responsive Styles
+  @media (max-width: 768px) {
+    .flow-stages-track {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      padding-bottom: 0.75rem;
+      scrollbar-width: thin;
+
+      .stage-item {
+        flex: 0 0 120px;
+      }
+
+      .stage-divider {
+        flex: 0 0 24px;
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+
+    .flow-stages-track {
+      .stage-item {
+        flex: 0 0 110px;
+      }
+    }
+  }
+}

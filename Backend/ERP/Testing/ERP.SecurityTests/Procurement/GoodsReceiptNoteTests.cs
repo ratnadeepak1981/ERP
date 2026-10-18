@@ -608,6 +608,61 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         return prod;
     }
 
+    [Fact]
+    public async Task PriceProtection_IgnoresClientSuppliedPrice_AndCopiesAuthoritativePoPrice()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        var wh = await CreateTestWarehouseAsync(db, tenantId);
+        var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "BIN_PRICE");
+        var prod = await CreateTestProductAsync(db, tenantId, TrackingMode.None);
+        // PO approved at unitPrice = 45.50m
+        var po = await CreateApprovedPoAsync(db, tenantId, companyId, branchId, prod.ProductId, 10m, 45.50m);
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE" });
+
+        // Malicious or accidental client sends UnitCost = 999.99m
+        string grnNum = $"GRN_{Guid.NewGuid():N}"[..12];
+        var manualReq = new CreateGoodsReceiptNoteRequest
+        {
+            PurchaseOrderId = po.Id,
+            GrnNumber = grnNum,
+            Lines = new List<CreateGoodsReceiptNoteLineRequest>
+            {
+                new()
+                {
+                    PurchaseOrderItemId = po.Items[0].Id,
+                    ProductId = prod.ProductId,
+                    WarehouseId = wh.WarehouseId,
+                    WarehouseLocationId = loc.WarehouseLocationId,
+                    QuantityReceived = 10m,
+                    UnitCost = 999.99m // Client-supplied manipulated price
+                }
+            }
+        };
+
+        var res = await client.PostAsJsonAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes", manualReq);
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        var dto = await res.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        Assert.NotNull(dto);
+        Assert.Single(dto.Lines);
+
+        // Server MUST have enforced PO unit price (45.50m) and ignored 999.99m
+        Assert.Equal(45.50m, dto.Lines[0].UnitCost);
+        Assert.Equal(455.00m, dto.Lines[0].LineTotal);
+        Assert.Equal(455.00m, dto.TotalAmount);
+    }
+
     private static async Task<PurchaseOrder> CreateApprovedPoAsync(
         DomainDbContext db,
         Guid tenantId,

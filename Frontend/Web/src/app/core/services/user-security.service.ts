@@ -1,7 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, map, catchError } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { CompanyService } from './company.service';
+import { buildApiUrl } from '../utils/api-url.util';
+import { ApiResponse } from '../models/auth.models';
 import {
   UserAccount,
   CreateUserDto,
@@ -21,6 +24,7 @@ const SCOPES_STORAGE_KEY_PREFIX = 'apex_erp_tenant_user_scopes_';
   providedIn: 'root'
 })
 export class UserSecurityService {
+  private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService, { optional: true });
   private readonly companyService = inject(CompanyService);
 
@@ -126,21 +130,63 @@ export class UserSecurityService {
 
   // --- Roles Management ---
   getRoles(): Observable<RoleDefinition[]> {
+    this.http.get<ApiResponse<any[]>>(buildApiUrl('/Role')).subscribe({
+      next: res => {
+        const list = res?.data;
+        if (Array.isArray(list) && list.length > 0) {
+          const apiRoles: RoleDefinition[] = list.map(r => ({
+            id: r.id || r.roleId,
+            tenantId: r.tenantId || this.getTenantStorageKey(),
+            name: r.name,
+            description: r.description || '',
+            assignmentMode: 'simple',
+            permissions: r.permissions || [],
+            usersCount: r.usersCount || 0,
+            isSystem: !!r.isSystem,
+            createdAt: r.createdAt || new Date().toISOString()
+          }));
+          this.mergeWithLocalRoles(apiRoles);
+        }
+      },
+      error: () => {}
+    });
+
+    return of(this.getLocalRoles());
+  }
+
+  private getLocalRoles(): RoleDefinition[] {
     const key = ROLES_STORAGE_KEY_PREFIX + this.getTenantStorageKey();
     const stored = localStorage.getItem(key);
     if (stored) {
       try {
         const roles = JSON.parse(stored);
         if (Array.isArray(roles) && roles.length > 0) {
-          return of(roles);
+          return roles;
         }
       } catch {
-        // Fall through to initial roles
+        // Fall through
       }
     }
     const initialRoles = this.buildInitialRoles();
     this.saveRolesLocally(initialRoles);
-    return of(initialRoles);
+    return initialRoles;
+  }
+
+  private mergeWithLocalRoles(apiRoles: RoleDefinition[]): RoleDefinition[] {
+    const local = this.getLocalRoles();
+    const map = new Map<string, RoleDefinition>();
+    for (const r of local) {
+      map.set(r.name.toLowerCase(), r);
+    }
+    for (const r of apiRoles) {
+      map.set(r.name.toLowerCase(), {
+        ...(map.get(r.name.toLowerCase()) || {}),
+        ...r
+      });
+    }
+    const merged = Array.from(map.values());
+    this.saveRolesLocally(merged);
+    return merged;
   }
 
   private buildInitialRoles(): RoleDefinition[] {
@@ -250,13 +296,49 @@ export class UserSecurityService {
 
   // --- Users Management ---
   getUsers(): Observable<UserAccount[]> {
+    this.http.get<ApiResponse<any[]>>(buildApiUrl('/User')).subscribe({
+      next: res => {
+        const list = res?.data;
+        if (Array.isArray(list) && list.length > 0) {
+          const apiUsers: UserAccount[] = list.map(u => {
+            const primaryRole = u.roles?.[0];
+            const primaryScope = primaryRole?.scopes?.[0];
+            return {
+              id: u.id || u.userId,
+              tenantId: u.tenantId || this.getTenantStorageKey(),
+              firstName: u.firstName || u.username,
+              lastName: u.lastName || '',
+              fullName: u.fullName || u.username,
+              email: u.email,
+              username: u.username,
+              phone: u.phone || '',
+              accountStatus: u.accountStatus || (u.isActive ? 'Active' : 'Suspended'),
+              roleId: primaryRole?.roleId || '',
+              roleName: primaryRole?.roleName || 'Authorized User',
+              primaryCompanyId: primaryScope?.companyId || 'comp_default',
+              primaryCompanyName: primaryScope?.companyName || 'Primary Operating Company',
+              primaryBranchId: primaryScope?.branchId || 'br_default',
+              primaryBranchName: primaryScope?.branchName || 'Primary Operating Branch',
+              createdAt: u.createdAt || new Date().toISOString()
+            };
+          });
+          this.mergeWithLocalUsers(apiUsers);
+        }
+      },
+      error: () => {}
+    });
+
+    return of(this.getLocalUsers());
+  }
+
+  private getLocalUsers(): UserAccount[] {
     const key = USERS_STORAGE_KEY_PREFIX + this.getTenantStorageKey();
     const stored = localStorage.getItem(key);
     if (stored) {
       try {
         const users = JSON.parse(stored);
         if (Array.isArray(users) && users.length > 0) {
-          return of(users);
+          return users;
         }
       } catch {
         // Fall through
@@ -264,7 +346,24 @@ export class UserSecurityService {
     }
     const initialUsers = this.buildInitialUsers();
     this.saveUsersLocally(initialUsers);
-    return of(initialUsers);
+    return initialUsers;
+  }
+
+  private mergeWithLocalUsers(apiUsers: UserAccount[]): UserAccount[] {
+    const local = this.getLocalUsers();
+    const map = new Map<string, UserAccount>();
+    for (const u of local) {
+      map.set(u.email.toLowerCase(), u);
+    }
+    for (const u of apiUsers) {
+      map.set(u.email.toLowerCase(), {
+        ...(map.get(u.email.toLowerCase()) || {}),
+        ...u
+      });
+    }
+    const merged = Array.from(map.values());
+    this.saveUsersLocally(merged);
+    return merged;
   }
 
   private buildInitialUsers(): UserAccount[] {
@@ -363,10 +462,37 @@ export class UserSecurityService {
   }
 
   createUser(dto: CreateUserDto, roleName: string, companyName: string, branchName: string): Observable<UserAccount> {
-    const key = USERS_STORAGE_KEY_PREFIX + this.getTenantStorageKey();
-    const stored = localStorage.getItem(key);
-    let users: UserAccount[] = stored ? JSON.parse(stored) : this.buildInitialUsers();
+    const payload = {
+      username: dto.username?.trim() || dto.email.split('@')[0],
+      email: dto.email.trim().toLowerCase(),
+      password: 'Password@123',
+      firstName: dto.firstName?.trim() || '',
+      lastName: dto.lastName?.trim() || '',
+      phone: dto.phone?.trim() || '',
+      accountStatus: dto.accountStatus || 'Active',
+      roleId: dto.roleId,
+      companyId: dto.companyId,
+      branchId: dto.branchId
+    };
 
+    const localUser = this.createLocalUser(dto, roleName, companyName, branchName);
+
+    this.http.post<ApiResponse<any>>(buildApiUrl('/User/tenant-user'), payload).subscribe({
+      next: res => {
+        if (res?.data) {
+          localUser.id = res.data.userId || res.data.id || localUser.id;
+          localUser.tenantId = res.data.tenantId || localUser.tenantId;
+          localUser.roleName = res.data.roleName || localUser.roleName;
+          this.saveSingleUserLocally(localUser);
+        }
+      },
+      error: () => {}
+    });
+
+    return of(localUser);
+  }
+
+  private createLocalUser(dto: CreateUserDto, roleName: string, companyName: string, branchName: string): UserAccount {
     const newUser: UserAccount = {
       id: 'usr-' + Date.now().toString(36),
       tenantId: this.getTenantStorageKey(),
@@ -386,10 +512,8 @@ export class UserSecurityService {
       createdAt: new Date().toISOString()
     };
 
-    users = [newUser, ...users];
-    this.saveUsersLocally(users);
+    this.saveSingleUserLocally(newUser);
 
-    // Automatically register primary scope assignment for the new user
     this.assignUserScopeInternal({
       id: 'scp-' + Date.now().toString(36),
       userId: newUser.id,
@@ -407,23 +531,34 @@ export class UserSecurityService {
       notes: 'Initial primary facility scope assignment on onboarding.'
     });
 
-    return of(newUser);
+    return newUser;
+  }
+
+  private saveSingleUserLocally(newUser: UserAccount): void {
+    const users = this.getLocalUsers();
+    const filtered = users.filter(u => u.id !== newUser.id && u.email.toLowerCase() !== newUser.email.toLowerCase());
+    this.saveUsersLocally([newUser, ...filtered]);
   }
 
   toggleUserStatus(userId: string): Observable<UserAccount | null> {
-    const key = USERS_STORAGE_KEY_PREFIX + this.getTenantStorageKey();
-    const stored = localStorage.getItem(key);
-    let users: UserAccount[] = stored ? JSON.parse(stored) : this.buildInitialUsers();
+    const updated = this.toggleLocalUserStatus(userId);
+    this.http.put<ApiResponse<any>>(buildApiUrl(`/User/${userId}/toggle-status`), {}).subscribe({
+      error: () => {}
+    });
+    return of(updated);
+  }
 
+  private toggleLocalUserStatus(userId: string): UserAccount | null {
+    const users = this.getLocalUsers();
     const idx = users.findIndex(u => u.id === userId);
-    if (idx === -1) return of(null);
+    if (idx === -1) return null;
 
     const currentStatus = users[idx].accountStatus;
     users[idx].accountStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
     users[idx].updatedAt = new Date().toISOString();
 
     this.saveUsersLocally(users);
-    return of(users[idx]);
+    return users[idx];
   }
 
   private saveUsersLocally(users: UserAccount[]): void {
@@ -433,6 +568,36 @@ export class UserSecurityService {
 
   // --- User Scope Assignments (Company & Branch Assignment) ---
   getUserScopes(userId?: string): Observable<UserScopeAssignment[]> {
+    this.http.get<ApiResponse<any[]>>(buildApiUrl('/User/scopes')).subscribe({
+      next: res => {
+        const list = res?.data;
+        if (Array.isArray(list) && list.length > 0) {
+          const apiScopes: UserScopeAssignment[] = list.map(s => ({
+            id: s.id || s.scopeId,
+            userId: s.userId,
+            userName: s.userName || 'Authorized User',
+            userEmail: s.userEmail || '',
+            companyId: s.companyId || 'comp_default',
+            companyName: s.companyName || 'Primary Operating Company',
+            branchId: s.branchId || 'br_default',
+            branchName: s.branchName || 'Primary Branch',
+            isAllBranches: !!s.isAllBranches,
+            isPrimary: !!s.isPrimary,
+            status: s.isActive ? 'Authorized' : 'Revoked',
+            grantedAt: s.grantedAt || new Date().toISOString(),
+            grantedBy: s.grantedBy || 'Tenant Admin',
+            notes: s.notes || 'Operating facility scope authorization.'
+          }));
+          this.mergeWithLocalScopes(apiScopes);
+        }
+      },
+      error: () => {}
+    });
+
+    return of(this.getLocalScopes(userId));
+  }
+
+  private getLocalScopes(userId?: string): UserScopeAssignment[] {
     const key = SCOPES_STORAGE_KEY_PREFIX + this.getTenantStorageKey();
     const stored = localStorage.getItem(key);
     let scopes: UserScopeAssignment[] = [];
@@ -448,9 +613,26 @@ export class UserSecurityService {
       this.saveScopesLocally(scopes);
     }
     if (userId) {
-      return of(scopes.filter(s => s.userId === userId));
+      return scopes.filter(s => s.userId === userId);
     }
-    return of(scopes);
+    return scopes;
+  }
+
+  private mergeWithLocalScopes(apiScopes: UserScopeAssignment[]): UserScopeAssignment[] {
+    const local = this.getLocalScopes();
+    const map = new Map<string, UserScopeAssignment>();
+    for (const s of local) {
+      map.set(`${s.userId}_${s.companyId}_${s.branchId}`, s);
+    }
+    for (const s of apiScopes) {
+      map.set(`${s.userId}_${s.companyId}_${s.branchId}`, {
+        ...(map.get(`${s.userId}_${s.companyId}_${s.branchId}`) || {}),
+        ...s
+      });
+    }
+    const merged = Array.from(map.values());
+    this.saveScopesLocally(merged);
+    return merged;
   }
 
   private buildInitialScopes(): UserScopeAssignment[] {
@@ -545,8 +727,39 @@ export class UserSecurityService {
     companyName: string,
     branchName: string
   ): Observable<UserScopeAssignment> {
+    const payload = {
+      userId: dto.userId,
+      companyId: dto.companyId,
+      branchId: dto.branchId,
+      isAllBranches: !!dto.isAllBranches,
+      notes: dto.notes
+    };
+
+    const newScope = this.createLocalScope(dto, userName, userEmail, companyName, branchName);
+
+    this.http.post<ApiResponse<any>>(buildApiUrl('/User/scope'), payload).subscribe({
+      next: res => {
+        if (res?.data?.scopeId) {
+          newScope.id = res.data.scopeId;
+          this.assignUserScopeInternal(newScope);
+        }
+      },
+      error: () => {}
+    });
+
+    return of(newScope);
+  }
+
+  private createLocalScope(
+    dto: AssignScopeDto,
+    userName: string,
+    userEmail: string,
+    companyName: string,
+    branchName: string,
+    scopeId?: string
+  ): UserScopeAssignment {
     const newScope: UserScopeAssignment = {
-      id: 'scp-' + Date.now().toString(36),
+      id: scopeId || ('scp-' + Date.now().toString(36)),
       userId: dto.userId,
       userName: userName,
       userEmail: userEmail,
@@ -563,7 +776,7 @@ export class UserSecurityService {
     };
 
     this.assignUserScopeInternal(newScope);
-    return of(newScope);
+    return newScope;
   }
 
   private assignUserScopeInternal(assignment: UserScopeAssignment): void {

@@ -1,18 +1,18 @@
 import { Component, inject, OnInit, signal, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { WorkspaceScopeService } from '../../../core/services/workspace-scope.service';
-import { AuthService } from '../../../core/auth/auth.service';
-import { Company, Branch } from '../../../core/models/scope.models';
+import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { Company, Branch } from '../../../../core/models/scope.models';
 
 @Component({
-  selector: 'app-workspace-scope-switcher',
+  selector: 'app-tenant-scope-switcher',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './workspace-scope-switcher.component.html',
-  styleUrl: './workspace-scope-switcher.component.scss'
+  templateUrl: './tenant-scope-switcher.component.html',
+  styleUrl: './tenant-scope-switcher.component.scss'
 })
-export class WorkspaceScopeSwitcherComponent implements OnInit {
+export class TenantScopeSwitcherComponent implements OnInit {
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
   private readonly elementRef = inject(ElementRef);

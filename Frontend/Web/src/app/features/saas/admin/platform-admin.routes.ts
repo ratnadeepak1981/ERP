@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-export const adminRoutes: Routes = [
+export const platformAdminRoutes: Routes = [
   {
     path: '',
     redirectTo: 'dashboard',
@@ -46,3 +46,6 @@ export const adminRoutes: Routes = [
     redirectTo: 'dashboard'
   }
 ];
+
+// Backward-compatible alias
+export const adminRoutes = platformAdminRoutes;

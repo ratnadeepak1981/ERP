@@ -80,6 +80,8 @@ export class AppDataTableComponent<T extends Record<string, any> = Record<string
     if (cfg.showSelection !== undefined) this.selectionMode = cfg.showSelection ? 'multiple' : null;
     if (cfg.showColumnChooser !== undefined) this.showColumnChooser = cfg.showColumnChooser;
     if (cfg.showExport !== undefined) this.showExport = cfg.showExport;
+    if (cfg.showViewSwitcher !== undefined) this.showViewSwitcher = cfg.showViewSwitcher;
+    if (cfg.availableViews !== undefined) this.availableViews = cfg.availableViews;
     if (cfg.pageSize !== undefined) this.rows = cfg.pageSize;
     if (cfg.pageSizeOptions) this.rowsPerPageOptions = cfg.pageSizeOptions;
     if (cfg.sortingMode) this.sortMode = cfg.sortingMode;
@@ -143,6 +145,7 @@ export class AppDataTableComponent<T extends Record<string, any> = Record<string
 
   // View Mode: Table, List, Card
   @Input() showViewSwitcher: boolean = true;
+  @Input() availableViews: TableViewMode[] = ['table', 'list', 'card'];
   @Input() set viewMode(val: TableViewMode) {
     this.currentView.set(val || 'table');
   }

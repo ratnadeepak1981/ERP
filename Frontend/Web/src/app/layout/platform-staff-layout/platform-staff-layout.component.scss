@@ -1,0 +1,117 @@
+@use '../tenant-layout/tenant-layout.component.scss' as ws;
+
+.workspace-shell {
+  @extend .workspace-shell;
+
+  .brand-icon.staff-icon {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    color: #ffffff;
+  }
+
+  .brand-tag.staff-tag {
+    color: #0284c7;
+    font-weight: 700;
+  }
+
+  .tenant-avatar.staff-avatar {
+    background-color: #e0f2fe;
+    color: #0284c7;
+  }
+
+  .staff-scope-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background-color: #f0f9ff;
+    border: 1px solid #bae6fd;
+    color: #0369a1;
+    font-size: 12px;
+
+    .scope-icon {
+      font-size: 13px;
+    }
+
+    .scope-label {
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .scope-value {
+      font-weight: 600;
+      color: #0369a1;
+    }
+
+    .scope-divider {
+      color: #94a3b8;
+    }
+
+    .scope-branch {
+      font-weight: 600;
+      color: #0284c7;
+    }
+  }
+
+  .staff-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0284c7, #075985);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .user-profile-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 8px 3px 4px;
+    border-radius: 20px;
+    background: var(--erp-bg-surface);
+    border: 1px solid var(--erp-border);
+
+    .user-meta {
+      display: flex;
+      flex-direction: column;
+
+      .user-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--erp-text-main);
+        max-width: 140px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .user-role {
+        font-size: 9px;
+        color: var(--erp-text-muted);
+        text-transform: uppercase;
+      }
+    }
+
+    .logout-btn {
+      background: transparent;
+      border: none;
+      color: var(--erp-text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+
+      &:hover {
+        color: var(--erp-danger, #ef4444);
+        background: rgba(239, 68, 68, 0.1);
+      }
+    }
+  }
+}

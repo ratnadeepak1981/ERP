@@ -48,9 +48,10 @@
 
       <ng-content select="[toolbar]"></ng-content>
 
-      @if (showViewSwitcher) {
+      @if (showViewSwitcher && (!availableViews || availableViews.length > 1)) {
         <app-table-view-switcher
           [view]="currentView()"
+          [availableViews]="availableViews"
           (viewChange)="setViewMode($event)"
         ></app-table-view-switcher>
       }

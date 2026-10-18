@@ -124,7 +124,15 @@ export class AuthService {
               email: `${username}@platform.local`,
               tenantId: data.tenantId || null,
               roles: data.roles || ['Tenant Admin'],
-              permissions: data.permissions || ['Product.Read', 'Product.Write'],
+              permissions: data.permissions || [
+                'Product.Read',
+                'Product.Write',
+                'PURCHASE_ORDER.VIEW',
+                'PURCHASE_ORDER.CREATE',
+                'PURCHASE_ORDER.SUBMIT',
+                'PURCHASE_ORDER.APPROVE',
+                'PURCHASE_ORDER.CANCEL'
+              ],
               token: data.token
             };
             this.saveSession(session);

@@ -227,6 +227,16 @@ describe('AppDataTableComponent', () => {
     expect(fields.length).toBeGreaterThan(0);
     expect(fields.some(f => f.header === 'Amount')).toBe(true);
   });
+
+  it('should hide view switcher when availableViews has only one mode', () => {
+    fixture.componentRef.setInput('columns', mockColumns);
+    fixture.componentRef.setInput('data', mockData);
+    fixture.componentRef.setInput('availableViews', ['table']);
+    fixture.detectChanges();
+
+    const switcher = fixture.debugElement.nativeElement.querySelector('app-table-view-switcher');
+    expect(switcher).toBeNull();
+  });
 });
 
 
