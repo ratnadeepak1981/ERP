@@ -1,0 +1,35 @@
+.erp-empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--erp-space-8) var(--erp-space-4);
+  text-align: center;
+
+  .empty-icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--erp-radius-pill);
+    background: var(--erp-bg-secondary);
+    color: var(--erp-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: var(--erp-space-3);
+  }
+
+  .empty-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: var(--erp-space-2);
+    color: var(--erp-text-main);
+  }
+
+  .empty-description {
+    font-size: 13.5px;
+    color: var(--erp-text-secondary);
+    max-width: 400px;
+    margin-bottom: var(--erp-space-4);
+  }
+}

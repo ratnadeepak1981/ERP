@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using ERP.Domain.Features.MasterData.Category;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,15 @@ namespace API.Features.MasterData.Category;
 [ApiController]
 [Route("api/categories")]
 [RequirePermission("CATEGORY.VIEW")]
-public class CategoryController : ControllerBase
+public class CategoryController : BaseApiController
 {
     private readonly ICategoryService _categoryService;
     private readonly ICurrentUserContext _currentUserContext;
+
+    private static readonly SortMapping<global::ERP.Domain.Features.MasterData.Category.Category> _sortMapping = new SortMapping<global::ERP.Domain.Features.MasterData.Category.Category>()
+        .Add("categoryCode", c => c.CategoryCode, isDefault: true)
+        .Add("categoryName", c => c.CategoryName)
+        .SetSecondary(c => c.CategoryId);
 
     public CategoryController(
         ICategoryService categoryService,
@@ -25,15 +32,19 @@ public class CategoryController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetCategories()
+    public async Task<IActionResult> GetCategories(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var categories = await _categoryService.GetCategoriesAsync(tenantId.Value);
-        return Ok(categories);
+        return PaginateAndSort(categories, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,13 +53,13 @@ public class CategoryController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var category = await _categoryService.GetCategoryAsync(tenantId.Value, id);
         if (category == null)
-            return NotFound(new { status = "FAIL", message = "Category not found." });
+            return NotFoundResponse("Category not found.");
 
-        return Ok(category);
+        return SuccessResponse(category);
     }
 
     [HttpPost]
@@ -58,20 +69,16 @@ public class CategoryController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var category = await _categoryService.CreateCategoryAsync(tenantId.Value, request);
-            return CreatedAtAction(nameof(GetCategory), new { id = category.CategoryId }, category);
+            return CreatedResponse(nameof(GetCategory), new { id = category.CategoryId }, category);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -82,24 +89,16 @@ public class CategoryController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var category = await _categoryService.UpdateCategoryAsync(tenantId.Value, id, request);
-            return Ok(category);
+            return SuccessResponse(category);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Category not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -110,16 +109,16 @@ public class CategoryController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _categoryService.DeactivateCategoryAsync(tenantId.Value, id);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Category not found." });
+            return HandleDomainException(ex);
         }
     }
 }

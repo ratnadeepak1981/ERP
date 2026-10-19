@@ -1,0 +1,10 @@
+<div class="erp-error-container" role="alert" aria-live="assertive">
+  <div class="error-icon-wrap" aria-hidden="true">
+    <i class="pi pi-exclamation-triangle"></i>
+  </div>
+  <h3 class="error-title">{{ title() }}</h3>
+  <p class="error-message">{{ message() }}</p>
+  @if (retryable()) {
+    <p-button label="Retry" icon="pi pi-refresh" severity="danger" [outlined]="true" size="small" (onClick)="retry.emit()"></p-button>
+  }
+</div>

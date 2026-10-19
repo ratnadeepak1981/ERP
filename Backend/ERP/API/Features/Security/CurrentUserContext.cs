@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Security.Interfaces;
@@ -59,6 +59,7 @@ public class CurrentUserContext : ICurrentUserContext
     }
 
     public bool IsPlatformUser =>
+        !TenantId.HasValue &&
         _httpContextAccessor.HttpContext?
             .User
             .IsInRole("Platform Admin") == true;

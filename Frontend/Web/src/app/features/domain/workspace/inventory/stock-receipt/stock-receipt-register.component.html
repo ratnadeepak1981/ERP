@@ -1,0 +1,96 @@
+<div class="stock-receipt-register-page">
+  <app-page-header
+    title="Stock Receipt"
+    subtitle="General inbound inventory register for opening balances, customer returns, production assembly, and miscellaneous receipts"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div header-actions>
+      <p-button
+        *ngIf="canCreateReceipt()"
+        label="Receive Stock"
+        icon="pi pi-plus"
+        severity="primary"
+        (onClick)="navigateToCreate()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Access Denied State -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    [message]="accessDeniedMessage()"
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    message="Loading stock receipt records from inventory ledger..."
+  ></app-loading-state>
+
+  <!-- Error State -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied()"
+    title="Failed to Load Stock Receipts"
+    [message]="error()!"
+    (retry)="loadStockReceipts()"
+  ></app-error-state>
+
+  <!-- Content -->
+  <div *ngIf="!loading() && !error() && !isAccessDenied()" class="register-content">
+    <!-- Reason Filter Bar -->
+    <div class="filters-card">
+      <div class="reason-pills">
+        <button
+          *ngFor="let opt of reasonOptions"
+          type="button"
+          class="reason-pill-btn"
+          [class.active]="activeReasonFilter() === opt.value"
+          (click)="activeReasonFilter.set($any(opt.value))"
+        >
+          {{ opt.label }}
+        </button>
+      </div>
+
+      <div class="search-box">
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Search by receipt #, SKU, warehouse, or document reference..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+            class="search-input"
+          />
+        </span>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <app-data-table
+      *ngIf="filteredReceipts().length > 0; else emptyTemplate"
+      [data]="filteredReceipts()"
+      [columns]="columns"
+      [rowActions]="tableActions"
+      rowKey="stockReceiptId"
+      [paginator]="true"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      (rowClick)="navigateToReceipt($event)"
+    ></app-data-table>
+
+    <!-- Empty Template -->
+    <ng-template #emptyTemplate>
+      <app-empty-state
+        title="No Stock Receipts Found"
+        message="No stock receipts match the selected reason or filter criteria. You can record inbound stock using the Receive Stock button."
+        icon="pi pi-inbox"
+        actionLabel="Receive Stock"
+        (action)="navigateToCreate()"
+      ></app-empty-state>
+    </ng-template>
+  </div>
+</div>

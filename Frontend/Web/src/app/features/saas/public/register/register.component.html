@@ -1,0 +1,245 @@
+<div class="register-page">
+  <div class="register-card erp-card erp-card-elevated">
+    <!-- State A: Registration Form -->
+    @if (!registrationResult()) {
+      <div class="register-header">
+        <span class="step-tag">Step 2 of 2</span>
+        <h2>Register Your Organization</h2>
+        <p>Complete your business and primary administrator details to initialize your tenant environment.</p>
+      </div>
+
+      <!-- Carried Forward Subscription Plan Banner -->
+      <div class="plan-summary-banner" [class.no-plan]="!selectedPlanId()">
+        @if (selectedPlanId()) {
+          <div class="plan-summary-content">
+            <div class="plan-icon">
+              <i class="pi pi-box" aria-hidden="true"></i>
+            </div>
+            <div class="plan-info">
+              <div class="plan-title-row">
+                <span class="label-tiny">Selected Subscription Plan</span>
+                <span class="plan-name">{{ selectedPlan()?.name || 'Subscription Plan' }}</span>
+                @if (selectedPlan()?.code) {
+                  <span class="plan-code-tag">{{ selectedPlan()?.code }}</span>
+                }
+              </div>
+              <div class="plan-id-row">
+                <span class="meta-label">Plan ID:</span>
+                <code class="plan-id">{{ selectedPlanId() }}</code>
+              </div>
+            </div>
+            <a routerLink="/plans" class="change-plan-link">
+              <i class="pi pi-pencil" aria-hidden="true"></i>
+              <span>Change</span>
+            </a>
+          </div>
+        } @else {
+          <div class="no-plan-content">
+            <div class="no-plan-icon">
+              <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+            </div>
+            <div class="no-plan-info">
+              <strong>No Subscription Plan Selected</strong>
+              <p>Please select a subscription plan first to ensure your tenant registration is valid.</p>
+            </div>
+            <a routerLink="/plans" pButton label="Choose Plan" icon="pi pi-arrow-right" iconPos="right" class="p-button-sm p-button-primary"></a>
+          </div>
+        }
+      </div>
+
+      @if (planIdError()) {
+        <div class="validation-error-banner" role="alert">
+          <i class="pi pi-times-circle" aria-hidden="true"></i>
+          <span>{{ planIdError() }}</span>
+        </div>
+      }
+
+      <!-- API Error Banner -->
+      @if (apiError()) {
+        <div class="api-error-card" role="alert">
+          <div class="error-head">
+            <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+            <strong>{{ apiError() }}</strong>
+          </div>
+          <p class="error-details">{{ apiErrorDetails() }}</p>
+          <span class="retry-hint">You may correct the information below and click Submit to retry.</span>
+        </div>
+      }
+
+      <form (ngSubmit)="onRegister()" class="register-form" novalidate>
+        <!-- Section 1: Business Details -->
+        <fieldset class="form-section">
+          <legend class="section-title">
+            <i class="pi pi-building" aria-hidden="true"></i>
+            Business Details
+          </legend>
+
+          <div class="form-field" [class.has-error]="tenantNameError()">
+            <label for="tenantName">
+              Organization / Tenant Name <span class="required-star">*</span>
+            </label>
+            <input
+              pInputText
+              id="tenantName"
+              [(ngModel)]="tenantName"
+              name="tenantName"
+              placeholder="e.g. Acme Precision Manufacturing Ltd"
+              class="w-full"
+              [disabled]="isSubmitting()"
+              required
+            />
+            @if (tenantNameError()) {
+              <small class="field-error-msg">{{ tenantNameError() }}</small>
+            }
+          </div>
+        </fieldset>
+
+        <!-- Section 2: Primary Administrator Details -->
+        <fieldset class="form-section">
+          <legend class="section-title">
+            <i class="pi pi-user" aria-hidden="true"></i>
+            Primary Administrator Details
+          </legend>
+
+          <div class="form-field" [class.has-error]="adminFullNameError()">
+            <label for="adminFullName">
+              Administrator Full Name <span class="required-star">*</span>
+            </label>
+            <input
+              pInputText
+              id="adminFullName"
+              [(ngModel)]="adminFullName"
+              name="adminFullName"
+              placeholder="e.g. Johnathan Miller"
+              class="w-full"
+              [disabled]="isSubmitting()"
+              required
+            />
+            @if (adminFullNameError()) {
+              <small class="field-error-msg">{{ adminFullNameError() }}</small>
+            }
+          </div>
+
+          <div class="form-field" [class.has-error]="adminEmailError()">
+            <label for="adminEmail">
+              Administrator Email Address <span class="required-star">*</span>
+            </label>
+            <input
+              pInputText
+              id="adminEmail"
+              type="email"
+              [(ngModel)]="adminEmail"
+              name="adminEmail"
+              placeholder="admin@acme-corp.com"
+              class="w-full"
+              [disabled]="isSubmitting()"
+              required
+            />
+            @if (adminEmailError()) {
+              <small class="field-error-msg">{{ adminEmailError() }}</small>
+            }
+          </div>
+
+          <div class="form-field">
+            <label for="adminPhone">Contact Phone Number (Optional)</label>
+            <input
+              pInputText
+              id="adminPhone"
+              type="tel"
+              [(ngModel)]="adminPhone"
+              name="adminPhone"
+              placeholder="+1 (555) 019-2834"
+              class="w-full"
+              [disabled]="isSubmitting()"
+            />
+          </div>
+        </fieldset>
+
+        <div class="submit-action-area">
+          <p-button
+            type="submit"
+            [label]="isSubmitting() ? 'Submitting Registration...' : 'Submit Tenant Registration'"
+            [icon]="isSubmitting() ? 'pi pi-spin pi-spinner' : 'pi pi-check'"
+            severity="primary"
+            styleClass="w-full"
+            [disabled]="isSubmitting()"
+          ></p-button>
+        </div>
+      </form>
+
+      <div class="register-footer text-center">
+        <p>Already registered? <a routerLink="/login">Sign in</a></p>
+      </div>
+    }
+
+    <!-- State B: Registration Confirmation (Phase 1 Complete) -->
+    @if (registrationResult()) {
+      <div class="confirmation-view">
+        <div class="confirmation-icon">
+          <i class="pi pi-check-circle" aria-hidden="true"></i>
+        </div>
+
+        <div class="confirmation-heading text-center">
+          <span class="success-badge">Phase 1 Complete</span>
+          <h2>Tenant Registration Confirmed</h2>
+          <p>Your tenant organization and subscription record have been created successfully by the backend.</p>
+        </div>
+
+        <div class="confirmation-details erp-card">
+          <div class="details-section-title">
+            <i class="pi pi-building" aria-hidden="true"></i>
+            Registered Organization
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Organization Name:</span>
+            <strong class="detail-value">{{ registrationResult()?.tenant?.name }}</strong>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Generated Tenant Code:</span>
+            <span class="detail-value code-pill">{{ registrationResult()?.tenant?.code }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Tenant ID:</span>
+            <code class="detail-value mono">{{ registrationResult()?.tenant?.id }}</code>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Tenant Status:</span>
+            <span class="status-chip status-active">
+              {{ registrationResult()?.tenant?.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+
+          <div class="details-section-title mt-4">
+            <i class="pi pi-tags" aria-hidden="true"></i>
+            Assigned Subscription
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Subscription Name:</span>
+            <strong class="detail-value">{{ registrationResult()?.subscription?.subscriptionName }}</strong>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Subscription ID:</span>
+            <code class="detail-value mono">{{ registrationResult()?.subscription?.id }}</code>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Plan ID:</span>
+            <code class="detail-value mono">{{ registrationResult()?.subscription?.subscriptionPlanId }}</code>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Storage Mode:</span>
+            <span class="detail-value">{{ registrationResult()?.subscription?.storageMode }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Start Date:</span>
+            <span class="detail-value">{{ registrationResult()?.subscription?.startDate | date:'mediumDate' }}</span>
+          </div>
+        </div>
+
+        <div class="confirmation-actions">
+          <a routerLink="/" pButton label="Return to Homepage" icon="pi pi-home" class="p-button-primary"></a>
+          <a routerLink="/plans" pButton label="View Plans" icon="pi pi-th-large" [outlined]="true" class="p-button-secondary"></a>
+        </div>
+      </div>
+    }
+  </div>
+</div>

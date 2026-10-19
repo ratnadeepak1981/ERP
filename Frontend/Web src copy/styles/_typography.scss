@@ -1,0 +1,55 @@
+// Typography and Global Text Styles
+
+body {
+  font-family: var(--erp-font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--erp-text-main);
+  background-color: var(--erp-bg-app);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--erp-text-main);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 var(--erp-space-2) 0;
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+h5 { font-size: 1rem; }
+h6 { font-size: 0.875rem; }
+
+p {
+  margin: 0 0 var(--erp-space-3) 0;
+  color: var(--erp-text-secondary);
+}
+
+a {
+  color: var(--erp-primary);
+  text-decoration: none;
+  transition: color 0.15s ease-in-out;
+
+  &:hover {
+    color: var(--erp-primary-hover);
+    text-decoration: underline;
+  }
+}
+
+// Fluent / Clean Utility Classes
+.text-main { color: var(--erp-text-main); }
+.text-secondary { color: var(--erp-text-secondary); }
+.text-muted { color: var(--erp-text-muted); }
+.text-xs { font-size: 12px; }
+.text-sm { font-size: 13px; }
+.text-base { font-size: 14px; }
+.text-lg { font-size: 16px; }
+.text-xl { font-size: 18px; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }

@@ -1,0 +1,249 @@
+<div class="module-overview-layout">
+  <!-- Module Page Header -->
+  <app-page-header
+    [title]="config.moduleName"
+    [subtitle]="config.moduleDescription"
+    [breadcrumbs]="config.breadcrumbs || []"
+  >
+    <div actions class="module-header-actions">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [loading]="loading"
+        (onClick)="onRefresh()"
+        title="Refresh overview metrics and recent activity"
+        data-testid="module-refresh-btn"
+      ></p-button>
+
+      @if (config.navigationLinks && config.navigationLinks.length > 0) {
+        @for (link of config.navigationLinks; track link.label) {
+          @if (isNavLinkPermitted(link)) {
+            <p-button
+              [label]="link.label"
+              [icon]="link.icon || ''"
+              [outlined]="link.outlined !== false"
+              size="small"
+              [severity]="getButtonSeverity(link.severity)"
+              [disabled]="link.disabled"
+              (onClick)="link.route && router?.navigate([link.route], { queryParams: link.queryParams })"
+              [attr.data-testid]="'module-nav-link-' + link.label"
+            ></p-button>
+          }
+        }
+      }
+    </div>
+  </app-page-header>
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied) {
+    <div class="state-container-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (scopeRequired) {
+    <div class="state-container-card">
+      <app-empty-state
+        icon="pi pi-compass"
+        [title]="scopeRequiredTitle"
+        [description]="scopeRequiredDescription"
+      ></app-empty-state>
+    </div>
+  } @else if (loading && recentData.length === 0) {
+    <div class="state-container-card">
+      <app-loading-state message="Loading module overview data..."></app-loading-state>
+    </div>
+  } @else if (error) {
+    <div class="state-container-card">
+      <app-error-state [message]="error" (retry)="onRefresh()"></app-error-state>
+    </div>
+  } @else {
+    <!-- PROCESS FLOW: Position 'aboveCards' -->
+    @if (config.processFlow?.enabled && processFlowPosition() === 'aboveCards') {
+      <app-process-flow
+        [stages]="config.processFlow!.stages"
+        [title]="config.processFlow!.title || 'Business process flow'"
+        [subtitle]="config.processFlow!.subtitle || ''"
+        [layout]="config.processFlow!.layout || 'horizontal'"
+        [showPlannedStages]="config.processFlow!.showPlannedStages !== false"
+        [activePathId]="config.processFlow!.activePathId"
+        (stageClick)="onStageClick($event)"
+      ></app-process-flow>
+    }
+
+    <!-- 1. DASHBOARD KPI CARDS SECTION (Configurable dynamic collection) -->
+    <div class="kpi-cards-section" role="region" aria-label="Dashboard summary cards">
+      <div class="section-meta-header">
+        <h3 class="section-title">Dashboard cards</h3>
+        <span class="section-badge">Configurable count</span>
+      </div>
+
+      @if (eligibleCards().length > 0) {
+        <div class="kpi-cards-grid">
+          @for (card of eligibleCards(); track card.id) {
+            <div
+              class="kpi-card"
+              [ngClass]="'card-' + (card.colorVariant || 'blue')"
+              [class.clickable]="!!card.route || cardClick.observed"
+              [attr.tabindex]="(card.route || cardClick.observed) ? 0 : -1"
+              role="button"
+              [attr.aria-label]="card.ariaLabel || card.title"
+              [pTooltip]="card.tooltip || (card.route ? 'Navigate to ' + card.title : undefined)"
+              tooltipPosition="top"
+              (click)="onCardClick(card)"
+              (keydown.enter)="onCardClick(card)"
+              (keydown.space)="$event.preventDefault(); onCardClick(card)"
+              [attr.data-testid]="'dashboard-card-' + card.id"
+            >
+              <div class="card-header-line">
+                <i [class]="card.icon + ' card-icon'" aria-hidden="true"></i>
+                <span class="card-title">{{ card.title }}</span>
+              </div>
+              <div class="card-metric-value">{{ card.value }}</div>
+              @if (card.description) {
+                <div class="card-description">{{ card.description }}</div>
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="no-cards-guidance" data-testid="no-cards-guidance">
+          <i class="pi pi-info-circle"></i>
+          <span>No dashboard metrics are currently enabled or eligible for your assigned permissions.</span>
+        </div>
+      }
+    </div>
+
+    <!-- PROCESS FLOW: Position 'belowCards' (Default) -->
+    @if (config.processFlow?.enabled && processFlowPosition() === 'belowCards') {
+      <app-process-flow
+        [stages]="config.processFlow!.stages"
+        [title]="config.processFlow!.title || 'Business process flow'"
+        [subtitle]="config.processFlow!.subtitle || ''"
+        [layout]="config.processFlow!.layout || 'horizontal'"
+        [showPlannedStages]="config.processFlow!.showPlannedStages !== false"
+        [activePathId]="config.processFlow!.activePathId"
+        (stageClick)="onStageClick($event)"
+      ></app-process-flow>
+    }
+
+    <!-- 2. RECENT TRANSACTIONS SECTION -->
+    <div class="recent-transactions-section" role="region" aria-label="Recent transactions">
+      <div class="recent-section-header">
+        <div class="header-titles">
+          <h3 class="section-title">{{ config.recentTransactions.title || 'Recent transactions' }}</h3>
+          <span class="section-subtitle">
+            {{ config.recentTransactions.subtitle || ('Latest activity · default ' + recentLimit() + ' records') }}
+          </span>
+        </div>
+
+        <div class="header-actions">
+          <span class="section-badge">Default 10 · Configurable</span>
+          @if (config.recentTransactions.createActionLabel && canPerformCreate()) {
+            <p-button
+              [label]="config.recentTransactions.createActionLabel"
+              [icon]="config.recentTransactions.createActionIcon || 'pi pi-plus'"
+              size="small"
+              severity="primary"
+              (onClick)="onCreateAction()"
+              data-testid="recent-create-action-btn"
+            ></p-button>
+          }
+        </div>
+      </div>
+
+      <!-- Recent Records Table Wrapper -->
+      <div class="recent-table-card">
+        @if (config.recentTransactions.showSearch !== false || (config.recentTransactions.showFilters !== false && statusOptions && statusOptions.length > 0)) {
+          <div class="recent-toolbar">
+            @if (config.recentTransactions.showSearch !== false) {
+              <div class="search-box">
+                <i class="pi pi-search search-icon" aria-hidden="true"></i>
+                <input
+                  type="text"
+                  class="p-inputtext p-inputtext-sm search-input"
+                  [placeholder]="config.recentTransactions.searchPlaceholder || 'Search and filter'"
+                  [ngModel]="activeSearchTerm"
+                  (ngModelChange)="onSearchInput($event)"
+                  data-testid="recent-search-input"
+                />
+              </div>
+            }
+
+            @if (config.recentTransactions.showFilters !== false && statusOptions && statusOptions.length > 0) {
+              <div class="filter-box">
+                <select
+                  class="status-select-control"
+                  [ngModel]="activeStatusFilter"
+                  (ngModelChange)="onStatusSelect($event)"
+                  aria-label="Filter by status"
+                  data-testid="recent-status-select"
+                >
+                  @for (opt of statusOptions; track opt.value) {
+                    <option [value]="opt.value">{{ opt.label }}</option>
+                  }
+                </select>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Reusable AppDataTableComponent -->
+        <app-data-table
+          [data]="displayedRecentData()"
+          [columns]="recentColumns"
+          [rowActions]="recentActions"
+          [rowKey]="recentRowKey"
+          [loading]="loading"
+          [paginator]="false"
+          [showGlobalSearch]="false"
+          [showColumnChooser]="false"
+          [showExport]="false"
+          [showViewSwitcher]="false"
+          [emptyTitle]="config.recentTransactions.emptyTitle || 'No recent records'"
+          [emptyDescription]="config.recentTransactions.emptyDescription || 'There are no recent records available for this scope.'"
+          (rowClick)="onRowClick($event)"
+        ></app-data-table>
+
+        <!-- Footer Bar with View All -->
+        <div class="recent-footer-bar">
+          <span class="footer-meta">
+            Showing up to {{ recentLimit() }} recent records
+          </span>
+          @if (config.recentTransactions.showViewAll !== false) {
+            <button
+              type="button"
+              class="view-all-link"
+              (click)="onViewAll()"
+              data-testid="recent-view-all-btn"
+            >
+              {{ config.recentTransactions.viewAllLabel || 'View all' }} &rarr;
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- PROCESS FLOW: Position 'belowRecentTransactions' -->
+    @if (config.processFlow?.enabled && processFlowPosition() === 'belowRecentTransactions') {
+      <app-process-flow
+        [stages]="config.processFlow!.stages"
+        [title]="config.processFlow!.title || 'Business process flow'"
+        [subtitle]="config.processFlow!.subtitle || ''"
+        [layout]="config.processFlow!.layout || 'horizontal'"
+        [showPlannedStages]="config.processFlow!.showPlannedStages !== false"
+        [activePathId]="config.processFlow!.activePathId"
+        (stageClick)="onStageClick($event)"
+      ></app-process-flow>
+    }
+  }
+</div>

@@ -1,0 +1,115 @@
+<div
+  class="lookup-dropdown-container"
+  [class.is-open]="isOpen()"
+  [class.is-disabled]="disabled"
+  [class.is-small]="size === 'small'"
+  (keydown)="onKeyDown($event)"
+>
+  <!-- Trigger Button / Box -->
+  <button
+    #triggerButton
+    type="button"
+    class="lookup-trigger"
+    [disabled]="disabled"
+    [attr.aria-expanded]="isOpen()"
+    [attr.aria-label]="ariaLabel"
+    (click)="toggleOpen()"
+    (focus)="onTriggerFocus()"
+  >
+    <div class="trigger-content">
+      @if (displayText()) {
+        <span class="selected-text">{{ displayText() }}</span>
+      } @else {
+        <span class="placeholder-text">{{ placeholder }}</span>
+      }
+    </div>
+
+    <div class="trigger-actions">
+      @if (showClear && selectedValue() && !disabled) {
+        <button
+          type="button"
+          class="clear-btn"
+          aria-label="Clear selection"
+          (click)="onClear($event)"
+        >
+          <i class="pi pi-times"></i>
+        </button>
+      }
+      <i class="pi pi-chevron-down chevron-icon" [class.rotated]="isOpen()"></i>
+    </div>
+  </button>
+
+  <!-- Dropdown Overlay Panel -->
+  @if (isOpen()) {
+    <div class="lookup-panel" role="listbox" [attr.aria-label]="searchPlaceholder">
+      <!-- Search Input Header -->
+      <div class="panel-search-box">
+        <i class="pi pi-search search-icon"></i>
+        <input
+          #searchInput
+          type="text"
+          class="search-input"
+          [placeholder]="searchPlaceholder"
+          [value]="searchTerm()"
+          (input)="onSearchChange($any($event.target).value)"
+          (keydown)="onSearchInputKeyDown($event)"
+          aria-label="Search items"
+        />
+        @if (searchTerm()) {
+          <button
+            type="button"
+            class="search-clear-btn"
+            aria-label="Clear search text"
+            (click)="onSearchChange('')"
+          >
+            <i class="pi pi-times"></i>
+          </button>
+        }
+      </div>
+
+      <!-- Category / Status Indicator -->
+      @if (categoryFilter && categoryFilter !== 'ALL') {
+        <div class="filter-indicator">
+          <span class="indicator-label">Filtered by Category:</span>
+          <span class="indicator-badge">{{ categoryFilter }}</span>
+        </div>
+      }
+
+      <!-- Options List -->
+      <div class="options-list">
+        @if (filteredItems().length === 0) {
+          <div class="empty-results">
+            <i class="pi pi-info-circle"></i>
+            <span>No matching records found</span>
+          </div>
+        } @else {
+          @for (item of filteredItems(); track item.id; let i = $index) {
+            <div
+              class="option-item"
+              role="option"
+              [attr.aria-selected]="selectedValue() === item.code || selectedValue() === item.id"
+              [class.is-active]="activeIndex() === i"
+              [class.is-selected]="selectedValue() === item.code || selectedValue() === item.id"
+              (click)="select(item, $event)"
+              (mouseenter)="activeIndex.set(i)"
+            >
+              <div class="item-primary">
+                <span class="item-code">{{ item.code }}</span>
+                <span class="item-name">{{ item.name }}</span>
+              </div>
+
+              <div class="item-meta">
+                @if (item.category) {
+                  <span class="item-category-pill">{{ item.category }}</span>
+                }
+                @if (item.isEligible === false) {
+                  <span class="ineligible-tag">Ineligible</span>
+                }
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  }
+</div>

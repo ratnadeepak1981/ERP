@@ -1,0 +1,59 @@
+<div class="master-data-page">
+  <app-page-header
+    title="ApexERP — Supply Chain Master Data Management"
+    subtitle="Centralized management of items, vendors, classifications, and stock locations."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Banner matching Image 3 -->
+  <div class="masters-banner">
+    <div class="banner-top">
+      <div class="banner-icon">
+        <i class="pi pi-database"></i>
+      </div>
+      <div class="banner-text">
+        <h2>Supply Chain Masters</h2>
+        <p>Manage products, suppliers, units, warehouses and operational reference data.</p>
+      </div>
+    </div>
+    <div class="banner-scope-pill">
+      <span>
+        Tenant: <strong>{{ scopeService.activeTenantName() }}</strong>
+        &nbsp;&bull;&nbsp;
+        Company: <strong>{{ scopeService.selectedCompany()?.name || 'All Companies' }}</strong>
+        &nbsp;&bull;&nbsp;
+        Branch: <strong>{{ scopeService.isAllBranches() ? 'All permitted branches' : (scopeService.selectedBranch()?.name || 'All') }}</strong>
+      </span>
+    </div>
+  </div>
+
+  <!-- 8 Card Grid matching Image 3 -->
+  <div class="masters-grid">
+    @for (card of masterCards; track card.title) {
+      <div class="master-card erp-card" [class.interactive]="card.available && card.route">
+        <div class="card-head">
+          <div class="card-icon">
+            <i [class]="card.icon"></i>
+          </div>
+          <app-status-badge [label]="card.badge" [severity]="card.badgeSeverity"></app-status-badge>
+        </div>
+        <div class="card-body">
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.description }}</p>
+          @if (card.footnote) {
+            <span class="card-footnote">{{ card.footnote }}</span>
+          }
+        </div>
+        <div class="card-footer">
+          @if (card.route) {
+            <a [routerLink]="card.route" class="card-action-link">
+              Open Master <i class="pi pi-arrow-right"></i>
+            </a>
+          } @else {
+            <span class="card-status-note">{{ card.available ? 'Managed in Setup' : 'Pending API contract' }}</span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

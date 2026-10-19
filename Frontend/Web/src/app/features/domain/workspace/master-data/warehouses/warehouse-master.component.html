@@ -1,0 +1,628 @@
+<div class="warehouse-master-page">
+  <!-- Top Page Header -->
+  <app-page-header
+    title="Warehouses & Storage Locations"
+    subtitle="Enterprise warehouse facilities, operational zones, and multi-level storage location hierarchies."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      @if (canCreateWarehouse()) {
+        <button
+          type="button"
+          class="p-button p-button-sm p-button-primary"
+          (click)="navigateToCreateWarehouse()"
+        >
+          <i class="pi pi-plus p-button-icon-left"></i>
+          <span>New Warehouse</span>
+        </button>
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Global Action Notification Messages -->
+  @if (successMessage()) {
+    <div class="global-banner banner-success">
+      <i class="pi pi-check-circle"></i>
+      <span>{{ successMessage() }}</span>
+      <button type="button" class="dismiss-banner-btn" (click)="successMessage.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (actionError()) {
+    <div class="global-banner banner-danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>{{ actionError() }}</span>
+      <button type="button" class="dismiss-banner-btn" (click)="actionError.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading warehouse facilities from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state
+        title="Failed to load warehouses"
+        [message]="error()!"
+        (retry)="loadData()"
+      ></app-error-state>
+    </div>
+  } @else {
+    <!-- Active Warehouse Context Selector Bar -->
+    <div class="warehouse-selector-strip erp-card">
+      <div class="scope-picker-left">
+        <div class="picker-icon">
+          <i class="pi pi-building"></i>
+        </div>
+        <div class="picker-details">
+          <label for="warehouseSelector" class="picker-label">Active Warehouse Facility</label>
+          <div class="selector-dropdown-wrapper">
+            <select
+              id="warehouseSelector"
+              class="fluent-warehouse-select"
+              [ngModel]="selectedWarehouseId()"
+              (ngModelChange)="selectWarehouse($event)"
+            >
+              @for (wh of warehouses(); track wh.warehouseId) {
+                <option [value]="wh.warehouseId">
+                  {{ wh.warehouseCode }} — {{ wh.warehouseName }} ({{ wh.city || 'No city' }})
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="scope-info-middle">
+        @if (selectedWarehouse(); as wh) {
+          <div class="wh-meta-item">
+            <span class="meta-label">City / Address</span>
+            <span class="meta-val">{{ wh.city || '—' }}{{ wh.addressLine1 ? ' — ' + wh.addressLine1 : '' }}</span>
+          </div>
+          <div class="wh-meta-item">
+            <span class="meta-label">Country</span>
+            <span class="meta-val">{{ wh.country || '—' }}</span>
+          </div>
+          <div class="wh-meta-item">
+            <span class="meta-label">Status</span>
+            <app-status-badge [status]="wh.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+          </div>
+        }
+      </div>
+
+      <div class="scope-actions-right">
+        @if (canCreateWarehouse()) {
+          <button
+            type="button"
+            class="p-button p-button-sm p-button-outlined"
+            (click)="navigateToCreateWarehouse()"
+          >
+            <i class="pi pi-plus p-button-icon-left"></i>
+            <span>New Warehouse</span>
+          </button>
+        }
+        @if (selectedWarehouse(); as wh) {
+          @if (canEditWarehouse()) {
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-outlined p-button-secondary"
+              (click)="navigateToEditWarehouse(wh)"
+              title="Edit Warehouse Details"
+            >
+              <i class="pi pi-pencil"></i>
+            </button>
+          }
+          @if (canDeleteWarehouse()) {
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-outlined p-button-danger"
+              (click)="deactivateWarehouse(wh)"
+              title="Deactivate Warehouse"
+            >
+              <i class="pi pi-trash"></i>
+            </button>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tab-strip">
+      <button
+        type="button"
+        class="tab-strip-btn"
+        [class.active]="activeTab() === 'locations'"
+        (click)="activeTab.set('locations')"
+      >
+        <i class="pi pi-sitemap"></i>
+        <span>Storage Locations</span>
+        <span class="tab-badge">{{ locations().length }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-strip-btn"
+        [class.active]="activeTab() === 'zones'"
+        (click)="activeTab.set('zones')"
+      >
+        <i class="pi pi-th-large"></i>
+        <span>Warehouse Zones</span>
+        <span class="tab-badge">{{ zones().length }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-strip-btn"
+        [class.active]="activeTab() === 'warehouses'"
+        (click)="activeTab.set('warehouses')"
+      >
+        <i class="pi pi-building"></i>
+        <span>All Warehouses</span>
+        <span class="tab-badge">{{ warehouses().length }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-strip-btn"
+        [class.active]="activeTab() === 'policies'"
+        (click)="activeTab.set('policies')"
+      >
+        <i class="pi pi-sliders-h"></i>
+        <span>Location Types & Policies</span>
+      </button>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: STORAGE LOCATIONS & HIERARCHY                     -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'locations') {
+      <div class="content-tab-card erp-card">
+        <!-- Controls Bar -->
+        <div class="table-controls-bar">
+          <div class="search-and-filters">
+            <!-- Search input -->
+            <div class="search-input-box">
+              <i class="pi pi-search search-icon"></i>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm search-field"
+                placeholder="Search code, name, or path..."
+                [ngModel]="locationSearch()"
+                (ngModelChange)="locationSearch.set($event)"
+              />
+            </div>
+
+            <!-- Zone Filter Dropdown -->
+            <div class="zone-filter-box">
+              <label for="zoneFilterSelect" class="filter-label">Zone:</label>
+              <select
+                id="zoneFilterSelect"
+                class="fluent-inline-select"
+                [ngModel]="selectedZoneFilter()"
+                (ngModelChange)="selectedZoneFilter.set($event)"
+              >
+                <option value="all">All Zones ({{ locations().length }})</option>
+                <option value="unzoned">Direct / Unzoned</option>
+                @for (zone of zones(); track zone.warehouseZoneId) {
+                  <option [value]="zone.warehouseZoneId">
+                    {{ zone.zoneCode }} — {{ zone.zoneName }} ({{ getLocationsCountInZone(zone.warehouseZoneId) }})
+                  </option>
+                }
+              </select>
+            </div>
+
+            <!-- Capability Filter Pills -->
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="locationCapabilityFilter() === 'all'"
+                (click)="locationCapabilityFilter.set('all')"
+              >
+                All Capabilities
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="locationCapabilityFilter() === 'store'"
+                (click)="locationCapabilityFilter.set('store')"
+              >
+                <i class="pi pi-inbox pill-icon"></i> Can Store
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="locationCapabilityFilter() === 'pick'"
+                (click)="locationCapabilityFilter.set('pick')"
+              >
+                <i class="pi pi-sign-out pill-icon"></i> Can Pick
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="locationCapabilityFilter() === 'putaway'"
+                (click)="locationCapabilityFilter.set('putaway')"
+              >
+                <i class="pi pi-sign-in pill-icon"></i> Can Putaway
+              </button>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            @if (canCreateLocation()) {
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-primary"
+                [disabled]="!selectedWarehouseId()"
+                (click)="navigateToCreateLocation()"
+              >
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span>New Storage Location</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (locationsLoading()) {
+          <app-loading-state message="Loading storage locations..."></app-loading-state>
+        } @else if (filteredLocations().length === 0) {
+          <app-empty-state
+            title="No storage locations found"
+            description="No locations match the selected criteria or none are defined under this warehouse/zone."
+            actionLabel="Create Location"
+            actionIcon="pi pi-plus"
+            (action)="navigateToCreateLocation()"
+          ></app-empty-state>
+        } @else {
+          <!-- Locations Table -->
+          <div class="data-table-wrapper">
+            <table class="enterprise-grid-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">Location Code</th>
+                  <th style="width: 200px;">Location Name</th>
+                  <th>Hierarchy Path</th>
+                  <th style="width: 140px;">Zone</th>
+                  <th style="width: 110px;">Type</th>
+                  <th style="width: 180px;">Capabilities</th>
+                  <th style="width: 90px;">Status</th>
+                  <th style="width: 100px; text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (loc of filteredLocations(); track (loc.warehouseLocationId ?? loc.locationId)) {
+                  <tr>
+                    <td>
+                      <code class="code-badge">{{ loc.locationCode }}</code>
+                    </td>
+                    <td>
+                      <strong>{{ loc.locationName }}</strong>
+                      @if (loc.parentLocationCode) {
+                        <div class="sub-text">Under {{ loc.parentLocationCode }}</div>
+                      }
+                    </td>
+                    <td>
+                      <span class="hierarchy-trail" [title]="loc.hierarchyPath || loc.locationCode">
+                        <i class="pi pi-angle-right trail-icon"></i>
+                        {{ loc.hierarchyPath || loc.locationCode }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (loc.zoneName) {
+                        <span class="zone-badge">{{ loc.zoneName }}</span>
+                      } @else {
+                        <span class="text-muted">Direct / Unzoned</span>
+                      }
+                    </td>
+                    <td>
+                      @if (loc.locationTypeName) {
+                        <span class="type-pill">{{ loc.locationTypeName }}</span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      <div class="capability-badges">
+                        @if (loc.canStoreInventory ?? true) {
+                          <span class="cap-tag store" title="Can Store Inventory">Store</span>
+                        }
+                        @if (loc.canPick ?? true) {
+                          <span class="cap-tag pick" title="Can Pick Stock">Pick</span>
+                        }
+                        @if (loc.canPutAway ?? true) {
+                          <span class="cap-tag putaway" title="Can Putaway Stock">Putaway</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <app-status-badge [status]="loc.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                    </td>
+                    <td style="text-align: right;">
+                      <div class="action-buttons-cell">
+                        @if (canEditLocation()) {
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text"
+                            (click)="navigateToEditLocation(loc)"
+                            title="Edit Location"
+                          >
+                            <i class="pi pi-pencil"></i>
+                          </button>
+                        }
+                        @if (canDeleteLocation()) {
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text p-button-danger"
+                            (click)="deactivateLocation(loc)"
+                            title="Deactivate Location"
+                          >
+                            <i class="pi pi-trash"></i>
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: WAREHOUSE ZONES                                   -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'zones') {
+      <div class="content-tab-card erp-card">
+        <div class="table-controls-bar">
+          <div class="search-and-filters">
+            <div class="search-input-box">
+              <i class="pi pi-search search-icon"></i>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm search-field"
+                placeholder="Search zone code or name..."
+                [ngModel]="zoneSearch()"
+                (ngModelChange)="zoneSearch.set($event)"
+              />
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            @if (canManageZones()) {
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-primary"
+                [disabled]="!selectedWarehouseId()"
+                (click)="navigateToCreateZone()"
+              >
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span>New Warehouse Zone</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (filteredZones().length === 0) {
+          <app-empty-state
+            title="No zones configured"
+            description="No zones exist under the active warehouse. Zones represent macro areas such as Cold Storage, Bulk, QC, or High Value."
+            actionLabel="Add First Zone"
+            actionIcon="pi pi-plus"
+            (action)="navigateToCreateZone()"
+          ></app-empty-state>
+        } @else {
+          <div class="data-table-wrapper">
+            <table class="enterprise-grid-table">
+              <thead>
+                <tr>
+                  <th style="width: 140px;">Zone Code</th>
+                  <th style="width: 220px;">Zone Name</th>
+                  <th>Description</th>
+                  <th style="width: 140px;">Locations Assigned</th>
+                  <th style="width: 110px;">Status</th>
+                  <th style="width: 100px; text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (zone of filteredZones(); track zone.warehouseZoneId) {
+                  <tr>
+                    <td><code class="code-badge">{{ zone.zoneCode }}</code></td>
+                    <td><strong>{{ zone.zoneName }}</strong></td>
+                    <td>{{ zone.description || '—' }}</td>
+                    <td>
+                      <span class="count-pill">
+                        <i class="pi pi-map-marker"></i>
+                        {{ getLocationsCountInZone(zone.warehouseZoneId) }} locations
+                      </span>
+                    </td>
+                    <td>
+                      <app-status-badge [status]="zone.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                    </td>
+                    <td style="text-align: right;">
+                      <div class="action-buttons-cell">
+                        @if (canManageZones()) {
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text"
+                            (click)="navigateToEditZone(zone)"
+                            title="Edit Zone"
+                          >
+                            <i class="pi pi-pencil"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text p-button-danger"
+                            (click)="deactivateZone(zone)"
+                            title="Deactivate Zone"
+                          >
+                            <i class="pi pi-trash"></i>
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: ALL WAREHOUSES DIRECTORY                          -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'warehouses') {
+      <div class="content-tab-card erp-card">
+        <div class="table-controls-bar">
+          <div class="section-heading">
+            <h3>Registered Warehouse Facilities</h3>
+            <p class="section-subtext">Operating facilities provisioned for current tenant organization.</p>
+          </div>
+
+          <div class="action-buttons">
+            @if (canCreateWarehouse()) {
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-primary"
+                (click)="navigateToCreateWarehouse()"
+              >
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span>New Warehouse</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="data-table-wrapper">
+          <table class="enterprise-grid-table">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Code</th>
+                <th style="width: 240px;">Warehouse Name</th>
+                <th>City & Address</th>
+                <th style="width: 120px;">Country</th>
+                <th style="width: 110px;">Status</th>
+                <th style="width: 140px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (wh of warehouses(); track wh.warehouseId) {
+                <tr [class.selected-row]="wh.warehouseId === selectedWarehouseId()">
+                  <td><code class="code-badge">{{ wh.warehouseCode }}</code></td>
+                  <td>
+                    <strong>{{ wh.warehouseName }}</strong>
+                    @if (wh.warehouseId === selectedWarehouseId()) {
+                      <span class="active-wh-tag">Current</span>
+                    }
+                  </td>
+                  <td>{{ wh.city }}{{ wh.addressLine1 ? ' — ' + wh.addressLine1 : '' }}</td>
+                  <td>{{ wh.country || '—' }}</td>
+                  <td>
+                    <app-status-badge [status]="wh.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="action-buttons-cell">
+                      <button
+                        type="button"
+                        class="p-button p-button-sm p-button-outlined"
+                        [class.p-button-secondary]="wh.warehouseId !== selectedWarehouseId()"
+                        (click)="selectWarehouse(wh.warehouseId); activeTab.set('locations')"
+                        title="View Locations"
+                      >
+                        Select
+                      </button>
+                      @if (canEditWarehouse()) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text"
+                          (click)="navigateToEditWarehouse(wh)"
+                          title="Edit"
+                        >
+                          <i class="pi pi-pencil"></i>
+                        </button>
+                      }
+                      @if (canDeleteWarehouse()) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text p-button-danger"
+                          (click)="deactivateWarehouse(wh)"
+                          title="Deactivate"
+                        >
+                          <i class="pi pi-trash"></i>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: LOCATION TYPES & POLICIES                         -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'policies') {
+      <div class="content-tab-card erp-card">
+        <div class="section-heading">
+          <h3>Storage Location Classification Policies</h3>
+          <p class="section-subtext">Standardized positioning rules governing physical stock storage, picking, putaway, and structural grouping.</p>
+        </div>
+
+        <div class="policies-grid">
+          @for (type of locationTypes(); track type.locationTypeId) {
+            <div class="policy-card erp-card">
+              <div class="policy-card-top">
+                <div class="policy-badge-wrap">
+                  <span class="policy-code-pill">{{ type.code }}</span>
+                  <span class="policy-type-name">{{ type.name }}</span>
+                </div>
+              </div>
+
+              @if (type.description) {
+                <p class="policy-desc">{{ type.description }}</p>
+              }
+
+              <div class="policy-flags-list">
+                <div class="flag-item" [class.enabled]="type.canStoreInventory">
+                  <span class="flag-status-icon" [ngClass]="type.canStoreInventory ? 'active' : 'inactive'">
+                    <i [class]="type.canStoreInventory ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+                  </span>
+                  <span class="flag-text">Store Inventory</span>
+                </div>
+                <div class="flag-item" [class.enabled]="type.canPick">
+                  <span class="flag-status-icon" [ngClass]="type.canPick ? 'active' : 'inactive'">
+                    <i [class]="type.canPick ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+                  </span>
+                  <span class="flag-text">Allow Picking</span>
+                </div>
+                <div class="flag-item" [class.enabled]="type.canPutAway">
+                  <span class="flag-status-icon" [ngClass]="type.canPutAway ? 'active' : 'inactive'">
+                    <i [class]="type.canPutAway ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+                  </span>
+                  <span class="flag-text">Allow Putaway</span>
+                </div>
+                <div class="flag-item" [class.enabled]="type.canContainChildren">
+                  <span class="flag-status-icon" [ngClass]="type.canContainChildren ? 'active' : 'inactive'">
+                    <i [class]="type.canContainChildren ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
+                  </span>
+                  <span class="flag-text">Contain Child Locations</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+</div>

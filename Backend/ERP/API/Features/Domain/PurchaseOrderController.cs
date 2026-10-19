@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseOrder;
@@ -11,11 +14,18 @@ namespace API.Features.Domain;
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches/{branchId:guid}/purchase-orders")]
 [RequirePermission("PURCHASE_ORDER.VIEW")]
-public class PurchaseOrderController : ControllerBase
+public class PurchaseOrderController : BaseApiController
 {
     private readonly IPurchaseOrderService _orderService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+
+    private static readonly SortMapping<PurchaseOrder> _sortMapping = new SortMapping<PurchaseOrder>()
+        .Add("orderNumber", o => o.OrderNumber, isDefault: true)
+        .Add("orderDate", o => o.OrderDate)
+        .Add("totalAmount", o => o.TotalAmount)
+        .Add("status", o => o.Status)
+        .SetSecondary(o => o.Id);
 
     public PurchaseOrderController(
         IPurchaseOrderService orderService,
@@ -30,7 +40,11 @@ public class PurchaseOrderController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetOrders(
         Guid companyId,
-        Guid branchId)
+        Guid branchId,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
@@ -40,7 +54,7 @@ public class PurchaseOrderController : ControllerBase
             companyId,
             branchId);
 
-        return Ok(orders);
+        return PaginateAndSort(orders, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -60,14 +74,10 @@ public class PurchaseOrderController : ControllerBase
 
         if (order == null)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = "Purchase order not found in the authorized scope."
-            });
+            return NotFoundResponse("Purchase order not found in the authorized scope.");
         }
 
-        return Ok(order);
+        return SuccessResponse(order);
     }
 
     [HttpPost]
@@ -90,26 +100,14 @@ public class PurchaseOrderController : ControllerBase
                 _currentUserContext.UserId,
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
-            return CreatedAtAction(
+            return CreatedResponse(
                 nameof(GetOrder),
                 new { companyId, branchId, id = order.Id },
                 order);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
@@ -133,31 +131,11 @@ public class PurchaseOrderController : ControllerBase
                 orderId,
                 request);
 
-            return Ok(item);
+            return SuccessResponse(item, "Item added to purchase order successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
@@ -181,15 +159,11 @@ public class PurchaseOrderController : ControllerBase
                 _currentUserContext.UserId,
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString());
 
-            return Ok(order);
+            return SuccessResponse(order, "Purchase order submitted successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -215,15 +189,11 @@ public class PurchaseOrderController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks);
 
-            return Ok(order);
+            return SuccessResponse(order, "Purchase order approved successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -249,19 +219,11 @@ public class PurchaseOrderController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks ?? string.Empty);
 
-            return Ok(order);
+            return SuccessResponse(order, "Purchase order rejected successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -287,15 +249,11 @@ public class PurchaseOrderController : ControllerBase
                 User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
                 request?.Remarks);
 
-            return Ok(order);
+            return SuccessResponse(order, "Purchase order cancelled successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -317,11 +275,11 @@ public class PurchaseOrderController : ControllerBase
                 branchId,
                 orderId);
 
-            return Ok(history);
+            return SuccessResponse(history);
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -337,11 +295,7 @@ public class PurchaseOrderController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return (Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Tenant identity is missing or invalid."
-            }), Guid.Empty);
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(

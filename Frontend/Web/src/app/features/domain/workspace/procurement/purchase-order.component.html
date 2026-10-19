@@ -1,0 +1,526 @@
+<div class="purchase-orders-page">
+  <app-page-header
+    title="Purchase Orders"
+    subtitle="Procure goods and services, manage requisitions, line item quantities, vendor fulfillment, and operational approvals."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [loading]="loading()"
+        (onClick)="loadOrders()"
+        title="Reload orders list"
+      ></p-button>
+
+      <p-button
+        label="New Purchase Order"
+        icon="pi pi-plus"
+        size="small"
+        severity="primary"
+        [disabled]="!canCreateOrder() || actionInProgress()"
+        [title]="!scopeService.canOperateTransactions() ? 'Select an operating company and branch first' : 'Create a new purchase order'"
+        (onClick)="navigateToCreate()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Global Status / Notification Message -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="po-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (!scopeService.canOperateTransactions()) {
+    <div class="scope-required-wrapper erp-card">
+      <app-empty-state
+        icon="pi pi-compass"
+        title="Operating Company and Branch Required"
+        description="Purchase orders and procurement workflows are strictly scoped to an operating company and physical branch. Please select both from the scope switcher in the navigation bar to proceed."
+      ></app-empty-state>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading purchase orders from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="loadOrders()"></app-error-state>
+    </div>
+  } @else {
+    <!-- Main Content Area: Search, Filter Pills & Data Table -->
+    <div class="po-table-card erp-card">
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <!-- Quick Search -->
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm search-field"
+              placeholder="Search PO # or supplier name..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <!-- Status Filter Pills -->
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'all'"
+              (click)="activeStatusFilter.set('all')"
+            >
+              All Status
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'draft'"
+              (click)="activeStatusFilter.set('draft')"
+            >
+              <i class="pi pi-file-edit pill-icon"></i> Draft
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'submitted'"
+              (click)="activeStatusFilter.set('submitted')"
+            >
+              <i class="pi pi-send pill-icon"></i> Submitted
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'approved'"
+              (click)="activeStatusFilter.set('approved')"
+            >
+              <i class="pi pi-check pill-icon"></i> Approved
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'cancelled'"
+              (click)="activeStatusFilter.set('cancelled')"
+            >
+              <i class="pi pi-ban pill-icon"></i> Cancelled
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Badge Indicator -->
+        <div class="scope-info-pill" title="Current Transaction Scope">
+          <i class="pi pi-building"></i>
+          <span class="scope-text">
+            {{ scopeService.selectedCompany()?.name }} / {{ scopeService.selectedBranch()?.name }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Main PO List Data Table -->
+      <app-data-table
+        [data]="filteredOrders()"
+        [columns]="tableColumns"
+        [rowActions]="tableActions"
+        rowKey="id"
+        [loading]="loading()"
+        emptyTitle="No purchase orders found"
+        emptyDescription="No purchase orders match your current filter or none exist for this operating branch yet."
+        [showGlobalSearch]="false"
+        [showColumnChooser]="true"
+        [showExport]="true"
+        [showViewSwitcher]="true"
+        cardTitleField="orderNumber"
+        cardSubtitleField="supplierName"
+        cardIcon="pi pi-file"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+      ></app-data-table>
+    </div>
+  }
+
+  <!-- CREATE PURCHASE ORDER DIALOG -->
+  <p-dialog
+    [(visible)]="createDialogVisible"
+    [modal]="true"
+    header="Create Purchase Order"
+    [style]="{ width: '920px', maxWidth: '96vw' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    @if (formError()) {
+      <div class="form-error-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ formError() }}</span>
+      </div>
+    }
+
+    <div class="dialog-form-container">
+      <!-- Section 1: Header Information -->
+      <div class="form-section-title">Order Information</div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label for="poNumber">PO Number <span class="required">*</span></label>
+          <input
+            id="poNumber"
+            type="text"
+            class="p-inputtext p-inputtext-sm"
+            [ngModel]="formOrderNumber()"
+            (ngModelChange)="formOrderNumber.set($event)"
+            placeholder="e.g. PO-2026-001"
+            [disabled]="actionInProgress()"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="poSupplier">Supplier / Vendor</label>
+          <select
+            id="poSupplier"
+            class="p-inputtext p-inputtext-sm select-input"
+            [ngModel]="formSupplierId()"
+            (ngModelChange)="formSupplierId.set($event)"
+            [disabled]="actionInProgress()"
+          >
+            <option value="">-- Standard / Unassigned Vendor --</option>
+            @for (sup of suppliers(); track sup.supplierId) {
+              <option [value]="sup.supplierId">{{ sup.supplierName }} ({{ sup.supplierCode }})</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="poDate">Order Date</label>
+          <input
+            id="poDate"
+            type="date"
+            class="p-inputtext p-inputtext-sm"
+            [ngModel]="formOrderDate()"
+            (ngModelChange)="formOrderDate.set($event)"
+            [disabled]="actionInProgress()"
+          />
+        </div>
+      </div>
+
+      <div class="scope-context-bar">
+        <span class="context-label"><i class="pi pi-map-pin"></i> Target Operating Scope:</span>
+        <span class="context-value">
+          {{ scopeService.selectedCompany()?.name }} &bull; {{ scopeService.selectedBranch()?.name }}
+        </span>
+      </div>
+
+      <!-- Section 2: Reusable Editable Data Table for Line Items -->
+      <div class="form-section-title lines-title">
+        <span>Line Item Requisitions</span>
+        <span class="lines-hint text-sm text-secondary">
+          Click any cell to edit &bull; Press Tab in the last column to add a new line
+        </span>
+      </div>
+
+      <app-editable-data-table
+        [data]="workingLines()"
+        [columns]="editableItemColumns()"
+        rowKey="lineId"
+        [defaultNewRow]="defaultNewRow"
+        [onRowCalculate]="calculateRow"
+        subtotalField="lineTotal"
+        subtotalLabel="Total Order Amount"
+        currencyCode="USD"
+        [allowAddRow]="true"
+        [allowDeleteRow]="true"
+        [showGlobalSearch]="false"
+        [showFilters]="false"
+        [showSorting]="false"
+        [paginator]="false"
+        (dataChange)="onLinesChange($event)"
+      ></app-editable-data-table>
+    </div>
+
+    <!-- Dialog Actions Footer -->
+    <ng-template pTemplate="footer">
+      <button
+        type="button"
+        class="p-button p-button-sm p-button-outlined"
+        (click)="createDialogVisible.set(false)"
+        [disabled]="actionInProgress()"
+      >
+        Cancel
+      </button>
+
+      <button
+        type="button"
+        class="p-button p-button-sm p-button-secondary"
+        (click)="onSaveOrder(false)"
+        [disabled]="actionInProgress()"
+      >
+        <i class="pi pi-save p-button-icon-left"></i>
+        <span class="p-button-label">Save as Draft</span>
+      </button>
+
+      <button
+        type="button"
+        class="p-button p-button-sm p-button-primary"
+        (click)="onSaveOrder(true)"
+        [disabled]="actionInProgress()"
+      >
+        <i class="pi pi-send p-button-icon-left"></i>
+        <span class="p-button-label">Save &amp; Submit</span>
+      </button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- VIEW ORDER DETAILS DIALOG -->
+  <p-dialog
+    [(visible)]="detailsDialogVisible"
+    [modal]="true"
+    [header]="'Purchase Order: ' + (selectedOrder()?.orderNumber || '')"
+    [style]="{ width: '840px', maxWidth: '95vw' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    @if (selectedOrder()) {
+      <div class="details-content">
+        <!-- Order Header Card -->
+        <div class="order-summary-grid">
+          <div class="summary-item">
+            <span class="lbl">PO Number</span>
+            <span class="val font-mono font-bold">{{ selectedOrder()!.orderNumber }}</span>
+          </div>
+
+          <div class="summary-item">
+            <span class="lbl">Status</span>
+            <span class="val">
+              <app-status-badge
+                [label]="getStatusName(selectedOrder()!.status)"
+                [severity]="getStatusSeverity(selectedOrder()!.status)"
+              ></app-status-badge>
+            </span>
+          </div>
+
+          <div class="summary-item">
+            <span class="lbl">Supplier</span>
+            <span class="val">{{ selectedOrder()!.supplierName || 'Standard Vendor' }}</span>
+          </div>
+
+          <div class="summary-item">
+            <span class="lbl">Order Date</span>
+            <span class="val">{{ selectedOrder()!.orderDate | date:'mediumDate' }}</span>
+          </div>
+
+          <div class="summary-item">
+            <span class="lbl">Operating Scope</span>
+            <span class="val">{{ scopeService.selectedCompany()?.name }} / {{ scopeService.selectedBranch()?.name }}</span>
+          </div>
+
+          <div class="summary-item total-summary">
+            <span class="lbl">Total Amount</span>
+            <span class="val amount">{{ selectedOrder()!.totalAmount | currency:'USD' }}</span>
+          </div>
+        </div>
+
+        <!-- Line Items Table -->
+        <div class="details-items-section">
+          <div class="details-section-title">Requisition Lines</div>
+
+          @if (!selectedOrder()!.items || selectedOrder()!.items.length === 0) {
+            <div class="no-items-notice text-secondary">
+              No detailed line items recorded on this order header.
+            </div>
+          } @else {
+            <table class="erp-excel-table details-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th>Product</th>
+                  <th style="text-align: right; width: 120px;">Quantity</th>
+                  <th style="text-align: right; width: 140px;">Unit Price</th>
+                  <th style="text-align: right; width: 150px;">Line Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of selectedOrder()!.items; track item.id || $index; let idx = $index) {
+                  <tr>
+                    <td>{{ idx + 1 }}</td>
+                    <td>{{ item.productCode || item.productName || item.productId }}</td>
+                    <td style="text-align: right;">{{ item.quantity }}</td>
+                    <td style="text-align: right;">{{ item.unitPrice | currency:'USD' }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ item.lineTotal | currency:'USD' }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" style="text-align: right; font-weight: 600;">Total Order Amount:</td>
+                  <td style="text-align: right; font-weight: 700; color: var(--erp-primary);">
+                    {{ selectedOrder()!.totalAmount | currency:'USD' }}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- View Details Footer with Operational Actions -->
+    <ng-template pTemplate="footer">
+      <div class="details-footer-actions">
+        <button
+          type="button"
+          class="p-button p-button-sm p-button-outlined"
+          (click)="detailsDialogVisible.set(false)"
+        >
+          Close
+        </button>
+
+        @if (selectedOrder() && isStatus(selectedOrder()!, 1) && canSubmitOrder()) {
+          <button
+            type="button"
+            class="p-button p-button-sm p-button-primary"
+            [disabled]="actionInProgress()"
+            (click)="onSubmitOrder(selectedOrder()!)"
+          >
+            <i class="pi pi-send p-button-icon-left"></i>
+            <span class="p-button-label">Submit Order</span>
+          </button>
+        }
+
+        @if (selectedOrder() && isStatus(selectedOrder()!, 2) && canApproveOrder()) {
+          <button
+            type="button"
+            class="p-button p-button-sm p-button-danger p-button-outlined"
+            [disabled]="actionInProgress()"
+            (click)="openRemarksDialog('reject', selectedOrder()!)"
+          >
+            <i class="pi pi-times p-button-icon-left"></i>
+            <span class="p-button-label">Reject</span>
+          </button>
+
+          <button
+            type="button"
+            class="p-button p-button-sm p-button-success"
+            [disabled]="actionInProgress()"
+            (click)="openRemarksDialog('approve', selectedOrder()!)"
+          >
+            <i class="pi pi-check p-button-icon-left"></i>
+            <span class="p-button-label">Approve</span>
+          </button>
+        }
+
+        @if (selectedOrder() && (isStatus(selectedOrder()!, 1) || isStatus(selectedOrder()!, 2)) && canCancelOrder()) {
+          <button
+            type="button"
+            class="p-button p-button-sm p-button-danger p-button-text"
+            [disabled]="actionInProgress()"
+            (click)="openRemarksDialog('cancel', selectedOrder()!)"
+          >
+            <i class="pi pi-ban p-button-icon-left"></i>
+            <span class="p-button-label">Cancel Order</span>
+          </button>
+        }
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- REMARKS DIALOG (For Approve / Reject / Cancel) -->
+  <p-dialog
+    [(visible)]="remarksDialogVisible"
+    [modal]="true"
+    [header]="(remarksAction() === 'approve' ? 'Approve' : remarksAction() === 'reject' ? 'Reject' : 'Cancel') + ' Purchase Order'"
+    [style]="{ width: '480px', maxWidth: '95vw' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    @if (remarksError()) {
+      <div class="form-error-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ remarksError() }}</span>
+      </div>
+    }
+
+    <div class="remarks-form">
+      <p class="remarks-instructions text-sm text-secondary">
+        @if (remarksAction() === 'approve') {
+          Provide any approval notes or instructions for fulfillment (optional):
+        } @else if (remarksAction() === 'reject') {
+          Please provide a reason for rejecting purchase order
+          <strong>{{ remarksTargetOrder()?.orderNumber }}</strong> (required):
+        } @else {
+          Specify the reason for cancelling purchase order
+          <strong>{{ remarksTargetOrder()?.orderNumber }}</strong>:
+        }
+      </p>
+
+      <div class="form-group">
+        <label for="poRemarks">Remarks</label>
+        <textarea
+          id="poRemarks"
+          rows="4"
+          class="p-inputtext p-inputtext-sm w-full"
+          [ngModel]="remarksText()"
+          (ngModelChange)="remarksText.set($event)"
+          placeholder="Enter remarks..."
+          [disabled]="actionInProgress()"
+        ></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <button
+        type="button"
+        class="p-button p-button-sm p-button-outlined"
+        (click)="remarksDialogVisible.set(false)"
+        [disabled]="actionInProgress()"
+      >
+        Dismiss
+      </button>
+
+      <button
+        type="button"
+        class="p-button p-button-sm"
+        [ngClass]="{
+          'p-button-success': remarksAction() === 'approve',
+          'p-button-danger': remarksAction() === 'reject' || remarksAction() === 'cancel'
+        }"
+        (click)="onConfirmRemarks()"
+        [disabled]="actionInProgress()"
+      >
+        <i class="pi p-button-icon-left" [ngClass]="{
+          'pi-check': remarksAction() === 'approve',
+          'pi-times': remarksAction() === 'reject',
+          'pi-ban': remarksAction() === 'cancel'
+        }"></i>
+        <span class="p-button-label">
+          Confirm {{ remarksAction() === 'approve' ? 'Approval' : remarksAction() === 'reject' ? 'Rejection' : 'Cancellation' }}
+        </span>
+      </button>
+    </ng-template>
+  </p-dialog>
+</div>

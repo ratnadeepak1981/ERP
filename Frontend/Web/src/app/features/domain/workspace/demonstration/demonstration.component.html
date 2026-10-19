@@ -1,0 +1,134 @@
+<div class="demonstration-page">
+  <app-page-header
+    title="ApexERP — Reusable UI Component Showcase"
+    subtitle="Enterprise design tokens & Fluent-inspired components for Procurement, Inventory, Sales & Manufacturing."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions>
+      <p-button
+        label="Simulate Loading"
+        icon="pi pi-spin pi-spinner"
+        [outlined]="true"
+        (onClick)="toggleLoadingSimulation()"
+        size="small"
+        severity="secondary"
+      ></p-button>
+      <p-button
+        [label]="isSimulatingEmpty() ? 'Show Data' : 'Simulate Empty'"
+        icon="pi pi-inbox"
+        [outlined]="true"
+        (onClick)="toggleEmptySimulation()"
+        size="small"
+        severity="secondary"
+      ></p-button>
+      <p-button
+        [label]="isSimulatingError() ? 'Clear Error' : 'Simulate Error'"
+        icon="pi pi-exclamation-circle"
+        [outlined]="true"
+        (onClick)="toggleErrorSimulation()"
+        size="small"
+        severity="secondary"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Navigation Tab Bar -->
+  <nav class="showcase-nav-bar" role="tablist" aria-label="Component Showcase Categories">
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab"
+      [class.active]="activeTab() === 'checkbox'"
+      [attr.aria-selected]="activeTab() === 'checkbox'"
+      (click)="setTab('checkbox')"
+    >
+      <i class="pi pi-check-square"></i>
+      <span>Section A: Checkbox</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab"
+      [class.active]="activeTab() === 'readonly'"
+      [attr.aria-selected]="activeTab() === 'readonly'"
+      (click)="setTab('readonly')"
+    >
+      <i class="pi pi-table"></i>
+      <span>Section B: Read-Only Table</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab"
+      [class.active]="activeTab() === 'editable'"
+      [attr.aria-selected]="activeTab() === 'editable'"
+      (click)="setTab('editable')"
+    >
+      <i class="pi pi-file-edit"></i>
+      <span>Section C: Editable Table</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab"
+      [class.active]="activeTab() === 'lookup'"
+      [attr.aria-selected]="activeTab() === 'lookup'"
+      (click)="setTab('lookup')"
+    >
+      <i class="pi pi-search-plus"></i>
+      <span>Section D: Lookup Dropdown</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab"
+      [class.active]="activeTab() === 'catalogue'"
+      [attr.aria-selected]="activeTab() === 'catalogue'"
+      (click)="setTab('catalogue')"
+    >
+      <i class="pi pi-th-large"></i>
+      <span>Component Catalogue</span>
+    </button>
+  </nav>
+
+  <!-- Tab Content Sections -->
+  <main class="showcase-content">
+    @if (isSimulatingError()) {
+      <div class="erp-card">
+        <app-error-state
+          title="Failed to Retrieve Enterprise Records"
+          message="Simulated API boundary error (500 Internal Server Error with trace-id correlation)."
+          (retry)="onRetry()"
+        ></app-error-state>
+      </div>
+    } @else {
+      @switch (activeTab()) {
+        @case ('catalogue') {
+          <app-catalogue-section></app-catalogue-section>
+        }
+        @case ('readonly') {
+          <app-readonly-table-section></app-readonly-table-section>
+        }
+        @case ('editable') {
+          <app-editable-table-section></app-editable-table-section>
+        }
+        @case ('lookup') {
+          <app-lookup-dropdown-section></app-lookup-dropdown-section>
+        }
+        @case ('modular') {
+          <app-modular-controls-section></app-modular-controls-section>
+        }
+        @case ('checkbox') {
+          <app-checkbox-playground-section></app-checkbox-playground-section>
+        }
+        @case ('shared') {
+          <app-shared-controls-section></app-shared-controls-section>
+        }
+      }
+    }
+  </main>
+</div>

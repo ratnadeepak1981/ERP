@@ -1,0 +1,186 @@
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 200px);
+  padding: var(--erp-space-8) var(--erp-space-4);
+
+  .login-card {
+    width: 100%;
+    max-width: 440px;
+    padding: var(--erp-space-6);
+
+    .login-header {
+      text-align: center;
+      margin-bottom: var(--erp-space-4);
+
+      .logo-box {
+        width: 44px;
+        height: 44px;
+        border-radius: var(--erp-radius-md);
+        background: linear-gradient(135deg, var(--erp-primary), var(--erp-primary-hover));
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: var(--erp-space-3);
+      }
+
+      h2 {
+        font-size: 1.5rem;
+        margin-bottom: var(--erp-space-1);
+        color: var(--erp-text-main);
+      }
+
+      p {
+        font-size: 13.5px;
+        color: var(--erp-text-secondary);
+        margin: 0;
+      }
+    }
+
+    .login-info-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2);
+      padding: var(--erp-space-2) var(--erp-space-3);
+      background-color: var(--erp-info-bg);
+      border: 1px solid var(--erp-info-border);
+      color: var(--erp-info);
+      border-radius: var(--erp-radius-sm);
+      font-size: 12.5px;
+      margin-bottom: var(--erp-space-4);
+
+      code {
+        font-family: var(--erp-font-mono);
+        font-weight: 600;
+      }
+    }
+
+    .login-error-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2);
+      padding: var(--erp-space-2) var(--erp-space-3);
+      background-color: var(--erp-danger-bg);
+      border: 1px solid var(--erp-danger-border);
+      color: var(--erp-danger);
+      border-radius: var(--erp-radius-sm);
+      font-size: 13px;
+      margin-bottom: var(--erp-space-4);
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--erp-space-4);
+
+      .form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        label {
+          font-size: 12.5px;
+          font-weight: 600;
+          color: var(--erp-text-main);
+        }
+
+        .w-full {
+          width: 100%;
+        }
+      }
+
+      .submit-btn {
+        margin-top: var(--erp-space-2);
+        display: block;
+        width: 100%;
+      }
+    }
+
+    .quick-credentials-panel {
+      margin-top: var(--erp-space-5);
+      padding: var(--erp-space-3);
+      background-color: var(--erp-bg-secondary);
+      border: 1px dashed var(--erp-border-strong);
+      border-radius: var(--erp-radius-md);
+
+      .quick-title {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--erp-text-muted);
+        margin-bottom: var(--erp-space-2);
+      }
+
+      .quick-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--erp-space-2);
+
+        .chip-btn {
+          font-size: 12px;
+          padding: 4px 10px;
+          border-radius: var(--erp-radius-pill);
+          border: 1px solid var(--erp-border);
+          background-color: var(--erp-bg-surface);
+          color: var(--erp-text-main);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          transition: all 0.15s ease;
+
+          &:hover {
+            border-color: var(--erp-primary);
+            color: var(--erp-primary);
+          }
+        }
+      }
+
+      .dev-quick-action {
+        margin-top: var(--erp-space-3);
+        padding-top: var(--erp-space-2);
+        border-top: 1px solid var(--erp-border);
+
+        .dev-btn {
+          width: 100%;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 6px 10px;
+          border-radius: var(--erp-radius-sm);
+          border: 1px solid var(--erp-primary);
+          background-color: var(--erp-primary-light);
+          color: var(--erp-primary);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: all 0.15s ease;
+
+          &:hover {
+            background-color: var(--erp-primary);
+            color: #ffffff;
+          }
+        }
+      }
+    }
+
+    .login-footer {
+      margin-top: var(--erp-space-4);
+      text-align: center;
+      border-top: 1px solid var(--erp-border-subtle);
+      padding-top: var(--erp-space-3);
+
+      p {
+        font-size: 13px;
+        margin: 0;
+        color: var(--erp-text-secondary);
+      }
+    }
+  }
+}

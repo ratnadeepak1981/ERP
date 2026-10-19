@@ -1,0 +1,179 @@
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--erp-space-5);
+
+  .header-action-btns {
+    display: flex;
+    align-items: center;
+    gap: var(--erp-space-2);
+
+    .showcase-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid var(--erp-border);
+      background: var(--erp-bg-surface);
+      color: var(--erp-text-secondary);
+      border-radius: var(--erp-radius-sm);
+      text-decoration: none;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: var(--erp-bg-hover);
+        color: var(--erp-primary);
+        text-decoration: none;
+      }
+    }
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--erp-space-4);
+
+    .kpi-card {
+      padding: var(--erp-space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--erp-space-2);
+
+      .kpi-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .kpi-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--erp-text-secondary);
+        }
+
+        .kpi-icon-wrap {
+          font-size: 16px;
+        }
+      }
+
+      .kpi-value-row {
+        .kpi-value {
+          font-size: 1.75rem;
+          font-weight: 700;
+          color: var(--erp-text-main);
+          letter-spacing: -0.02em;
+        }
+      }
+
+      .kpi-bottom {
+        display: flex;
+        align-items: center;
+        gap: var(--erp-space-2);
+        font-size: 12px;
+
+        .kpi-trend {
+          font-weight: 600;
+          &.positive { color: var(--erp-success); }
+          &.alert { color: var(--erp-danger); }
+        }
+
+        .kpi-subtext {
+          color: var(--erp-text-muted);
+        }
+      }
+    }
+  }
+
+  .operational-split {
+    display: grid;
+    grid-template-columns: 1.7fr 1.3fr;
+    gap: var(--erp-space-5);
+
+    @media (max-width: 1100px) {
+      grid-template-columns: 1fr;
+    }
+
+    .section-title-bar {
+      margin-bottom: var(--erp-space-3);
+      h3 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+    }
+
+    .alerts-panel {
+      padding: var(--erp-space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--erp-space-3);
+
+      .alert-item {
+        display: flex;
+        gap: var(--erp-space-3);
+        padding: var(--erp-space-3);
+        border-radius: var(--erp-radius-sm);
+        background: var(--erp-bg-secondary);
+        border: 1px solid var(--erp-border-subtle);
+
+        .alert-icon-box {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--erp-radius-sm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          flex-shrink: 0;
+
+          &.danger {
+            background: var(--erp-danger-bg);
+            color: var(--erp-danger);
+          }
+
+          &.warning {
+            background: var(--erp-warning-bg);
+            color: var(--erp-warning);
+          }
+
+          &.success {
+            background: var(--erp-success-bg);
+            color: var(--erp-success);
+          }
+        }
+
+        .alert-info {
+          flex: 1;
+
+          .alert-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+
+            .alert-sku {
+              font-size: 13px;
+              font-weight: 600;
+              color: var(--erp-text-main);
+            }
+          }
+
+          .alert-desc {
+            font-size: 12.5px;
+            color: var(--erp-text-secondary);
+            margin: 0 0 var(--erp-space-2) 0;
+            line-height: 1.4;
+          }
+
+          .alert-action {
+            .p-button-xs {
+              font-size: 11px;
+              padding: 2px 8px;
+            }
+          }
+        }
+      }
+    }
+  }
+}

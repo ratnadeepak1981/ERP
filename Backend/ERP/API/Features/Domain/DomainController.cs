@@ -1,11 +1,12 @@
-﻿using Domain.Services;
+using API.Common;
+using Domain.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Features.Domain;
 
 [ApiController]
 [Route("api/[controller]")]
-public class DomainController : ControllerBase
+public class DomainController : BaseApiController
 {
     private readonly DomainService _domainService;
 
@@ -17,6 +18,6 @@ public class DomainController : ControllerBase
     [HttpGet("status")]
     public IActionResult GetStatus()
     {
-        return Ok(_domainService.GetStatus());
+        return SuccessResponse(_domainService.GetStatus());
     }
 }

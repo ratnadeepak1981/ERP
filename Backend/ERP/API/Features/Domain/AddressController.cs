@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Address;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,16 @@ namespace API.Features.MasterData.Address;
 [ApiController]
 [Route("api/addresses")]
 [RequirePermission("ADDRESS.VIEW")]
-public class AddressController : ControllerBase
+public class AddressController : BaseApiController
 {
     private readonly IAddressService _addressService;
     private readonly ICurrentUserContext _currentUserContext;
+
+    private static readonly SortMapping<global::Domain.Features.MasterData.Address.Address> _sortMapping = new SortMapping<global::Domain.Features.MasterData.Address.Address>()
+        .Add("addressName", a => a.AddressName, isDefault: true)
+        .Add("city", a => a.City)
+        .Add("postalCode", a => a.PostalCode ?? "")
+        .SetSecondary(a => a.AddressId);
 
     public AddressController(
         IAddressService addressService,
@@ -25,15 +33,19 @@ public class AddressController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAddresses()
+    public async Task<IActionResult> GetAddresses(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var addresses = await _addressService.GetAddressesAsync(tenantId.Value);
-        return Ok(addresses);
+        return PaginateAndSort(addresses, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,13 +54,13 @@ public class AddressController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var address = await _addressService.GetAddressAsync(tenantId.Value, id);
         if (address == null)
-            return NotFound(new { status = "FAIL", message = "Address not found." });
+            return NotFoundResponse("Address not found.");
 
-        return Ok(address);
+        return SuccessResponse(address);
     }
 
     [HttpPost]
@@ -58,20 +70,16 @@ public class AddressController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var address = await _addressService.CreateAddressAsync(tenantId.Value, request);
-            return CreatedAtAction(nameof(GetAddress), new { id = address.AddressId }, address);
+            return CreatedResponse(nameof(GetAddress), new { id = address.AddressId }, address);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -82,24 +90,16 @@ public class AddressController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var address = await _addressService.UpdateAddressAsync(tenantId.Value, id, request);
-            return Ok(address);
+            return SuccessResponse(address);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Address not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -110,20 +110,16 @@ public class AddressController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var address = await _addressService.ResolveCountryAsync(tenantId.Value, id, countryId);
-            return Ok(address);
+            return SuccessResponse(address);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Address not found." });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -134,16 +130,16 @@ public class AddressController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _addressService.DeactivateAddressAsync(tenantId.Value, id);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Address not found." });
+            return HandleDomainException(ex);
         }
     }
 
@@ -154,10 +150,10 @@ public class AddressController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var types = await _addressService.GetAddressTypesAsync(tenantId.Value);
-        return Ok(types);
+        return SuccessResponse(types);
     }
 
     [HttpPost("types")]
@@ -167,20 +163,16 @@ public class AddressController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var type = await _addressService.CreateAddressTypeAsync(tenantId.Value, request);
-            return Ok(type);
+            return SuccessResponse(type, "Address type created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 }

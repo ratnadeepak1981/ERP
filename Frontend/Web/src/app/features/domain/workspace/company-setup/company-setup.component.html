@@ -1,0 +1,472 @@
+<div class="company-setup-page">
+  <app-page-header
+    title="Company & Branch Onboarding"
+    subtitle="Configure organization identity, operating branches, and foundational operational masters."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading company and branch configuration from backend..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadOnboardingState()"></app-error-state>
+  } @else {
+    <!-- Readiness Overview Banner -->
+    <div class="setup-hero erp-card">
+      <div class="hero-left">
+        <div class="hero-icon">
+          <i class="pi pi-check-circle"></i>
+        </div>
+        <div>
+          <h2>Organization Readiness & Setup</h2>
+          <p>
+            Operating Tenant: <strong>{{ scopeService.activeTenantName() }}</strong>
+            &nbsp;&bull;&nbsp;
+            Status: <strong>{{ companies().length > 0 ? 'Active Operational Workspace' : 'Setup Required' }}</strong>
+          </p>
+        </div>
+      </div>
+      <div class="hero-actions">
+        @if (companies().length === 0) {
+          <button type="button" class="p-button p-button-sm p-button-success" (click)="onInitializeDefault()">
+            <i class="pi pi-bolt p-button-icon-left"></i>
+            <span class="p-button-label">Quick Setup (Company & Branch)</span>
+          </button>
+        }
+        <a routerLink="/app/master-data" class="p-button p-button-sm p-button-primary">
+          <i class="pi pi-database p-button-icon-left"></i>
+          <span class="p-button-label">Explore Master Data</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Onboarding Step Progression Cards -->
+    <div class="steps-grid">
+      @for (step of steps(); track step.stepNumber) {
+        <div class="step-card erp-card" [class.step-completed]="step.status === 'completed'" [class.step-current]="step.status === 'in_progress'">
+          <div class="step-top">
+            <div class="step-badge-number">
+              @if (step.status === 'completed') {
+                <i class="pi pi-check"></i>
+              } @else {
+                {{ step.stepNumber }}
+              }
+            </div>
+            <app-status-badge
+              [label]="step.badgeText"
+              [severity]="step.status === 'completed' ? 'success' : (step.status === 'in_progress' ? 'info' : 'neutral')"
+            ></app-status-badge>
+          </div>
+          <div class="step-body">
+            <div class="step-icon">
+              <i [class]="step.icon"></i>
+            </div>
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.description }}</p>
+          </div>
+          <div class="step-footer">
+            @if (step.stepNumber === 1 && companies().length === 0) {
+              <button type="button" class="step-action-btn" (click)="openAddCompanyModal()">
+                + Add Company <i class="pi pi-arrow-right"></i>
+              </button>
+            } @else if (step.stepNumber === 2 && branches().length === 0) {
+              <button type="button" class="step-action-btn" (click)="openAddBranchModal()">
+                + Add Branch <i class="pi pi-arrow-right"></i>
+              </button>
+            } @else if (step.route) {
+              <a [routerLink]="step.route" class="step-action-link">
+                Configure <i class="pi pi-arrow-right"></i>
+              </a>
+            } @else {
+              <span class="step-status-note">{{ step.status === 'completed' ? 'Verified & Active' : 'Setup Required' }}</span>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Authorized Companies Section -->
+    <!-- Authorized Companies Section using Reusable AppDataTableComponent -->
+    <div class="detail-section erp-card">
+      <div class="section-head section-head-with-actions">
+        <div>
+          <h3>Registered Operating Companies</h3>
+          <p class="section-subtext">Verified entities under tenant isolation boundary.</p>
+        </div>
+        <div class="section-actions">
+          @if (companies().length === 0) {
+            <button type="button" class="p-button p-button-sm p-button-success" (click)="onInitializeDefault()">
+              <i class="pi pi-bolt p-button-icon-left"></i>
+              <span class="p-button-label">Quick Setup (Company & Branch)</span>
+            </button>
+          }
+          <button type="button" class="p-button p-button-sm p-button-primary" (click)="openAddCompanyModal()">
+            <i class="pi pi-plus p-button-icon-left"></i>
+            <span class="p-button-label">Add Company</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <app-data-table
+          [columns]="companyColumns"
+          [data]="tableCompanies()"
+          [rowKey]="'id'"
+          [showGlobalSearch]="true"
+          [showFilters]="true"
+          [showSorting]="true"
+          [paginator]="true"
+          [showColumnChooser]="true"
+          [showExport]="true"
+          [showViewSwitcher]="true"
+          cardIcon="pi pi-building"
+          cardTitleField="name"
+          cardSubtitleField="code"
+          [rows]="5"
+          [rowsPerPageOptions]="[5, 10, 20]"
+          [searchPlaceholder]="'Search company name, code or currency...'"
+          [emptyTitle]="'No Registered Operating Companies'"
+          [emptyDescription]="'Get started by adding a company or initializing default company setup.'"
+        >
+          <ng-template #rowActions let-comp>
+            @if (scopeService.selectedCompany()?.id === comp.id) {
+              <span class="active-scope-badge"><i class="pi pi-check-circle"></i> Current Company</span>
+            } @else {
+              <p-button
+                label="Select Company"
+                icon="pi pi-check"
+                size="small"
+                [outlined]="true"
+                severity="primary"
+                (onClick)="setActiveCompany(comp)"
+              ></p-button>
+            }
+          </ng-template>
+        </app-data-table>
+      </div>
+    </div>
+
+    <!-- Operating Branches Section using Reusable AppDataTableComponent -->
+    <div class="detail-section erp-card">
+      <div class="section-head section-head-with-actions">
+        <div>
+          <h3>Operating Branches & Facilities</h3>
+          <p class="section-subtext">Location scope boundaries authorized for active company: <strong>{{ scopeService.selectedCompany()?.name || 'None' }}</strong></p>
+        </div>
+        <div class="section-actions">
+          <button
+            type="button"
+            class="p-button p-button-sm p-button-primary"
+            [disabled]="companies().length === 0"
+            (click)="openAddBranchModal()"
+          >
+            <i class="pi pi-plus p-button-icon-left"></i>
+            <span class="p-button-label">Add Branch</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <app-data-table
+          [columns]="branchColumns"
+          [data]="tableBranches()"
+          [rowKey]="'id'"
+          [showGlobalSearch]="true"
+          [showFilters]="true"
+          [showSorting]="true"
+          [paginator]="true"
+          [showColumnChooser]="true"
+          [showExport]="true"
+          [showViewSwitcher]="true"
+          cardIcon="pi pi-sitemap"
+          cardTitleField="name"
+          cardSubtitleField="code"
+          [rows]="5"
+          [rowsPerPageOptions]="[5, 10, 20]"
+          [searchPlaceholder]="'Search branch name or code...'"
+          [emptyTitle]="'No Operating Branches'"
+          [emptyDescription]="'Add a branch for the active company to enable operational transactions.'"
+        >
+          <ng-template #rowActions let-branch>
+            @if (!scopeService.isAllBranches() && scopeService.selectedBranch()?.id === branch.id) {
+              <span class="active-scope-badge"><i class="pi pi-check-circle"></i> Current Branch</span>
+            } @else {
+              <p-button
+                label="Select Branch"
+                icon="pi pi-check"
+                size="small"
+                [outlined]="true"
+                severity="primary"
+                (onClick)="setActiveBranch(branch)"
+              ></p-button>
+            }
+          </ng-template>
+        </app-data-table>
+      </div>
+    </div>
+
+    <!-- Modal: Register Operating Company -->
+    <p-dialog
+      header="Register Operating Company"
+      [visible]="showAddCompanyDialog()"
+      (visibleChange)="showAddCompanyDialog.set($event)"
+      [modal]="true"
+      [style]="{ width: '480px' }"
+      [closable]="true"
+      [draggable]="false"
+      [resizable]="false"
+    >
+      <div class="modal-form-body">
+        @if (formError()) {
+          <div class="form-error-banner">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>{{ formError() }}</span>
+          </div>
+        }
+        <div class="field-row">
+          <label for="companyName">Company Name <span class="required-star">*</span></label>
+          <input
+            pInputText
+            id="companyName"
+            [(ngModel)]="newCompanyName"
+            placeholder="e.g. Apex Industrial Manufacturing Ltd"
+            class="w-full"
+            (keydown.enter)="saveCompany()"
+            autofocus
+          />
+        </div>
+        <div class="field-row">
+          <label for="companyCode">Company Code <span class="required-star">*</span></label>
+          <input
+            pInputText
+            id="companyCode"
+            [(ngModel)]="newCompanyCode"
+            placeholder="e.g. APEX-MFG"
+            class="w-full"
+            (keydown.enter)="saveCompany()"
+          />
+        </div>
+        <div class="field-row">
+          <label for="companyCurrency">Operating Currency</label>
+          <input
+            pInputText
+            id="companyCurrency"
+            [(ngModel)]="newCompanyCurrency"
+            placeholder="USD, LKR, EUR"
+            class="w-full"
+            (keydown.enter)="saveCompany()"
+          />
+        </div>
+      </div>
+
+      <ng-template #footer pTemplate="footer">
+        <div class="dialog-actions-container">
+          <p-button
+            label="Cancel"
+            [text]="true"
+            severity="secondary"
+            (onClick)="showAddCompanyDialog.set(false)"
+          ></p-button>
+          <p-button
+            label="Register Company"
+            icon="pi pi-check"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveCompany()"
+          ></p-button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Modal: Link Operating Branch -->
+    <p-dialog
+      header="Link Operating Branch / Plant"
+      [visible]="showAddBranchDialog()"
+      (visibleChange)="showAddBranchDialog.set($event)"
+      [modal]="true"
+      [style]="{ width: '480px' }"
+      [closable]="true"
+      [draggable]="false"
+      [resizable]="false"
+    >
+      <div class="modal-form-body">
+        @if (formError()) {
+          <div class="form-error-banner">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>{{ formError() }}</span>
+          </div>
+        }
+        <div class="field-row">
+          <label for="branchCompany">Operating Company <span class="required-star">*</span></label>
+          <select
+            id="branchCompany"
+            [(ngModel)]="newBranchCompanyId"
+            class="w-full p-inputtext select-input"
+          >
+            @for (comp of companies(); track comp.id) {
+              <option [value]="comp.id">{{ comp.name }} ({{ comp.code }})</option>
+            }
+          </select>
+          <small class="field-hint">Select the parent company to link this operating branch/facility to.</small>
+        </div>
+
+        <div class="field-row">
+          <label for="branchName">Branch / Plant Name <span class="required-star">*</span></label>
+          <input
+            pInputText
+            id="branchName"
+            [(ngModel)]="newBranchName"
+            placeholder="e.g. Second Branch"
+            class="w-full"
+            (keydown.enter)="saveBranch()"
+            autofocus
+          />
+        </div>
+        <div class="field-row">
+          <label for="branchCode">Branch Code <span class="required-star">*</span></label>
+          <input
+            pInputText
+            id="branchCode"
+            [(ngModel)]="newBranchCode"
+            placeholder="e.g. SCDBCH"
+            class="w-full"
+            (keydown.enter)="saveBranch()"
+          />
+        </div>
+      </div>
+
+      <ng-template #footer pTemplate="footer">
+        <div class="dialog-actions-container">
+          <p-button
+            label="Cancel"
+            [text]="true"
+            severity="secondary"
+            (onClick)="showAddBranchDialog.set(false)"
+          ></p-button>
+          <p-button
+            label="Link Branch"
+            icon="pi pi-check"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveBranch()"
+          ></p-button>
+        </div>
+      </ng-template>
+    </p-dialog>
+
+    <!-- Modal: Initial Organization Setup Wizard (Company & Branch) -->
+    <p-dialog
+      header="Initialize Organization & Branch Setup"
+      [visible]="showInitWizardDialog()"
+      (visibleChange)="showInitWizardDialog.set($event)"
+      [modal]="true"
+      [style]="{ width: '520px' }"
+      [closable]="true"
+      [draggable]="false"
+      [resizable]="false"
+    >
+      <div class="modal-form-body">
+        @if (formError()) {
+          <div class="form-error-banner">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>{{ formError() }}</span>
+          </div>
+        }
+        <p class="modal-hint">
+          Configure your primary operating legal entity and your first facility/branch to activate operational transactions.
+        </p>
+
+        <!-- Company Section in Wizard -->
+        <div class="wizard-group">
+          <div class="wizard-group-title">
+            <i class="pi pi-building"></i>
+            <span>1. Primary Operating Company</span>
+          </div>
+          <div class="field-row">
+            <label for="initCompanyName">Company Legal Name <span class="required-star">*</span></label>
+            <input
+              pInputText
+              id="initCompanyName"
+              [(ngModel)]="initCompanyName"
+              placeholder="e.g. Apex Manufacturing (Pvt) Ltd"
+              class="w-full"
+              (keydown.enter)="saveInitWizard()"
+              autofocus
+            />
+          </div>
+          <div class="field-grid-2">
+            <div class="field-row">
+              <label for="initCompanyCode">Company Code <span class="required-star">*</span></label>
+              <input
+                pInputText
+                id="initCompanyCode"
+                [(ngModel)]="initCompanyCode"
+                placeholder="e.g. APX-MFG"
+                class="w-full"
+                (keydown.enter)="saveInitWizard()"
+              />
+            </div>
+            <div class="field-row">
+              <label for="initCompanyCurrency">Operating Currency <span class="required-star">*</span></label>
+              <input
+                pInputText
+                id="initCompanyCurrency"
+                [(ngModel)]="initCompanyCurrency"
+                placeholder="USD, LKR, EUR"
+                class="w-full"
+                (keydown.enter)="saveInitWizard()"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Branch Section in Wizard -->
+        <div class="wizard-group">
+          <div class="wizard-group-title">
+            <i class="pi pi-sitemap"></i>
+            <span>2. Initial Facility / Operating Branch</span>
+          </div>
+          <div class="field-row">
+            <label for="initBranchName">Branch / Plant Name <span class="required-star">*</span></label>
+            <input
+              pInputText
+              id="initBranchName"
+              [(ngModel)]="initBranchName"
+              placeholder="e.g. Colombo Headquarters Plant"
+              class="w-full"
+              (keydown.enter)="saveInitWizard()"
+            />
+          </div>
+          <div class="field-row">
+            <label for="initBranchCode">Branch Code <span class="required-star">*</span></label>
+            <input
+              pInputText
+              id="initBranchCode"
+              [(ngModel)]="initBranchCode"
+              placeholder="e.g. CMB-HQ-01"
+              class="w-full"
+              (keydown.enter)="saveInitWizard()"
+            />
+          </div>
+        </div>
+      </div>
+
+      <ng-template #footer pTemplate="footer">
+        <div class="dialog-actions-container">
+          <p-button
+            label="Cancel"
+            [text]="true"
+            severity="secondary"
+            (onClick)="showInitWizardDialog.set(false)"
+          ></p-button>
+          <p-button
+            label="Initialize & Activate"
+            icon="pi pi-check"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveInitWizard()"
+          ></p-button>
+        </div>
+      </ng-template>
+    </p-dialog>
+  }
+</div>

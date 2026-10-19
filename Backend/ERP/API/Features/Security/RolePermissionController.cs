@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using System;
+using System.Threading.Tasks;
+using API.Common;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Security.Application.DTOs;
 using Security.Interfaces;
@@ -8,42 +11,34 @@ namespace API.Features.Security;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class RolePermissionController : ControllerBase
+public class RolePermissionController : BaseApiController
 {
     private readonly IRolePermissionService _rolePermissionService;
 
-    public RolePermissionController(
-        IRolePermissionService rolePermissionService)
+    public RolePermissionController(IRolePermissionService rolePermissionService)
     {
         _rolePermissionService = rolePermissionService;
     }
 
     [HttpPost]
-    public async Task<IActionResult> AssignPermissionToRole(
-        [FromBody] AssignPermissionToRoleRequest request)
+    [Authorize(Roles = "Platform Admin, Security Manager")]
+    public async Task<IActionResult> AssignPermissionToRole([FromBody] AssignPermissionToRoleRequest request)
     {
         try
         {
-            await _rolePermissionService
-                .AssignPermissionToRoleAsync(
-                    request.RoleId,
-                    request.PermissionId);
+            await _rolePermissionService.AssignPermissionToRoleAsync(
+                request.RoleId,
+                request.PermissionId);
 
-            return Ok(new
+            return SuccessResponse(new
             {
-                status = "PASS",
-                message = "Permission assigned to role successfully.",
                 roleId = request.RoleId,
                 permissionId = request.PermissionId
-            });
+            }, "Permission assigned to role successfully.");
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            return Conflict(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

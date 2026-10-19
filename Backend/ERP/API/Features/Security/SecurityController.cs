@@ -1,124 +1,99 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-
-using SaaS.Application.DTOs;
-using SaaS.Application.Interfaces;
-
-using Security.Interfaces;
-using Security.Services;
-
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
-
+using System.Threading.Tasks;
+using API.Common;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
+using SaaS.Application.DTOs;
+using SaaS.Application.Interfaces;
+using Security.Interfaces;
+using Security.Services;
 using SecurityLoginRequest = Security.Application.DTOs.LoginRequest;
 
 namespace API.Features.Security;
 
 [ApiController]
 [Route("api/[controller]")]
-public class SecurityController : ControllerBase
+public class SecurityController : BaseApiController
 {
     private readonly SecurityService _securityService;
     private readonly ITokenService _tokenService;
     private readonly RsaPrivateKeyLoader _keyLoader;
-    private readonly ITenantService _tenantService;
     private readonly IUserService _userService;
+    private readonly IWebHostEnvironment _env;
 
     public SecurityController(
         SecurityService securityService,
         ITokenService tokenService,
         RsaPrivateKeyLoader keyLoader,
-        ITenantService tenantService,
-        IUserService userService)
+        IUserService userService,
+        IWebHostEnvironment env)
     {
         _securityService = securityService;
         _tokenService = tokenService;
         _keyLoader = keyLoader;
-        _tenantService = tenantService;
         _userService = userService;
+        _env = env;
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(
-        [FromBody] SecurityLoginRequest request)
+    public async Task<IActionResult> Login([FromBody] SecurityLoginRequest request)
     {
         try
         {
             if (request == null)
             {
-                return BadRequest(new
-                {
-                    status = "FAIL",
-                    message = "Login request is null."
-                });
+                return BadRequestResponse("Login request is null.");
             }
 
             if (string.IsNullOrWhiteSpace(request.Email))
             {
-                return BadRequest(new
-                {
-                    status = "FAIL",
-                    message = "Email did not reach SecurityController.",
-                    emailReceived = request.Email,
-                    passwordReceived =
-                        !string.IsNullOrWhiteSpace(request.Password)
-                });
+                return BadRequestResponse("Email is required.");
             }
 
             if (string.IsNullOrWhiteSpace(request.Password))
             {
-                return BadRequest(new
-                {
-                    status = "FAIL",
-                    message = "Password did not reach SecurityController.",
-                    emailReceived = request.Email,
-                    passwordReceived = false
-                });
+                return BadRequestResponse("Password is required.");
             }
 
-            var result =
-                await _userService.LoginAsync(request);
-
-            return Ok(result);
+            var result = await _userService.LoginAsync(request);
+            return SuccessResponse(result, "Login successful.");
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return BadRequestResponse(ex.Message);
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return UnauthorizedResponse(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
         }
     }
 
     [HttpGet("status")]
     public IActionResult GetStatus()
     {
-        return Ok(_securityService.GetStatus());
+        return SuccessResponse(_securityService.GetStatus());
     }
 
     [HttpGet("diagnostic")]
+    [Authorize(Roles = "Platform Admin, Security Manager")]
     public IActionResult RunDiagnostic()
     {
         var results = new List<object>();
 
-        string privateKeyPath =
-            _keyLoader.GetPrivateKeyPath();
-
-        bool vaultPathAvailable =
-            !string.IsNullOrWhiteSpace(privateKeyPath);
+        string privateKeyPath = _keyLoader.GetPrivateKeyPath();
+        bool vaultPathAvailable = !string.IsNullOrWhiteSpace(privateKeyPath);
 
         results.Add(new
         {
@@ -131,10 +106,9 @@ public class SecurityController : ControllerBase
         });
 
         if (!vaultPathAvailable)
-            return Ok(results);
+            return SuccessResponse(results);
 
-        bool privateKeyFound =
-            _keyLoader.IsPrivateKeyFound();
+        bool privateKeyFound = _keyLoader.IsPrivateKeyFound();
 
         results.Add(new
         {
@@ -147,10 +121,9 @@ public class SecurityController : ControllerBase
         });
 
         if (!privateKeyFound)
-            return Ok(results);
+            return SuccessResponse(results);
 
-        bool privateKeyLoaded =
-            _keyLoader.TryLoadPrivateKey();
+        bool privateKeyLoaded = _keyLoader.TryLoadPrivateKey();
 
         results.Add(new
         {
@@ -163,13 +136,10 @@ public class SecurityController : ControllerBase
         });
 
         if (!privateKeyLoaded)
-            return Ok(results);
+            return SuccessResponse(results);
 
-        bool privateKeyValid =
-            _keyLoader.IsPrivateKeyValid();
-
-        var rsaPrivate =
-            _keyLoader.GetRsa();
+        bool privateKeyValid = _keyLoader.IsPrivateKeyValid();
+        var rsaPrivate = _keyLoader.GetRsa();
 
         results.Add(new
         {
@@ -182,10 +152,9 @@ public class SecurityController : ControllerBase
         });
 
         if (!privateKeyValid)
-            return Ok(results);
+            return SuccessResponse(results);
 
-        bool publicKeyFound =
-            _keyLoader.IsPublicKeyFound();
+        bool publicKeyFound = _keyLoader.IsPublicKeyFound();
 
         results.Add(new
         {
@@ -198,10 +167,9 @@ public class SecurityController : ControllerBase
         });
 
         if (!publicKeyFound)
-            return Ok(results);
+            return SuccessResponse(results);
 
-        bool publicKeyLoaded =
-            _keyLoader.TryLoadPublicKey();
+        bool publicKeyLoaded = _keyLoader.TryLoadPublicKey();
 
         results.Add(new
         {
@@ -214,10 +182,9 @@ public class SecurityController : ControllerBase
         });
 
         if (!publicKeyLoaded)
-            return Ok(results);
+            return SuccessResponse(results);
 
-        bool publicKeyValid =
-            _keyLoader.IsPublicKeyValid();
+        bool publicKeyValid = _keyLoader.IsPublicKeyValid();
 
         results.Add(new
         {
@@ -230,10 +197,9 @@ public class SecurityController : ControllerBase
         });
 
         if (!publicKeyValid)
-            return Ok(results);
+            return SuccessResponse(results);
 
-        bool keyPairValid =
-            _keyLoader.VerifyPrivatePublicPair();
+        bool keyPairValid = _keyLoader.VerifyPrivatePublicPair();
 
         results.Add(new
         {
@@ -246,20 +212,18 @@ public class SecurityController : ControllerBase
         });
 
         if (!keyPairValid)
-            return Ok(results);
+            return SuccessResponse(results);
 
         try
         {
-            string token =
-                _tokenService.GenerateAccessToken(
-                    Guid.NewGuid(),
-                    "DiagnosticUser",
-                    Guid.NewGuid(),
-                    new[] { "DiagnosticUser" },
-                    new[] { "Security.Diagnostic" });
+            string token = _tokenService.GenerateAccessToken(
+                Guid.NewGuid(),
+                "DiagnosticUser",
+                Guid.NewGuid(),
+                new[] { "DiagnosticUser" },
+                new[] { "Security.Diagnostic" });
 
-            bool tokenGenerated =
-                !string.IsNullOrWhiteSpace(token);
+            bool tokenGenerated = !string.IsNullOrWhiteSpace(token);
 
             results.Add(new
             {
@@ -278,42 +242,37 @@ public class SecurityController : ControllerBase
                 step = 9,
                 test = "RS256 JWT generation framework check",
                 status = "FAIL",
-                message =
-                    $"JWT generation engine threw a critical error: {ex.Message}"
+                message = $"JWT generation engine threw a critical error: {ex.Message}"
             });
         }
 
-        return Ok(results);
+        return SuccessResponse(results);
     }
 
     [HttpGet("jwt-diagnostic")]
     public IActionResult JwtDiagnostic()
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFoundResponse("Diagnostic endpoint only available in Development environment.");
+        }
+
         try
         {
             Guid userId = Guid.NewGuid();
             Guid tenantId = Guid.NewGuid();
 
-            var roles = new[]
-            {
-                "TenantAdmin"
-            };
+            var roles = new[] { "TenantAdmin" };
+            var permissions = new[] { "Product.Read", "Product.Write" };
 
-            var permissions = new[]
-            {
-                "Product.Read",
-                "Product.Write"
-            };
+            string token = _tokenService.GenerateAccessToken(
+                userId,
+                "DiagnosticUser",
+                tenantId,
+                roles,
+                permissions);
 
-            string token =
-                _tokenService.GenerateAccessToken(
-                    userId,
-                    "DiagnosticUser",
-                    tenantId,
-                    roles,
-                    permissions);
-
-            return Ok(new
+            return SuccessResponse(new
             {
                 status = "PASS",
                 message = "Real RS256 JWT generated successfully",
@@ -325,55 +284,41 @@ public class SecurityController : ControllerBase
                 roles,
                 permissions,
                 token
-            });
+            }, "Real RS256 JWT generated successfully");
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new
-            {
-                status = "FAIL",
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
     [HttpPost("login-test")]
-    public IActionResult LoginTest(
-        [FromQuery] string username,
-        [FromQuery] string password)
+    public IActionResult LoginTest([FromQuery] string username, [FromQuery] string password)
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFoundResponse("Login test endpoint only available in Development environment.");
+        }
+
         if (username != "admin" || password != "123")
         {
-            return Unauthorized(new
-            {
-                status = "FAIL",
-                message = "Invalid test credentials"
-            });
+            return UnauthorizedResponse("Invalid test credentials");
         }
 
         Guid userId = Guid.NewGuid();
         Guid tenantId = Guid.NewGuid();
 
-        var roles = new[]
-        {
-            "TenantAdmin"
-        };
+        var roles = new[] { "TenantAdmin" };
+        var permissions = new[] { "Product.Read", "Product.Write" };
 
-        var permissions = new[]
-        {
-            "Product.Read",
-            "Product.Write"
-        };
+        string token = _tokenService.GenerateAccessToken(
+            userId,
+            username,
+            tenantId,
+            roles,
+            permissions);
 
-        string token =
-            _tokenService.GenerateAccessToken(
-                userId,
-                username,
-                tenantId,
-                roles,
-                permissions);
-
-        return Ok(new
+        return SuccessResponse(new
         {
             status = "PASS",
             message = "Test authentication successful",
@@ -382,53 +327,43 @@ public class SecurityController : ControllerBase
             issuer = "CSharpAuthServer",
             audience = "ERP",
             token
-        });
+        }, "Test authentication successful");
     }
 
     [HttpPost("jwt-wrong-issuer-test")]
     public IActionResult JwtWrongIssuerTest()
     {
+        if (!_env.IsDevelopment())
+        {
+            return NotFoundResponse("Test endpoint only available in Development environment.");
+        }
+
         Guid userId = Guid.NewGuid();
         Guid tenantId = Guid.NewGuid();
 
         var claims = new List<Claim>
         {
-            new(
-                JwtRegisteredClaimNames.Sub,
-                userId.ToString()),
-
-            new(
-                "tenant_id",
-                tenantId.ToString()),
-
-            new(
-                ClaimTypes.Role,
-                "TenantAdmin"),
-
-            new(
-                "permission",
-                "Product.Read")
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new("tenant_id", tenantId.ToString()),
+            new(ClaimTypes.Role, "TenantAdmin"),
+            new("permission", "Product.Read")
         };
 
-        var rsa =
-            _keyLoader.GetRsa()
-            ?? throw new InvalidOperationException(
-                "RSA private key is unavailable.");
+        var rsa = _keyLoader.GetRsa()
+            ?? throw new InvalidOperationException("RSA private key is unavailable.");
 
-        var credentials =
-            new SigningCredentials(
-                new RsaSecurityKey(rsa),
-                SecurityAlgorithms.RsaSha256);
+        var credentials = new SigningCredentials(
+            new RsaSecurityKey(rsa),
+            SecurityAlgorithms.RsaSha256);
 
-        var token =
-            new JwtSecurityToken(
-                issuer: "WRONG-ISSUER",
-                audience: "ERP",
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(30),
-                signingCredentials: credentials);
+        var token = new JwtSecurityToken(
+            issuer: "WRONG-ISSUER",
+            audience: "ERP",
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(30),
+            signingCredentials: credentials);
 
-        return Ok(new
+        return SuccessResponse(new
         {
             status = "PASS",
             test = "Wrong issuer",
@@ -439,66 +374,54 @@ public class SecurityController : ControllerBase
         });
     }
 
-    [HttpPost("tenant-registration-test")]
-    public async Task<IActionResult> TenantRegistrationTest(
-        [FromBody] CreateTenantRequest request)
-    {
-        TenantRegistrationResult result =
-            await _tenantService.RegisterTenant(request);
-
-        return Ok(new
-        {
-            status = "PASS",
-            message = "Tenant registration use case completed",
-            tenant = result.Tenant,
-            subscription = result.Subscription
-        });
-    }
-
     [Authorize]
     [HttpGet("protected-test")]
     public IActionResult ProtectedTest()
     {
-        return Ok(new
+        return SuccessResponse(new
         {
             status = "PASS",
             message = "JWT authentication successful.",
-
-            userId = User.FindFirst(
-                ClaimTypes.NameIdentifier)?.Value,
-
-            username = User.FindFirst(
-                ClaimTypes.Name)?.Value,
-
+            userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+            username = User.FindFirst(ClaimTypes.Name)?.Value,
             roles = User.Claims
                 .Where(x => x.Type == ClaimTypes.Role)
                 .Select(x => x.Value)
                 .ToList(),
-
-            tenantId = User.FindFirst(
-                "tenant_id")?.Value
-        });
+            tenantId = User.FindFirst("tenant_id")?.Value
+        }, "JWT authentication successful.");
     }
 
     [HttpGet("subscription-view-test")]
-    [Authorize(Policy = "SUBSCRIPTION_VIEW")]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult SubscriptionViewTest()
     {
-        return Ok(new
+        return SuccessResponse(new
         {
             status = "PASS",
             message = "SUBSCRIPTION_VIEW authorization successful."
-        });
+        }, "SUBSCRIPTION_VIEW authorization successful.");
     }
 
     [HttpGet("platform-admin-test")]
     [Authorize(Roles = "Platform Admin")]
     public IActionResult PlatformAdminTest()
     {
-        return Ok(new
+        return SuccessResponse(new
         {
             status = "PASS",
             message = "Platform Admin role authorization successful."
-        });
+        }, "Platform Admin role authorization successful.");
+    }
+
+    [HttpGet("error-simulation-test")]
+    public IActionResult ErrorSimulationTest()
+    {
+        if (!_env.IsDevelopment())
+        {
+            return NotFoundResponse("Diagnostic endpoint only available in Development environment.");
+        }
+
+        throw new InvalidOperationException("Simulated unexpected internal database failure for error traceability verification.");
     }
 }

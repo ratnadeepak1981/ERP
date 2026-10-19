@@ -1,0 +1,439 @@
+<div class="purchase-order-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Orders"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (mode() === 'view' && currentOrder()) {
+        <app-status-badge
+          [label]="orderStatusName()"
+          [severity]="orderStatusSeverity()"
+        ></app-status-badge>
+
+        @if (canEdit()) {
+          <p-button
+            label="Edit"
+            icon="pi pi-pencil"
+            size="small"
+            severity="secondary"
+            (onClick)="navigateToEdit()"
+          ></p-button>
+        }
+
+        @if (canSubmit()) {
+          <p-button
+            label="Submit"
+            icon="pi pi-send"
+            size="small"
+            severity="primary"
+            [loading]="actionInProgress()"
+            (onClick)="submitCurrentOrder()"
+          ></p-button>
+        }
+
+        @if (currentOrder()?.status === 2 && canApprove()) {
+          <p-button
+            label="Approve"
+            icon="pi pi-check"
+            size="small"
+            severity="success"
+            [loading]="actionInProgress()"
+            (onClick)="openRemarksDialog('approve')"
+          ></p-button>
+
+          <p-button
+            label="Reject"
+            icon="pi pi-times"
+            size="small"
+            severity="danger"
+            [loading]="actionInProgress()"
+            (onClick)="openRemarksDialog('reject')"
+          ></p-button>
+        }
+
+        @if (isApproved()) {
+          <p-button
+            label="Product Receipt"
+            icon="pi pi-box"
+            size="small"
+            severity="success"
+            (onClick)="navigateToProductReceipt()"
+            title="Receive items against this approved Purchase Order"
+          ></p-button>
+        }
+
+        @if (canCancel()) {
+          <p-button
+            label="Cancel PO"
+            icon="pi pi-ban"
+            size="small"
+            severity="danger"
+            [outlined]="true"
+            [loading]="actionInProgress()"
+            (onClick)="openRemarksDialog('cancel')"
+          ></p-button>
+        }
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Global Banner Messages -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="po-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading purchase order requisition..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state
+        title="Unable to load order"
+        [message]="error()!"
+        (retry)="loadExistingOrder(orderId()!)"
+      ></app-error-state>
+    </div>
+  } @else {
+    <div class="po-form-container">
+      <!-- Section 1: Operating Scope Hierarchy -->
+      <section class="erp-card scope-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 1</span>
+            <h2 class="section-title">Operating Scope</h2>
+          </div>
+          <span class="section-subtitle">
+            All procurement records and line approvals belong strictly to an authorized operating company and branch.
+          </span>
+        </div>
+
+        <div class="scope-selectors-grid">
+          <!-- Tenant Read-only Display -->
+          <div class="scope-field">
+            <label class="scope-label">Tenant Organization</label>
+            <div class="scope-static-value">
+              <i class="pi pi-shield"></i>
+              <span>{{ scopeService.activeTenantName() }}</span>
+            </div>
+          </div>
+
+          <!-- Company Selection -->
+          <div class="scope-field">
+            <label for="companySelect" class="scope-label">
+              Operating Company
+              @if (mode() !== 'view') {
+                <span class="required-star">*</span>
+              }
+            </label>
+            @if (mode() === 'view') {
+              <div class="scope-static-value">
+                <i class="pi pi-building"></i>
+                <span>{{ scopeService.selectedCompany()?.name || 'Assigned Company' }}</span>
+              </div>
+            } @else {
+              <select
+                id="companySelect"
+                class="erp-select-control"
+                [ngModel]="selectedCompanyId()"
+                (ngModelChange)="onCompanyChange($event)"
+                [disabled]="actionInProgress() || availableCompanies().length <= 1"
+              >
+                @for (comp of availableCompanies(); track comp.id) {
+                  <option [value]="comp.id">{{ comp.name }} ({{ comp.code }})</option>
+                }
+              </select>
+            }
+          </div>
+
+          <!-- Branch Selection -->
+          <div class="scope-field">
+            <label for="branchSelect" class="scope-label">
+              Operating Branch
+              @if (mode() !== 'view') {
+                <span class="required-star">*</span>
+              }
+            </label>
+            @if (mode() === 'view') {
+              <div class="scope-static-value">
+                <i class="pi pi-map-pin"></i>
+                <span>{{ scopeService.selectedBranch()?.name || 'Assigned Branch' }}</span>
+              </div>
+            } @else {
+              <select
+                id="branchSelect"
+                class="erp-select-control"
+                [ngModel]="selectedBranchId()"
+                (ngModelChange)="onBranchChange($event)"
+                [disabled]="actionInProgress() || availableBranches().length <= 1"
+              >
+                @for (br of availableBranches(); track br.id) {
+                  <option [value]="br.id">{{ br.name }} ({{ br.code }})</option>
+                }
+              </select>
+            }
+          </div>
+        </div>
+
+        @if (!scopeService.canOperateTransactions()) {
+          <div class="scope-alert-warning">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>Branch selection is required before purchase orders can be created or authorized.</span>
+          </div>
+        }
+      </section>
+
+      <!-- Section 2: Reusable Reactive Form for Order Header -->
+      <section class="erp-card header-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 2</span>
+            <h2 class="section-title">Order Information</h2>
+          </div>
+          <span class="section-subtitle">
+            Provide the vendor identity, requisition date, and agreed commercial terms.
+          </span>
+        </div>
+
+        <app-reactive-form
+          [form]="headerForm"
+          [fields]="formFields()"
+          [readonly]="mode() === 'view'"
+          [serverErrors]="serverErrors()"
+          [columns]="3"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Section 3: Reusable Editable Data Table for Line Items -->
+      <section class="erp-card items-section">
+        <div class="section-header line-items-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 3</span>
+            <h2 class="section-title">Line Items Requisition</h2>
+            <span class="item-count-pill">{{ workingLines().length }} {{ workingLines().length === 1 ? 'item' : 'items' }}</span>
+          </div>
+          @if (mode() !== 'view') {
+            <span class="section-subtitle">
+              Click any cell to edit &bull; Press Tab in the last cell or use the Add Row action to append items
+            </span>
+          }
+        </div>
+
+        <app-editable-data-table
+          [data]="workingLines()"
+          [columns]="editableItemColumns()"
+          rowKey="lineId"
+          [readonly]="mode() === 'view'"
+          [showActionBar]="mode() !== 'view'"
+          [allowAddRow]="mode() !== 'view'"
+          [allowDeleteRow]="mode() !== 'view'"
+          [defaultNewRow]="defaultNewRow"
+          [onRowCalculate]="calculateRow"
+          subtotalField="lineTotal"
+          subtotalLabel="Line Items Subtotal"
+          currencyCode="USD"
+          emptyTitle="No line items added"
+          emptyDescription="Click 'Add Row' to search and select products for this requisition."
+        ></app-editable-data-table>
+      </section>
+
+      <!-- Section 4: Totals & Workflow Action Footer -->
+      <section class="erp-card footer-summary-section">
+        <div class="summary-totals-grid">
+          <div class="summary-row">
+            <span class="summary-label">Items Subtotal:</span>
+            <span class="summary-value">{{ subtotalAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Estimated Tax:</span>
+            <span class="summary-value">{{ taxAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+          </div>
+          <div class="summary-row total-row">
+            <span class="summary-label">Total Order Value:</span>
+            <span class="summary-value grand-total">{{ totalOrderAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="footer-actions-bar">
+          <p-button
+            label="Cancel"
+            icon="pi pi-times"
+            [outlined]="true"
+            severity="secondary"
+            (onClick)="navigateBack()"
+            [disabled]="actionInProgress()"
+          ></p-button>
+
+          @if (mode() === 'create' || mode() === 'edit') {
+            <p-button
+              label="Save as Draft"
+              icon="pi pi-save"
+              severity="secondary"
+              [loading]="actionInProgress()"
+              [disabled]="!scopeService.canOperateTransactions()"
+              (onClick)="saveOrder(false)"
+            ></p-button>
+
+            <p-button
+              label="Submit for Approval"
+              icon="pi pi-send"
+              severity="primary"
+              [loading]="actionInProgress()"
+              [disabled]="!scopeService.canOperateTransactions()"
+              (onClick)="saveOrder(true)"
+            ></p-button>
+          } @else if (mode() === 'view') {
+            @if (canEdit()) {
+              <p-button
+                label="Edit Order"
+                icon="pi pi-pencil"
+                severity="secondary"
+                (onClick)="navigateToEdit()"
+              ></p-button>
+            }
+            @if (canSubmit()) {
+              <p-button
+                label="Submit for Approval"
+                icon="pi pi-send"
+                severity="primary"
+                [loading]="actionInProgress()"
+                (onClick)="submitCurrentOrder()"
+              ></p-button>
+            }
+          }
+        </div>
+      </section>
+    </div>
+  }
+
+  <!-- APPROVE / REJECT / CANCEL REMARKS DIALOG -->
+  <p-dialog
+    [(visible)]="remarksDialogVisible"
+    [modal]="true"
+    [header]="remarksAction() === 'approve' ? 'Approve Purchase Order' : remarksAction() === 'reject' ? 'Reject Purchase Order' : 'Cancel Purchase Order'"
+    [style]="{ width: '480px', maxWidth: '94vw' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    <div class="remarks-dialog-body">
+      @if (remarksError()) {
+        <div class="form-error-banner">
+          <i class="pi pi-times-circle"></i>
+          <span>{{ remarksError() }}</span>
+        </div>
+      }
+
+      <p class="remarks-instruction">
+        @if (remarksAction() === 'approve') {
+          Provide optional comments or authorization notes to proceed with approval.
+        } @else if (remarksAction() === 'reject') {
+          Mandatory: explain the operational justification for rejecting this requisition.
+        } @else {
+          Confirm cancellation of this requisition order.
+        }
+      </p>
+
+      <div class="form-group">
+        <label for="remarksInput">Decision Remarks</label>
+        <textarea
+          id="remarksInput"
+          class="erp-form-textarea"
+          rows="3"
+          [ngModel]="remarksText()"
+          (ngModelChange)="remarksText.set($event)"
+          [placeholder]="remarksAction() === 'reject' ? 'Enter required rejection reason...' : 'Enter optional remarks...'"
+        ></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Dismiss"
+        icon="pi pi-times"
+        [outlined]="true"
+        severity="secondary"
+        size="small"
+        [disabled]="actionInProgress()"
+        (onClick)="remarksDialogVisible.set(false)"
+      ></p-button>
+      <p-button
+        [label]="remarksAction() === 'approve' ? 'Confirm Approval' : remarksAction() === 'reject' ? 'Confirm Rejection' : 'Confirm Cancel'"
+        [icon]="remarksAction() === 'approve' ? 'pi pi-check' : 'pi pi-times'"
+        [severity]="remarksAction() === 'approve' ? 'success' : 'danger'"
+        size="small"
+        [loading]="actionInProgress()"
+        (onClick)="confirmRemarksDecision()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- CONFIRM SCOPE CHANGE DIALOG -->
+  <p-dialog
+    [(visible)]="confirmScopeChangeDialog"
+    [modal]="true"
+    header="Change Operating Company?"
+    [style]="{ width: '450px', maxWidth: '94vw' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    <div class="confirm-dialog-content">
+      <i class="pi pi-exclamation-triangle confirm-dialog-icon"></i>
+      <div class="confirm-dialog-text">
+        <p class="confirm-title">Switching company will reset line items</p>
+        <p class="confirm-desc">
+          You currently have requisition lines entered. Products and authorized branches are scoped to specific operating companies. Changing company will clear current items.
+        </p>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Keep Current Company"
+        [outlined]="true"
+        severity="secondary"
+        size="small"
+        (onClick)="cancelCompanyChange()"
+      ></p-button>
+      <p-button
+        label="Switch and Reset Lines"
+        severity="danger"
+        size="small"
+        (onClick)="confirmCompanyChange()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

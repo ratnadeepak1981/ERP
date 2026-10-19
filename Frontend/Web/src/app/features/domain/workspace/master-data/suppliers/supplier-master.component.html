@@ -1,0 +1,123 @@
+<div class="supplier-master-page">
+  <app-page-header
+    title="Suppliers"
+    subtitle="Enterprise vendor profiles, purchasing contacts, terms, and fulfillment status."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading supplier records from server..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadSuppliers()"></app-error-state>
+  } @else {
+    <div class="supplier-table-card erp-card">
+      <!-- Search, Filters and Create Action Header -->
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm search-field"
+              placeholder="Search code, supplier or contact..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'all'"
+              (click)="statusFilter.set('all')"
+            >
+              All Vendors
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'active'"
+              (click)="statusFilter.set('active')"
+            >
+              Active Only
+            </button>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateDialog()">
+            <i class="pi pi-plus p-button-icon-left"></i>
+            <span class="p-button-label">New Supplier</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Suppliers Data Table -->
+      @if (filteredSuppliers().length === 0) {
+        <app-empty-state
+          title="No suppliers found"
+          description="No vendor records match your query or none are registered yet."
+          actionLabel="Create First Supplier"
+          actionIcon="pi pi-plus"
+          (action)="openCreateDialog()"
+        ></app-empty-state>
+      } @else {
+        <div class="data-table-wrapper">
+          <table class="enterprise-grid-table">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Code</th>
+                <th>Supplier Name</th>
+                <th>Contact</th>
+                <th>City</th>
+                <th style="width: 110px;">Status</th>
+                <th style="width: 120px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (supplier of filteredSuppliers(); track supplier.supplierId) {
+                <tr>
+                  <td><code class="code-badge">{{ supplier.supplierCode }}</code></td>
+                  <td>
+                    <div class="supplier-cell">
+                      <strong>{{ supplier.supplierName }}</strong>
+                      @if (supplier.email) {
+                        <span class="supplier-subtext">{{ supplier.email }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>{{ supplier.contactName || '—' }}</td>
+                  <td>{{ supplier.city || '—' }}</td>
+                  <td>
+                    <app-status-badge [status]="supplier.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="action-buttons-cell">
+                      <button
+                        type="button"
+                        class="p-button p-button-sm p-button-text"
+                        (click)="openEditDialog(supplier)"
+                        title="Edit Supplier"
+                      >
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="p-button p-button-sm p-button-text p-button-danger"
+                        (click)="onDeactivate(supplier)"
+                        title="Deactivate Supplier"
+                      >
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

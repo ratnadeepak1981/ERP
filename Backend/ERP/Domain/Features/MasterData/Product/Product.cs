@@ -167,7 +167,8 @@ public enum ValuationMethod
 {
     FIFO = 1,
     WeightedAverage = 2,
-    StandardCost = 3
+    StandardCost = 3,
+    LIFO = 4
 }
 
 public enum ProductType

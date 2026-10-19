@@ -21,6 +21,9 @@ public class WarehouseLocationConfiguration
             .IsRequired()
             .HasMaxLength(200);
 
+        builder.Property(x => x.WarehouseZoneId)
+            .IsRequired(false);
+
         builder.Property(x => x.LocationTypeId)
             .IsRequired(false);
 
@@ -30,12 +33,11 @@ public class WarehouseLocationConfiguration
         builder.Property(x => x.IsActive)
             .IsRequired();
 
-        // LocationCode must be unique within a zone, warehouse and tenant.
+        // LocationCode must be unique within a warehouse and tenant.
         builder.HasIndex(x => new
         {
             x.TenantId,
             x.WarehouseId,
-            x.WarehouseZoneId,
             x.LocationCode
         })
         .IsUnique();
@@ -48,12 +50,11 @@ public class WarehouseLocationConfiguration
         })
         .IsUnique();
 
-        // Composite key for hierarchy foreign keys within tenant, warehouse, and zone
+        // Composite key for hierarchy foreign keys within tenant and warehouse
         builder.HasIndex(x => new
         {
             x.TenantId,
             x.WarehouseId,
-            x.WarehouseZoneId,
             x.WarehouseLocationId
         })
         .IsUnique();
@@ -65,18 +66,19 @@ public class WarehouseLocationConfiguration
             .HasPrincipalKey(x => new { x.TenantId, x.WarehouseId })
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Location belongs to a Zone (Tenant-aware composite foreign key)
+        // Location belongs to an optional Zone
         builder.HasOne<WarehouseZone>()
             .WithMany()
-            .HasForeignKey(x => new { x.TenantId, x.WarehouseId, x.WarehouseZoneId })
-            .HasPrincipalKey(x => new { x.TenantId, x.WarehouseId, x.WarehouseZoneId })
+            .HasForeignKey(x => x.WarehouseZoneId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Parent location hierarchy (Enforces strictly identical TenantId, WarehouseId, and ZoneId)
+        // Parent location hierarchy (Enforces strictly identical TenantId and WarehouseId)
         builder.HasOne<WarehouseLocation>()
             .WithMany()
-            .HasForeignKey(x => new { x.TenantId, x.WarehouseId, x.WarehouseZoneId, x.ParentLocationId })
-            .HasPrincipalKey(x => new { x.TenantId, x.WarehouseId, x.WarehouseZoneId, x.WarehouseLocationId })
+            .HasForeignKey(x => new { x.TenantId, x.WarehouseId, x.ParentLocationId })
+            .HasPrincipalKey(x => new { x.TenantId, x.WarehouseId, x.WarehouseLocationId })
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         // LocationType

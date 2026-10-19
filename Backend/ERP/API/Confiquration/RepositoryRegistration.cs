@@ -48,6 +48,17 @@ public static class RepositoryRegistration
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceRepository, Domain.Features.MasterData.Supplier.SupplierProductPriceRepository>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalAuditRepository, Domain.Features.Procurement.Approval.ApprovalAuditRepository>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionRepository, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionRepository>();
+        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryRepository, ERP.Domain.Features.Inventory.InventoryRepository>();
+        services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteRepository, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteRepository>();
+
+        // CRM
+        services.AddScoped<ERP.Domain.Features.CRM.ILeadRepository, ERP.Domain.Features.CRM.LeadRepository>();
+        services.AddScoped<ERP.Domain.Features.CRM.IOpportunityRepository, ERP.Domain.Features.CRM.OpportunityRepository>();
+        services.AddScoped<ERP.Domain.Features.CRM.ICrmActivityRepository, ERP.Domain.Features.CRM.CrmActivityRepository>();
+
+        // Sales
+        services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderRepository, Domain.Features.Sales.SalesOrder.SalesOrderRepository>();
+        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentRepository, Domain.Features.Sales.Shipment.SalesShipmentRepository>();
 
         return services;
     }

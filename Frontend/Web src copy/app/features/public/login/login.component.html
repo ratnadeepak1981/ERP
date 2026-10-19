@@ -1,0 +1,113 @@
+<div class="login-page">
+  <div class="login-card erp-card erp-card-elevated">
+    <div class="login-header">
+      <div class="logo-box" aria-hidden="true">
+        <i class="pi pi-box"></i>
+      </div>
+      <h2>Tenant Sign In</h2>
+      <p>Access your ApexERP platform or tenant workspace.</p>
+    </div>
+
+    @if (returnUrl()) {
+      <div class="login-info-banner">
+        <i class="pi pi-info-circle"></i>
+        <span>Sign in required to continue to <code>{{ returnUrl() }}</code></span>
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div class="login-error-banner" role="alert">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <form (ngSubmit)="onLogin()" class="login-form">
+      <div class="form-field">
+        <label for="email">Work Email</label>
+        <input
+          pInputText
+          id="email"
+          type="email"
+          [(ngModel)]="email"
+          name="email"
+          placeholder="admin@platform.local"
+          class="w-full"
+          required
+          autocomplete="username"
+        />
+      </div>
+
+      <div class="form-field">
+        <label for="password">Password</label>
+        <p-password
+          id="password"
+          [(ngModel)]="password"
+          name="password"
+          [feedback]="false"
+          [toggleMask]="true"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+          required
+          autocomplete="current-password"
+        ></p-password>
+      </div>
+
+      <p-button
+        type="submit"
+        label="Sign In"
+        icon="pi pi-sign-in"
+        severity="primary"
+        styleClass="w-full"
+        class="submit-btn"
+        [loading]="loading()"
+      ></p-button>
+    </form>
+
+    <!-- Quick Seeded Credentials Testing Helpers -->
+    <div class="quick-credentials-panel">
+      <span class="quick-title">Quick Test Credentials (.NET Backend Seeder)</span>
+      <div class="quick-chips">
+        <button
+          type="button"
+          class="chip-btn"
+          (click)="onQuickFill('admin@platform.local', '123')"
+          title="Platform Administrator"
+        >
+          <i class="pi pi-shield"></i> Platform Admin
+        </button>
+        <button
+          type="button"
+          class="chip-btn"
+          (click)="onQuickFill('platformstaff@platform.local', '123')"
+          title="Platform Staff"
+        >
+          <i class="pi pi-users"></i> Platform Staff
+        </button>
+        <button
+          type="button"
+          class="chip-btn"
+          (click)="onQuickFill('admin_a@tenant.local', '123')"
+          title="Tenant Administrator"
+        >
+          <i class="pi pi-building"></i> Tenant Admin
+        </button>
+      </div>
+
+      <div class="dev-quick-action">
+        <button
+          type="button"
+          class="dev-btn"
+          (click)="onDevQuickLogin()"
+          title="Direct RS256 token verification using backend login-test"
+        >
+          <i class="pi pi-bolt"></i> Verify Live RS256 Token (login-test)
+        </button>
+      </div>
+    </div>
+
+    <div class="login-footer">
+      <p>New manufacturing organization? <a routerLink="/register">Register your tenant</a></p>
+    </div>
+  </div>
+</div>

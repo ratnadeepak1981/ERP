@@ -1,100 +1,99 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using System;
+using System.Collections.Generic;
+using API.Common;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
+using Security.Interfaces;
 
 namespace SaaS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class SubscriptionLimitController : ControllerBase
+public class SubscriptionLimitController : BaseApiController
 {
     private readonly ISubscriptionLimitService _service;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public SubscriptionLimitController(
-        ISubscriptionLimitService service)
+        ISubscriptionLimitService service,
+        ICurrentUserContext currentUserContext)
     {
         _service = service;
+        _currentUserContext = currentUserContext;
     }
 
     [HttpPost]
-    public IActionResult Create(
-        [FromBody] CreateSubscriptionLimitRequest request)
+    [RequirePermission("SUBSCRIPTION.EDIT")]
+    public IActionResult Create([FromBody] CreateSubscriptionLimitRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
             var result = _service.Create(request);
-
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = result.Id },
-                result);
+            return CreatedResponse(nameof(GetById), new { id = result.Id }, result, "Subscription limit created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetById(Guid id)
     {
-        var result = _service.GetById(id);
-
-        if (result == null)
+        if (!_currentUserContext.IsPlatformUser)
         {
-            return NotFound(new
-            {
-                message = "Subscription limit was not found."
-            });
+            return Forbid();
         }
 
-        return Ok(result);
+        var result = _service.GetById(id);
+        if (result == null)
+        {
+            return NotFoundResponse("Subscription limit was not found.");
+        }
+
+        return SuccessResponse(result);
     }
 
     [HttpGet]
+    [RequirePermission("SUBSCRIPTION.VIEW")]
     public IActionResult GetAll()
     {
-        var result = _service.GetAll();
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
 
-        return Ok(result);
+        var result = _service.GetAll();
+        return SuccessResponse(result);
     }
 
     [HttpPut("{id:guid}")]
-    public IActionResult Update(
-        Guid id,
-        [FromBody] UpdateSubscriptionLimitRequest request)
+    [RequirePermission("SUBSCRIPTION.EDIT")]
+    public IActionResult Update(Guid id, [FromBody] UpdateSubscriptionLimitRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
             var result = _service.Update(id, request);
-
-            return Ok(result);
+            return SuccessResponse(result, "Subscription limit updated successfully.");
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

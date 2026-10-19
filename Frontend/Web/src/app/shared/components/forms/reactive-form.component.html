@@ -1,0 +1,173 @@
+<div
+  class="erp-reactive-form"
+  [formGroup]="form"
+  [style.--form-cols]="columns"
+  [class.form-readonly]="readonly"
+>
+  <div class="form-grid">
+    @for (field of visibleFields(); track field.name) {
+      <div
+        class="form-field-group"
+        [class.has-error]="isFieldInvalid(field.name)"
+        [class.is-disabled]="isFieldDisabled(field)"
+        [style.gridColumn]="field.colSpan ? 'span ' + field.colSpan : 'span 1'"
+        [attr.data-testid]="'form-field-' + field.name"
+      >
+        <!-- Field Label -->
+        <label [for]="'input-' + field.name" class="field-label">
+          <span>{{ field.label }}</span>
+          @if (field.required && !readonly) {
+            <span class="required-star" aria-hidden="true">*</span>
+          }
+          @if (field.tooltip) {
+            <i class="pi pi-info-circle label-tooltip" [pTooltip]="field.tooltip" tooltipPosition="top" aria-hidden="true"></i>
+          }
+        </label>
+
+        <!-- Field Control Container -->
+        <div class="field-control-wrap">
+          @if (field.prefix) {
+            <span class="field-addon field-prefix">{{ field.prefix }}</span>
+          }
+
+          <!-- Text Input -->
+          @if (field.type === 'text') {
+            <input
+              pInputText
+              type="text"
+              [id]="'input-' + field.name"
+              [formControlName]="field.name"
+              [placeholder]="field.placeholder || ''"
+              [readonly]="readonly || field.readonly"
+              class="erp-form-input"
+              [attr.aria-required]="field.required"
+              [attr.aria-invalid]="isFieldInvalid(field.name)"
+            />
+          }
+
+          <!-- Number Input -->
+          @if (field.type === 'number') {
+            <input
+              pInputText
+              type="number"
+              [id]="'input-' + field.name"
+              [formControlName]="field.name"
+              [placeholder]="field.placeholder || ''"
+              [min]="field.min ?? null"
+              [max]="field.max ?? null"
+              [step]="field.step ?? null"
+              [readonly]="readonly || field.readonly"
+              class="erp-form-input"
+              [attr.aria-required]="field.required"
+              [attr.aria-invalid]="isFieldInvalid(field.name)"
+            />
+          }
+
+          <!-- Date Input -->
+          @if (field.type === 'date') {
+            <input
+              pInputText
+              type="date"
+              [id]="'input-' + field.name"
+              [formControlName]="field.name"
+              [readonly]="readonly || field.readonly"
+              class="erp-form-input"
+              [attr.aria-required]="field.required"
+              [attr.aria-invalid]="isFieldInvalid(field.name)"
+            />
+          }
+
+          <!-- Select Dropdown -->
+          @if (field.type === 'select') {
+            <select
+              [id]="'input-' + field.name"
+              [formControlName]="field.name"
+              [attr.disabled]="isFieldDisabled(field) ? '' : null"
+              class="erp-select-control"
+              [attr.aria-required]="field.required"
+              [attr.aria-invalid]="isFieldInvalid(field.name)"
+            >
+              <option value="" disabled selected>{{ field.placeholder || 'Select an option' }}</option>
+              @for (opt of field.options || []; track opt.value) {
+                <option [value]="opt.value" [disabled]="opt.disabled">{{ opt.label }}</option>
+              }
+            </select>
+          }
+
+          <!-- Autocomplete / Searchable Option Dropdown -->
+          @if (field.type === 'autocomplete') {
+            <div class="autocomplete-wrap">
+              <select
+                [id]="'input-' + field.name"
+                [formControlName]="field.name"
+                [attr.disabled]="isFieldDisabled(field) ? '' : null"
+                class="erp-select-control erp-autocomplete-select"
+                [attr.aria-required]="field.required"
+                [attr.aria-invalid]="isFieldInvalid(field.name)"
+              >
+                <option value="">{{ field.placeholder || 'Select or search...' }}</option>
+                @for (opt of field.options || []; track opt.value) {
+                  <option [value]="opt.value" [disabled]="opt.disabled">
+                    {{ opt.label }}{{ opt.secondaryLabel ? ' (' + opt.secondaryLabel + ')' : '' }}
+                  </option>
+                }
+              </select>
+            </div>
+          }
+
+          <!-- Textarea Input -->
+          @if (field.type === 'textarea') {
+            <textarea
+              [id]="'input-' + field.name"
+              [formControlName]="field.name"
+              [rows]="field.rows || 3"
+              [placeholder]="field.placeholder || ''"
+              [readonly]="readonly || field.readonly"
+              class="erp-textarea-control"
+              [attr.aria-required]="field.required"
+              [attr.aria-invalid]="isFieldInvalid(field.name)"
+            ></textarea>
+          }
+
+          <!-- Checkbox -->
+          @if (field.type === 'checkbox') {
+            <div class="checkbox-row">
+              <input
+                type="checkbox"
+                [id]="'input-' + field.name"
+                [formControlName]="field.name"
+                [attr.disabled]="isFieldDisabled(field) ? '' : null"
+                class="erp-checkbox-input"
+              />
+              <span class="checkbox-label-text">{{ field.placeholder || field.label }}</span>
+            </div>
+          }
+
+          <!-- Static / Readonly Box -->
+          @if (field.type === 'static') {
+            <div class="static-value-box">
+              {{ form.get(field.name)?.value || '-' }}
+            </div>
+          }
+
+          @if (field.suffix) {
+            <span class="field-addon field-suffix">{{ field.suffix }}</span>
+          }
+        </div>
+
+        <!-- Field Error Display -->
+        @if (isFieldInvalid(field.name)) {
+          <div class="field-error" [attr.data-testid]="'error-' + field.name">
+            <i class="pi pi-times-circle" aria-hidden="true"></i>
+            <span>{{ getFieldError(field.name) }}</span>
+          </div>
+        } @else if (field.hint && !readonly) {
+          <!-- Field Hint -->
+          <div class="field-hint">
+            <span>{{ field.hint }}</span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

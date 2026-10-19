@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Security.Interfaces
@@ -11,6 +11,12 @@ namespace Security.Interfaces
             Guid? tenantId,
             IEnumerable<string> roles,
             IEnumerable<string> permissions);
+
+        string GenerateServiceToken(
+            string serviceName,
+            IEnumerable<string> roles,
+            IEnumerable<string> permissions,
+            TimeSpan? lifetime = null);
 
         string GenerateRefreshToken();
     }

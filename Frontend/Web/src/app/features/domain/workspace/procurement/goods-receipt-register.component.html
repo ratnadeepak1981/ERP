@@ -1,0 +1,143 @@
+<div class="goods-receipt-register-page">
+  <app-page-header
+    title="Goods Receipt Notes (GRN)"
+    subtitle="Inspect and verify delivered vendor goods, manage receiving documentation, and view stock intake history."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [loading]="loading()"
+        (onClick)="loadReceipts()"
+        title="Reload receipts list"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="grn-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (!scopeService.canOperateTransactions()) {
+    <div class="scope-required-wrapper erp-card">
+      <app-empty-state
+        icon="pi pi-compass"
+        title="Operating Company and Branch Required"
+        description="Goods receipts and stock posting are strictly scoped to an operating company and physical branch. Please select both from the scope switcher in the navigation bar to proceed."
+      ></app-empty-state>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading goods receipts from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state
+        title="Unable to load goods receipts"
+        [message]="error()!"
+        (retry)="loadReceipts()"
+      ></app-error-state>
+    </div>
+  } @else {
+    <div class="erp-card grn-table-container">
+      <!-- Search, Filter Pills & Scope Pill Toolbar -->
+      <div class="table-toolbar">
+        <div class="toolbar-search-filter">
+          <div class="search-input-wrap">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              pInputText
+              type="text"
+              placeholder="Search by GRN or Delivery Note..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+              class="search-input p-inputtext-sm"
+            />
+            @if (searchTerm()) {
+              <button type="button" class="clear-search-btn" (click)="searchTerm.set('')" aria-label="Clear search">
+                <i class="pi pi-times"></i>
+              </button>
+            }
+          </div>
+
+          <div class="filter-pills-group" role="group" aria-label="Filter goods receipts by status">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'all'"
+              (click)="activeStatusFilter.set('all')"
+            >
+              All Receipts
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'draft'"
+              (click)="activeStatusFilter.set('draft')"
+            >
+              <i class="pi pi-file-edit pill-icon"></i> Draft
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'confirmed'"
+              (click)="activeStatusFilter.set('confirmed')"
+            >
+              <i class="pi pi-check-circle pill-icon"></i> Confirmed
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'cancelled'"
+              (click)="activeStatusFilter.set('cancelled')"
+            >
+              <i class="pi pi-ban pill-icon"></i> Cancelled
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Badge Indicator -->
+        <div class="scope-info-pill" title="Current Transaction Scope">
+          <i class="pi pi-building"></i>
+          <span class="scope-text">
+            {{ scopeService.selectedCompany()?.name }} / {{ scopeService.selectedBranch()?.name }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Main GRN List Data Table -->
+      <app-data-table
+        [data]="filteredReceipts()"
+        [columns]="tableColumns"
+        [rowActions]="tableActions"
+        rowKey="goodsReceiptNoteId"
+        [loading]="loading()"
+        emptyTitle="No goods receipts found"
+        emptyDescription="No goods receipts match your current filter or none exist for this operating branch yet."
+        [showGlobalSearch]="false"
+        [showColumnChooser]="true"
+        [showExport]="true"
+        [showViewSwitcher]="true"
+        cardTitleField="grnNumber"
+        cardSubtitleField="deliveryNoteNumber"
+        cardIcon="pi pi-box"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+      ></app-data-table>
+    </div>
+  }
+</div>

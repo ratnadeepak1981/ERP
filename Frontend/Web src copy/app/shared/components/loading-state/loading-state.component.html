@@ -1,0 +1,6 @@
+<div class="erp-loading-container" [ngClass]="{'inline-mode': inline()}" role="status" aria-live="polite">
+  <p-progress-spinner [style]="{ width: size() + 'px', height: size() + 'px' }" strokeWidth="4"></p-progress-spinner>
+  @if (message()) {
+    <p class="loading-message">{{ message() }}</p>
+  }
+</div>

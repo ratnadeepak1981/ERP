@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using API.Common;
 using API.Security.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.Interfaces.Repositories;
@@ -17,7 +18,7 @@ public class UpdateProcurementApprovalSettingsRequest
 [ApiController]
 [Route("api/tenants/current/settings/procurement-approval")]
 [RequirePermission("PROCUREMENT.SETTINGS.VIEW")]
-public class TenantProcurementSettingsController : ControllerBase
+public class TenantProcurementSettingsController : BaseApiController
 {
     private readonly ITenantConfigurationRepository _configRepository;
     private readonly ICurrentUserContext _currentUserContext;
@@ -41,20 +42,20 @@ public class TenantProcurementSettingsController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
         }
 
         var config = await _configRepository.GetByTenantIdAsync(tenantId.Value);
         if (config == null)
         {
-            return Ok(new
+            return SuccessResponse(new
             {
                 approvalRequired = true,
                 approvalMode = 1
             });
         }
 
-        return Ok(new
+        return SuccessResponse(new
         {
             approvalRequired = config.ProcurementApprovalRequired,
             approvalMode = config.ProcurementApprovalMode
@@ -73,12 +74,12 @@ public class TenantProcurementSettingsController : ControllerBase
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
         {
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
         }
 
         if (request == null)
         {
-            return BadRequest(new { status = "FAIL", message = "Request body is required." });
+            return BadRequestResponse("Request body is required.");
         }
 
         var config = await _configRepository.GetByTenantIdAsync(tenantId.Value);
@@ -93,24 +94,23 @@ public class TenantProcurementSettingsController : ControllerBase
             config.UpdateProcurementApproval(request.ApprovalRequired, request.ApprovalMode);
             await _configRepository.SaveChangesAsync();
 
-            return Ok(new
+            return SuccessResponse(new
             {
-                status = "PASS",
-                message = "Procurement approval settings updated successfully.",
-                settings = new
-                {
-                    approvalRequired = config.ProcurementApprovalRequired,
-                    approvalMode = config.ProcurementApprovalMode
-                }
-            });
+                approvalRequired = config.ProcurementApprovalRequired,
+                approvalMode = config.ProcurementApprovalMode
+            }, "Procurement approval settings updated successfully.");
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return BadRequestResponse(ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
+            return BadRequestResponse(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
         }
     }
 }

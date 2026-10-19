@@ -1,0 +1,122 @@
+<div class="workspace-shell" [ngClass]="{ 'sidebar-collapsed': sidebarCollapsed() }">
+  <!-- Desktop Sidebar -->
+  <aside class="workspace-sidebar">
+    <div class="sidebar-header">
+      <div class="brand-box">
+        <div class="brand-icon staff-icon">
+          <i class="pi pi-users"></i>
+        </div>
+        @if (!sidebarCollapsed()) {
+          <div class="brand-details">
+            <span class="brand-title">ApexERP</span>
+            <span class="brand-tag staff-tag">Platform Staff</span>
+          </div>
+        }
+      </div>
+      <button
+        type="button"
+        class="collapse-toggle-btn"
+        (click)="toggleSidebar()"
+        [title]="sidebarCollapsed() ? 'Expand Sidebar' : 'Collapse Sidebar'"
+      >
+        <i [class]="sidebarCollapsed() ? 'pi pi-angle-right' : 'pi pi-angle-left'"></i>
+      </button>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <div class="sidebar-nav-container">
+      @for (group of navGroups; track group.groupName) {
+        <div class="nav-group">
+          @if (!sidebarCollapsed()) {
+            <span class="group-heading">{{ group.groupName }}</span>
+          }
+          <ul class="nav-list">
+            @for (item of group.items; track item.route) {
+              <li class="nav-item">
+                <a
+                  [routerLink]="item.route"
+                  routerLinkActive="active"
+                  class="nav-link"
+                  [pTooltip]="sidebarCollapsed() ? item.label : ''"
+                  tooltipPosition="right"
+                >
+                  <i [class]="item.icon" class="item-icon"></i>
+                  @if (!sidebarCollapsed()) {
+                    <span class="item-label">{{ item.label }}</span>
+                  }
+                  @if (!sidebarCollapsed() && item.badge) {
+                    <span class="item-badge">{{ item.badge }}</span>
+                  }
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+      <div class="tenant-card" [pTooltip]="sidebarCollapsed() ? 'Platform Staff Scope' : ''" tooltipPosition="right">
+        <div class="tenant-avatar staff-avatar">
+          <i class="pi pi-wrench"></i>
+        </div>
+        @if (!sidebarCollapsed()) {
+          <div class="tenant-info">
+            <span class="tenant-name">Platform Operations</span>
+            <span class="branch-name">Support &amp; Customer Success</span>
+          </div>
+        }
+      </div>
+    </div>
+  </aside>
+
+  <!-- Workspace Main Viewport -->
+  <div class="workspace-main">
+    <header class="workspace-topbar">
+      <div class="topbar-left">
+        <div class="context-scope-badge staff-scope-badge">
+          <i class="pi pi-users scope-icon"></i>
+          <span class="scope-label">Scope:</span>
+          <strong class="scope-value">Platform Staff Operations</strong>
+          <span class="scope-divider">/</span>
+          <strong class="scope-branch">Support Portal</strong>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <p-button
+          [icon]="themeService.currentTheme() === 'clean-enterprise' ? 'pi pi-moon' : 'pi pi-sun'"
+          [text]="true"
+          [rounded]="true"
+          (click)="themeService.toggleTheme()"
+          title="Toggle Theme"
+        ></p-button>
+
+        <div class="topbar-divider"></div>
+
+        <div class="user-profile-pill">
+          <div class="user-avatar staff-user-avatar">
+            <span>PS</span>
+          </div>
+          <div class="user-meta">
+            <span class="user-name">{{ authService.currentUser()?.email || 'Platform Staff' }}</span>
+            <span class="user-role">{{ authService.roles()[0] || 'Platform Staff' }}</span>
+          </div>
+          <button
+            type="button"
+            class="logout-btn"
+            (click)="onSignOut()"
+            title="Sign out of Platform Staff"
+          >
+            <i class="pi pi-sign-out"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="workspace-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

@@ -45,6 +45,7 @@ public class UpdateWarehouseZoneRequest
 
 public class CreateWarehouseLocationRequest
 {
+    public Guid? WarehouseZoneId { get; set; }
     public string LocationCode { get; set; } = string.Empty;
     public string LocationName { get; set; } = string.Empty;
     public Guid? LocationTypeId { get; set; }
@@ -74,4 +75,29 @@ public class WarehouseAddressLinkRequest
     public Guid AddressId { get; set; }
     public Guid AddressTypeId { get; set; }
     public bool IsDefault { get; set; }
+}
+
+public class WarehouseLocationDetailDto
+{
+    public Guid WarehouseLocationId { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public Guid? WarehouseZoneId { get; set; }
+    public Guid? LocationTypeId { get; set; }
+    public Guid? ParentLocationId { get; set; }
+    public string LocationCode { get; set; } = string.Empty;
+    public string LocationName { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+
+    public string? ZoneCode { get; set; }
+    public string? ZoneName { get; set; }
+    public string? ParentLocationCode { get; set; }
+    public string? ParentLocationName { get; set; }
+    public string? LocationTypeCode { get; set; }
+    public string? LocationTypeName { get; set; }
+    public bool CanStoreInventory { get; set; } = true;
+    public bool CanPick { get; set; } = true;
+    public bool CanPutAway { get; set; } = true;
+    public bool CanContainChildren { get; set; } = true;
+    public string HierarchyPath { get; set; } = string.Empty;
 }

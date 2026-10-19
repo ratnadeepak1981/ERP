@@ -1,0 +1,43 @@
+<div class="directory-page erp-container">
+  <div class="directory-header">
+    <h1>Manufacturing &amp; Supplier Directory</h1>
+    <p>Explore verified manufacturers, industrial suppliers, and tenant storefronts across the network.</p>
+    <div class="search-bar">
+      <i class="pi pi-search" aria-hidden="true"></i>
+      <input pInputText type="text" [(ngModel)]="searchQuery" placeholder="Search by company name, category, or region..." aria-label="Search directory" />
+      <p-button label="Search" severity="primary"></p-button>
+    </div>
+  </div>
+
+  <div class="listings-grid">
+    @for (item of filteredListings(); track item.id) {
+      <div class="directory-card erp-card">
+        <div class="card-top">
+          <div class="org-avatar" aria-hidden="true">
+            <i class="pi pi-building"></i>
+          </div>
+          <div class="org-info">
+            <h3>{{ item.name }}</h3>
+            <span class="org-location"><i class="pi pi-map-marker" aria-hidden="true"></i> {{ item.location }}</span>
+          </div>
+          @if (item.verified) {
+            <app-status-badge label="Verified" severity="success" icon="pi pi-check"></app-status-badge>
+          }
+        </div>
+        <div class="card-meta">
+          <div class="meta-item">
+            <span class="meta-label">Industry:</span>
+            <span class="meta-val">{{ item.industry }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Catalog:</span>
+            <span class="meta-val">{{ item.productCount }} Products</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <p-button label="View Storefront" [outlined]="true" size="small" icon="pi pi-external-link"></p-button>
+        </div>
+      </div>
+    }
+  </div>
+</div>

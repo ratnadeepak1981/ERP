@@ -1,0 +1,45 @@
+<label
+  class="erp-checkbox-wrapper"
+  [class.disabled]="disabled"
+  [class.readonly]="readonly"
+  [class.has-error]="!!error"
+  [class.size-small]="size === 'small' || size === 'compact'"
+  [class.size-standard]="size === 'standard' || size === 'regular'"
+  [class.size-large]="size === 'large'"
+  (click)="toggle($event)"
+>
+  <div
+    class="erp-checkbox-box"
+    [class.shape-rounded]="shape === 'rounded-square'"
+    [class.shape-square]="shape === 'square'"
+    [class.color-primary]="colorToken === 'primary'"
+    [class.color-neutral]="colorToken === 'neutral'"
+    [class.color-success]="colorToken === 'success'"
+    [class.color-warning]="colorToken === 'warning'"
+    [class.color-danger]="colorToken === 'danger'"
+    [class.checked]="isChecked()"
+    [class.indeterminate]="isIndeterminate()"
+    [class.error]="!!error"
+    [attr.tabindex]="disabled ? -1 : 0"
+    role="checkbox"
+    [attr.aria-checked]="isIndeterminate() ? 'mixed' : isChecked()"
+    [attr.aria-disabled]="disabled"
+    [attr.aria-readonly]="readonly"
+    [attr.aria-label]="computedAriaLabel"
+    [attr.aria-invalid]="!!error"
+    (keydown)="onKeyDown($event)"
+  >
+    @if (isIndeterminate()) {
+      <i class="pi pi-minus checkbox-icon" aria-hidden="true"></i>
+    } @else if (isChecked()) {
+      <i class="pi pi-check checkbox-icon" aria-hidden="true"></i>
+    }
+  </div>
+
+  @if (label) {
+    <span class="erp-checkbox-label">{{ label }}</span>
+  }
+</label>
+@if (error && typeof error === 'string') {
+  <span class="erp-checkbox-error-text">{{ error }}</span>
+}

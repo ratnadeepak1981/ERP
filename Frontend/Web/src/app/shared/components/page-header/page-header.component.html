@@ -1,0 +1,18 @@
+<div class="erp-page-header">
+  @if (breadcrumbs().length > 0) {
+    <div class="breadcrumb-container">
+      <p-breadcrumb [model]="breadcrumbs()"></p-breadcrumb>
+    </div>
+  }
+  <div class="header-main-row">
+    <div class="title-column">
+      <h1 class="page-title">{{ title() }}</h1>
+      @if (subtitle()) {
+        <p class="page-subtitle">{{ subtitle() }}</p>
+      }
+    </div>
+    <div class="actions-column">
+      <ng-content select="[actions]"></ng-content>
+    </div>
+  </div>
+</div>

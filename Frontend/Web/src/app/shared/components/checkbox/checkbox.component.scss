@@ -1,0 +1,160 @@
+:host {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+}
+
+.erp-checkbox-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--erp-space-2, 8px);
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
+
+  &.disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  &.readonly {
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+.erp-checkbox-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--erp-bg-surface, #ffffff);
+  border: 1.5px solid var(--erp-border-strong, #cbd5e1);
+  transition: all 0.15s ease-in-out;
+  box-sizing: border-box;
+  flex-shrink: 0;
+
+  // Sizes
+  :host-context(.size-small) &,
+  .size-small & {
+    width: 16px;
+    height: 16px;
+  }
+
+  :host-context(.size-standard) &,
+  .size-standard & {
+    width: 18px;
+    height: 18px;
+  }
+
+  :host-context(.size-large) &,
+  .size-large & {
+    width: 22px;
+    height: 22px;
+  }
+
+  // Shapes
+  &.shape-rounded {
+    border-radius: var(--erp-radius-sm, 4px);
+  }
+
+  &.shape-square {
+    border-radius: 0;
+  }
+
+  // Hover state (when not disabled/readonly)
+  &:hover:not(:disabled) {
+    border-color: var(--erp-primary, #0f6cbd);
+    background-color: var(--erp-bg-hover, #f1f5f9);
+  }
+
+  // Focus visible (WCAG AA accessibility)
+  &:focus-visible {
+    outline: 2px solid var(--erp-primary, #0f6cbd);
+    outline-offset: 2px;
+  }
+
+  // Checked and Indeterminate Active States
+  &.checked,
+  &.indeterminate {
+    border-color: transparent;
+    color: #ffffff;
+
+    &.color-primary {
+      background-color: var(--erp-primary, #0f6cbd);
+      border-color: var(--erp-primary, #0f6cbd);
+
+      &:hover:not(:disabled) {
+        background-color: var(--erp-primary-hover, #115ea3);
+      }
+    }
+
+    &.color-neutral {
+      background-color: var(--erp-text-secondary, #475569);
+      border-color: var(--erp-text-secondary, #475569);
+    }
+
+    &.color-success {
+      background-color: var(--erp-success, #107c41);
+      border-color: var(--erp-success, #107c41);
+    }
+
+    &.color-warning {
+      background-color: var(--erp-warning, #d97706);
+      border-color: var(--erp-warning, #d97706);
+    }
+
+    &.color-danger {
+      background-color: var(--erp-danger, #c42b1c);
+      border-color: var(--erp-danger, #c42b1c);
+    }
+  }
+
+  // Error State
+  &.error {
+    border-color: var(--erp-danger, #c42b1c);
+    background-color: var(--erp-danger-bg, #fde7e9);
+
+    &:focus-visible {
+      outline-color: var(--erp-danger, #c42b1c);
+    }
+  }
+
+  .checkbox-icon {
+    font-size: 11px;
+    font-weight: bold;
+    color: #ffffff;
+    pointer-events: none;
+    line-height: 1;
+
+    :host-context(.size-small) &,
+    .size-small & {
+      font-size: 9px;
+    }
+
+    :host-context(.size-large) &,
+    .size-large & {
+      font-size: 13px;
+    }
+  }
+}
+
+.erp-checkbox-label {
+  color: var(--erp-text-main, #0f172a);
+  font-size: 13.5px;
+  font-weight: 400;
+
+  .size-small & {
+    font-size: 12px;
+  }
+
+  .size-large & {
+    font-size: 15px;
+  }
+}
+
+.erp-checkbox-error-text {
+  font-size: 12px;
+  color: var(--erp-danger, #c42b1c);
+  margin-top: 2px;
+}

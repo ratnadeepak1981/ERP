@@ -1,0 +1,90 @@
+<div class="overview-page">
+  <!-- Hero Section -->
+  <section class="overview-hero">
+    <div class="erp-container hero-inner">
+      <div class="hero-badge">
+        <i class="pi pi-compass" aria-hidden="true"></i>
+        Platform Overview &amp; Architectural Capabilities
+      </div>
+      <h1 class="hero-title">
+        Engineered for Scalable <span class="highlight-blue">Enterprise Operations</span>
+      </h1>
+      <p class="hero-subtitle">
+        ApexERP unifies procurement, inventory, warehouse logistics, sales order fulfillment, and multi-tenant cloud governance into a cohesive, high-performance platform.
+      </p>
+      <div class="hero-cta-group">
+        <a
+          routerLink="/plans"
+          pButton
+          label="View Subscription Plans"
+          icon="pi pi-th-large"
+          iconPos="right"
+          class="p-button-primary"
+        >View Subscription Plans</a>
+        <a
+          routerLink="/"
+          pButton
+          label="Back to Homepage"
+          icon="pi pi-arrow-left"
+          [outlined]="true"
+          class="p-button-secondary"
+        >Back to Homepage</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core Capabilities Grid -->
+  <section class="capabilities-section erp-container">
+    <div class="section-heading text-center">
+      <span class="section-tag">Modular ERP Core</span>
+      <h2>Platform Capabilities</h2>
+      <p>Modern cloud architecture built specifically for modern manufacturing and distribution enterprises.</p>
+    </div>
+
+    <div class="pillars-grid">
+      @for (pillar of pillars; track pillar.title) {
+        <div class="pillar-card erp-card erp-card-elevated">
+          <div class="card-head">
+            <div class="icon-wrap" aria-hidden="true">
+              <i [class]="pillar.icon"></i>
+            </div>
+            <span class="pillar-badge">{{ pillar.badge }}</span>
+          </div>
+          <h3>{{ pillar.title }}</h3>
+          <p class="pillar-desc">{{ pillar.description }}</p>
+          <ul class="points-list">
+            @for (pt of pillar.points; track pt) {
+              <li>
+                <i class="pi pi-check" aria-hidden="true"></i>
+                <span>{{ pt }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- View Subscription Plans Bottom Banner -->
+  <section class="overview-cta-section erp-container">
+    <div class="cta-banner erp-card erp-card-elevated">
+      <div class="cta-content">
+        <span class="cta-badge">Next Step</span>
+        <h2>Explore Our Tailored Subscription Plans</h2>
+        <p>
+          Select from our transparent pricing tiers designed for emerging businesses through high-volume manufacturing enterprises.
+        </p>
+      </div>
+      <div class="cta-action">
+        <a
+          routerLink="/plans"
+          pButton
+          label="View Subscription Plans"
+          icon="pi pi-arrow-right"
+          iconPos="right"
+          class="p-button-primary"
+        >View Subscription Plans</a>
+      </div>
+    </div>
+  </section>
+</div>

@@ -1,106 +1,99 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Collections.Generic;
+using API.Common;
+using API.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
+using Security.Interfaces;
 
 namespace SaaS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class SubscriptionPlanParameterController
-    : ControllerBase
+[Authorize]
+public class SubscriptionPlanParameterController : BaseApiController
 {
     private readonly ISubscriptionPlanParameterService _service;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public SubscriptionPlanParameterController(
-        ISubscriptionPlanParameterService service)
+        ISubscriptionPlanParameterService service,
+        ICurrentUserContext currentUserContext)
     {
         _service = service;
+        _currentUserContext = currentUserContext;
     }
 
     [HttpPost]
-    public ActionResult<SubscriptionPlanParameter> Create(
-        CreateSubscriptionPlanParameterRequest request)
+    [RequirePermission("SUBSCRIPTION.CREATE")]
+    public IActionResult Create([FromBody] CreateSubscriptionPlanParameterRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
-            SubscriptionPlanParameter result =
-                _service.Create(request);
-
-            return Ok(result);
+            SubscriptionPlanParameter result = _service.Create(request);
+            return CreatedResponse(nameof(GetById), new { id = result.Id }, result, "Subscription plan parameter created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 
     [HttpGet("{id:guid}")]
-    public ActionResult<SubscriptionPlanParameter> GetById(
-        Guid id)
+    [RequirePermission("SUBSCRIPTION.VIEW")]
+    public IActionResult GetById(Guid id)
     {
-        SubscriptionPlanParameter? result =
-            _service.GetById(id);
-
-        if (result == null)
+        if (!_currentUserContext.IsPlatformUser)
         {
-            return NotFound(new
-            {
-                message = "Subscription plan parameter was not found."
-            });
+            return Forbid();
         }
 
-        return Ok(result);
+        SubscriptionPlanParameter? result = _service.GetById(id);
+        if (result == null)
+        {
+            return NotFoundResponse("Subscription plan parameter was not found.");
+        }
+
+        return SuccessResponse(result);
     }
 
     [HttpGet]
-    public ActionResult<IReadOnlyList<SubscriptionPlanParameter>> GetAll()
+    [RequirePermission("SUBSCRIPTION.VIEW")]
+    public IActionResult GetAll()
     {
-        return Ok(_service.GetAll());
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        return SuccessResponse(_service.GetAll());
     }
 
     [HttpPut("{id:guid}")]
-    public ActionResult<SubscriptionPlanParameter> Update(
-        Guid id,
-        UpdateSubscriptionPlanParameterRequest request)
+    [RequirePermission("SUBSCRIPTION.EDIT")]
+    public IActionResult Update(Guid id, [FromBody] UpdateSubscriptionPlanParameterRequest request)
     {
+        if (!_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
         try
         {
-            SubscriptionPlanParameter result =
-                _service.Update(id, request);
-
-            return Ok(result);
+            SubscriptionPlanParameter result = _service.Update(id, request);
+            return SuccessResponse(result, "Subscription plan parameter updated successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new
-            {
-                message = ex.Message
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new
-            {
-                message = ex.Message
-            });
+            return HandleDomainException(ex);
         }
     }
 }

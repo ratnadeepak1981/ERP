@@ -34,8 +34,7 @@ public class BranchScopeTests : IClassFixture<TestSecurityFixture>
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var branch = await response.Content.ReadFromJsonAsync<BranchDto>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var branch = await response.ReadApiResponseDataAsync<BranchDto>();
         Assert.NotNull(branch);
         Assert.Equal(TestConstants.BranchA1Id, branch.Id);
     }

@@ -12,6 +12,7 @@ using ERP.Domain.Features.MasterData.Category;
 using ERP.Domain.Features.MasterData.Customer;
 using ERP.Domain.Features.MasterData.Supplier;
 using ERP.Domain.Features.MasterData.Warehouse;
+using ERP.SecurityTests;
 using Xunit;
 
 namespace ERP.SecurityTests.MasterData;
@@ -102,7 +103,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             Code = $"BOX_{Guid.NewGuid():N}".Substring(0, 8),
             Name = "Box"
         });
-        var uom1 = await uom1Res.Content.ReadFromJsonAsync<JsonElement>();
+        var uom1 = await uom1Res.ReadDataJsonElementAsync();
         var id1 = uom1.GetProperty("unitOfMeasureId").GetGuid();
 
         var uom2Res = await client.PostAsJsonAsync("/api/uom", new CreateUnitOfMeasureRequest
@@ -110,7 +111,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             Code = $"PCS_{Guid.NewGuid():N}".Substring(0, 8),
             Name = "Pieces"
         });
-        var uom2 = await uom2Res.Content.ReadFromJsonAsync<JsonElement>();
+        var uom2 = await uom2Res.ReadDataJsonElementAsync();
         var id2 = uom2.GetProperty("unitOfMeasureId").GetGuid();
 
         // Conversion factor <= 0 fails
@@ -146,7 +147,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             Code = $"UA_{Guid.NewGuid():N}".Substring(0, 8),
             Name = "Unit A"
         });
-        var uomA = await uomARes.Content.ReadFromJsonAsync<JsonElement>();
+        var uomA = await uomARes.ReadDataJsonElementAsync();
         var idA = uomA.GetProperty("unitOfMeasureId").GetGuid();
 
         // Tenant B creates unit
@@ -155,7 +156,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             Code = $"UB_{Guid.NewGuid():N}".Substring(0, 8),
             Name = "Unit B"
         });
-        var uomB = await uomBRes.Content.ReadFromJsonAsync<JsonElement>();
+        var uomB = await uomBRes.ReadDataJsonElementAsync();
         var idB = uomB.GetProperty("unitOfMeasureId").GetGuid();
 
         // Tenant A tries to convert between its unit and Tenant B's unit
@@ -216,13 +217,14 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             Email = "john@acme.com"
         });
         Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
-        var cust = await createRes.Content.ReadFromJsonAsync<JsonElement>();
+        var cust = await createRes.ReadDataJsonElementAsync();
         var customerId = cust.GetProperty("customerId").GetGuid();
 
         // Verify normalized address association was created
         var addrRes = await client.GetAsync($"/api/customers/{customerId}/addresses");
         Assert.Equal(HttpStatusCode.OK, addrRes.StatusCode);
-        var addrAssocs = await addrRes.Content.ReadFromJsonAsync<List<JsonElement>>();
+        var addrAssocs = await addrRes.ReadApiResponseDataAsync<List<JsonElement>>();
+        Assert.NotNull(addrAssocs);
         Assert.NotEmpty(addrAssocs);
         Assert.True(addrAssocs[0].GetProperty("isDefault").GetBoolean());
 
@@ -234,7 +236,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             City = "Kandy"
         });
         Assert.Equal(HttpStatusCode.Created, newAddrRes.StatusCode);
-        var newAddr = await newAddrRes.Content.ReadFromJsonAsync<JsonElement>();
+        var newAddr = await newAddrRes.ReadDataJsonElementAsync();
         var newAddrId = newAddr.GetProperty("addressId").GetGuid();
 
         var addrTypeId = addrAssocs[0].GetProperty("addressTypeId").GetGuid();
@@ -249,14 +251,15 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
 
         // Verify only ONE address is default for this type
         var updatedAddrRes = await client.GetAsync($"/api/customers/{customerId}/addresses");
-        var updatedAddrs = await updatedAddrRes.Content.ReadFromJsonAsync<List<JsonElement>>();
+        var updatedAddrs = await updatedAddrRes.ReadApiResponseDataAsync<List<JsonElement>>();
+        Assert.NotNull(updatedAddrs);
         var defaults = updatedAddrs.FindAll(x => x.GetProperty("isDefault").GetBoolean());
         Assert.Single(defaults);
         Assert.Equal(newAddrId, defaults[0].GetProperty("addressId").GetGuid());
 
         // Verify Customer flat fields synced to new default address
         var updatedCustRes = await client.GetAsync($"/api/customers/{customerId}");
-        var updatedCust = await updatedCustRes.Content.ReadFromJsonAsync<JsonElement>();
+        var updatedCust = await updatedCustRes.ReadDataJsonElementAsync();
         Assert.Equal("456 High St", updatedCust.GetProperty("addressLine1").GetString());
         Assert.Equal("Kandy", updatedCust.GetProperty("city").GetString());
     }
@@ -281,7 +284,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             City = "Colombo"
         });
         Assert.Equal(HttpStatusCode.Created, whRes.StatusCode);
-        var wh = await whRes.Content.ReadFromJsonAsync<JsonElement>();
+        var wh = await whRes.ReadDataJsonElementAsync();
         var whId = wh.GetProperty("warehouseId").GetGuid();
 
         // 2. Create zone
@@ -291,7 +294,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             ZoneName = "Receiving Zone"
         });
         Assert.Equal(HttpStatusCode.OK, zoneRes.StatusCode);
-        var zone = await zoneRes.Content.ReadFromJsonAsync<JsonElement>();
+        var zone = await zoneRes.ReadDataJsonElementAsync();
         var zoneId = zone.GetProperty("warehouseZoneId").GetGuid();
 
         // 3. Create parent location (Aisle 1)
@@ -301,7 +304,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             LocationName = "Aisle 1"
         });
         Assert.Equal(HttpStatusCode.OK, loc1Res.StatusCode);
-        var loc1 = await loc1Res.Content.ReadFromJsonAsync<JsonElement>();
+        var loc1 = await loc1Res.ReadDataJsonElementAsync();
         var loc1Id = loc1.GetProperty("warehouseLocationId").GetGuid();
 
         // 4. Create child location (Rack 01 with Parent = Aisle 1)
@@ -312,7 +315,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
             ParentLocationId = loc1Id
         });
         Assert.Equal(HttpStatusCode.OK, loc2Res.StatusCode);
-        var loc2 = await loc2Res.Content.ReadFromJsonAsync<JsonElement>();
+        var loc2 = await loc2Res.ReadDataJsonElementAsync();
         var loc2Id = loc2.GetProperty("warehouseLocationId").GetGuid();
 
         // 5. Updating Aisle 1 to have Parent = Rack 01 should trigger circular dependency detection (409 Conflict)
@@ -345,7 +348,7 @@ public class MasterDataTenantIsolationTests : IClassFixture<TestSecurityFixture>
         });
         var rawSupp = await suppRes.Content.ReadAsStringAsync();
         Assert.True(suppRes.StatusCode == HttpStatusCode.Created, $"Expected Created but got {suppRes.StatusCode}: {rawSupp}");
-        var supp = await suppRes.Content.ReadFromJsonAsync<JsonElement>();
+        var supp = await suppRes.ReadDataJsonElementAsync();
         var suppId = supp.GetProperty("supplierId").GetGuid();
 
         // Try to create price card linking Tenant A supplier with ProductBetaId (Tenant B)

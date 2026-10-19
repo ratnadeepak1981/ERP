@@ -1,4 +1,4 @@
-﻿using SaaS.Application.DTOs;
+using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Application.Interfaces.Repositories;
 using SaaS.Core.Models;
@@ -95,17 +95,37 @@ public class TenantProvisioningService
 
         await _tenantDatabaseRepository.SaveChangesAsync();
 
-        // Ensure the Tenant Admin system role exists.
-        await _tenantAdminProvisioningService
-            .EnsureTenantAdminRoleAsync();
+        try
+        {
+            // Ensure the Tenant Admin system role exists.
+            await _tenantAdminProvisioningService
+                .EnsureTenantAdminRoleAsync();
 
-        // Create the Tenant Admin user for this tenant.
-        await _tenantAdminProvisioningService
-            .EnsureTenantAdminAsync(
-                tenantId,
-                request.AdminUserName,
-                request.AdminEmail,
-                request.AdminPassword);
+            // Create the Tenant Admin user for this tenant.
+            await _tenantAdminProvisioningService
+                .EnsureTenantAdminAsync(
+                    tenantId,
+                    request.AdminUserName,
+                    request.AdminEmail,
+                    request.AdminPassword);
+        }
+        catch
+        {
+            // Compensation: If Security bootstrap fails, roll back PlatformDB records
+            // so the tenant is not left in an unrecoverable corrupted state.
+            try
+            {
+                await _tenantDatabaseRepository.DeleteAsync(tenantDatabase);
+                await _tenantConfigurationRepository.DeleteAsync(tenantConfiguration);
+                await _tenantDatabaseRepository.SaveChangesAsync();
+            }
+            catch
+            {
+                // Preserve original exception
+            }
+
+            throw;
+        }
 
         return new TenantProvisioningResult
         {

@@ -1,0 +1,148 @@
+<div class="platform-dashboard">
+  <app-page-header
+    title="Platform Administration Dashboard"
+    subtitle="Global SaaS multi-tenant governance, subscription lifecycle, and cryptographic security health."
+  >
+    <div actions class="header-actions">
+      <a routerLink="/platform-admin/diagnostics" class="p-button p-button-outlined p-button-sm">
+        <i class="pi pi-shield"></i> Run Security Diagnostic
+      </a>
+      <a routerLink="/platform-admin/tenants" class="p-button p-button-sm">
+        <i class="pi pi-plus"></i> View Tenants
+      </a>
+    </div>
+  </app-page-header>
+
+  <!-- Metric KPI Grid -->
+  <div class="metrics-grid">
+    @for (metric of metrics; track metric.title) {
+      <div class="metric-card erp-card">
+        <div class="metric-top">
+          <span class="metric-title">{{ metric.title }}</span>
+          <div class="metric-icon-box">
+            <i [class]="metric.icon"></i>
+          </div>
+        </div>
+        <div class="metric-value">{{ metric.value }}</div>
+        <div class="metric-footer">
+          <span class="metric-change" [class.positive]="metric.isPositive">
+            {{ metric.change }}
+          </span>
+          <span class="metric-badge">{{ metric.badgeText }}</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Operational Overview Section -->
+  <div class="overview-grid">
+    <!-- Security State Banner -->
+    <div class="security-card erp-card erp-card-elevated">
+      <div class="card-header">
+        <div class="header-title">
+          <i class="pi pi-shield"></i>
+          <h3>Cryptographic Security Status</h3>
+        </div>
+        <app-status-badge [status]="backendStatus() === 'Operational' ? 'active' : 'info'" [label]="backendStatus()"></app-status-badge>
+      </div>
+      <p class="card-desc">
+        The ApexERP platform enforces asymmetric RS256 token signing with private key isolation in SecureVault.
+      </p>
+
+      <div class="security-details-list">
+        <div class="detail-row">
+          <span class="row-label">Signature Algorithm</span>
+          <strong class="row-val">RS256 (RSA-SHA256)</strong>
+        </div>
+        <div class="detail-row">
+          <span class="row-label">Token Issuer</span>
+          <strong class="row-val">CSharpAuthServer</strong>
+        </div>
+        <div class="detail-row">
+          <span class="row-label">Audience Scope</span>
+          <strong class="row-val">ERP</strong>
+        </div>
+        <div class="detail-row">
+          <span class="row-label">Current Role Context</span>
+          <strong class="row-val role-highlight">{{ authService.roles().join(', ') || 'Platform Admin' }}</strong>
+        </div>
+      </div>
+
+      <div class="card-footer-action">
+        <a routerLink="/platform-admin/diagnostics" class="p-button p-button-outlined w-full">
+          Open Diagnostic Test Center
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick Navigation to Other Foundation Areas -->
+    <div class="foundation-areas-card erp-card">
+      <div class="card-header">
+        <div class="header-title">
+          <i class="pi pi-sitemap"></i>
+          <h3>ApexERP Foundation Entry Points</h3>
+        </div>
+        <span class="seven-badge">7 Areas Configured</span>
+      </div>
+      <p class="card-desc">Direct links across public and private multi-tenant domains:</p>
+
+      <div class="foundation-links-grid">
+        <a routerLink="/" class="foundation-link-item">
+          <div class="item-icon-box"><i class="pi pi-home"></i></div>
+          <div class="item-text">
+            <strong>1. Platform Public</strong>
+            <span>Public homepage &amp; directory</span>
+          </div>
+        </a>
+
+        <a routerLink="/platform-admin" class="foundation-link-item active-area">
+          <div class="item-icon-box"><i class="pi pi-shield"></i></div>
+          <div class="item-text">
+            <strong>2. Platform Admin Private</strong>
+            <span>Global root control &amp; diagnostics</span>
+          </div>
+        </a>
+
+        <a routerLink="/platform-staff" class="foundation-link-item">
+          <div class="item-icon-box"><i class="pi pi-users"></i></div>
+          <div class="item-text">
+            <strong>3. Platform Staff Private</strong>
+            <span>Operational support portal</span>
+          </div>
+        </a>
+
+        <a routerLink="/tenant-admin" class="foundation-link-item">
+          <div class="item-icon-box"><i class="pi pi-building"></i></div>
+          <div class="item-text">
+            <strong>4. Tenant Admin Private</strong>
+            <span>Tenant administration &amp; users</span>
+          </div>
+        </a>
+
+        <a routerLink="/app/dashboard" class="foundation-link-item">
+          <div class="item-icon-box"><i class="pi pi-desktop"></i></div>
+          <div class="item-text">
+            <strong>5. Tenant Staff Private</strong>
+            <span>ERP operational workspace</span>
+          </div>
+        </a>
+
+        <a routerLink="/storefront" class="foundation-link-item">
+          <div class="item-icon-box"><i class="pi pi-shopping-bag"></i></div>
+          <div class="item-text">
+            <strong>6. Tenant Storefront Public</strong>
+            <span>B2B customer catalog</span>
+          </div>
+        </a>
+
+        <a routerLink="/customer-portal" class="foundation-link-item">
+          <div class="item-icon-box"><i class="pi pi-user"></i></div>
+          <div class="item-text">
+            <strong>7. Customer Private</strong>
+            <span>Customer order &amp; invoice portal</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

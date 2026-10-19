@@ -1,0 +1,160 @@
+<div class="transfer-stock-page">
+  <app-page-header
+    title="Stock Transfers"
+    subtitle="Internal warehouse stock movements, bin-to-bin relocations, and transfer ledger log"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div header-actions class="header-action-group">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="loadData()"
+      ></p-button>
+
+      <p-button
+        label="Issue Stock"
+        icon="pi pi-arrow-circle-up"
+        severity="primary"
+        routerLink="/app/inventory/issue-stock/new"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Access Denied -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    [message]="accessDeniedMessage()"
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    message="Loading stock transfer and ledger movements..."
+  ></app-loading-state>
+
+  <!-- Error State -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied()"
+    title="Failed to Load Stock Transfers"
+    [message]="error()!"
+    (retry)="loadData()"
+  ></app-error-state>
+
+  <!-- Content -->
+  <div *ngIf="!loading() && !error() && !isAccessDenied()" class="page-content">
+    <!-- Metric Overview Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card metric-blue">
+        <div class="metric-icon">
+          <i class="pi pi-history"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Total Logged Movements</span>
+          <span class="metric-value">{{ totalTransfers() }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-green">
+        <div class="metric-icon">
+          <i class="pi pi-arrow-right-arrow-left"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Internal Transfers / Adjustments</span>
+          <span class="metric-value">{{ internalMovements() }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-slate">
+        <div class="metric-icon">
+          <i class="pi pi-calculator"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Total Quantity Transferred</span>
+          <span class="metric-value">{{ totalQuantityMoved().toLocaleString() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="filters-card">
+      <div class="filter-controls">
+        <div class="pills-container">
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="movementFilter() === 'all'"
+            (click)="movementFilter.set('all')"
+          >
+            All Movements
+          </button>
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="movementFilter() === 'receipt'"
+            (click)="movementFilter.set('receipt')"
+          >
+            Inbound Receipts
+          </button>
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="movementFilter() === 'dispatch'"
+            (click)="movementFilter.set('dispatch')"
+          >
+            Outbound Issues
+          </button>
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="movementFilter() === 'adjustment'"
+            (click)="movementFilter.set('adjustment')"
+          >
+            Adjustments
+          </button>
+        </div>
+
+        <div class="search-box">
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input
+              pInputText
+              type="text"
+              placeholder="Search by transaction #, SKU, warehouse, or location..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+              class="search-input"
+            />
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <app-data-table
+      *ngIf="filteredTransactions().length > 0; else emptyTemplate"
+      [data]="filteredTransactions()"
+      [columns]="columns"
+      [rowActions]="tableActions"
+      rowKey="inventoryTransactionId"
+      [paginator]="true"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+    ></app-data-table>
+
+    <!-- Empty State -->
+    <ng-template #emptyTemplate>
+      <app-empty-state
+        title="No Transfer Movements Found"
+        message="No stock movements match the current filter. Inbound receipts and outbound issues will be logged here."
+        icon="pi pi-inbox"
+        actionLabel="Issue Stock"
+        (action)="router.navigate(['/app/inventory/issue-stock/new'])"
+      ></app-empty-state>
+    </ng-template>
+  </div>
+</div>

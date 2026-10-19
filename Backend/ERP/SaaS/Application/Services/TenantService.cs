@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Core.Models;
@@ -120,5 +120,25 @@ public class TenantService : ITenantService
 
             throw;
         }
+    }
+
+    public Task<List<TenantQueueItemDto>> GetTenantListAsync()
+    {
+        return _tenantRepository.GetTenantListAsync();
+    }
+
+    public Task<TenantDetailsDto?> GetTenantDetailsAsync(Guid tenantId)
+    {
+        return _tenantRepository.GetTenantDetailsAsync(tenantId);
+    }
+
+    public Task<TenantLifecycleStatusDto?> GetTenantStatusAsync(Guid tenantId)
+    {
+        return _tenantRepository.GetTenantStatusAsync(tenantId);
+    }
+
+    public Task<TenantMetricsDto> GetTenantMetricsAsync()
+    {
+        return _tenantRepository.GetTenantMetricsAsync();
     }
 }

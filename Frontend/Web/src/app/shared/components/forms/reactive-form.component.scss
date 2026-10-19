@@ -1,0 +1,195 @@
+.erp-reactive-form {
+  width: 100%;
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--form-cols, 2), minmax(0, 1fr));
+    gap: 1.25rem 1.5rem;
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  .form-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--erp-text-main, #0f172a);
+      user-select: none;
+
+      .required-star {
+        color: #ef4444;
+        font-weight: 700;
+      }
+
+      .label-tooltip {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        cursor: help;
+      }
+    }
+
+    .field-control-wrap {
+      display: flex;
+      align-items: stretch;
+      width: 100%;
+      position: relative;
+
+      .field-addon {
+        display: flex;
+        align-items: center;
+        padding: 0 0.75rem;
+        background-color: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        font-size: 0.8125rem;
+        color: #64748b;
+        font-weight: 500;
+
+        &.field-prefix {
+          border-right: none;
+          border-radius: var(--erp-radius-md, 6px) 0 0 var(--erp-radius-md, 6px);
+        }
+
+        &.field-suffix {
+          border-left: none;
+          border-radius: 0 var(--erp-radius-md, 6px) var(--erp-radius-md, 6px) 0;
+        }
+      }
+
+      .erp-form-input,
+      .erp-select-control,
+      .erp-textarea-control {
+        width: 100%;
+        font-family: inherit;
+        font-size: 0.875rem;
+        color: var(--erp-text-main, #0f172a);
+        background-color: var(--erp-bg-surface, #ffffff);
+        border: 1px solid #cbd5e1;
+        border-radius: var(--erp-radius-md, 6px);
+        padding: 0.5rem 0.75rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        outline: none;
+
+        &::placeholder {
+          color: #94a3b8;
+        }
+
+        &:focus {
+          border-color: var(--erp-primary, #0f6cbd);
+          box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.2);
+        }
+
+        &:disabled,
+        &[readonly] {
+          background-color: #f8fafc;
+          color: #64748b;
+          border-color: #e2e8f0;
+          cursor: not-allowed;
+        }
+      }
+
+      .erp-select-control {
+        cursor: pointer;
+        padding-right: 2rem;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1rem;
+      }
+
+      .erp-textarea-control {
+        resize: vertical;
+        min-height: 72px;
+      }
+
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0;
+
+        .erp-checkbox-input {
+          width: 1.125rem;
+          height: 1.125rem;
+          accent-color: var(--erp-primary, #0f6cbd);
+          cursor: pointer;
+        }
+
+        .checkbox-label-text {
+          font-size: 0.875rem;
+          color: var(--erp-text-main, #0f172a);
+        }
+      }
+
+      .static-value-box {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--erp-radius-md, 6px);
+        font-size: 0.875rem;
+        color: #334155;
+        font-weight: 500;
+      }
+
+      .autocomplete-wrap {
+        width: 100%;
+      }
+    }
+
+    // Error State
+    &.has-error {
+      .erp-form-input,
+      .erp-select-control,
+      .erp-textarea-control {
+        border-color: #ef4444 !important;
+
+        &:focus {
+          box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+        }
+      }
+    }
+
+    .field-error {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #dc2626;
+      margin-top: 0.125rem;
+
+      i {
+        font-size: 0.75rem;
+      }
+    }
+
+    .field-hint {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.125rem;
+    }
+  }
+
+  &.form-readonly {
+    .field-control-wrap {
+      .erp-form-input,
+      .erp-select-control,
+      .erp-textarea-control {
+        background-color: #f8fafc;
+        border-color: #e2e8f0;
+        color: #1e293b;
+        cursor: default;
+      }
+    }
+  }
+}

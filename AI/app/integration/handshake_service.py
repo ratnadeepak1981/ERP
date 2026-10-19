@@ -84,21 +84,6 @@ class HandshakeService:
                 result["claims"]
             )
 
-            return {
-                "status": "PASS",
-                "stage": "SecurityContext creation",
-                "message": (
-                    "C# RS256 JWT successfully "
-                    "validated by FastAPI"
-                ),
-                "security_context": {
-                    "subject": security_context.subject,
-                    "tenant_id": security_context.tenant_id,
-                    "roles": security_context.roles,
-                    "permissions": security_context.permissions
-                }
-            }
-
         except Exception as ex:
             return {
                 "status": "FAIL",
@@ -107,3 +92,49 @@ class HandshakeService:
                     f"SecurityContext creation failed: {str(ex)}"
                 )
             }
+
+        # Stage 6: Service identity and readiness authorization
+        if security_context.identity_type != "service":
+            return {
+                "status": "FAIL",
+                "stage": "Authorization",
+                "message": "Only service identities are permitted to perform handshake"
+            }
+
+        if not security_context.client_id:
+            return {
+                "status": "FAIL",
+                "stage": "Authorization",
+                "message": "Service client identifier is missing"
+            }
+
+        if "Service Agent" not in security_context.roles:
+            return {
+                "status": "FAIL",
+                "stage": "Authorization",
+                "message": "Missing required service role: Service Agent"
+            }
+
+        if "AI.READINESS" not in security_context.permissions:
+            return {
+                "status": "FAIL",
+                "stage": "Authorization",
+                "message": "Missing required service permission: AI.READINESS"
+            }
+
+        return {
+            "status": "PASS",
+            "stage": "SecurityContext creation",
+            "message": (
+                "C# RS256 JWT successfully "
+                "validated by FastAPI"
+            ),
+            "security_context": {
+                "subject": security_context.subject,
+                "tenant_id": security_context.tenant_id,
+                "roles": security_context.roles,
+                "permissions": security_context.permissions,
+                "identity_type": security_context.identity_type,
+                "client_id": security_context.client_id
+            }
+        }

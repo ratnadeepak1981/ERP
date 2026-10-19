@@ -1,0 +1,51 @@
+.erp-page-header {
+  margin-bottom: var(--erp-space-4);
+
+  .breadcrumb-container {
+    margin-bottom: var(--erp-space-2);
+
+    :deep(.p-breadcrumb) {
+      background: transparent;
+      padding: 0;
+      border: none;
+      font-size: 12.5px;
+
+      ul li a {
+        color: var(--erp-text-muted);
+        &:hover {
+          color: var(--erp-primary);
+        }
+      }
+    }
+  }
+
+  .header-main-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--erp-space-4);
+    flex-wrap: wrap;
+
+    .title-column {
+      .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--erp-text-main);
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+
+      .page-subtitle {
+        font-size: 13.5px;
+        color: var(--erp-text-secondary);
+        margin: var(--erp-space-1) 0 0 0;
+      }
+    }
+
+    .actions-column {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2);
+    }
+  }
+}

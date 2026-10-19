@@ -1,0 +1,108 @@
+<div class="plans-page">
+  <!-- Header -->
+  <header class="plans-header text-center">
+    <div class="erp-container">
+      <span class="plans-badge">
+        <i class="pi pi-tags" aria-hidden="true"></i>
+        ApexERP SaaS Subscription Packages
+      </span>
+      <h1 class="plans-title">Transparent Enterprise Plans</h1>
+      <p class="plans-subtitle">
+        Real plans loaded directly from the backend Subscription Plans catalog (<code class="api-tag">/api/SubscriptionPlan</code>).
+      </p>
+    </div>
+  </header>
+
+  <div class="erp-container plans-body">
+    <!-- State 1: Loading -->
+    @if (loading()) {
+      <div class="state-container">
+        <app-loading-state message="Calling Subscription Plans API (/api/SubscriptionPlan)..."></app-loading-state>
+      </div>
+    }
+
+    <!-- State 2: Error and Retry Option -->
+    @if (!loading() && errorMessage()) {
+      <div class="state-container">
+        <app-error-state
+          [title]="errorMessage()!"
+          [message]="errorDetails()!"
+          [retryable]="true"
+          (retry)="loadPlans()"
+        ></app-error-state>
+      </div>
+    }
+
+    <!-- State 3: Empty Result -->
+    @if (!loading() && !errorMessage() && plans().length === 0) {
+      <div class="state-container">
+        <app-empty-state
+          icon="pi pi-folder-open"
+          title="No Subscription Plans Returned"
+          description="The subscription plan catalog returned an empty list from the server."
+          actionLabel="Retry"
+          (action)="loadPlans()"
+        ></app-empty-state>
+      </div>
+    }
+
+    <!-- State 4: Display Real Subscription Plans -->
+    @if (!loading() && !errorMessage() && plans().length > 0) {
+      <div class="plans-grid">
+        @for (plan of plans(); track plan.id) {
+          <div class="plan-card erp-card erp-card-elevated" [class.selected]="selectedPlan()?.id === plan.id">
+            <div class="plan-card-header">
+              <div class="plan-name-wrap">
+                <span class="plan-code-badge">{{ plan.code }}</span>
+                <h2>{{ plan.name }}</h2>
+              </div>
+              <span
+                class="status-pill"
+                [class.active]="plan.isActive"
+                [class.inactive]="!plan.isActive"
+              >
+                {{ plan.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+
+            <p class="plan-desc">{{ plan.description || 'No description provided by backend.' }}</p>
+
+            <div class="plan-pricing">
+              <span class="price-val">{{ plan.price | currency:'USD':'symbol':'1.2-2' }}</span>
+              <span class="price-cycle">/ {{ formatCycle(plan.billingCycle) }}</span>
+            </div>
+
+            <div class="plan-meta">
+              <div class="meta-row">
+                <span class="meta-label">Contract Plan ID:</span>
+                <code class="meta-val mono">{{ plan.id }}</code>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Billing Cycle:</span>
+                <span class="meta-val">{{ formatCycle(plan.billingCycle) }} (Enum {{ plan.billingCycle }})</span>
+              </div>
+            </div>
+
+            <div class="plan-actions">
+              <p-button
+                [label]="selectedPlan()?.id === plan.id ? 'Selected' : 'Select Plan & Continue'"
+                [icon]="selectedPlan()?.id === plan.id ? 'pi pi-check' : 'pi pi-arrow-right'"
+                iconPos="right"
+                [severity]="selectedPlan()?.id === plan.id ? 'success' : 'primary'"
+                styleClass="w-full"
+                (click)="selectPlan(plan)"
+              ></p-button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="plans-footer-note text-center">
+        <p>
+          <i class="pi pi-info-circle" aria-hidden="true"></i>
+          Selecting a plan carries its unique identifier (<code>SubscriptionPlanId</code>) forward into tenant registration.
+        </p>
+      </div>
+    }
+  </div>
+</div>

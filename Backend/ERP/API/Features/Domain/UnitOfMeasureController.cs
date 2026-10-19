@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
+using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.UnitOfMeasure;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +13,15 @@ namespace API.Features.MasterData.UnitOfMeasure;
 [ApiController]
 [Route("api/uom")]
 [RequirePermission("UOM.VIEW")]
-public class UnitOfMeasureController : ControllerBase
+public class UnitOfMeasureController : BaseApiController
 {
     private readonly IUnitOfMeasureService _uomService;
     private readonly ICurrentUserContext _currentUserContext;
+
+    private static readonly SortMapping<global::Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure> _sortMapping = new SortMapping<global::Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure>()
+        .Add("code", u => u.Code, isDefault: true)
+        .Add("name", u => u.Name)
+        .SetSecondary(u => u.UnitOfMeasureId);
 
     public UnitOfMeasureController(
         IUnitOfMeasureService uomService,
@@ -25,15 +32,19 @@ public class UnitOfMeasureController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetUnits()
+    public async Task<IActionResult> GetUnits(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var units = await _uomService.GetUnitsAsync(tenantId.Value);
-        return Ok(units);
+        return PaginateAndSort(units, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,13 +53,13 @@ public class UnitOfMeasureController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var unit = await _uomService.GetUnitAsync(tenantId.Value, id);
         if (unit == null)
-            return NotFound(new { status = "FAIL", message = "Unit of measure not found." });
+            return NotFoundResponse("Unit of measure not found.");
 
-        return Ok(unit);
+        return SuccessResponse(unit);
     }
 
     [HttpPost]
@@ -58,20 +69,16 @@ public class UnitOfMeasureController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var unit = await _uomService.CreateUnitAsync(tenantId.Value, request);
-            return CreatedAtAction(nameof(GetUnit), new { id = unit.UnitOfMeasureId }, unit);
+            return CreatedResponse(nameof(GetUnit), new { id = unit.UnitOfMeasureId }, unit);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -82,24 +89,16 @@ public class UnitOfMeasureController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var unit = await _uomService.UpdateUnitAsync(tenantId.Value, id, request);
-            return Ok(unit);
+            return SuccessResponse(unit);
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Unit of measure not found." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 
@@ -110,16 +109,16 @@ public class UnitOfMeasureController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             await _uomService.DeactivateUnitAsync(tenantId.Value, id);
             return NoContent();
         }
-        catch (KeyNotFoundException)
+        catch (Exception ex)
         {
-            return NotFound(new { status = "FAIL", message = "Unit of measure not found." });
+            return HandleDomainException(ex);
         }
     }
 
@@ -129,10 +128,10 @@ public class UnitOfMeasureController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var conversions = await _uomService.GetConversionsAsync(tenantId.Value);
-        return Ok(conversions);
+        return SuccessResponse(conversions);
     }
 
     [HttpPost("conversions")]
@@ -142,20 +141,16 @@ public class UnitOfMeasureController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         try
         {
             var conversion = await _uomService.CreateConversionAsync(tenantId.Value, request);
-            return Ok(conversion);
+            return SuccessResponse(conversion, "Unit of measure conversion created successfully.");
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { status = "FAIL", message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { status = "FAIL", message = ex.Message });
+            return HandleDomainException(ex);
         }
     }
 }

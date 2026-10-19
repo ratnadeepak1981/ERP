@@ -5,6 +5,7 @@ using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.Product;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.MasterData.Category;
+using ERP.Domain.Features.MasterData.Customer;
 using SaaS.Core.Models;
 using SaaS.Infrastructure.Persistence;
 using Security.Core.Models;
@@ -200,6 +201,25 @@ public static class TestSeeder
                 ValuationMethod.FIFO,
                 0, 0, 0, 0, false, true, true,
                 TestConstants.ProductBetaId));
+        }
+
+        // Customers
+        if (!db.Customers.Any(x => x.CustomerId == TestConstants.CustomerAlphaId))
+        {
+            db.Customers.Add(Customer.Create(
+                TestConstants.TenantAlphaId,
+                "CUST_ALPHA",
+                "Customer Alpha",
+                customerId: TestConstants.CustomerAlphaId));
+        }
+
+        if (!db.Customers.Any(x => x.CustomerId == TestConstants.CustomerBetaId))
+        {
+            db.Customers.Add(Customer.Create(
+                TestConstants.TenantBetaId,
+                "CUST_BETA",
+                "Customer Beta",
+                customerId: TestConstants.CustomerBetaId));
         }
 
         db.SaveChanges();

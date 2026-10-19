@@ -113,6 +113,45 @@ public class DomainDbContext : DbContext
     public DbSet<DomainAuditRecord> DomainAuditRecords
         => Set<DomainAuditRecord>();
 
+    public DbSet<ERP.Domain.Features.Inventory.InventoryTransaction> InventoryTransactions
+        => Set<ERP.Domain.Features.Inventory.InventoryTransaction>();
+
+    public DbSet<ERP.Domain.Features.Inventory.InventoryBalance> InventoryBalances
+        => Set<ERP.Domain.Features.Inventory.InventoryBalance>();
+
+    public DbSet<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote> GoodsReceiptNotes
+        => Set<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote>();
+
+    public DbSet<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteLine> GoodsReceiptNoteLines
+        => Set<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteLine>();
+
+    public DbSet<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer> InventoryCostLayers
+        => Set<ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer>();
+
+    public DbSet<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance> ProductValuationBalances
+        => Set<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance>();
+
+    public DbSet<ERP.Domain.Features.CRM.Lead> Leads
+        => Set<ERP.Domain.Features.CRM.Lead>();
+
+    public DbSet<ERP.Domain.Features.CRM.Opportunity> Opportunities
+        => Set<ERP.Domain.Features.CRM.Opportunity>();
+
+    public DbSet<ERP.Domain.Features.CRM.CrmActivity> CrmActivities
+        => Set<ERP.Domain.Features.CRM.CrmActivity>();
+
+    public DbSet<Domain.Features.Sales.SalesOrder.SalesOrder> SalesOrders
+        => Set<Domain.Features.Sales.SalesOrder.SalesOrder>();
+
+    public DbSet<Domain.Features.Sales.SalesOrder.SalesOrderItem> SalesOrderItems
+        => Set<Domain.Features.Sales.SalesOrder.SalesOrderItem>();
+
+    public DbSet<Domain.Features.Sales.Shipment.SalesShipment> SalesShipments
+        => Set<Domain.Features.Sales.Shipment.SalesShipment>();
+
+    public DbSet<Domain.Features.Sales.Shipment.SalesShipmentItem> SalesShipmentItems
+        => Set<Domain.Features.Sales.Shipment.SalesShipmentItem>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {

@@ -1,0 +1,107 @@
+<div class="public-shell">
+  <!-- Public SaaS Top Navigation Bar -->
+  <header class="public-header" role="banner">
+    <div class="header-inner erp-container">
+      <!-- Brand Logo Area -->
+      <div class="brand-group">
+        <a routerLink="/" (click)="selectTab('platform')" class="brand-logo" aria-label="ApexERP SaaS Platform Home">
+          <div class="logo-mark" aria-hidden="true">
+            <i class="pi pi-box"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">ApexERP</span>
+            <span class="brand-tag">SaaS Platform</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Exactly Two Main Tabs -->
+      <nav class="public-nav" role="tablist" aria-label="Main Navigation">
+        <button
+          type="button"
+          role="tab"
+          id="tab-platform"
+          class="nav-tab"
+          [class.active]="navService.activeTab() === 'platform'"
+          [attr.aria-selected]="navService.activeTab() === 'platform'"
+          aria-controls="tabpanel-platform"
+          [attr.tabindex]="navService.activeTab() === 'platform' ? 0 : -1"
+          (click)="selectTab('platform')"
+          (keydown)="onTabKeydown($event, 'platform')"
+        >
+          <i class="pi pi-th-large tab-icon" aria-hidden="true"></i>
+          <span>Platform</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          id="tab-directory"
+          class="nav-tab"
+          [class.active]="navService.activeTab() === 'directory'"
+          [attr.aria-selected]="navService.activeTab() === 'directory'"
+          aria-controls="tabpanel-directory"
+          [attr.tabindex]="navService.activeTab() === 'directory' ? 0 : -1"
+          (click)="selectTab('directory')"
+          (keydown)="onTabKeydown($event, 'directory')"
+        >
+          <i class="pi pi-building tab-icon" aria-hidden="true"></i>
+          <span>Business Directory</span>
+        </button>
+      </nav>
+
+      <!-- Shared Actions: Theme Toggle, Sign In -->
+      <div class="header-actions">
+        <p-button
+          [icon]="themeService.currentTheme() === 'clean-enterprise' ? 'pi pi-moon' : 'pi pi-sun'"
+          [text]="true"
+          [rounded]="true"
+          (click)="themeService.toggleTheme()"
+          [attr.aria-label]="themeService.currentTheme() === 'clean-enterprise' ? 'Switch to dark theme' : 'Switch to light theme'"
+        ></p-button>
+        <a routerLink="/login" class="nav-btn-link outlined">Sign In</a>
+        <a routerLink="/plans" class="nav-btn-link filled">View Plans</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Viewport -->
+  <main class="public-main">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Public SaaS Footer -->
+  <footer class="public-footer">
+    <div class="footer-inner erp-container">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <i class="pi pi-box" aria-hidden="true"></i>
+          <span>ApexERP Manufacturing Cloud</span>
+        </div>
+        <p class="footer-tagline">AI-Powered Multi-Tenant Manufacturing ERP SaaS with Clean Enterprise Architecture.</p>
+      </div>
+      <div class="footer-links">
+        <div class="link-column">
+          <h4>Platform Navigation</h4>
+          <a routerLink="/overview" class="footer-link-btn">Platform Overview</a>
+          <a routerLink="/plans" class="footer-link-btn">Subscription Plans</a>
+          <button type="button" class="footer-link-btn" (click)="selectTab('directory')">Business Directory</button>
+        </div>
+        <div class="link-column">
+          <h4>Enterprise Portals</h4>
+          <a routerLink="/login">Sign In / SSO Login</a>
+          <a routerLink="/register">Register Organization</a>
+          <a routerLink="/platform-admin">Platform Admin Console</a>
+          <a routerLink="/platform-staff">Platform Staff Portal</a>
+          <a routerLink="/tenant-admin">Tenant Admin Console</a>
+          <a routerLink="/app/dashboard">Operational Workspace</a>
+          <a routerLink="/storefront">Tenant Storefront</a>
+          <a routerLink="/customer-portal">Customer Portal</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom erp-container">
+      <p>&copy; {{ currentYear }} ApexERP Inc. All rights reserved. Clean Enterprise &amp; Fluent Design.</p>
+    </div>
+  </footer>
+</div>

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SaaS.Application.Interfaces.Repositories;
 using SaaS.Core.Models;
 using SaaS.Infrastructure.Persistence;
@@ -37,6 +37,14 @@ public class TenantDatabaseRepository
     {
         await _context.TenantDatabases.AddAsync(
             tenantDatabase);
+    }
+
+    public Task DeleteAsync(
+        TenantDatabase tenantDatabase)
+    {
+        _context.TenantDatabases.Remove(
+            tenantDatabase);
+        return Task.CompletedTask;
     }
 
     public async Task SaveChangesAsync()

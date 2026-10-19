@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using API.Common;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Address;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ namespace API.Features.MasterData.Country;
 [ApiController]
 [Route("api/countries")]
 [RequirePermission("COUNTRY.VIEW")]
-public class CountryController : ControllerBase
+public class CountryController : BaseApiController
 {
     private readonly IAddressService _addressService;
     private readonly ICurrentUserContext _currentUserContext;
@@ -30,10 +31,10 @@ public class CountryController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var countries = await _addressService.GetCountriesAsync();
-        return Ok(countries);
+        return SuccessResponse(countries);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,12 +43,12 @@ public class CountryController : ControllerBase
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
         if (!tenantId.HasValue)
-            return Unauthorized(new { status = "FAIL", message = "Tenant identity is missing or invalid." });
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
         var country = await _addressService.GetCountryByIdAsync(id);
         if (country == null)
-            return NotFound(new { status = "FAIL", message = "Country not found." });
+            return NotFoundResponse("Country not found.");
 
-        return Ok(country);
+        return SuccessResponse(country);
     }
 }

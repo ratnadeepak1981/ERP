@@ -1,0 +1,70 @@
+:host {
+  display: block;
+}
+
+.stock-receipt-register-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.register-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.filters-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: var(--border-radius, 8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.reason-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.reason-pill-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: 1px solid var(--surface-border, #cbd5e1);
+  background-color: transparent;
+  color: var(--text-color-secondary, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+
+  &:hover {
+    background-color: var(--surface-hover, #f1f5f9);
+    color: var(--text-color, #1e293b);
+  }
+
+  &.active {
+    background-color: var(--primary-color, #2563eb);
+    border-color: var(--primary-color, #2563eb);
+    color: #ffffff;
+    font-weight: 600;
+  }
+}
+
+.search-box {
+  min-width: 280px;
+  flex: 1;
+  max-width: 420px;
+
+  .search-input {
+    width: 100%;
+    font-size: 0.875rem;
+  }
+}

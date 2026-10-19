@@ -1,0 +1,173 @@
+<div class="home-page">
+  <!-- TAB 1: PLATFORM MARKETING VIEW -->
+  @if (navService.activeTab() === 'platform') {
+    <div id="tabpanel-platform" role="tabpanel" aria-labelledby="tab-platform" class="tab-pane">
+      <!-- Enterprise Hero Section -->
+      <section class="hero-section">
+        <div class="erp-container hero-inner">
+          <div class="hero-content">
+            <span class="hero-badge">
+              <i class="pi pi-sparkles" aria-hidden="true"></i>
+              ApexERP — AI-Powered Business Management Platform
+            </span>
+            <h1 class="hero-title">One Connected Platform. <span class="highlight-blue">Smarter Business Decisions.</span></h1>
+            <p class="hero-subtitle">
+              Manage purchasing, inventory, sales and business operations in one connected ERP platform. Designed for growing retail, wholesale and distribution businesses, with AI-powered business insights to support better decisions.
+            </p>
+            <div class="hero-cta-group">
+              <a routerLink="/register" pButton label="Start Free Trial" icon="pi pi-arrow-right" iconPos="right" class="p-button-primary"></a>
+              <button pButton label="Explore Business Directory" icon="pi pi-compass" [outlined]="true" class="p-button-secondary" (click)="switchToDirectory()"></button>
+            </div>
+          </div>
+          <div class="hero-visual">
+            <div class="visual-card">
+              <div class="visual-card-header">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+                <span class="card-caption">Connected Operations Hub</span>
+              </div>
+              <div class="visual-card-body">
+                <div class="mock-stat">
+                  <span class="stat-label">Multi-Warehouse Stock</span>
+                  <strong class="stat-val">$1,280,450.00</strong>
+                  <span class="stat-trend positive"><i class="pi pi-arrow-up" aria-hidden="true"></i> Valuation &amp; stock movement live</span>
+                </div>
+                <div class="mock-stat">
+                  <span class="stat-label">Sales &amp; Order Fulfillment</span>
+                  <strong class="stat-val">142 In-Progress</strong>
+                  <span class="stat-trend neutral"><i class="pi pi-clock" aria-hidden="true"></i> Dispatch &amp; delivery tracking</span>
+                </div>
+                <div class="mock-stat">
+                  <span class="stat-label">AI Business Intelligence</span>
+                  <strong class="stat-val">Demand Optimized</strong>
+                  <span class="stat-trend positive"><i class="pi pi-check-circle" aria-hidden="true"></i> Purchasing &amp; inventory insight active</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Everything Your Business Needs Section -->
+      <section class="capabilities-section erp-container">
+        <div class="section-header text-center">
+          <h2>Everything Your Business Needs</h2>
+          <p>Comprehensive business management capabilities integrated across your entire organization.</p>
+        </div>
+        <div class="capabilities-grid">
+          @for (c of capabilities; track c.title) {
+            <div class="capability-card erp-card">
+              <div class="card-top-row">
+                <div class="capability-icon-wrap" aria-hidden="true">
+                  <i [class]="c.icon"></i>
+                </div>
+              </div>
+              <h3>{{ c.title }}</h3>
+              <p>{{ c.description }}</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Built for Growing Businesses Section -->
+      <section class="built-for-growth-section erp-container">
+        <div class="growth-card erp-card">
+          <div class="section-header text-center">
+            <span class="section-tag">Enterprise Foundation</span>
+            <h2>Built for Growing Businesses</h2>
+            <p class="growth-desc">
+              A multi-tenant SaaS platform designed to support multiple organizations, company and branch structures, tenant-aware data isolation and role-based access controls.
+            </p>
+          </div>
+          <div class="growth-pillars-grid">
+            <div class="growth-pillar">
+              <div class="pillar-icon" aria-hidden="true"><i class="pi pi-building"></i></div>
+              <h4>Multiple Organizations</h4>
+              <p>Scalable cloud infrastructure supporting independent tenant organizations.</p>
+            </div>
+            <div class="growth-pillar">
+              <div class="pillar-icon" aria-hidden="true"><i class="pi pi-sitemap"></i></div>
+              <h4>Company &amp; Branch Structures</h4>
+              <p>Model complex multi-company hierarchies, divisions, and branch networks.</p>
+            </div>
+            <div class="growth-pillar">
+              <div class="pillar-icon" aria-hidden="true"><i class="pi pi-shield"></i></div>
+              <h4>Tenant-Aware Data Isolation</h4>
+              <p>Rigorous security boundaries ensuring absolute separation of business data.</p>
+            </div>
+            <div class="growth-pillar">
+              <div class="pillar-icon" aria-hidden="true"><i class="pi pi-lock"></i></div>
+              <h4>Role-Based Access Controls</h4>
+              <p>Granular permissions ensuring employees access only authorized operations.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Make Better Business Decisions with ApexERP Section -->
+      <section class="decisions-cta-section erp-container">
+        <div class="decisions-card erp-card erp-card-elevated">
+          <div class="decisions-content">
+            <h2>Make Better Business Decisions with ApexERP</h2>
+            <p>
+              Bring your business operations together and prepare for smarter, data-driven growth.
+            </p>
+            <div class="decisions-actions">
+              <a routerLink="/register" pButton label="Create Your Organization" icon="pi pi-user-plus" class="p-button-primary"></a>
+              <a routerLink="/login" pButton label="Sign In" [outlined]="true" class="p-button-secondary"></a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  }
+
+  <!-- TAB 2: BUSINESS DIRECTORY (TEMPORARY COMING-SOON VIEW) -->
+  @if (navService.activeTab() === 'directory') {
+    <div id="tabpanel-directory" role="tabpanel" aria-labelledby="tab-directory" class="tab-pane">
+      <section class="directory-placeholder-section erp-container">
+        <div class="directory-header text-center">
+          <span class="directory-badge">Business Network</span>
+          <h1>Manufacturing &amp; Supplier Directory</h1>
+          <p class="directory-subtitle">
+            A verified network of certified industrial manufacturers, suppliers, and distributors across the supply chain ecosystem.
+          </p>
+        </div>
+
+        <div class="directory-status-card erp-card erp-card-elevated">
+          <div class="status-icon-box" aria-hidden="true">
+            <i class="pi pi-compass"></i>
+          </div>
+          <h2>Business Discovery Network In Development</h2>
+          <p class="status-desc">
+            We are onboarding verified industrial fabricators, raw material suppliers, and manufacturing tenants to provide a transparent, searchable marketplace. Verified tenant storefronts, live catalog queries, and direct RFQ submissions will be accessible here soon.
+          </p>
+
+          <div class="upcoming-features-grid">
+            <div class="upcoming-item">
+              <div class="item-icon" aria-hidden="true"><i class="pi pi-verified"></i></div>
+              <h4>Verified Tenant Profiles</h4>
+              <p>Authenticated corporate credentials, operational certifications, and facility details.</p>
+            </div>
+            <div class="upcoming-item">
+              <div class="item-icon" aria-hidden="true"><i class="pi pi-box"></i></div>
+              <h4>B2B Product Catalogs</h4>
+              <p>Searchable raw materials, standardized assemblies, and real-time lead-time indicators.</p>
+            </div>
+            <div class="upcoming-item">
+              <div class="item-icon" aria-hidden="true"><i class="pi pi-send"></i></div>
+              <h4>Direct RFQ Connectivity</h4>
+              <p>Submit procurement requisitions and request quotes directly into tenant ERP pipelines.</p>
+            </div>
+          </div>
+
+          <div class="status-actions">
+            <button pButton label="Return to Platform Overview" icon="pi pi-arrow-left" [outlined]="true" class="p-button-secondary" (click)="switchToPlatform()"></button>
+            <a routerLink="/register" pButton label="Register Your Organization" icon="pi pi-check" class="p-button-primary"></a>
+          </div>
+        </div>
+      </section>
+    </div>
+  }
+</div>

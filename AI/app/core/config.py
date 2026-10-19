@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 
@@ -10,3 +11,8 @@ PUBLIC_KEY_PATH = (
     / "ClientVault"
     / "public_key.pem"
 )
+
+# Operational environment configuration (with safe local defaults)
+ERP_API_BASE_URL: str = os.getenv("ERP_API_BASE_URL", "http://127.0.0.1:5000")
+DEFAULT_AI_PROVIDER: str = os.getenv("DEFAULT_AI_PROVIDER", "groq")
+LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

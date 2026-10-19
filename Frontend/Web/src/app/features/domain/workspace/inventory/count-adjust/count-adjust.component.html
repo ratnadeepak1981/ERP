@@ -1,0 +1,160 @@
+<div class="count-adjust-page">
+  <app-page-header
+    title="Stock Count & Adjustment"
+    subtitle="Physical cycle counting, stock variance audit, reorder level tracking, and ledger adjustments"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div header-actions class="header-action-group">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="loadData()"
+      ></p-button>
+
+      <p-button
+        label="Item Master"
+        icon="pi pi-box"
+        severity="secondary"
+        [outlined]="true"
+        routerLink="/app/master-data/products"
+      ></p-button>
+
+      <p-button
+        label="Issue Stock"
+        icon="pi pi-arrow-circle-up"
+        severity="primary"
+        routerLink="/app/inventory/issue-stock/new"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Access Denied -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    [message]="accessDeniedMessage()"
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    message="Loading stock items and count variances..."
+  ></app-loading-state>
+
+  <!-- Error State -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied()"
+    title="Failed to Load Count Catalogue"
+    [message]="error()!"
+    (retry)="loadData()"
+  ></app-error-state>
+
+  <!-- Content -->
+  <div *ngIf="!loading() && !error() && !isAccessDenied()" class="page-content">
+    <!-- Metric Overview Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card metric-blue">
+        <div class="metric-icon">
+          <i class="pi pi-box"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Tracked SKU Catalogue</span>
+          <span class="metric-value">{{ totalProducts() }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-amber">
+        <div class="metric-icon">
+          <i class="pi pi-exclamation-triangle"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Low Stock Thresholds Set</span>
+          <span class="metric-value">{{ lowStockCount() }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-green">
+        <div class="metric-icon">
+          <i class="pi pi-check-circle"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Healthy Stock Level Items</span>
+          <span class="metric-value">{{ healthyCount() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="filters-card">
+      <div class="filter-controls">
+        <div class="pills-container">
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === 'all'"
+            (click)="statusFilter.set('all')"
+          >
+            All Items
+          </button>
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === 'low-stock'"
+            (click)="statusFilter.set('low-stock')"
+          >
+            Review Needed
+          </button>
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === 'healthy'"
+            (click)="statusFilter.set('healthy')"
+          >
+            Normal Level
+          </button>
+        </div>
+
+        <div class="search-box">
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input
+              pInputText
+              type="text"
+              placeholder="Search by SKU, product name, or category..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+              class="search-input"
+            />
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <app-data-table
+      *ngIf="filteredProducts().length > 0; else emptyTemplate"
+      [data]="filteredProducts()"
+      [columns]="columns"
+      [rowActions]="tableActions"
+      rowKey="productId"
+      [paginator]="true"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+    ></app-data-table>
+
+    <!-- Empty State -->
+    <ng-template #emptyTemplate>
+      <app-empty-state
+        title="No Items Found"
+        message="No stock items match the current filter. Manage product SKUs in Item Master."
+        icon="pi pi-inbox"
+        actionLabel="Manage Item Master"
+        (action)="router.navigate(['/app/master-data/products'])"
+      ></app-empty-state>
+    </ng-template>
+  </div>
+</div>
