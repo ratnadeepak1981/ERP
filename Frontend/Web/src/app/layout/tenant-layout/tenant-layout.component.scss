@@ -154,6 +154,70 @@
                 font-weight: 600;
               }
             }
+
+            &.nav-item-collapsible {
+              .nav-parent-link {
+                cursor: pointer;
+                user-select: none;
+
+                .chevron-toggle {
+                  margin-left: auto;
+                  font-size: 11px;
+                  color: var(--erp-text-muted);
+                  transition: transform 0.2s ease;
+                }
+              }
+
+              .nav-sublist {
+                list-style: none;
+                padding: 2px 0 2px 14px;
+                margin: 2px 0 4px;
+                border-left: 2px solid var(--erp-border);
+                margin-left: 18px;
+
+                .nav-subitem {
+                  margin-bottom: 2px;
+
+                  .nav-sublink {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--erp-space-2);
+                    padding: 5px 10px;
+                    color: var(--erp-text-secondary);
+                    text-decoration: none;
+                    font-size: 12.5px;
+                    font-weight: 500;
+                    border-radius: var(--erp-radius-sm);
+                    transition: all 0.15s ease-in-out;
+
+                    .subitem-icon {
+                      font-size: 13px;
+                      color: var(--erp-text-muted);
+                      flex-shrink: 0;
+                    }
+
+                    &:hover {
+                      background-color: var(--erp-bg-hover);
+                      color: var(--erp-text-main);
+
+                      .subitem-icon {
+                        color: var(--erp-primary);
+                      }
+                    }
+
+                    &.active {
+                      background-color: var(--erp-primary-light);
+                      color: var(--erp-primary);
+                      font-weight: 600;
+
+                      .subitem-icon {
+                        color: var(--erp-primary);
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

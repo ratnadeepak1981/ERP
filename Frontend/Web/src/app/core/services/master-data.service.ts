@@ -12,7 +12,15 @@ import {
   CategoryItem,
   UnitOfMeasureItem,
   WarehouseItem,
-  WarehouseLocationItem
+  WarehouseZoneItem,
+  WarehouseLocationItem,
+  LocationTypeItem,
+  CreateWarehouseDto,
+  UpdateWarehouseDto,
+  CreateWarehouseZoneDto,
+  UpdateWarehouseZoneDto,
+  CreateWarehouseLocationDto,
+  UpdateWarehouseLocationDto
 } from '../models/scope.models';
 
 @Injectable({
@@ -130,16 +138,120 @@ export class MasterDataService {
       );
   }
 
-  getWarehouseLocations(warehouseId: string): Observable<WarehouseLocationItem[]> {
+  getWarehouse(id: string): Observable<WarehouseItem | null> {
     return this.http
-      .get<ApiResponse<WarehouseLocationItem[] | { items: WarehouseLocationItem[] }>>(
-        buildApiUrl(`/warehouses/${warehouseId}/locations`)
+      .get<ApiResponse<WarehouseItem>>(buildApiUrl(`/warehouses/${id}`))
+      .pipe(map(res => res?.data ?? null));
+  }
+
+  createWarehouse(dto: CreateWarehouseDto): Observable<WarehouseItem> {
+    return this.http
+      .post<ApiResponse<WarehouseItem>>(buildApiUrl('/warehouses'), dto)
+      .pipe(map(res => res.data));
+  }
+
+  updateWarehouse(id: string, dto: UpdateWarehouseDto): Observable<WarehouseItem> {
+    return this.http
+      .put<ApiResponse<WarehouseItem>>(buildApiUrl(`/warehouses/${id}`), dto)
+      .pipe(map(res => res.data));
+  }
+
+  deactivateWarehouse(id: string): Observable<void> {
+    return this.http.delete<void>(buildApiUrl(`/warehouses/${id}`));
+  }
+
+  // --- Warehouse Zones ---
+  getWarehouseZones(warehouseId: string): Observable<WarehouseZoneItem[]> {
+    return this.http
+      .get<ApiResponse<WarehouseZoneItem[] | { items: WarehouseZoneItem[] }>>(
+        buildApiUrl(`/warehouses/${warehouseId}/zones`)
       )
       .pipe(
         map(res => {
           if (!res?.data) return [];
           if (Array.isArray(res.data)) return res.data;
+          return (res.data as { items: WarehouseZoneItem[] }).items || [];
+        })
+      );
+  }
+
+  getWarehouseZone(warehouseId: string, zoneId: string): Observable<WarehouseZoneItem | null> {
+    return this.http
+      .get<ApiResponse<WarehouseZoneItem>>(buildApiUrl(`/warehouses/${warehouseId}/zones/${zoneId}`))
+      .pipe(map(res => res?.data ?? null));
+  }
+
+  createWarehouseZone(warehouseId: string, dto: CreateWarehouseZoneDto): Observable<WarehouseZoneItem> {
+    return this.http
+      .post<ApiResponse<WarehouseZoneItem>>(buildApiUrl(`/warehouses/${warehouseId}/zones`), dto)
+      .pipe(map(res => res.data));
+  }
+
+  updateWarehouseZone(warehouseId: string, zoneId: string, dto: UpdateWarehouseZoneDto): Observable<WarehouseZoneItem> {
+    return this.http
+      .put<ApiResponse<WarehouseZoneItem>>(buildApiUrl(`/warehouses/${warehouseId}/zones/${zoneId}`), dto)
+      .pipe(map(res => res.data));
+  }
+
+  deactivateWarehouseZone(warehouseId: string, zoneId: string): Observable<void> {
+    return this.http.delete<void>(buildApiUrl(`/warehouses/${warehouseId}/zones/${zoneId}`));
+  }
+
+  // --- Warehouse Locations ---
+  getWarehouseLocations(
+    warehouseId: string,
+    zoneId?: string | null,
+    includeDetails: boolean = true
+  ): Observable<WarehouseLocationItem[]> {
+    let url = `/warehouses/${warehouseId}/locations?includeDetails=${includeDetails}`;
+    if (zoneId) {
+      url += `&zoneId=${zoneId}`;
+    }
+    return this.http
+      .get<ApiResponse<WarehouseLocationItem[] | { items: WarehouseLocationItem[] }>>(buildApiUrl(url))
+      .pipe(
+        map(res => {
+          if (!res?.data) return [];
+          if (Array.isArray(res.data)) return res.data;
           return (res.data as { items: WarehouseLocationItem[] }).items || [];
+        })
+      );
+  }
+
+  getWarehouseLocation(locationId: string, warehouseId?: string | null): Observable<WarehouseLocationItem | null> {
+    const url = warehouseId
+      ? `/warehouses/${warehouseId}/locations/${locationId}`
+      : `/warehouses/locations/${locationId}`;
+    return this.http
+      .get<ApiResponse<WarehouseLocationItem>>(buildApiUrl(url))
+      .pipe(map(res => res?.data ?? null));
+  }
+
+  createWarehouseLocation(warehouseId: string, dto: CreateWarehouseLocationDto): Observable<WarehouseLocationItem> {
+    return this.http
+      .post<ApiResponse<WarehouseLocationItem>>(buildApiUrl(`/warehouses/${warehouseId}/locations`), dto)
+      .pipe(map(res => res.data));
+  }
+
+  updateWarehouseLocation(locationId: string, dto: UpdateWarehouseLocationDto): Observable<WarehouseLocationItem> {
+    return this.http
+      .put<ApiResponse<WarehouseLocationItem>>(buildApiUrl(`/warehouses/locations/${locationId}`), dto)
+      .pipe(map(res => res.data));
+  }
+
+  deactivateWarehouseLocation(locationId: string): Observable<void> {
+    return this.http.delete<void>(buildApiUrl(`/warehouses/locations/${locationId}`));
+  }
+
+  // --- Location Types ---
+  getLocationTypes(): Observable<LocationTypeItem[]> {
+    return this.http
+      .get<ApiResponse<LocationTypeItem[] | { items: LocationTypeItem[] }>>(buildApiUrl('/warehouses/location-types'))
+      .pipe(
+        map(res => {
+          if (!res?.data) return [];
+          if (Array.isArray(res.data)) return res.data;
+          return (res.data as { items: LocationTypeItem[] }).items || [];
         })
       );
   }

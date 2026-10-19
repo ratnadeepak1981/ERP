@@ -69,9 +69,10 @@ export class MasterDataOverviewComponent {
     {
       title: 'Warehouse & Locations',
       badge: 'Operational',
-      badgeSeverity: 'neutral',
+      badgeSeverity: 'info',
       icon: 'pi pi-building',
       description: 'Warehouses, zones, locations, racks, shelves and bins where required.',
+      route: '/app/master-data/warehouses',
       available: true
     },
     {

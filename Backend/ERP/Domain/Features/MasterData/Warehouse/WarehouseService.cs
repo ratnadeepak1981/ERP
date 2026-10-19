@@ -138,6 +138,22 @@ public class WarehouseService : IWarehouseService
         var warehouse = await _repository.GetWarehouseByIdAsync(tenantId, warehouseId)
             ?? throw new KeyNotFoundException("Warehouse not found.");
 
+        var activeZones = (await _repository.GetZonesAsync(tenantId, warehouseId))
+            .Where(x => x.IsActive)
+            .ToList();
+        if (activeZones.Any())
+        {
+            throw new InvalidOperationException("Cannot deactivate a warehouse that currently has active zones.");
+        }
+
+        var activeLocations = (await _repository.GetLocationsAsync(tenantId, warehouseId))
+            .Where(x => x.IsActive)
+            .ToList();
+        if (activeLocations.Any())
+        {
+            throw new InvalidOperationException("Cannot deactivate a warehouse that currently has active storage locations.");
+        }
+
         warehouse.Deactivate();
         await _repository.SaveChangesAsync();
     }
@@ -181,12 +197,15 @@ public class WarehouseService : IWarehouseService
         return zone;
     }
 
-    public async Task<WarehouseZone> UpdateZoneAsync(Guid tenantId, Guid zoneId, UpdateWarehouseZoneRequest request)
+    public async Task<WarehouseZone> UpdateZoneAsync(Guid tenantId, Guid zoneId, UpdateWarehouseZoneRequest request, Guid? warehouseId = null)
     {
         if (request == null) throw new ArgumentNullException(nameof(request));
 
         var zone = await _repository.GetZoneByIdAsync(tenantId, zoneId)
             ?? throw new KeyNotFoundException("Warehouse zone not found.");
+
+        if (warehouseId.HasValue && zone.WarehouseId != warehouseId.Value)
+            throw new InvalidOperationException("The specified zone does not belong to the given warehouse.");
 
         if (string.IsNullOrWhiteSpace(request.ZoneName))
             throw new ArgumentException("Zone name is required.", nameof(request.ZoneName));
@@ -196,10 +215,21 @@ public class WarehouseService : IWarehouseService
         return zone;
     }
 
-    public async Task DeactivateZoneAsync(Guid tenantId, Guid zoneId)
+    public async Task DeactivateZoneAsync(Guid tenantId, Guid zoneId, Guid? warehouseId = null)
     {
         var zone = await _repository.GetZoneByIdAsync(tenantId, zoneId)
             ?? throw new KeyNotFoundException("Warehouse zone not found.");
+
+        if (warehouseId.HasValue && zone.WarehouseId != warehouseId.Value)
+            throw new InvalidOperationException("The specified zone does not belong to the given warehouse.");
+
+        var activeLocations = (await _repository.GetLocationsAsync(tenantId, zone.WarehouseId, zoneId))
+            .Where(x => x.IsActive)
+            .ToList();
+        if (activeLocations.Any())
+        {
+            throw new InvalidOperationException("Cannot deactivate a warehouse zone that has active storage locations assigned to it.");
+        }
 
         zone.Deactivate();
         await _repository.SaveChangesAsync();
@@ -208,6 +238,81 @@ public class WarehouseService : IWarehouseService
     public async Task<List<WarehouseLocation>> GetLocationsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null)
     {
         return await _repository.GetLocationsAsync(tenantId, warehouseId, zoneId);
+    }
+
+    public async Task<List<WarehouseLocationDetailDto>> GetLocationsWithDetailsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null)
+    {
+        var locations = await _repository.GetLocationsAsync(tenantId, warehouseId, zoneId);
+        var zones = await _repository.GetZonesAsync(tenantId, warehouseId);
+        var types = await _repository.GetLocationTypesAsync(tenantId);
+
+        var zoneDict = zones.ToDictionary(z => z.WarehouseZoneId);
+        var typeDict = types.ToDictionary(t => t.LocationTypeId);
+        var locDict = locations.ToDictionary(l => l.WarehouseLocationId);
+
+        var result = new List<WarehouseLocationDetailDto>(locations.Count);
+
+        foreach (var loc in locations)
+        {
+            var dto = new WarehouseLocationDetailDto
+            {
+                WarehouseLocationId = loc.WarehouseLocationId,
+                TenantId = loc.TenantId,
+                WarehouseId = loc.WarehouseId,
+                WarehouseZoneId = loc.WarehouseZoneId,
+                LocationTypeId = loc.LocationTypeId,
+                ParentLocationId = loc.ParentLocationId,
+                LocationCode = loc.LocationCode,
+                LocationName = loc.LocationName,
+                IsActive = loc.IsActive
+            };
+
+            if (loc.WarehouseZoneId.HasValue && zoneDict.TryGetValue(loc.WarehouseZoneId.Value, out var z))
+            {
+                dto.ZoneCode = z.ZoneCode;
+                dto.ZoneName = z.ZoneName;
+            }
+
+            if (loc.ParentLocationId.HasValue && locDict.TryGetValue(loc.ParentLocationId.Value, out var p))
+            {
+                dto.ParentLocationCode = p.LocationCode;
+                dto.ParentLocationName = p.LocationName;
+            }
+
+            if (loc.LocationTypeId.HasValue && typeDict.TryGetValue(loc.LocationTypeId.Value, out var t))
+            {
+                dto.LocationTypeCode = t.Code;
+                dto.LocationTypeName = t.Name;
+                dto.CanStoreInventory = t.CanStoreInventory;
+                dto.CanPick = t.CanPick;
+                dto.CanPutAway = t.CanPutAway;
+                dto.CanContainChildren = t.CanContainChildren;
+            }
+
+            var pathParts = new List<string>();
+            if (!string.IsNullOrEmpty(dto.ZoneName))
+            {
+                pathParts.Add(dto.ZoneName);
+            }
+
+            var ancestorCodes = new List<string>();
+            var currParentId = loc.ParentLocationId;
+            var visited = new HashSet<Guid> { loc.WarehouseLocationId };
+            while (currParentId.HasValue && locDict.TryGetValue(currParentId.Value, out var parentNode))
+            {
+                if (!visited.Add(currParentId.Value)) break;
+                ancestorCodes.Insert(0, parentNode.LocationCode);
+                currParentId = parentNode.ParentLocationId;
+            }
+
+            pathParts.AddRange(ancestorCodes);
+            pathParts.Add(loc.LocationCode);
+            dto.HierarchyPath = string.Join(" / ", pathParts);
+
+            result.Add(dto);
+        }
+
+        return result;
     }
 
     public async Task<WarehouseLocation?> GetLocationAsync(Guid tenantId, Guid locationId)

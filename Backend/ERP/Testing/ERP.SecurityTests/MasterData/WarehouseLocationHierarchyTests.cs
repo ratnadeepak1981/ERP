@@ -272,7 +272,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
         // Tenant A creates warehouse and location
         var whRes = await clientA.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
         {
-            WarehouseCode = $"WH_T1_{Guid.NewGuid():N}".Substring(0, 8),
+            WarehouseCode = $"W1_{Guid.NewGuid():N}"[..12],
             WarehouseName = $"Tenant 1 Warehouse_{Guid.NewGuid():N}",
             City = "Colombo"
         });
@@ -282,7 +282,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
 
         var locRes = await clientA.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
         {
-            LocationCode = "LOC_SECRET",
+            LocationCode = $"LOC_{Guid.NewGuid():N}"[..10],
             LocationName = "Secret Location"
         });
         Assert.Equal(HttpStatusCode.OK, locRes.StatusCode);
@@ -298,7 +298,7 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
         // Tenant B attempts to create child location under Tenant A location in their own warehouse -> Rejected
         var whBRes = await clientB.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
         {
-            WarehouseCode = $"WH_T2_{Guid.NewGuid():N}".Substring(0, 8),
+            WarehouseCode = $"W2_{Guid.NewGuid():N}"[..12],
             WarehouseName = $"Tenant 2 Warehouse_{Guid.NewGuid():N}",
             City = "Kandy"
         });
@@ -314,4 +314,358 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
         });
         Assert.Equal(HttpStatusCode.Conflict, crossTenantParentRes.StatusCode);
     }
+
+    [Fact]
+    public async Task WarehouseAndZone_AuthorizedOperations_Succeed()
+    {
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenantadmin_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant Admin" },
+            new[] { "WAREHOUSE.VIEW", "WAREHOUSE.CREATE", "WAREHOUSE.EDIT", "WAREHOUSE.DELETE", "WAREHOUSE.MANAGE_ZONES" });
+
+        // 1. Create warehouse
+        var whCode = $"WH_{Guid.NewGuid():N}"[..12];
+        var whRes = await client.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = whCode,
+            WarehouseName = $"Primary Center_{Guid.NewGuid():N}"[..22],
+            City = "Colombo"
+        });
+        Assert.Equal(HttpStatusCode.Created, whRes.StatusCode);
+        var wh = await whRes.ReadDataJsonElementAsync();
+        var whId = wh.GetProperty("warehouseId").GetGuid();
+
+        // 2. Update warehouse
+        var whUpdateRes = await client.PutAsJsonAsync($"/api/warehouses/{whId}", new UpdateWarehouseRequest
+        {
+            WarehouseName = $"Primary Center Upd_{Guid.NewGuid():N}"[..22],
+            City = "Colombo South"
+        });
+        Assert.Equal(HttpStatusCode.OK, whUpdateRes.StatusCode);
+
+        // 3. Create Zone
+        var zoneCode = $"Z_{Guid.NewGuid():N}"[..8];
+        var zoneRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/zones", new CreateWarehouseZoneRequest
+        {
+            ZoneCode = zoneCode,
+            ZoneName = "High Value Zone",
+            Description = "Secure Zone"
+        });
+        Assert.Equal(HttpStatusCode.OK, zoneRes.StatusCode);
+        var zone = await zoneRes.ReadDataJsonElementAsync();
+        var zoneId = zone.GetProperty("warehouseZoneId").GetGuid();
+
+        // 4. Update Zone via nested route
+        var zoneUpdateRes = await client.PutAsJsonAsync($"/api/warehouses/{whId}/zones/{zoneId}", new UpdateWarehouseZoneRequest
+        {
+            ZoneName = "High Value Cage Updated",
+            Description = "Secure Enclosure"
+        });
+        Assert.Equal(HttpStatusCode.OK, zoneUpdateRes.StatusCode);
+        var updatedZone = await zoneUpdateRes.ReadDataJsonElementAsync();
+        Assert.Equal("High Value Cage Updated", updatedZone.GetProperty("zoneName").GetString());
+
+        // 5. Update Zone via direct route
+        var zoneUpdateDirectRes = await client.PutAsJsonAsync($"/api/warehouses/zones/{zoneId}", new UpdateWarehouseZoneRequest
+        {
+            ZoneName = "High Value Vault",
+            Description = "Biometric Enclosure"
+        });
+        Assert.Equal(HttpStatusCode.OK, zoneUpdateDirectRes.StatusCode);
+
+        // 6. View single zone
+        var getZoneRes = await client.GetAsync($"/api/warehouses/{whId}/zones/{zoneId}");
+        Assert.Equal(HttpStatusCode.OK, getZoneRes.StatusCode);
+        var fetchedZone = await getZoneRes.ReadDataJsonElementAsync();
+        Assert.Equal("High Value Vault", fetchedZone.GetProperty("zoneName").GetString());
+
+        // 7. List zones
+        var listZonesRes = await client.GetAsync($"/api/warehouses/{whId}/zones");
+        Assert.Equal(HttpStatusCode.OK, listZonesRes.StatusCode);
+        var zonesList = await listZonesRes.ReadApiResponseDataAsync<List<JsonElement>>();
+        Assert.Contains(zonesList!, z => z.GetProperty("warehouseZoneId").GetGuid() == zoneId);
+
+        // 8. Deactivate Zone
+        var deactZoneRes = await client.DeleteAsync($"/api/warehouses/{whId}/zones/{zoneId}");
+        Assert.Equal(HttpStatusCode.NoContent, deactZoneRes.StatusCode);
+
+        // 9. Deactivate Warehouse
+        var deactWhRes = await client.DeleteAsync($"/api/warehouses/{whId}");
+        Assert.Equal(HttpStatusCode.NoContent, deactWhRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task WarehouseAndZone_MissingOrInsufficientPermissions_ReturnsForbidden()
+    {
+        // Read-only user with only WAREHOUSE.VIEW
+        var readOnlyClient = _fixture.CreateAuthenticatedClient(
+            Guid.NewGuid(),
+            "readonly_user",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant User" },
+            new[] { "WAREHOUSE.VIEW" });
+
+        var adminClient = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenantadmin_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant Admin" },
+            new[] { "WAREHOUSE.VIEW", "WAREHOUSE.CREATE", "WAREHOUSE.EDIT", "WAREHOUSE.DELETE", "WAREHOUSE.MANAGE_ZONES" });
+
+        // Admin creates a warehouse and zone for test fixtures
+        var whCode = $"WH_{Guid.NewGuid():N}"[..12];
+        var whRes = await adminClient.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = whCode,
+            WarehouseName = $"Perm WH_{Guid.NewGuid():N}"[..20],
+            City = "Galle"
+        });
+        var wh = await whRes.ReadDataJsonElementAsync();
+        var whId = wh.GetProperty("warehouseId").GetGuid();
+
+        var zoneRes = await adminClient.PostAsJsonAsync($"/api/warehouses/{whId}/zones", new CreateWarehouseZoneRequest
+        {
+            ZoneCode = $"Z_{Guid.NewGuid():N}"[..8],
+            ZoneName = "Perm Zone"
+        });
+        var zone = await zoneRes.ReadDataJsonElementAsync();
+        var zoneId = zone.GetProperty("warehouseZoneId").GetGuid();
+
+        // 1. Read-only user attempting to create warehouse -> 403
+        var createWhRes = await readOnlyClient.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = $"W_FAIL_{Guid.NewGuid():N}"[..12],
+            WarehouseName = "Unauthorized WH",
+            City = "Galle"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, createWhRes.StatusCode);
+
+        // 2. Read-only user attempting to update warehouse -> 403
+        var updateWhRes = await readOnlyClient.PutAsJsonAsync($"/api/warehouses/{whId}", new UpdateWarehouseRequest
+        {
+            WarehouseName = "Hacked Name"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, updateWhRes.StatusCode);
+
+        // 3. Read-only user attempting to create zone -> 403
+        var createZoneRes = await readOnlyClient.PostAsJsonAsync($"/api/warehouses/{whId}/zones", new CreateWarehouseZoneRequest
+        {
+            ZoneCode = "Z_FAIL",
+            ZoneName = "Unauthorized Zone"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, createZoneRes.StatusCode);
+
+        // 4. Read-only user attempting to update zone -> 403
+        var updateZoneRes = await readOnlyClient.PutAsJsonAsync($"/api/warehouses/{whId}/zones/{zoneId}", new UpdateWarehouseZoneRequest
+        {
+            ZoneName = "Hacked Zone Name"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, updateZoneRes.StatusCode);
+
+        // 5. Read-only user attempting to deactivate zone -> 403
+        var deactZoneRes = await readOnlyClient.DeleteAsync($"/api/warehouses/{whId}/zones/{zoneId}");
+        Assert.Equal(HttpStatusCode.Forbidden, deactZoneRes.StatusCode);
+
+        // 6. Read-only user attempting to deactivate warehouse -> 403
+        var deactWhRes = await readOnlyClient.DeleteAsync($"/api/warehouses/{whId}");
+        Assert.Equal(HttpStatusCode.Forbidden, deactWhRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task WarehouseAndZone_TenantIsolation_CrossTenantAccessIsDenied()
+    {
+        var clientA = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenantadmin_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant Admin" },
+            new[] { "WAREHOUSE.VIEW", "WAREHOUSE.CREATE", "WAREHOUSE.EDIT", "WAREHOUSE.DELETE", "WAREHOUSE.MANAGE_ZONES" });
+
+        var clientB = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminBetaId,
+            "tenantadmin_b",
+            TestConstants.TenantBetaId,
+            new[] { "Tenant Admin" },
+            new[] { "WAREHOUSE.VIEW", "WAREHOUSE.CREATE", "WAREHOUSE.EDIT", "WAREHOUSE.DELETE", "WAREHOUSE.MANAGE_ZONES" });
+
+        // Tenant A creates warehouse and zone
+        var whRes = await clientA.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = $"W_ISO_{Guid.NewGuid():N}"[..12],
+            WarehouseName = $"Tenant A WH_{Guid.NewGuid():N}"[..22],
+            City = "Colombo"
+        });
+        var wh = await whRes.ReadDataJsonElementAsync();
+        var whId = wh.GetProperty("warehouseId").GetGuid();
+
+        var zoneRes = await clientA.PostAsJsonAsync($"/api/warehouses/{whId}/zones", new CreateWarehouseZoneRequest
+        {
+            ZoneCode = $"ZA_{Guid.NewGuid():N}"[..8],
+            ZoneName = "Tenant A Secret Zone"
+        });
+        var zone = await zoneRes.ReadDataJsonElementAsync();
+        var zoneId = zone.GetProperty("warehouseZoneId").GetGuid();
+
+        // Tenant B attempts to get Tenant A warehouse -> 404
+        var getWhRes = await clientB.GetAsync($"/api/warehouses/{whId}");
+        Assert.Equal(HttpStatusCode.NotFound, getWhRes.StatusCode);
+
+        // Tenant B attempts to update Tenant A warehouse -> 404
+        var updateWhRes = await clientB.PutAsJsonAsync($"/api/warehouses/{whId}", new UpdateWarehouseRequest
+        {
+            WarehouseName = "Breached Warehouse"
+        });
+        Assert.Equal(HttpStatusCode.NotFound, updateWhRes.StatusCode);
+
+        // Tenant B attempts to get Tenant A zone -> 404
+        var getZoneRes = await clientB.GetAsync($"/api/warehouses/{whId}/zones/{zoneId}");
+        Assert.Equal(HttpStatusCode.NotFound, getZoneRes.StatusCode);
+
+        // Tenant B attempts to update Tenant A zone -> 404
+        var updateZoneRes = await clientB.PutAsJsonAsync($"/api/warehouses/{whId}/zones/{zoneId}", new UpdateWarehouseZoneRequest
+        {
+            ZoneName = "Breached Zone"
+        });
+        Assert.Equal(HttpStatusCode.NotFound, updateZoneRes.StatusCode);
+
+        // Tenant B attempts to deactivate Tenant A zone -> 404
+        var deactZoneRes = await clientB.DeleteAsync($"/api/warehouses/{whId}/zones/{zoneId}");
+        Assert.Equal(HttpStatusCode.NotFound, deactZoneRes.StatusCode);
+
+        // Tenant B attempts to create zone under Tenant A warehouse -> 404
+        var createZoneInWhARes = await clientB.PostAsJsonAsync($"/api/warehouses/{whId}/zones", new CreateWarehouseZoneRequest
+        {
+            ZoneCode = "Z_B_IN_A",
+            ZoneName = "Intruder Zone"
+        });
+        Assert.Equal(HttpStatusCode.NotFound, createZoneInWhARes.StatusCode);
+
+        // Tenant B attempts to list zones for Tenant A warehouse -> returns empty list
+        var listZonesRes = await clientB.GetAsync($"/api/warehouses/{whId}/zones");
+        Assert.Equal(HttpStatusCode.OK, listZonesRes.StatusCode);
+        var zones = await listZonesRes.ReadApiResponseDataAsync<List<JsonElement>>();
+        Assert.Empty(zones!);
+    }
+
+    [Fact]
+    public async Task WarehouseZone_WrongWarehouseId_ReturnsConflict()
+    {
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenantadmin_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant Admin" },
+            new[] { "WAREHOUSE.VIEW", "WAREHOUSE.CREATE", "WAREHOUSE.EDIT", "WAREHOUSE.DELETE", "WAREHOUSE.MANAGE_ZONES" });
+
+        // Warehouse 1 and Zone 1
+        var wh1Res = await client.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = $"W1_{Guid.NewGuid():N}"[..12],
+            WarehouseName = $"Warehouse 1_{Guid.NewGuid():N}"[..22],
+            City = "Colombo"
+        });
+        Assert.Equal(HttpStatusCode.Created, wh1Res.StatusCode);
+        var wh1 = await wh1Res.ReadDataJsonElementAsync();
+        var wh1Id = wh1.GetProperty("warehouseId").GetGuid();
+
+        var zone1Res = await client.PostAsJsonAsync($"/api/warehouses/{wh1Id}/zones", new CreateWarehouseZoneRequest
+        {
+            ZoneCode = $"Z1_{Guid.NewGuid():N}"[..8],
+            ZoneName = "Warehouse 1 Zone"
+        });
+        Assert.Equal(HttpStatusCode.OK, zone1Res.StatusCode);
+        var zone1 = await zone1Res.ReadDataJsonElementAsync();
+        var zone1Id = zone1.GetProperty("warehouseZoneId").GetGuid();
+
+        // Warehouse 2
+        var wh2Res = await client.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = $"W2_{Guid.NewGuid():N}"[..12],
+            WarehouseName = $"Warehouse 2_{Guid.NewGuid():N}"[..22],
+            City = "Kandy"
+        });
+        Assert.Equal(HttpStatusCode.Created, wh2Res.StatusCode);
+        var wh2 = await wh2Res.ReadDataJsonElementAsync();
+        var wh2Id = wh2.GetProperty("warehouseId").GetGuid();
+
+        // Update Zone 1 providing Warehouse 2 in route -> Conflict
+        var updateWrongWhRes = await client.PutAsJsonAsync($"/api/warehouses/{wh2Id}/zones/{zone1Id}", new UpdateWarehouseZoneRequest
+        {
+            ZoneName = "Illegal Reassigned Zone"
+        });
+        Assert.Equal(HttpStatusCode.Conflict, updateWrongWhRes.StatusCode);
+
+        // Deactivate Zone 1 providing Warehouse 2 in route -> Conflict
+        var deactWrongWhRes = await client.DeleteAsync($"/api/warehouses/{wh2Id}/zones/{zone1Id}");
+        Assert.Equal(HttpStatusCode.Conflict, deactWrongWhRes.StatusCode);
+
+        // Get Zone 1 providing Warehouse 2 in route -> Conflict
+        var getWrongWhRes = await client.GetAsync($"/api/warehouses/{wh2Id}/zones/{zone1Id}");
+        Assert.Equal(HttpStatusCode.Conflict, getWrongWhRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task WarehouseAndZone_DeactivationWithDependentRecords_IsPrevented()
+    {
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenantadmin_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant Admin" },
+            new[] { "WAREHOUSE.VIEW", "WAREHOUSE.CREATE", "WAREHOUSE.EDIT", "WAREHOUSE.DELETE", "WAREHOUSE.MANAGE_ZONES", "LOCATION.VIEW", "LOCATION.CREATE", "LOCATION.EDIT", "LOCATION.DELETE" });
+
+        // 1. Create warehouse
+        var whRes = await client.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = $"W_DEP_{Guid.NewGuid():N}"[..12],
+            WarehouseName = $"Dep Guard WH_{Guid.NewGuid():N}"[..22],
+            City = "Negombo"
+        });
+        Assert.Equal(HttpStatusCode.Created, whRes.StatusCode);
+        var wh = await whRes.ReadDataJsonElementAsync();
+        var whId = wh.GetProperty("warehouseId").GetGuid();
+
+        // 2. Create zone in warehouse
+        var zoneRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/zones", new CreateWarehouseZoneRequest
+        {
+            ZoneCode = $"ZD_{Guid.NewGuid():N}"[..8],
+            ZoneName = "Dependency Guard Zone"
+        });
+        Assert.Equal(HttpStatusCode.OK, zoneRes.StatusCode);
+        var zone = await zoneRes.ReadDataJsonElementAsync();
+        var zoneId = zone.GetProperty("warehouseZoneId").GetGuid();
+
+        // 3. Create active storage location in this zone
+        var locRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/zones/{zoneId}/locations", new CreateWarehouseLocationRequest
+        {
+            LocationCode = $"LD_{Guid.NewGuid():N}"[..8],
+            LocationName = "Dependency Location"
+        });
+        Assert.Equal(HttpStatusCode.OK, locRes.StatusCode);
+        var loc = await locRes.ReadDataJsonElementAsync();
+        var locId = loc.GetProperty("warehouseLocationId").GetGuid();
+
+        // 4. Attempt to deactivate zone while active location exists -> Conflict
+        var deactZoneBlockedRes = await client.DeleteAsync($"/api/warehouses/{whId}/zones/{zoneId}");
+        Assert.Equal(HttpStatusCode.Conflict, deactZoneBlockedRes.StatusCode);
+
+        // 5. Attempt to deactivate warehouse while active zone & location exist -> Conflict
+        var deactWhBlockedRes = await client.DeleteAsync($"/api/warehouses/{whId}");
+        Assert.Equal(HttpStatusCode.Conflict, deactWhBlockedRes.StatusCode);
+
+        // 6. Deactivate the child location first -> 204 NoContent
+        var deactLocRes = await client.DeleteAsync($"/api/warehouses/locations/{locId}");
+        Assert.Equal(HttpStatusCode.NoContent, deactLocRes.StatusCode);
+
+        // 7. Deactivating zone now succeeds -> 204 NoContent
+        var deactZoneSuccessRes = await client.DeleteAsync($"/api/warehouses/{whId}/zones/{zoneId}");
+        Assert.Equal(HttpStatusCode.NoContent, deactZoneSuccessRes.StatusCode);
+
+        // 8. Deactivating warehouse now succeeds -> 204 NoContent
+        var deactWhSuccessRes = await client.DeleteAsync($"/api/warehouses/{whId}");
+        Assert.Equal(HttpStatusCode.NoContent, deactWhSuccessRes.StatusCode);
+    }
 }
+

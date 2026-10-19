@@ -67,6 +67,86 @@ export const workspaceRoutes: Routes = [
               import('./master-data/suppliers/supplier-page.component').then(m => m.SupplierPageComponent)
           }
         ]
+      },
+      {
+        path: 'warehouses',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./master-data/warehouses/warehouse-master.component').then(
+                m => m.WarehouseMasterComponent
+              )
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./master-data/warehouses/warehouse-page.component').then(
+                m => m.WarehousePageComponent
+              )
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./master-data/warehouses/warehouse-page.component').then(
+                m => m.WarehousePageComponent
+              )
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./master-data/warehouses/warehouse-page.component').then(
+                m => m.WarehousePageComponent
+              )
+          },
+          {
+            path: ':warehouseId/zones/new',
+            loadComponent: () =>
+              import('./master-data/warehouses/zone-page.component').then(
+                m => m.ZonePageComponent
+              )
+          },
+          {
+            path: ':warehouseId/zones/:zoneId/edit',
+            loadComponent: () =>
+              import('./master-data/warehouses/zone-page.component').then(
+                m => m.ZonePageComponent
+              )
+          },
+          {
+            path: ':warehouseId/zones/:zoneId',
+            loadComponent: () =>
+              import('./master-data/warehouses/zone-page.component').then(
+                m => m.ZonePageComponent
+              )
+          },
+          {
+            path: ':warehouseId/locations/new',
+            loadComponent: () =>
+              import('./master-data/warehouses/location-page.component').then(
+                m => m.LocationPageComponent
+              )
+          },
+          {
+            path: ':warehouseId/locations/:locationId/edit',
+            loadComponent: () =>
+              import('./master-data/warehouses/location-page.component').then(
+                m => m.LocationPageComponent
+              )
+          },
+          {
+            path: ':warehouseId/locations/:locationId',
+            loadComponent: () =>
+              import('./master-data/warehouses/location-page.component').then(
+                m => m.LocationPageComponent
+              )
+          }
+        ]
+      },
+      {
+        path: 'locations',
+        redirectTo: 'warehouses',
+        pathMatch: 'full'
       }
     ]
   },
@@ -140,7 +220,91 @@ export const workspaceRoutes: Routes = [
   },
   {
     path: 'inventory',
-    redirectTo: 'demonstration'
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./inventory/inventory-overview.component').then(m => m.InventoryOverviewComponent)
+      },
+      {
+        path: 'overview',
+        redirectTo: '',
+        pathMatch: 'full'
+      },
+      {
+        path: 'stock-receipts',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./inventory/stock-receipt/stock-receipt-register.component').then(
+                m => m.StockReceiptRegisterComponent
+              )
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./inventory/stock-receipt/stock-receipt-page.component').then(
+                m => m.StockReceiptPageComponent
+              )
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./inventory/stock-receipt/stock-receipt-page.component').then(
+                m => m.StockReceiptPageComponent
+              )
+          }
+        ]
+      },
+      {
+        path: 'store-putaway',
+        loadComponent: () =>
+          import('./inventory/store-putaway/store-putaway.component').then(
+            m => m.StorePutawayComponent
+          )
+      },
+      {
+        path: 'transfers',
+        loadComponent: () =>
+          import('./inventory/transfers/transfer-stock.component').then(
+            m => m.TransferStockComponent
+          )
+      },
+      {
+        path: 'count-adjust',
+        loadComponent: () =>
+          import('./inventory/count-adjust/count-adjust.component').then(
+            m => m.CountAdjustComponent
+          )
+      },
+      {
+        path: 'issue-stock',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./inventory/issue-stock/issue-stock-register.component').then(
+                m => m.IssueStockRegisterComponent
+              )
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./inventory/issue-stock/issue-stock-page.component').then(
+                m => m.IssueStockPageComponent
+              )
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./inventory/issue-stock/issue-stock-page.component').then(
+                m => m.IssueStockPageComponent
+              )
+          }
+        ]
+      }
+    ]
   },
   {
     path: 'sales',

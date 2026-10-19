@@ -64,4 +64,41 @@ describe('TenantLayoutComponent', () => {
     expect(supplyGroup?.items.some(i => i.label === 'Procurement Overview')).toBe(true);
     expect(supplyGroup?.items.some(i => i.label === 'Purchase Orders')).toBe(true);
   });
+
+  it('should include Inventory with standardized sub-screens under expandable menu', () => {
+    fixture.detectChanges();
+    const supplyGroup = component.navGroups().find(g => g.groupName === 'Supply Chain & Operations');
+    const inventoryItem = supplyGroup?.items.find(i => i.label === 'Inventory');
+    expect(inventoryItem).toBeTruthy();
+    expect(inventoryItem?.children).toBeTruthy();
+    expect(inventoryItem?.children?.length).toBe(6);
+
+    const childLabels = inventoryItem?.children?.map(c => c.label);
+    expect(childLabels).toContain('Overview');
+    expect(childLabels).toContain('Stock Receipt');
+    expect(childLabels).toContain('Storage & Putaway');
+    expect(childLabels).toContain('Stock Transfers');
+    expect(childLabels).toContain('Stock Count & Adjustment');
+    expect(childLabels).toContain('Stock Issue');
+
+    // Test toggle expansion
+    expect(component.isItemExpanded(inventoryItem!)).toBe(true);
+    component.toggleItemExpanded(inventoryItem!);
+    expect(component.isItemExpanded(inventoryItem!)).toBe(false);
+  });
+
+  it('should include Master Data with standardized sub-screens under expandable menu', () => {
+    fixture.detectChanges();
+    const supplyGroup = component.navGroups().find(g => g.groupName === 'Supply Chain & Operations');
+    const masterDataItem = supplyGroup?.items.find(i => i.label === 'Master Data');
+    expect(masterDataItem).toBeTruthy();
+    expect(masterDataItem?.children).toBeTruthy();
+    expect(masterDataItem?.children?.length).toBe(4);
+
+    const childLabels = masterDataItem?.children?.map(c => c.label);
+    expect(childLabels).toContain('Overview');
+    expect(childLabels).toContain('Products');
+    expect(childLabels).toContain('Suppliers');
+    expect(childLabels).toContain('Warehouses & Locations');
+  });
 });

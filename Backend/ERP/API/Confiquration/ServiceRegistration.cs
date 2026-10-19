@@ -72,6 +72,7 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, Domain.Features.Procurement.Approval.ApprovalWorkflowService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Domain.Features.Inventory.InventoryService>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteService>();
 
         // Inventory Valuation Strategies & Service

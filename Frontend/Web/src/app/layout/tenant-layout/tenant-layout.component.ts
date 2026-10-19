@@ -15,6 +15,7 @@ export interface NavItem {
   icon: string;
   route: string;
   badge?: string;
+  children?: NavItem[];
 }
 
 export interface NavGroup {
@@ -135,9 +136,57 @@ export class TenantLayoutComponent implements OnInit {
     return staffNav;
   });
 
+  // Track expanded menu labels
+  readonly expandedItems = signal<Record<string, boolean>>({
+    Inventory: true,
+    'Master Data': true
+  });
+
+  isItemExpanded(item: NavItem): boolean {
+    if (this.expandedItems()[item.label] !== undefined) {
+      return this.expandedItems()[item.label];
+    }
+    if (item.children && item.route) {
+      const url = this.currentUrlSignal() || this.router.url;
+      return url.startsWith(item.route);
+    }
+    return false;
+  }
+
+  toggleItemExpanded(item: NavItem, event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const current = this.isItemExpanded(item);
+    this.expandedItems.update(state => ({
+      ...state,
+      [item.label]: !current
+    }));
+  }
+
+  isParentActive(item: NavItem): boolean {
+    const url = this.currentUrlSignal() || this.router.url;
+    if (item.route && url.startsWith(item.route)) return true;
+    if (item.children) {
+      return item.children.some(c => url.startsWith(c.route));
+    }
+    return false;
+  }
+
   private getSupplyChainNavItems(): NavItem[] {
     const items: NavItem[] = [
-      { label: 'Master Data', icon: 'pi pi-database', route: '/app/master-data' }
+      {
+        label: 'Master Data',
+        icon: 'pi pi-database',
+        route: '/app/master-data',
+        children: [
+          { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/master-data' },
+          { label: 'Products', icon: 'pi pi-box', route: '/app/master-data/products' },
+          { label: 'Suppliers', icon: 'pi pi-truck', route: '/app/master-data/suppliers' },
+          { label: 'Warehouses & Locations', icon: 'pi pi-building', route: '/app/master-data/warehouses' }
+        ]
+      }
     ];
 
     if (this.canViewProcurement()) {
@@ -145,7 +194,19 @@ export class TenantLayoutComponent implements OnInit {
       items.push({ label: 'Purchase Orders', icon: 'pi pi-shopping-cart', route: '/app/procurement/purchase-orders' });
     }
 
-    items.push({ label: 'Inventory', icon: 'pi pi-box', route: '/app/inventory' });
+    items.push({
+      label: 'Inventory',
+      icon: 'pi pi-box',
+      route: '/app/inventory',
+      children: [
+        { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/inventory' },
+        { label: 'Stock Receipt', icon: 'pi pi-arrow-circle-down', route: '/app/inventory/stock-receipts' },
+        { label: 'Storage & Putaway', icon: 'pi pi-inbox', route: '/app/inventory/store-putaway' },
+        { label: 'Stock Transfers', icon: 'pi pi-arrow-right-arrow-left', route: '/app/inventory/transfers' },
+        { label: 'Stock Count & Adjustment', icon: 'pi pi-check-square', route: '/app/inventory/count-adjust' },
+        { label: 'Stock Issue', icon: 'pi pi-arrow-circle-up', route: '/app/inventory/issue-stock' }
+      ]
+    });
     return items;
   }
 
