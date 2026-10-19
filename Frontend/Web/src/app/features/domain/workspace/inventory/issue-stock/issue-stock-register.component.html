@@ -1,0 +1,96 @@
+<div class="issue-stock-register-page">
+  <app-page-header
+    title="Stock Issue"
+    subtitle="Generalized inventory stock-issuing register for sales dispatch, manufacturing, and internal consumption"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div header-actions>
+      <p-button
+        *ngIf="canCreateIssue()"
+        label="Issue Stock"
+        icon="pi pi-plus"
+        severity="primary"
+        (onClick)="navigateToCreate()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Access Denied State -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    [message]="accessDeniedMessage()"
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    message="Loading stock issue records from inventory ledger..."
+  ></app-loading-state>
+
+  <!-- Error State -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied()"
+    title="Failed to Load Stock Issues"
+    [message]="error()!"
+    (retry)="loadStockIssues()"
+  ></app-error-state>
+
+  <!-- Content -->
+  <div *ngIf="!loading() && !error() && !isAccessDenied()" class="register-content">
+    <!-- Purpose Filter Bar -->
+    <div class="filters-card">
+      <div class="purpose-pills">
+        <button
+          *ngFor="let opt of purposeOptions"
+          type="button"
+          class="purpose-pill-btn"
+          [class.active]="activePurposeFilter() === opt.value"
+          (click)="activePurposeFilter.set($any(opt.value))"
+        >
+          {{ opt.label }}
+        </button>
+      </div>
+
+      <div class="search-box">
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Search by issue #, SKU, warehouse, or document reference..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+            class="search-input"
+          />
+        </span>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <app-data-table
+      *ngIf="filteredIssues().length > 0; else emptyTemplate"
+      [data]="filteredIssues()"
+      [columns]="columns"
+      [rowActions]="tableActions"
+      rowKey="stockIssueId"
+      [paginator]="true"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      (rowClick)="navigateToIssue($event)"
+    ></app-data-table>
+
+    <!-- Empty Template -->
+    <ng-template #emptyTemplate>
+      <app-empty-state
+        title="No Stock Issues Found"
+        message="No stock issues match the selected purpose or filter criteria. You can issue stock from available inventory."
+        icon="pi pi-inbox"
+        actionLabel="Issue Stock"
+        (action)="navigateToCreate()"
+      ></app-empty-state>
+    </ng-template>
+  </div>
+</div>

@@ -32,24 +32,63 @@
             <span class="group-heading">{{ group.groupName }}</span>
           }
           <ul class="nav-list">
-            @for (item of group.items; track item.route) {
-              <li class="nav-item">
-                <a
-                  [routerLink]="item.route"
-                  routerLinkActive="active"
-                  class="nav-link"
-                  [pTooltip]="sidebarCollapsed() ? item.label : ''"
-                  tooltipPosition="right"
-                >
-                  <i [class]="item.icon" class="item-icon"></i>
-                  @if (!sidebarCollapsed()) {
-                    <span class="item-label">{{ item.label }}</span>
+            @for (item of group.items; track item.label) {
+              @if (item.children && item.children.length > 0) {
+                <li class="nav-item nav-item-collapsible" [class.is-expanded]="isItemExpanded(item)">
+                  <div
+                    class="nav-link nav-parent-link"
+                    [class.active]="isParentActive(item)"
+                    (click)="toggleItemExpanded(item, $event)"
+                    [pTooltip]="sidebarCollapsed() ? item.label : ''"
+                    tooltipPosition="right"
+                  >
+                    <i [class]="item.icon" class="item-icon"></i>
+                    @if (!sidebarCollapsed()) {
+                      <span class="item-label">{{ item.label }}</span>
+                      <i
+                        class="chevron-toggle pi"
+                        [ngClass]="isItemExpanded(item) ? 'pi-chevron-down' : 'pi-chevron-right'"
+                      ></i>
+                    }
+                  </div>
+
+                  @if (!sidebarCollapsed() && isItemExpanded(item)) {
+                    <ul class="nav-sublist">
+                      @for (sub of item.children; track sub.route) {
+                        <li class="nav-subitem">
+                          <a
+                            [routerLink]="sub.route"
+                            routerLinkActive="active"
+                            [routerLinkActiveOptions]="{ exact: sub.route === '/app/inventory' || sub.route === '/app/master-data' }"
+                            class="nav-sublink"
+                          >
+                            <i [class]="sub.icon" class="subitem-icon"></i>
+                            <span class="subitem-label">{{ sub.label }}</span>
+                          </a>
+                        </li>
+                      }
+                    </ul>
                   }
-                  @if (!sidebarCollapsed() && item.badge) {
-                    <span class="item-badge">{{ item.badge }}</span>
-                  }
-                </a>
-              </li>
+                </li>
+              } @else {
+                <li class="nav-item">
+                  <a
+                    [routerLink]="item.route"
+                    routerLinkActive="active"
+                    class="nav-link"
+                    [pTooltip]="sidebarCollapsed() ? item.label : ''"
+                    tooltipPosition="right"
+                  >
+                    <i [class]="item.icon" class="item-icon"></i>
+                    @if (!sidebarCollapsed()) {
+                      <span class="item-label">{{ item.label }}</span>
+                    }
+                    @if (!sidebarCollapsed() && item.badge) {
+                      <span class="item-badge">{{ item.badge }}</span>
+                    }
+                  </a>
+                </li>
+              }
             }
           </ul>
         </div>

@@ -1,0 +1,305 @@
+<div class="location-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Locations"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (currentLocation() && mode() !== 'create') {
+        <app-status-badge
+          [label]="currentLocation()?.isActive ? 'Active Location' : 'Inactive Location'"
+          [severity]="currentLocation()?.isActive ? 'success' : 'neutral'"
+        ></app-status-badge>
+      }
+
+      <p-button
+        [label]="mode() === 'create' ? 'Save Location' : 'Update Location'"
+        icon="pi pi-check"
+        size="small"
+        severity="primary"
+        [loading]="saving()"
+        (onClick)="saveLocation()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Global Banner Messages -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading storage location details from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state
+        title="Unable to load location"
+        [message]="error()!"
+        (retry)="loadData(warehouseId()!, locationId())"
+      ></app-error-state>
+    </div>
+  } @else {
+    <form [formGroup]="locationForm" (ngSubmit)="saveLocation()" class="location-form-layout">
+      <!-- Live Hierarchy Preview Context Card -->
+      <div class="facility-context-card erp-card">
+        <div class="facility-icon">
+          <i class="pi pi-sitemap"></i>
+        </div>
+        <div class="facility-details">
+          <div class="facility-title">
+            <span class="facility-code">{{ currentWarehouse()?.warehouseCode }}</span>
+            <span class="facility-name">{{ currentWarehouse()?.warehouseName }}</span>
+            <span class="zone-pill">{{ selectedZoneName() }}</span>
+          </div>
+          <div class="hierarchy-live-preview">
+            <span class="preview-label">Calculated Hierarchy Path:</span>
+            <span class="preview-path">{{ hierarchyPathPreview() }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 1: Facility & Zone Placement -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">1</span>
+            <div class="section-headings">
+              <h2 class="section-title">Facility & Zone Placement</h2>
+              <span class="section-subtitle">
+                Assign the storage location to an operational warehouse facility and logical zone.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid cols-2">
+          <div class="field-wrap">
+            <label class="field-label">Warehouse Facility</label>
+            <div class="readonly-pill-box">
+              <i class="pi pi-building"></i>
+              <span><strong>{{ currentWarehouse()?.warehouseCode }}</strong> — {{ currentWarehouse()?.warehouseName }}</span>
+            </div>
+          </div>
+
+          <div class="field-wrap">
+            <label for="zoneSelect" class="field-label">Warehouse Zone (Optional)</label>
+            <select id="zoneSelect" formControlName="warehouseZoneId" class="fluent-select">
+              <option [ngValue]="null">-- Direct / Unassigned to Zone --</option>
+              @for (z of zones(); track z.warehouseZoneId) {
+                <option [value]="z.warehouseZoneId">
+                  {{ z.zoneCode }} — {{ z.zoneName }}
+                </option>
+              }
+            </select>
+            <span class="field-hint">Assigning a zone groups this location under that zone's picking/putaway routes.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Location Definition & Classification -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">2</span>
+            <div class="section-headings">
+              <h2 class="section-title">Location Definition & Classification</h2>
+              <span class="section-subtitle">
+                Specify location code identifier, descriptive name, and standard structural classification type.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid cols-3">
+          <div class="field-wrap">
+            <label for="locCodeInput" class="field-label">
+              Location Code <span class="required-mark">*</span>
+            </label>
+            <input
+              id="locCodeInput"
+              type="text"
+              formControlName="locationCode"
+              class="fluent-input uppercase-code"
+              placeholder="e.g. R01-S01-B01"
+              [class.is-invalid]="locationForm.controls.locationCode.invalid && locationForm.controls.locationCode.touched"
+            />
+            @if (locationForm.controls.locationCode.invalid && locationForm.controls.locationCode.touched) {
+              <span class="field-error">Location code is required.</span>
+            }
+            <span class="field-hint">Unique alphanumeric code (e.g. R01-S02-B03). Immutable once created.</span>
+          </div>
+
+          <div class="field-wrap">
+            <label for="locNameInput" class="field-label">
+              Location Name <span class="required-mark">*</span>
+            </label>
+            <input
+              id="locNameInput"
+              type="text"
+              formControlName="locationName"
+              class="fluent-input"
+              placeholder="e.g. Bin 01 (Small Parts)"
+              [class.is-invalid]="locationForm.controls.locationName.invalid && locationForm.controls.locationName.touched"
+            />
+            @if (locationForm.controls.locationName.invalid && locationForm.controls.locationName.touched) {
+              <span class="field-error">Location name is required.</span>
+            }
+          </div>
+
+          <div class="field-wrap">
+            <label for="typeSelect" class="field-label">Structural Classification Type</label>
+            <select id="typeSelect" formControlName="locationTypeId" class="fluent-select">
+              <option [ngValue]="null">-- Select Classification Type --</option>
+              @for (t of locationTypes(); track t.locationTypeId) {
+                <option [value]="t.locationTypeId">
+                  {{ t.code }} — {{ t.name }}
+                </option>
+              }
+            </select>
+            <span class="field-hint">Governs whether location allows storage, picking, and child sub-locations.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Storage Hierarchy & Parent Positioning -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">3</span>
+            <div class="section-headings">
+              <h2 class="section-title">Storage Hierarchy & Parent Positioning</h2>
+              <span class="section-subtitle">
+                Anchor this location inside a higher-level physical container (e.g. Bin inside a Shelf, Shelf inside a Rack).
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid cols-1">
+          <div class="field-wrap">
+            <label for="parentSelect" class="field-label">Parent Location</label>
+            <select id="parentSelect" formControlName="parentLocationId" class="fluent-select">
+              <option [ngValue]="null">None — Top-Level Independent Location (e.g. Floor Staging Bay, Primary Rack)</option>
+              @for (p of parentCandidates(); track (p.warehouseLocationId ?? p.locationId)) {
+                <option [value]="p.warehouseLocationId ?? p.locationId">
+                  {{ p.hierarchyPath || p.locationCode }} ({{ p.locationName }})
+                </option>
+              }
+            </select>
+            <span class="field-hint">
+              Select an existing active location to nest this location under. Circular parentage is strictly prevented.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Operational Capability Flags & Status -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">4</span>
+            <div class="section-headings">
+              <h2 class="section-title">Operational Capabilities & Physical Stock Rules</h2>
+              <span class="section-subtitle">
+                Govern physical stock storage, automated putaway routing, picking eligibility, and active availability.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="capabilities-checkbox-grid">
+          <label class="checkbox-card" [class.checked]="locationForm.controls.canStoreInventory.value">
+            <input type="checkbox" formControlName="canStoreInventory" class="checkbox-input" />
+            <div class="checkbox-content">
+              <div class="checkbox-title">
+                <i class="pi pi-inbox"></i>
+                <span>Store Inventory</span>
+              </div>
+              <span class="checkbox-desc">Location can hold physical stock items and balance records.</span>
+            </div>
+          </label>
+
+          <label class="checkbox-card" [class.checked]="locationForm.controls.canPick.value">
+            <input type="checkbox" formControlName="canPick" class="checkbox-input" />
+            <div class="checkbox-content">
+              <div class="checkbox-title">
+                <i class="pi pi-sign-out"></i>
+                <span>Allow Picking</span>
+              </div>
+              <span class="checkbox-desc">Location is eligible for stock allocation and order picking routes.</span>
+            </div>
+          </label>
+
+          <label class="checkbox-card" [class.checked]="locationForm.controls.canPutAway.value">
+            <input type="checkbox" formControlName="canPutAway" class="checkbox-input" />
+            <div class="checkbox-content">
+              <div class="checkbox-title">
+                <i class="pi pi-sign-in"></i>
+                <span>Allow Putaway</span>
+              </div>
+              <span class="checkbox-desc">Target location can receive inbound stock placements during putaway.</span>
+            </div>
+          </label>
+
+          <label class="checkbox-card" [class.checked]="locationForm.controls.isActive.value">
+            <input type="checkbox" formControlName="isActive" class="checkbox-input" />
+            <div class="checkbox-content">
+              <div class="checkbox-title">
+                <i class="pi pi-check-circle"></i>
+                <span>Active Location</span>
+              </div>
+              <span class="checkbox-desc">Available for active inventory movements, transfers, and counts.</span>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <!-- Bottom Action Footer -->
+      <div class="form-bottom-actions erp-card">
+        <div class="footer-hint">
+          <i class="pi pi-info-circle"></i>
+          <span>Fields marked with an asterisk (<strong class="required-mark">*</strong>) are mandatory.</span>
+        </div>
+        <div class="footer-buttons">
+          <p-button
+            label="Cancel"
+            [outlined]="true"
+            size="small"
+            severity="secondary"
+            (onClick)="navigateBack()"
+          ></p-button>
+          <p-button
+            [label]="mode() === 'create' ? 'Save Location' : 'Update Location'"
+            icon="pi pi-check"
+            size="small"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveLocation()"
+          ></p-button>
+        </div>
+      </div>
+    </form>
+  }
+</div>

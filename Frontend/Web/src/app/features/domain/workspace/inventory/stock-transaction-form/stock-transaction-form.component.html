@@ -1,0 +1,465 @@
+<div class="stock-transaction-page">
+  <!-- Header -->
+  <app-page-header
+    [title]="
+      mode === 'create'
+        ? (isReceipt() ? 'Stock Receipt' : 'Stock Issue')
+        : (isReceipt() ? 'Stock Receipt ' + (viewReceipt()?.receiptNumber || '') : 'Stock Issue ' + (viewIssue()?.issueNumber || ''))
+    "
+    [subtitle]="
+      mode === 'create'
+        ? (isReceipt()
+            ? 'General inbound inventory receipt to record opening balance, customer returns, or production stock'
+            : 'Authorized inventory deduction for sales dispatch, manufacturing, and internal consumption')
+        : (isReceipt()
+            ? 'Audited inbound stock receipt record in inventory ledger'
+            : 'Audited stock deduction record in inventory ledger')
+    "
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div header-actions class="header-action-group">
+      <p-button
+        label="Back to Register"
+        icon="pi pi-arrow-left"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="onCancel()"
+      ></p-button>
+
+      <p-button
+        *ngIf="mode === 'create' && canPost()"
+        [label]="isReceipt() ? 'Post Stock Receipt' : 'Post Stock Issue'"
+        icon="pi pi-check"
+        severity="primary"
+        [disabled]="!isValid() || saving()"
+        [loading]="saving()"
+        (onClick)="postTransaction()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Access Denied State -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    [message]="accessDeniedMessage()"
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    [message]="isReceipt() ? 'Loading stock receipt records...' : 'Loading stock issue records...'"
+  ></app-loading-state>
+
+  <!-- Error State (View Mode) -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied() && mode === 'view'"
+    [title]="isReceipt() ? 'Stock Receipt Not Found' : 'Stock Issue Not Found'"
+    [message]="error()!"
+    (retry)="recordId ? loadRecordDetails(recordId) : null"
+  ></app-error-state>
+
+  <!-- CREATE MODE FORM -->
+  <div *ngIf="mode === 'create' && !loading() && !isAccessDenied()" class="page-body">
+    <!-- Mutation error alert -->
+    <div *ngIf="error()" class="alert-banner alert-danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>{{ error() }}</span>
+    </div>
+
+    <!-- 1. Purpose / Reason Selection -->
+    <div class="card form-section">
+      <div class="section-header">
+        <h3 class="section-title">
+          1. {{ isReceipt() ? 'Receipt Reason & Ledger Classification' : 'Issue Purpose & Allocation' }}
+        </h3>
+        <p class="section-subtitle">
+          {{ isReceipt() ? 'Select the business reason for adding inventory to the warehouse ledger.' : 'Select the authorized business reason for deducting inventory from the ledger.' }}
+        </p>
+      </div>
+
+      <div class="purpose-grid">
+        <label
+          *ngFor="let opt of reasonOrPurposeOptions()"
+          class="purpose-option-card"
+          [class.selected]="isReceipt() ? selectedReceiptReason() === opt.value : selectedIssuePurpose() === opt.value"
+        >
+          <input
+            type="radio"
+            name="reasonOrPurpose"
+            [value]="opt.value"
+            [checked]="isReceipt() ? selectedReceiptReason() === opt.value : selectedIssuePurpose() === opt.value"
+            (change)="isReceipt() ? selectedReceiptReason.set(opt.value) : selectedIssuePurpose.set(opt.value)"
+          />
+          <div class="purpose-info">
+            <span class="purpose-label">{{ opt.label }}</span>
+            <span class="purpose-desc">{{ opt.description }}</span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- 2. Header & Facility Context -->
+    <div class="card form-section">
+      <div class="section-header">
+        <h3 class="section-title">2. Warehouse Facility & Reference Context</h3>
+        <p class="section-subtitle">Specify primary warehouse facility, transaction date, and tracking references.</p>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="field-label">
+            {{ isReceipt() ? 'Destination Warehouse' : 'Source Warehouse' }} <span class="required">*</span>
+          </label>
+          <select
+            class="form-control"
+            [ngModel]="headerWarehouseId()"
+            (ngModelChange)="onHeaderWarehouseChange($event)"
+          >
+            <option value="" disabled>-- Select Facility --</option>
+            <option *ngFor="let w of warehouses()" [value]="w.warehouseId">
+              {{ w.warehouseCode }} - {{ w.warehouseName }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">Transaction Date <span class="required">*</span></label>
+          <input
+            pInputText
+            type="date"
+            class="form-control"
+            [ngModel]="transactionDate()"
+            (ngModelChange)="transactionDate.set($event)"
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">Source Document Reference</label>
+          <input
+            pInputText
+            type="text"
+            [placeholder]="isReceipt() ? 'e.g. OB-2026-001, RET-044, or WO-ASSEMBLY-10' : 'e.g. SO-2026-004, WO-102, or MAINT-REQ-88'"
+            class="form-control"
+            [ngModel]="sourceDocumentReference()"
+            (ngModelChange)="sourceDocumentReference.set($event)"
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">Remarks / Purpose Note</label>
+          <input
+            pInputText
+            type="text"
+            placeholder="Authorized remarks or department allocation"
+            class="form-control"
+            [ngModel]="remarks()"
+            (ngModelChange)="remarks.set($event)"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Line Items & Validation Section -->
+    <div class="card form-section">
+      <div class="section-header line-section-header">
+        <div>
+          <h3 class="section-title">
+            3. {{ isReceipt() ? 'Inbound Item Lines & Storage Allocation' : 'Outbound Item Lines & Available Stock Validation' }}
+          </h3>
+          <p class="section-subtitle">
+            {{
+              isReceipt()
+                ? 'Specify products, storage bins (Rack → Level → Bin), unit valuation, and inbound quantities.'
+                : 'Quantities are validated in real-time against current on-hand stock to prevent negative inventory.'
+            }}
+          </p>
+        </div>
+        <p-button
+          label="Add Line"
+          icon="pi pi-plus"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="addLine()"
+        ></p-button>
+      </div>
+
+      <div class="lines-table-wrapper">
+        <table class="lines-table">
+          <thead>
+            <tr>
+              <th style="width: 25%;">Product / SKU *</th>
+              <th style="width: 18%;">Warehouse Facility *</th>
+              <th style="width: 22%;">
+                {{ isReceipt() ? 'Destination Location (Rack → Level → Bin) *' : 'Source Location (Rack → Level → Bin) *' }}
+              </th>
+              <th *ngIf="isIssue()" style="width: 12%; text-align: right;">Available Stock</th>
+              <th *ngIf="isReceipt()" style="width: 12%; text-align: right;">Unit Cost ({{ activeCurrency() }})</th>
+              <th style="width: 11%; text-align: right;">
+                {{ isReceipt() ? 'Receipt Qty *' : 'Issue Qty *' }}
+              </th>
+              <th style="width: 6%;">UOM</th>
+              <th style="width: 6%; text-align: center;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let line of lines(); let i = index"
+              [class.has-error]="isIssue() && line.quantity > line.availableStock"
+            >
+              <!-- Product Dropdown -->
+              <td>
+                <select
+                  class="form-control"
+                  [ngModel]="line.productId"
+                  (ngModelChange)="onProductChange(line, $event)"
+                >
+                  <option value="" disabled>-- Select Product --</option>
+                  <option *ngFor="let p of products()" [value]="p.productId">
+                    {{ p.productCode }} - {{ p.productName }}
+                  </option>
+                </select>
+              </td>
+
+              <!-- Line Warehouse Dropdown -->
+              <td>
+                <select
+                  class="form-control"
+                  [ngModel]="line.warehouseId"
+                  (ngModelChange)="onLineWarehouseChange(line, $event)"
+                >
+                  <option *ngFor="let w of warehouses()" [value]="w.warehouseId">
+                    {{ w.warehouseCode }} - {{ w.warehouseName }}
+                  </option>
+                </select>
+              </td>
+
+              <!-- Location Dropdown (Rack -> Level -> Bin) -->
+              <td>
+                <select
+                  class="form-control"
+                  [ngModel]="line.warehouseLocationId"
+                  (ngModelChange)="onLocationChange(line, $event)"
+                  [disabled]="getLocationsForWarehouse(line.warehouseId).length === 0"
+                >
+                  <option value="" disabled>-- Select Bin Location --</option>
+                  <option
+                    *ngFor="let loc of getLocationsForWarehouse(line.warehouseId)"
+                    [value]="loc.locationId"
+                  >
+                    {{ formatLocationHierarchy(loc) }}
+                  </option>
+                </select>
+              </td>
+
+              <!-- Available Stock (Issue Mode) -->
+              <td *ngIf="isIssue()" style="text-align: right;">
+                <span *ngIf="line.loadingStock" class="loading-stock-text">
+                  <i class="pi pi-spin pi-spinner"></i>
+                </span>
+                <span
+                  *ngIf="!line.loadingStock && line.productId && line.warehouseLocationId"
+                  class="stock-badge"
+                  [class.stock-low]="line.availableStock <= 0"
+                  [class.stock-ok]="line.availableStock > 0"
+                >
+                  {{ line.availableStock.toLocaleString() }} {{ line.unitOfMeasure }}
+                </span>
+                <span *ngIf="!line.productId || !line.warehouseLocationId" class="text-muted">-</span>
+              </td>
+
+              <!-- Unit Cost (Receipt Mode) -->
+              <td *ngIf="isReceipt()">
+                <input
+                  pInputText
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  class="form-control text-right"
+                  [ngModel]="line.unitCost"
+                  (ngModelChange)="onUnitCostChange(line, $event)"
+                />
+              </td>
+
+              <!-- Quantity Input -->
+              <td>
+                <input
+                  pInputText
+                  type="number"
+                  min="1"
+                  step="any"
+                  class="form-control text-right"
+                  [ngModel]="line.quantity"
+                  (ngModelChange)="onQuantityChange(line, $event)"
+                  [class.input-error]="(isIssue() && line.quantity > line.availableStock) || line.quantity <= 0"
+                />
+                <div *ngIf="isIssue() && line.quantity > line.availableStock" class="field-error-text">
+                  Exceeds available ({{ line.availableStock }})
+                </div>
+              </td>
+
+              <!-- Unit of Measure -->
+              <td>
+                <span class="uom-pill">{{ line.unitOfMeasure }}</span>
+              </td>
+
+              <!-- Remove Action -->
+              <td style="text-align: center;">
+                <button
+                  type="button"
+                  class="btn-icon-remove"
+                  title="Remove Line"
+                  (click)="removeLine(i)"
+                  [disabled]="lines().length <= 1"
+                >
+                  <i class="pi pi-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW MODE DETAILS -->
+  <div *ngIf="mode === 'view' && !loading()" class="page-body">
+    <!-- Stock Receipt View -->
+    <div *ngIf="isReceipt() && viewReceipt()" class="card detail-overview-card">
+      <div class="detail-header-row">
+        <div>
+          <span class="detail-eyebrow">Stock Receipt Voucher</span>
+          <h2 class="detail-title">{{ viewReceipt()!.receiptNumber }}</h2>
+          <div class="detail-meta">
+            <span>Posted on {{ viewReceipt()!.receiptDate | date:'mediumDate' }}</span>
+            <span class="dot-separator">•</span>
+            <span>Ledger Type: <strong>{{ viewReceipt()!.movementType }}</strong></span>
+          </div>
+        </div>
+
+        <div class="detail-status-pill">
+          <span class="badge-posted">Posted to Ledger</span>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="detail-label">Receipt Reason</span>
+          <span class="detail-value">
+            <strong>{{ viewReceipt()!.reasonName }}</strong>
+          </span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Source Document Reference</span>
+          <span class="detail-value">{{ viewReceipt()!.sourceDocumentReference || 'None (Direct Inbound)' }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Destination Facility</span>
+          <span class="detail-value">{{ viewReceipt()!.warehouseCode }} - {{ viewReceipt()!.warehouseName }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Storage Bin (Rack → Level → Bin)</span>
+          <span class="detail-value">{{ viewReceipt()!.locationCode }} - {{ viewReceipt()!.locationName }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Product SKU</span>
+          <span class="detail-value">{{ viewReceipt()!.productCode }} - {{ viewReceipt()!.productName }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Quantity Received</span>
+          <span class="detail-value highlight-qty-in">
+            +{{ viewReceipt()!.quantity.toLocaleString() }} {{ viewReceipt()!.unitOfMeasure }}
+          </span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Unit Cost</span>
+          <span class="detail-value">{{ activeCurrency() }} {{ viewReceipt()!.unitCost | number:'1.2-2' }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Total Cost Inflow</span>
+          <span class="detail-value highlight-cost">
+            {{ activeCurrency() }} {{ viewReceipt()!.totalCost | number:'1.2-2' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Issue View -->
+    <div *ngIf="isIssue() && viewIssue()" class="card detail-overview-card">
+      <div class="detail-header-row">
+        <div>
+          <span class="detail-eyebrow">Stock Issue Voucher</span>
+          <h2 class="detail-title">{{ viewIssue()!.issueNumber }}</h2>
+          <div class="detail-meta">
+            <span>Posted on {{ viewIssue()!.issueDate | date:'mediumDate' }}</span>
+            <span class="dot-separator">•</span>
+            <span>Ledger Type: <strong>{{ viewIssue()!.movementType }}</strong></span>
+          </div>
+        </div>
+
+        <div class="detail-status-pill">
+          <span class="badge-posted">Posted to Ledger</span>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="detail-label">Issue Purpose</span>
+          <span class="detail-value">
+            <strong>{{ viewIssue()!.purposeName }}</strong>
+          </span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Source Document Reference</span>
+          <span class="detail-value">{{ viewIssue()!.sourceDocumentReference || 'None (Direct Issue)' }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Source Facility</span>
+          <span class="detail-value">{{ viewIssue()!.warehouseCode }} - {{ viewIssue()!.warehouseName }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Storage Bin (Rack → Level → Bin)</span>
+          <span class="detail-value">{{ viewIssue()!.locationCode }} - {{ viewIssue()!.locationName }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Product SKU</span>
+          <span class="detail-value">{{ viewIssue()!.productCode }} - {{ viewIssue()!.productName }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Quantity Issued</span>
+          <span class="detail-value highlight-qty-out">
+            -{{ viewIssue()!.quantity.toLocaleString() }} {{ viewIssue()!.unitOfMeasure }}
+          </span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Unit Cost</span>
+          <span class="detail-value">{{ activeCurrency() }} {{ viewIssue()!.unitCost | number:'1.2-2' }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Total Cost Deduction</span>
+          <span class="detail-value highlight-cost">
+            {{ activeCurrency() }} {{ viewIssue()!.totalCost | number:'1.2-2' }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

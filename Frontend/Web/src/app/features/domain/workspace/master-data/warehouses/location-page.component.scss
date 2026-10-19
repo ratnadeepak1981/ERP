@@ -1,0 +1,444 @@
+.location-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+    gap: 1rem;
+  }
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+// Facility & Live Hierarchy Preview Card
+.facility-context-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--erp-bg-surface, #ffffff);
+  border: 1px solid var(--erp-border, #e2e8f0);
+  border-left: 4px solid var(--erp-primary, #0f6cbd);
+  border-radius: var(--erp-radius-md, 8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  .facility-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    background: #eff6ff;
+    color: var(--erp-primary, #0f6cbd);
+    border-radius: var(--erp-radius-sm, 6px);
+    font-size: 1.375rem;
+  }
+
+  .facility-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    flex: 1;
+
+    .facility-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+
+      .facility-code {
+        padding: 0.125rem 0.5rem;
+        background: #f1f5f9;
+        color: #1e293b;
+        font-family: monospace;
+        font-weight: 700;
+        font-size: 0.8125rem;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+      }
+
+      .facility-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--erp-text-main, #0f172a);
+      }
+
+      .zone-pill {
+        padding: 0.125rem 0.625rem;
+        background: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+    }
+
+    .hierarchy-live-preview {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      flex-wrap: wrap;
+
+      .preview-label {
+        color: var(--erp-text-muted, #64748b);
+        font-weight: 500;
+      }
+
+      .preview-path {
+        font-family: monospace;
+        font-weight: 700;
+        color: var(--erp-primary, #0f6cbd);
+        background: #f8fafc;
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        border: 1px solid #e2e8f0;
+      }
+    }
+  }
+}
+
+// Global Message Banner
+.message-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--erp-radius-md, 6px);
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: slideDown 0.2s ease-out;
+
+  &.banner-success {
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+
+  &.banner-info {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+  }
+
+  &.banner-warn {
+    background-color: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+  }
+
+  &.banner-danger {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+  }
+
+  .message-text {
+    flex: 1;
+  }
+
+  .dismiss-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: currentColor;
+    opacity: 0.7;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.state-card {
+  padding: 2.5rem;
+  background-color: var(--erp-bg-surface, #ffffff);
+  border: 1px solid var(--erp-border, #e2e8f0);
+  border-radius: var(--erp-radius-md, 8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.location-form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-section-card {
+  background-color: var(--erp-bg-surface, #ffffff);
+  border: 1px solid var(--erp-border, #e2e8f0);
+  border-radius: var(--erp-radius-md, 8px);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+
+  .section-header {
+    border-bottom: 1px solid var(--erp-border-light, #f1f5f9);
+    padding-bottom: 0.875rem;
+
+    .section-title-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+
+      .section-step-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        background-color: #eff6ff;
+        color: var(--erp-primary, #0f6cbd);
+        border: 1px solid #bfdbfe;
+        border-radius: 9999px;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        margin-top: 0.125rem;
+      }
+
+      .section-headings {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+
+        .section-title {
+          font-size: 1.0625rem;
+          font-weight: 600;
+          color: var(--erp-text-main, #0f172a);
+          margin: 0;
+        }
+
+        .section-subtitle {
+          font-size: 0.8125rem;
+          color: var(--erp-text-muted, #64748b);
+        }
+      }
+    }
+  }
+}
+
+// Form Controls & Grid
+.form-grid {
+  display: grid;
+  gap: 1.25rem;
+
+  &.cols-1 {
+    grid-template-columns: 1fr;
+  }
+
+  &.cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &.cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+    @media (max-width: 900px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.field-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+
+  .field-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--erp-text-main, #1e293b);
+
+    .required-mark {
+      color: #ef4444;
+    }
+  }
+
+  .fluent-input,
+  .fluent-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--erp-border, #cbd5e1);
+    border-radius: var(--erp-radius-sm, 6px);
+    font-size: 0.875rem;
+    background-color: var(--erp-bg-surface, #ffffff);
+    color: var(--erp-text-main, #0f172a);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:focus {
+      outline: none;
+      border-color: var(--erp-primary, #0f6cbd);
+      box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.15);
+    }
+
+    &.is-invalid {
+      border-color: #ef4444;
+      background-color: #fef2f2;
+    }
+
+    &.uppercase-code {
+      text-transform: uppercase;
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    &:disabled {
+      background-color: #f8fafc;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+  }
+
+  .readonly-pill-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--erp-radius-sm, 6px);
+    font-size: 0.875rem;
+    color: var(--erp-text-secondary, #334155);
+
+    i {
+      color: var(--erp-primary, #0f6cbd);
+    }
+  }
+
+  .field-hint {
+    font-size: 0.75rem;
+    color: var(--erp-text-muted, #64748b);
+  }
+
+  .field-error {
+    font-size: 0.75rem;
+    color: #ef4444;
+    font-weight: 500;
+  }
+}
+
+// Capabilities Checkbox Cards
+.capabilities-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+
+  .checkbox-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--erp-bg-surface, #ffffff);
+    border: 1px solid var(--erp-border, #cbd5e1);
+    border-radius: var(--erp-radius-sm, 6px);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+      border-color: var(--erp-primary, #0f6cbd);
+      background-color: #f8fafc;
+    }
+
+    &.checked {
+      border-color: var(--erp-primary, #0f6cbd);
+      background-color: #eff6ff;
+
+      .checkbox-title {
+        color: var(--erp-primary, #0f6cbd);
+      }
+    }
+
+    .checkbox-input {
+      margin-top: 0.25rem;
+      width: 1.125rem;
+      height: 1.125rem;
+      accent-color: var(--erp-primary, #0f6cbd);
+      cursor: pointer;
+    }
+
+    .checkbox-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+
+      .checkbox-title {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--erp-text-main, #1e293b);
+      }
+
+      .checkbox-desc {
+        font-size: 0.75rem;
+        color: var(--erp-text-muted, #64748b);
+        line-height: 1.3;
+      }
+    }
+  }
+}
+
+.form-bottom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background-color: var(--erp-bg-surface, #ffffff);
+  border: 1px solid var(--erp-border, #e2e8f0);
+  border-radius: var(--erp-radius-md, 8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  flex-wrap: wrap;
+  gap: 1rem;
+
+  .footer-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--erp-text-muted, #64748b);
+
+    i {
+      color: #94a3b8;
+    }
+
+    .required-mark {
+      color: #ef4444;
+    }
+  }
+
+  .footer-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}

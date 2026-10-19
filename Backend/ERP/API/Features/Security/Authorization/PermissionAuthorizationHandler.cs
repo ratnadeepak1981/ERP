@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API.Security.Authorization;
 
@@ -9,11 +9,34 @@ public class PermissionAuthorizationHandler
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
-        if (context.User.HasClaim(
-            "permission",
-            requirement.Permission))
+        var permissions = requirement.Permission.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var permission in permissions)
         {
-            context.Succeed(requirement);
+            if (context.User.HasClaim("permission", permission))
+            {
+                context.Succeed(requirement);
+                return Task.CompletedTask;
+            }
+
+            // Treat .EDIT and .UPDATE as equivalent permission action aliases
+            if (permission.EndsWith(".EDIT", StringComparison.OrdinalIgnoreCase))
+            {
+                var updateAlias = permission[..^5] + ".UPDATE";
+                if (context.User.HasClaim("permission", updateAlias))
+                {
+                    context.Succeed(requirement);
+                    return Task.CompletedTask;
+                }
+            }
+            else if (permission.EndsWith(".UPDATE", StringComparison.OrdinalIgnoreCase))
+            {
+                var editAlias = permission[..^7] + ".EDIT";
+                if (context.User.HasClaim("permission", editAlias))
+                {
+                    context.Succeed(requirement);
+                    return Task.CompletedTask;
+                }
+            }
         }
 
         return Task.CompletedTask;

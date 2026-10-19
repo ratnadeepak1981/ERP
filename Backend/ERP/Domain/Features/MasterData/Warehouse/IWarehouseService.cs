@@ -15,10 +15,11 @@ public interface IWarehouseService
     Task<List<WarehouseZone>> GetZonesAsync(Guid tenantId, Guid warehouseId);
     Task<WarehouseZone?> GetZoneAsync(Guid tenantId, Guid zoneId);
     Task<WarehouseZone> CreateZoneAsync(Guid tenantId, Guid warehouseId, CreateWarehouseZoneRequest request);
-    Task<WarehouseZone> UpdateZoneAsync(Guid tenantId, Guid zoneId, UpdateWarehouseZoneRequest request);
-    Task DeactivateZoneAsync(Guid tenantId, Guid zoneId);
+    Task<WarehouseZone> UpdateZoneAsync(Guid tenantId, Guid zoneId, UpdateWarehouseZoneRequest request, Guid? warehouseId = null);
+    Task DeactivateZoneAsync(Guid tenantId, Guid zoneId, Guid? warehouseId = null);
 
     Task<List<WarehouseLocation>> GetLocationsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null);
+    Task<List<WarehouseLocationDetailDto>> GetLocationsWithDetailsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null);
     Task<WarehouseLocation?> GetLocationAsync(Guid tenantId, Guid locationId);
     Task<WarehouseLocation> CreateLocationAsync(Guid tenantId, Guid warehouseId, Guid? zoneId, CreateWarehouseLocationRequest request);
     Task<WarehouseLocation> UpdateLocationAsync(Guid tenantId, Guid locationId, UpdateWarehouseLocationRequest request);

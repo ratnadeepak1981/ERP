@@ -44,25 +44,124 @@ export interface UnitOfMeasureItem {
 
 export interface WarehouseLocationItem {
   locationId: string;
+  warehouseLocationId?: string;
+  tenantId?: string;
   warehouseId: string;
+  warehouseZoneId?: string | null;
+  locationTypeId?: string | null;
+  parentLocationId?: string | null;
   locationCode: string;
   locationName: string;
   zoneId?: string | null;
-  locationType?: string;
+  zoneCode?: string | null;
+  zoneName?: string | null;
+  parentLocationCode?: string | null;
+  parentLocationName?: string | null;
+  locationTypeCode?: string | null;
+  locationTypeName?: string | null;
+  canStoreInventory?: boolean;
+  canPick?: boolean;
+  canPutAway?: boolean;
+  canContainChildren?: boolean;
+  hierarchyPath?: string;
+  hierarchyLevel?: number;
+  isLeaf?: boolean;
   isPickingLocation?: boolean;
   isReceivingLocation?: boolean;
+  isActive: boolean;
+}
+
+export interface WarehouseZoneItem {
+  warehouseZoneId: string;
+  tenantId?: string;
+  warehouseId: string;
+  zoneCode: string;
+  zoneName: string;
+  description?: string | null;
+  storageLocationsCount?: number;
+  isActive: boolean;
+}
+
+export interface LocationTypeItem {
+  locationTypeId: string;
+  tenantId?: string | null;
+  code: string;
+  name: string;
+  description?: string | null;
+  canStoreInventory: boolean;
+  canPick: boolean;
+  canPutAway: boolean;
+  canContainChildren: boolean;
   isActive: boolean;
 }
 
 export interface WarehouseItem {
   warehouseId: string;
   tenantId: string;
+  companyId?: string | null;
+  branchId?: string | null;
   warehouseCode: string;
   warehouseName: string;
-  branchId?: string | null;
+  description?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
   city?: string;
+  postalCode?: string | null;
+  country?: string | null;
   isActive: boolean;
+  zonesCount?: number;
+  locationsCount?: number;
   locations?: WarehouseLocationItem[];
+}
+
+export interface CreateWarehouseDto {
+  warehouseCode: string;
+  warehouseName: string;
+  description?: string;
+  companyId?: string | null;
+  branchId?: string | null;
+  addressLine1?: string;
+  addressLine2?: string;
+  city: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface UpdateWarehouseDto {
+  warehouseName: string;
+  description?: string;
+  companyId?: string | null;
+  branchId?: string | null;
+  addressLine1?: string;
+  addressLine2?: string;
+  city: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface CreateWarehouseZoneDto {
+  zoneCode: string;
+  zoneName: string;
+  description?: string;
+}
+
+export interface UpdateWarehouseZoneDto {
+  zoneName: string;
+  description?: string;
+}
+
+export interface CreateWarehouseLocationDto {
+  warehouseZoneId?: string | null;
+  locationCode: string;
+  locationName: string;
+  locationTypeId?: string | null;
+  parentLocationId?: string | null;
+}
+
+export interface UpdateWarehouseLocationDto {
+  locationName: string;
+  locationTypeId?: string | null;
+  parentLocationId?: string | null;
 }
 
 export interface ProductItem {

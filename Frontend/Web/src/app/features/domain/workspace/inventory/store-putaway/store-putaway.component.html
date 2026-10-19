@@ -1,0 +1,146 @@
+<div class="store-putaway-page">
+  <app-page-header
+    title="Storage & Putaway"
+    subtitle="Warehouse bin placement, receiving storage locations, and putaway status"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div header-actions class="header-action-group">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="loadData()"
+      ></p-button>
+
+      <p-button
+        label="Receive Stock (GRN)"
+        icon="pi pi-inbox"
+        severity="primary"
+        routerLink="/app/procurement/goods-receipts/new"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Access Denied -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    [message]="accessDeniedMessage()"
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    message="Loading warehouse storage bins and putaway locations..."
+  ></app-loading-state>
+
+  <!-- Error State -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied()"
+    title="Failed to Load Storage Locations"
+    [message]="error()!"
+    (retry)="loadData()"
+  ></app-error-state>
+
+  <!-- Content -->
+  <div *ngIf="!loading() && !error() && !isAccessDenied()" class="page-content">
+    <!-- Metric Overview Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card metric-blue">
+        <div class="metric-icon">
+          <i class="pi pi-building"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Warehouse Facilities</span>
+          <span class="metric-value">{{ totalWarehouses() }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-slate">
+        <div class="metric-icon">
+          <i class="pi pi-box"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Storage Locations & Bins</span>
+          <span class="metric-value">{{ totalLocations() }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-green">
+        <div class="metric-icon">
+          <i class="pi pi-check-circle"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Receiving Staging Bins</span>
+          <span class="metric-value">{{ receivingLocationsCount() }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card metric-amber">
+        <div class="metric-icon">
+          <i class="pi pi-tags"></i>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">Primary Picking Bins</span>
+          <span class="metric-value">{{ pickingLocationsCount() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="filters-card">
+      <div class="filter-controls">
+        <select
+          class="form-control warehouse-select"
+          [ngModel]="selectedWarehouseFilter()"
+          (ngModelChange)="selectedWarehouseFilter.set($event)"
+        >
+          <option value="all">All Warehouses</option>
+          <option *ngFor="let w of warehouses()" [value]="w.warehouseId">
+            {{ w.warehouseCode }} - {{ w.warehouseName }}
+          </option>
+        </select>
+
+        <div class="search-box">
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input
+              pInputText
+              type="text"
+              placeholder="Search by bin code, location name, or warehouse..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+              class="search-input"
+            />
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <app-data-table
+      *ngIf="filteredLocations().length > 0; else emptyTemplate"
+      [data]="filteredLocations()"
+      [columns]="columns"
+      [rowActions]="tableActions"
+      rowKey="locationId"
+      [paginator]="true"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+    ></app-data-table>
+
+    <!-- Empty State -->
+    <ng-template #emptyTemplate>
+      <app-empty-state
+        title="No Storage Bins Found"
+        message="No storage or putaway locations match the current filter. Configure warehouse locations in Master Data."
+        icon="pi pi-inbox"
+        actionLabel="Manage Warehouses"
+        (action)="router.navigate(['/app/master-data'])"
+      ></app-empty-state>
+    </ng-template>
+  </div>
+</div>
