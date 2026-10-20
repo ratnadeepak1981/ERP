@@ -43,10 +43,19 @@ describe('StockTransactionFormComponent', () => {
 
   const mockLocations: WarehouseLocationItem[] = [
     {
-      locationId: 'loc-1',
+      warehouseLocationId: 'loc-1',
+      locationId: '',
       warehouseId: 'wh-1',
       locationCode: 'R01-L02-B03',
       locationName: 'Rack 1 > Level 2 > Bin 3',
+      isActive: true
+    },
+    {
+      warehouseLocationId: 'loc-2',
+      locationId: '',
+      warehouseId: 'wh-1',
+      locationCode: 'R01-L02-B04',
+      locationName: 'Rack 1 > Level 2 > Bin 4',
       isActive: true
     }
   ];
@@ -529,6 +538,116 @@ describe('StockTransactionFormComponent', () => {
 
       expect(cancelSpy).toHaveBeenCalled();
       expect(routerSpy).toHaveBeenCalledWith(['/app/inventory/stock-receipts']);
+    });
+  });
+
+  describe('Storage Location Mapping and Validation Regression Tests', () => {
+    beforeEach(() => {
+      component.transactionType = 'receipt';
+      fixture.detectChanges();
+    });
+
+    it('should load location options using backend DTO warehouseLocationId and clear validation error', () => {
+      const line: StockTransactionLineItem = {
+        id: 'line-test',
+        productId: 'prod-1',
+        productCode: 'STL-001',
+        productName: 'Galvanized Steel Sheet',
+        unitOfMeasure: 'SHT',
+        warehouseId: 'wh-1',
+        warehouseLocationId: '',
+        availableStock: 0,
+        loadingStock: false,
+        quantity: 10,
+        unitCost: 120
+      };
+      component.lines.set([line]);
+
+      const options = component.getLocationOptionsForRow(line);
+      expect(options.length).toBe(2);
+      expect(options[0].value).toBe('loc-1');
+      expect(options[1].value).toBe('loc-2');
+
+      const locCol = component.columns().find(c => c.field === 'warehouseLocationId');
+      expect(locCol?.validators).toBeDefined();
+      const validator = locCol!.validators![0];
+      expect(validator('', line)).toBe('Storage location is required');
+
+      component.onTableCellValueChange({
+        row: line,
+        column: locCol!,
+        value: 'loc-1'
+      });
+
+      expect(component.lines()[0].warehouseLocationId).toBe('loc-1');
+      expect(validator('loc-1', line)).toBeNull();
+      expect(component.isValid()).toBe(true);
+    });
+
+    it('should reject empty or missing location in form validation', () => {
+      component.lines.set([
+        {
+          id: 'line-empty-loc',
+          productId: 'prod-1',
+          productCode: 'STL-001',
+          productName: 'Galvanized Steel Sheet',
+          unitOfMeasure: 'SHT',
+          warehouseId: 'wh-1',
+          warehouseLocationId: '',
+          availableStock: 0,
+          loadingStock: false,
+          quantity: 10,
+          unitCost: 120
+        }
+      ]);
+
+      expect(component.isValid()).toBe(false);
+    });
+
+    it('should support multiple receipt lines with distinct storage locations and post to ledger', () => {
+      component.lines.set([
+        {
+          id: 'line-1',
+          productId: 'prod-1',
+          productCode: 'STL-001',
+          productName: 'Steel',
+          unitOfMeasure: 'SHT',
+          warehouseId: 'wh-1',
+          warehouseLocationId: 'loc-1',
+          availableStock: 0,
+          loadingStock: false,
+          quantity: 10,
+          unitCost: 100
+        },
+        {
+          id: 'line-2',
+          productId: 'prod-1',
+          productCode: 'STL-001',
+          productName: 'Steel',
+          unitOfMeasure: 'SHT',
+          warehouseId: 'wh-1',
+          warehouseLocationId: 'loc-2',
+          availableStock: 0,
+          loadingStock: false,
+          quantity: 20,
+          unitCost: 100
+        }
+      ]);
+
+      expect(component.isValid()).toBe(true);
+      expect(component.totalQuantity()).toBe(30);
+
+      const postSpy = vi.spyOn(inventoryService, 'createStockReceipt');
+      component.postTransaction();
+
+      expect(postSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lines: expect.arrayContaining([
+            expect.objectContaining({ warehouseLocationId: 'loc-1', quantity: 10 }),
+            expect.objectContaining({ warehouseLocationId: 'loc-2', quantity: 20 })
+          ])
+        })
+      );
     });
   });
 });

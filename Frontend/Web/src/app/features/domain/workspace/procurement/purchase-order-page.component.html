@@ -263,6 +263,7 @@
           [allowDeleteRow]="mode() !== 'view'"
           [defaultNewRow]="defaultNewRow"
           [onRowCalculate]="calculateRow"
+          (dataChange)="onLinesChange($event)"
           subtotalField="lineTotal"
           subtotalLabel="Line Items Subtotal"
           currencyCode="USD"

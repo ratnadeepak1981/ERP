@@ -238,6 +238,34 @@ export class TableSelectEditorComponent implements OnInit, AfterViewInit {
     this.adjustPosition();
   }
 
+  findExactMatch(): SelectOption | undefined {
+    const query = this.searchTerm().trim().toLowerCase();
+    if (!query) return undefined;
+    const items = this.filteredOptions();
+    if (items.length === 0) return undefined;
+
+    const exact = items.find(o => {
+      const valStr = String(o.value ?? '').toLowerCase();
+      const codeStr = o.rawItem?.code ? String(o.rawItem.code).toLowerCase() : '';
+      const labelStr = (o.label || '').toLowerCase();
+      const nameStr = o.rawItem?.name ? String(o.rawItem.name).toLowerCase() : '';
+      return valStr === query || codeStr === query || labelStr === query || nameStr === query;
+    });
+    if (exact) return exact;
+
+    if (items.length === 1) {
+      const single = items[0];
+      const valStr = String(single.value ?? '').toLowerCase();
+      const codeStr = single.rawItem?.code ? String(single.rawItem.code).toLowerCase() : '';
+      const labelStr = (single.label || '').toLowerCase();
+      if (codeStr === query || valStr === query || codeStr.startsWith(query) || labelStr.startsWith(query)) {
+        return single;
+      }
+    }
+
+    return undefined;
+  }
+
   clearSearch(event?: Event): void {
     if (event) {
       event.stopPropagation();
@@ -294,8 +322,11 @@ export class TableSelectEditorComponent implements OnInit, AfterViewInit {
       event.stopPropagation();
       const items = this.filteredOptions();
       const idx = this.activeIndex();
+      const exactMatch = this.findExactMatch();
       if (this.isOpen() && idx >= 0 && idx < items.length) {
         this.selectOption(items[idx]);
+      } else if (this.isOpen() && exactMatch) {
+        this.selectOption(exactMatch);
       } else if (this.allowFreeText && this.searchTerm().trim()) {
         const freeVal = this.searchTerm().trim();
         this.value = freeVal;
@@ -303,7 +334,7 @@ export class TableSelectEditorComponent implements OnInit, AfterViewInit {
         this.isOpen.set(false);
         this.commit.emit(freeVal);
       } else {
-        // No highlighted option: do not arbitrarily select first option
+        // No highlighted option and no exact match: close popup without accepting ambiguous text
         this.isOpen.set(false);
         this.commit.emit(this.value);
       }
@@ -323,10 +354,17 @@ export class TableSelectEditorComponent implements OnInit, AfterViewInit {
       const items = this.filteredOptions();
       let selectedOpt: SelectOption | undefined;
       const idx = this.activeIndex();
+      const exactMatch = this.findExactMatch();
       if (this.isOpen() && idx >= 0 && idx < items.length) {
         selectedOpt = items[idx];
+      } else if (this.isOpen() && exactMatch) {
+        selectedOpt = exactMatch;
+      }
+
+      if (selectedOpt) {
         this.value = selectedOpt.value;
         this.valueChange.emit(selectedOpt.value);
+        this.selectOptionEvent.emit(selectedOpt);
       } else if (this.allowFreeText && this.searchTerm().trim()) {
         const freeVal = this.searchTerm().trim();
         this.value = freeVal;

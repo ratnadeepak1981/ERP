@@ -212,8 +212,14 @@ export class MasterDataService {
       .pipe(
         map(res => {
           if (!res?.data) return [];
-          if (Array.isArray(res.data)) return res.data;
-          return (res.data as { items: WarehouseLocationItem[] }).items || [];
+          const rawItems = Array.isArray(res.data)
+            ? res.data
+            : (res.data as { items: WarehouseLocationItem[] }).items || [];
+          return rawItems.map(item => ({
+            ...item,
+            locationId: item.warehouseLocationId ?? item.locationId ?? '',
+            warehouseLocationId: item.warehouseLocationId ?? item.locationId ?? ''
+          }));
         })
       );
   }

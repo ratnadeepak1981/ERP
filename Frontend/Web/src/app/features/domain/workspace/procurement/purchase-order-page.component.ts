@@ -368,8 +368,15 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     const qty = Number(row.quantity) || 0;
     const cost = Number(row.unitCost) || 0;
     row.lineTotal = Math.round(qty * cost * 100) / 100;
-    this.workingLines.set([...this.workingLines()]);
+    const current = this.workingLines();
+    if (current.some(l => l.lineId === row.lineId)) {
+      this.workingLines.set(current.map(l => (l.lineId === row.lineId ? { ...l, ...row } : l)));
+    }
   };
+
+  onLinesChange(updated: EditablePOLine[]): void {
+    this.workingLines.set([...updated]);
+  }
 
   // Blank New Row Factory
   readonly defaultNewRow = (): Partial<EditablePOLine> => {
