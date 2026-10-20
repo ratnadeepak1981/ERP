@@ -276,7 +276,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
   readonly defaultNewRow = (): Partial<StockTransactionLineItem> => {
     const targetWh = this.headerWarehouseId() || (this.warehouses().length > 0 ? this.warehouses()[0].warehouseId : '');
     const locs = this.getLocationsForWarehouse(targetWh);
-    const targetLoc = locs.length > 0 ? locs[0].locationId : '';
+    const targetLoc = locs.length > 0 ? (locs[0].warehouseLocationId ?? locs[0].locationId ?? '') : '';
 
     return {
       id: `line-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -462,7 +462,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     if (!locationId) return undefined;
     const map = this.locationsMap();
     for (const list of Object.values(map)) {
-      const found = list.find(l => l.locationId === locationId);
+      const found = list.find(l => (l.warehouseLocationId ?? l.locationId) === locationId);
       if (found) return found;
     }
     return undefined;
@@ -476,7 +476,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     }
     return locs.map(l => ({
       label: this.formatLocationHierarchy(l),
-      value: l.locationId
+      value: l.warehouseLocationId ?? l.locationId
     }));
   }
 
@@ -565,7 +565,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
 
     this.ensureLocationsLoaded(warehouseId, () => {
       const locs = this.getLocationsForWarehouse(warehouseId);
-      const defaultLocId = locs.length > 0 ? locs[0].locationId : '';
+      const defaultLocId = locs.length > 0 ? (locs[0].warehouseLocationId ?? locs[0].locationId ?? '') : '';
 
       // If no lines yet, initialize first line
       if (this.lines().length === 0) {
@@ -621,7 +621,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
   addLine(warehouseId?: string, locationId?: string): void {
     const targetWh = warehouseId || this.headerWarehouseId() || (this.warehouses().length > 0 ? this.warehouses()[0].warehouseId : '');
     const locs = this.getLocationsForWarehouse(targetWh);
-    const targetLoc = locationId || (locs.length > 0 ? locs[0].locationId : '');
+    const targetLoc = locationId || (locs.length > 0 ? (locs[0].warehouseLocationId ?? locs[0].locationId ?? '') : '');
 
     const newLine: StockTransactionLineItem = {
       id: `line-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -643,7 +643,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       this.ensureLocationsLoaded(targetWh, () => {
         const updatedLocs = this.getLocationsForWarehouse(targetWh);
         if (updatedLocs.length > 0 && !newLine.warehouseLocationId) {
-          newLine.warehouseLocationId = updatedLocs[0].locationId || updatedLocs[0].warehouseLocationId || '';
+          newLine.warehouseLocationId = updatedLocs[0].warehouseLocationId ?? updatedLocs[0].locationId ?? '';
           this.lines.update(c => [...c]);
         }
       });
@@ -665,7 +665,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     this.ensureLocationsLoaded(warehouseId, () => {
       const locs = this.getLocationsForWarehouse(warehouseId);
       if (locs.length > 0) {
-        line.warehouseLocationId = locs[0].locationId || locs[0].warehouseLocationId || '';
+        line.warehouseLocationId = locs[0].warehouseLocationId ?? locs[0].locationId ?? '';
         if (this.isIssue() && line.productId) {
           this.refreshAvailableStock(line);
         }

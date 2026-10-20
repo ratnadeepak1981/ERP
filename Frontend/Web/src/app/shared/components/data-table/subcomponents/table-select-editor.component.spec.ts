@@ -178,4 +178,64 @@ describe('TableSelectEditorComponent', () => {
     expect(component.panelMinWidth()).toBeDefined();
     expect(parseInt(component.panelMinWidth(), 10)).toBeGreaterThanOrEqual(220);
   });
+
+  describe('Keyboard Navigation & Auto-Match Regression Tests', () => {
+    it('should automatically match and commit single exact match by code on Enter without arrow keys', () => {
+      let committedValue: any = null;
+      component.commit.subscribe(val => (committedValue = val));
+
+      component.onSearchInput('CBL-001');
+      expect(component.activeIndex()).toBe(-1);
+
+      component.onInputKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+      expect(committedValue).toBe('CBL-001');
+      expect(component.value).toBe('CBL-001');
+      expect(component.isOpen()).toBe(false);
+    });
+
+    it('should automatically match and commit single exact match by code on Tab without arrow keys', () => {
+      let tabOutEvent: any = null;
+      component.tabOut.subscribe(e => (tabOutEvent = e));
+
+      component.onSearchInput('ADP-002');
+      expect(component.activeIndex()).toBe(-1);
+
+      component.onInputKeyDown(new KeyboardEvent('keydown', { key: 'Tab' }));
+
+      expect(tabOutEvent).toBeTruthy();
+      expect(tabOutEvent.selectedOption?.value).toBe('ADP-002');
+      expect(component.value).toBe('ADP-002');
+      expect(component.isOpen()).toBe(false);
+    });
+
+    it('should reject ambiguous search terms on Enter without arrow keys', () => {
+      let committedValue: any = null;
+      component.commit.subscribe(val => (committedValue = val));
+
+      // 'a' matches multiple options (ADP-002, Cable, Standard Widget)
+      component.onSearchInput('a');
+      expect(component.filteredOptions().length).toBeGreaterThan(1);
+      expect(component.activeIndex()).toBe(-1);
+
+      component.onInputKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+      expect(committedValue).toBeNull();
+      expect(component.value).toBeNull();
+    });
+
+    it('should reject non-matching search terms on Enter and keep editor open or uncommitted', () => {
+      let committedValue: any = null;
+      component.commit.subscribe(val => (committedValue = val));
+
+      component.onSearchInput('NON-EXISTENT-CODE');
+      expect(component.filteredOptions().length).toBe(0);
+      expect(component.activeIndex()).toBe(-1);
+
+      component.onInputKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+      expect(committedValue).toBeNull();
+      expect(component.value).toBeNull();
+    });
+  });
 });

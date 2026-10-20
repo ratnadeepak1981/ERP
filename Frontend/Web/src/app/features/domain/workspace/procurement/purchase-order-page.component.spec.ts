@@ -343,4 +343,166 @@ describe('PurchaseOrderPageComponent', () => {
     expect(compiled.querySelector('.po-access-denied-wrapper')).toBeTruthy();
     expect(compiled.textContent).not.toContain('http://localhost:4200');
   });
+
+  describe('Multi-line PO Data Loss & Synchronisation Regression Tests', () => {
+    it('should update workingLines signal when onLinesChange is triggered by table dataChange event', () => {
+      fixture.detectChanges();
+
+      const multiLines = [
+        {
+          lineId: 'line-1',
+          productId: 'p1',
+          productCode: 'RAW-001',
+          productName: 'Steel Sheet 2mm',
+          quantity: 2,
+          unitCost: 10,
+          lineTotal: 20
+        },
+        {
+          lineId: 'line-2',
+          productId: 'p2',
+          productCode: 'RAW-002',
+          productName: 'Aluminium Plate',
+          quantity: 5,
+          unitCost: 30,
+          lineTotal: 150
+        },
+        {
+          lineId: 'line-3',
+          productId: 'p3',
+          productCode: 'RAW-003',
+          productName: 'Copper Wire',
+          quantity: 10,
+          unitCost: 5,
+          lineTotal: 50
+        }
+      ];
+
+      component.onLinesChange(multiLines);
+
+      expect(component.workingLines().length).toBe(3);
+      expect(component.workingLines()[0].productId).toBe('p1');
+      expect(component.workingLines()[1].productId).toBe('p2');
+      expect(component.workingLines()[2].productId).toBe('p3');
+      expect(component.subtotalAmount()).toBe(220);
+    });
+
+    it('should preserve all lines and calculate subtotal reactively when calculateRow is called', () => {
+      fixture.detectChanges();
+
+      const initialLines = [
+        {
+          lineId: 'line-1',
+          productId: 'p1',
+          productCode: 'RAW-001',
+          productName: 'Steel Sheet 2mm',
+          quantity: 2,
+          unitCost: 10,
+          lineTotal: 20
+        },
+        {
+          lineId: 'line-2',
+          productId: 'p2',
+          productCode: 'RAW-002',
+          productName: 'Aluminium Plate',
+          quantity: 5,
+          unitCost: 30,
+          lineTotal: 150
+        },
+        {
+          lineId: 'line-3',
+          productId: 'p3',
+          productCode: 'RAW-003',
+          productName: 'Copper Wire',
+          quantity: 10,
+          unitCost: 5,
+          lineTotal: 50
+        }
+      ];
+
+      component.workingLines.set(initialLines);
+
+      // Modify middle line (line-2)
+      const lineToEdit = component.workingLines()[1];
+      lineToEdit.quantity = 8;
+      lineToEdit.unitCost = 35;
+
+      component.calculateRow(lineToEdit);
+
+      expect(component.workingLines().length).toBe(3);
+      // Line 1 intact
+      expect(component.workingLines()[0].productId).toBe('p1');
+      expect(component.workingLines()[0].lineTotal).toBe(20);
+
+      // Line 2 recalculated (8 * 35 = 280)
+      expect(component.workingLines()[1].productId).toBe('p2');
+      expect(component.workingLines()[1].lineTotal).toBe(280);
+
+      // Line 3 intact
+      expect(component.workingLines()[2].productId).toBe('p3');
+      expect(component.workingLines()[2].lineTotal).toBe(50);
+
+      // Total order subtotal updated
+      expect(component.subtotalAmount()).toBe(20 + 280 + 50);
+    });
+
+    it('should include all multiple lines when saving purchase order', () => {
+      fixture.detectChanges();
+
+      component.headerForm.patchValue({
+        orderNumber: 'PO-2026-MULTI',
+        supplierId: 's1',
+        orderDate: '2026-10-18'
+      });
+
+      const threeLines = [
+        {
+          lineId: 'line-1',
+          productId: 'p1',
+          productCode: 'RAW-001',
+          productName: 'Steel Sheet 2mm',
+          quantity: 2,
+          unitCost: 10,
+          lineTotal: 20
+        },
+        {
+          lineId: 'line-2',
+          productId: 'p2',
+          productCode: 'RAW-002',
+          productName: 'Aluminium Plate',
+          quantity: 4,
+          unitCost: 25,
+          lineTotal: 100
+        },
+        {
+          lineId: 'line-3',
+          productId: 'p3',
+          productCode: 'RAW-003',
+          productName: 'Copper Wire',
+          quantity: 1,
+          unitCost: 50,
+          lineTotal: 50
+        }
+      ];
+
+      component.workingLines.set(threeLines);
+
+      const createSpy = vi.spyOn(poService, 'createOrder').mockReturnValue(of(mockOrder));
+      const navSpy = vi.spyOn(router, 'navigate');
+
+      component.saveOrder(false);
+
+      expect(createSpy).toHaveBeenCalledWith(
+        mockCompanyA.id,
+        mockBranchA.id,
+        expect.objectContaining({
+          items: [
+            expect.objectContaining({ productId: 'p1', quantity: 2, unitPrice: 10 }),
+            expect.objectContaining({ productId: 'p2', quantity: 4, unitPrice: 25 }),
+            expect.objectContaining({ productId: 'p3', quantity: 1, unitPrice: 50 })
+          ]
+        })
+      );
+    });
+  });
 });
