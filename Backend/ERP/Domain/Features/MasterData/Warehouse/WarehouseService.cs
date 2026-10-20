@@ -348,10 +348,11 @@ public class WarehouseService : IWarehouseService
         if (await _repository.LocationExistsByCodeAsync(tenantId, warehouseId, code))
             throw new InvalidOperationException($"Location code '{code}' already exists in this warehouse.");
 
+        LocationType? childLocType = null;
         if (request.LocationTypeId.HasValue)
         {
-            var locType = await _repository.GetLocationTypeByIdAsync(tenantId, request.LocationTypeId.Value);
-            if (locType == null)
+            childLocType = await _repository.GetLocationTypeByIdAsync(tenantId, request.LocationTypeId.Value);
+            if (childLocType == null)
                 throw new InvalidOperationException("Location type not found or does not belong to the current tenant.");
         }
 
@@ -361,8 +362,21 @@ public class WarehouseService : IWarehouseService
             if (parent == null || parent.WarehouseId != warehouseId)
                 throw new InvalidOperationException("Parent location must belong to the exact same tenant and warehouse.");
 
+            if (!parent.IsActive)
+                throw new InvalidOperationException("Parent location must be active.");
+
             if (effectiveZoneId.HasValue && parent.WarehouseZoneId.HasValue && effectiveZoneId.Value != parent.WarehouseZoneId.Value)
                 throw new InvalidOperationException("Parent location must belong to the same zone if both locations have zones assigned.");
+
+            LocationType? parentLocType = null;
+            if (parent.LocationTypeId.HasValue)
+            {
+                parentLocType = await _repository.GetLocationTypeByIdAsync(tenantId, parent.LocationTypeId.Value);
+                if (parentLocType != null && !parentLocType.CanContainChildren)
+                    throw new InvalidOperationException($"Parent location '{parent.LocationCode}' cannot contain child locations.");
+            }
+
+            ValidateHierarchyTypeRelationship(childLocType, parentLocType, parent.LocationCode);
         }
 
         var location = WarehouseLocation.Create(
@@ -389,11 +403,21 @@ public class WarehouseService : IWarehouseService
         if (string.IsNullOrWhiteSpace(request.LocationName))
             throw new ArgumentException("Location name is required.", nameof(request.LocationName));
 
+        LocationType? childLocType = null;
         if (request.LocationTypeId.HasValue)
         {
-            var locType = await _repository.GetLocationTypeByIdAsync(tenantId, request.LocationTypeId.Value);
-            if (locType == null)
+            childLocType = await _repository.GetLocationTypeByIdAsync(tenantId, request.LocationTypeId.Value);
+            if (childLocType == null)
                 throw new InvalidOperationException("Location type not found or does not belong to the current tenant.");
+
+            if (!childLocType.CanContainChildren)
+            {
+                var existingChildren = (await _repository.GetLocationsAsync(tenantId, location.WarehouseId))
+                    .Where(x => x.ParentLocationId == locationId && x.IsActive)
+                    .ToList();
+                if (existingChildren.Any())
+                    throw new InvalidOperationException($"Cannot change location type to '{childLocType.Name}' because this location currently has active child locations.");
+            }
         }
 
         if (request.ParentLocationId.HasValue)
@@ -405,8 +429,21 @@ public class WarehouseService : IWarehouseService
             if (parent == null || parent.WarehouseId != location.WarehouseId)
                 throw new InvalidOperationException("Parent location must belong to the exact same tenant and warehouse.");
 
+            if (!parent.IsActive)
+                throw new InvalidOperationException("Parent location must be active.");
+
             if (location.WarehouseZoneId.HasValue && parent.WarehouseZoneId.HasValue && location.WarehouseZoneId.Value != parent.WarehouseZoneId.Value)
                 throw new InvalidOperationException("Parent location must belong to the same zone if both locations have zones assigned.");
+
+            LocationType? parentLocType = null;
+            if (parent.LocationTypeId.HasValue)
+            {
+                parentLocType = await _repository.GetLocationTypeByIdAsync(tenantId, parent.LocationTypeId.Value);
+                if (parentLocType != null && !parentLocType.CanContainChildren)
+                    throw new InvalidOperationException($"Parent location '{parent.LocationCode}' cannot contain child locations.");
+            }
+
+            ValidateHierarchyTypeRelationship(childLocType, parentLocType, parent.LocationCode);
 
             // Recursive cycle detection
             var currentParentId = parent.ParentLocationId;
@@ -610,5 +647,49 @@ public class WarehouseService : IWarehouseService
 
         association.Deactivate();
         await _repository.SaveChangesAsync();
+    }
+
+    private static void ValidateHierarchyTypeRelationship(LocationType? childType, LocationType? parentType, string parentCode)
+    {
+        if (childType == null || parentType == null) return;
+
+        string childCode = childType.Code.Trim().ToUpperInvariant();
+        string pCode = parentType.Code.Trim().ToUpperInvariant();
+
+        // Rule 1: A BIN cannot have a RACK parent directly
+        if (childCode == "BIN" && pCode == "RACK")
+        {
+            throw new InvalidOperationException($"A bin location cannot be placed directly under a rack ('{parentCode}'). It must be placed under a shelf.");
+        }
+
+        // Rule 2: A BIN cannot have a BIN parent
+        if (childCode == "BIN" && pCode == "BIN")
+        {
+            throw new InvalidOperationException($"A bin location cannot be placed under another bin ('{parentCode}').");
+        }
+
+        // Rule 3: A SHELF cannot have a BIN parent
+        if (childCode == "SHELF" && pCode == "BIN")
+        {
+            throw new InvalidOperationException($"A shelf location cannot be placed under a bin ('{parentCode}').");
+        }
+
+        // Rule 4: A SHELF cannot have a SHELF parent
+        if (childCode == "SHELF" && pCode == "SHELF")
+        {
+            throw new InvalidOperationException($"A shelf location cannot be placed under another shelf ('{parentCode}').");
+        }
+
+        // Rule 5: A RACK cannot be placed under a SHELF or BIN
+        if (childCode == "RACK" && (pCode == "SHELF" || pCode == "BIN"))
+        {
+            throw new InvalidOperationException($"A rack location cannot be placed under a {pCode.ToLowerInvariant()} ('{parentCode}'). Racks are top-level storage locations.");
+        }
+
+        // Rule 6: FLOOR / STAGING cannot be placed under SHELF or BIN
+        if ((childCode == "FLOOR" || childCode == "STAGING") && (pCode == "SHELF" || pCode == "BIN"))
+        {
+            throw new InvalidOperationException($"A {childCode.ToLowerInvariant()} location cannot be placed under a {pCode.ToLowerInvariant()} ('{parentCode}').");
+        }
     }
 }

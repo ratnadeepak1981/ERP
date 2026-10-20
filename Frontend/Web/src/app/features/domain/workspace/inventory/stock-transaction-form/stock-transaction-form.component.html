@@ -172,8 +172,8 @@
           <p class="section-subtitle">
             {{
               isReceipt()
-                ? 'Specify products, storage bins (Rack → Level → Bin), unit valuation, and inbound quantities.'
-                : 'Quantities are validated in real-time against current on-hand stock to prevent negative inventory.'
+                ? 'Specify products, storage bins (Rack → Level → Bin), unit valuation, and inbound quantities. Click any cell to edit or use lookup to select items.'
+                : 'Quantities are validated in real-time against current on-hand stock to prevent negative inventory. Click any cell to edit.'
             }}
           </p>
         </div>
@@ -187,143 +187,77 @@
         ></p-button>
       </div>
 
-      <div class="lines-table-wrapper">
-        <table class="lines-table">
-          <thead>
-            <tr>
-              <th style="width: 25%;">Product / SKU *</th>
-              <th style="width: 18%;">Warehouse Facility *</th>
-              <th style="width: 22%;">
-                {{ isReceipt() ? 'Destination Location (Rack → Level → Bin) *' : 'Source Location (Rack → Level → Bin) *' }}
-              </th>
-              <th *ngIf="isIssue()" style="width: 12%; text-align: right;">Available Stock</th>
-              <th *ngIf="isReceipt()" style="width: 12%; text-align: right;">Unit Cost ({{ activeCurrency() }})</th>
-              <th style="width: 11%; text-align: right;">
-                {{ isReceipt() ? 'Receipt Qty *' : 'Issue Qty *' }}
-              </th>
-              <th style="width: 6%;">UOM</th>
-              <th style="width: 6%; text-align: center;">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              *ngFor="let line of lines(); let i = index"
-              [class.has-error]="isIssue() && line.quantity > line.availableStock"
-            >
-              <!-- Product Dropdown -->
-              <td>
-                <select
-                  class="form-control"
-                  [ngModel]="line.productId"
-                  (ngModelChange)="onProductChange(line, $event)"
-                >
-                  <option value="" disabled>-- Select Product --</option>
-                  <option *ngFor="let p of products()" [value]="p.productId">
-                    {{ p.productCode }} - {{ p.productName }}
-                  </option>
-                </select>
-              </td>
-
-              <!-- Line Warehouse Dropdown -->
-              <td>
-                <select
-                  class="form-control"
-                  [ngModel]="line.warehouseId"
-                  (ngModelChange)="onLineWarehouseChange(line, $event)"
-                >
-                  <option *ngFor="let w of warehouses()" [value]="w.warehouseId">
-                    {{ w.warehouseCode }} - {{ w.warehouseName }}
-                  </option>
-                </select>
-              </td>
-
-              <!-- Location Dropdown (Rack -> Level -> Bin) -->
-              <td>
-                <select
-                  class="form-control"
-                  [ngModel]="line.warehouseLocationId"
-                  (ngModelChange)="onLocationChange(line, $event)"
-                  [disabled]="getLocationsForWarehouse(line.warehouseId).length === 0"
-                >
-                  <option value="" disabled>-- Select Bin Location --</option>
-                  <option
-                    *ngFor="let loc of getLocationsForWarehouse(line.warehouseId)"
-                    [value]="loc.locationId"
-                  >
-                    {{ formatLocationHierarchy(loc) }}
-                  </option>
-                </select>
-              </td>
-
-              <!-- Available Stock (Issue Mode) -->
-              <td *ngIf="isIssue()" style="text-align: right;">
-                <span *ngIf="line.loadingStock" class="loading-stock-text">
-                  <i class="pi pi-spin pi-spinner"></i>
-                </span>
-                <span
-                  *ngIf="!line.loadingStock && line.productId && line.warehouseLocationId"
-                  class="stock-badge"
-                  [class.stock-low]="line.availableStock <= 0"
-                  [class.stock-ok]="line.availableStock > 0"
-                >
-                  {{ line.availableStock.toLocaleString() }} {{ line.unitOfMeasure }}
-                </span>
-                <span *ngIf="!line.productId || !line.warehouseLocationId" class="text-muted">-</span>
-              </td>
-
-              <!-- Unit Cost (Receipt Mode) -->
-              <td *ngIf="isReceipt()">
-                <input
-                  pInputText
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  class="form-control text-right"
-                  [ngModel]="line.unitCost"
-                  (ngModelChange)="onUnitCostChange(line, $event)"
-                />
-              </td>
-
-              <!-- Quantity Input -->
-              <td>
-                <input
-                  pInputText
-                  type="number"
-                  min="1"
-                  step="any"
-                  class="form-control text-right"
-                  [ngModel]="line.quantity"
-                  (ngModelChange)="onQuantityChange(line, $event)"
-                  [class.input-error]="(isIssue() && line.quantity > line.availableStock) || line.quantity <= 0"
-                />
-                <div *ngIf="isIssue() && line.quantity > line.availableStock" class="field-error-text">
-                  Exceeds available ({{ line.availableStock }})
-                </div>
-              </td>
-
-              <!-- Unit of Measure -->
-              <td>
-                <span class="uom-pill">{{ line.unitOfMeasure }}</span>
-              </td>
-
-              <!-- Remove Action -->
-              <td style="text-align: center;">
-                <button
-                  type="button"
-                  class="btn-icon-remove"
-                  title="Remove Line"
-                  (click)="removeLine(i)"
-                  [disabled]="lines().length <= 1"
-                >
-                  <i class="pi pi-trash"></i>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="editable-table-container">
+        <app-editable-data-table
+          [data]="lines()"
+          [columns]="columns()"
+          rowKey="id"
+          [readonly]="false"
+          [showActionBar]="false"
+          [allowAddRow]="true"
+          [allowDeleteRow]="true"
+          [showGlobalSearch]="false"
+          [showFilters]="false"
+          [showSorting]="false"
+          [showColumnChooser]="false"
+          [paginator]="false"
+          [defaultNewRow]="defaultNewRow"
+          [onRowCalculate]="calculateRow"
+          (dataChange)="onLinesDataChange($event)"
+          (cellValueChange)="onTableCellValueChange($event)"
+          (rowDelete)="onTableRowDelete($event)"
+        ></app-editable-data-table>
       </div>
     </div>
+
+    <!-- 4. Summary Totals & Bottom Action Bar -->
+    <section class="card footer-summary-section">
+      <div class="summary-totals-grid">
+        <div class="summary-row">
+          <span class="summary-label">Total Item Lines:</span>
+          <span class="summary-value">{{ lines().length }} {{ lines().length === 1 ? 'line' : 'lines' }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">{{ isReceipt() ? 'Total Units Received:' : 'Total Units Issued:' }}</span>
+          <span class="summary-value">{{ totalQuantity() | number:'1.0-2' }}</span>
+        </div>
+        <div *ngIf="isReceipt()" class="summary-row total-row">
+          <span class="summary-label">Total Receipt Valuation:</span>
+          <span class="summary-value grand-total">
+            {{ activeCurrency() }} {{ totalReceiptCost() | number:'1.2-2' }}
+          </span>
+        </div>
+      </div>
+
+      <div *ngIf="!isValid() && lines().length > 0" class="footer-validation-hint">
+        <i class="pi pi-info-circle"></i>
+        <span>
+          {{ isIssue()
+            ? 'Ensure all lines have a selected product, source storage location, and issue quantities within available on-hand stock.'
+            : 'Ensure all lines have a selected product, destination storage location, and valid quantities.' }}
+        </span>
+      </div>
+
+      <div class="footer-actions-bar">
+        <p-button
+          label="Cancel"
+          icon="pi pi-times"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="onCancel()"
+          [disabled]="saving()"
+        ></p-button>
+
+        <p-button
+          [label]="isReceipt() ? 'Post Stock Receipt' : 'Post Stock Issue'"
+          [icon]="isReceipt() ? 'pi pi-check' : 'pi pi-send'"
+          severity="primary"
+          [disabled]="!isValid() || saving() || !canPost()"
+          [loading]="saving()"
+          (onClick)="postTransaction()"
+        ></p-button>
+      </div>
+    </section>
   </div>
 
   <!-- VIEW MODE DETAILS -->
