@@ -169,135 +169,94 @@
   }
 }
 
-.lines-table-wrapper {
-  overflow-x: auto;
-  border: 1px solid var(--surface-border, #e2e8f0);
-  border-radius: var(--border-radius, 6px);
+.editable-table-container {
+  width: 100%;
 }
 
-.lines-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
+.footer-summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background-color: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: var(--border-radius, 8px);
+  padding: 1.5rem;
+}
 
-  thead {
-    background-color: var(--surface-50, #f8fafc);
-    border-bottom: 1px solid var(--surface-border, #e2e8f0);
+.summary-totals-grid {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--surface-border, #f1f5f9);
 
-    th {
-      padding: 0.75rem 0.85rem;
-      font-size: 0.75rem;
+  .summary-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    .summary-label {
+      font-size: 0.775rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: var(--text-color-secondary, #64748b);
-      text-align: left;
     }
-  }
 
-  tbody {
-    tr {
-      border-bottom: 1px solid var(--surface-border, #f1f5f9);
-      transition: background-color 0.12s ease-in-out;
+    .summary-value {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text-color, #1e293b);
 
-      &:hover {
-        background-color: var(--surface-hover, #f8fafc);
-      }
-
-      &.has-error {
-        background-color: #fff7ed;
-      }
-
-      &:last-child {
-        border-bottom: none;
-      }
-
-      td {
-        padding: 0.65rem 0.85rem;
-        vertical-align: middle;
+      &.grand-total {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--primary-color, #2563eb);
       }
     }
   }
+}
 
-  .form-control {
+.footer-validation-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius, 6px);
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.8125rem;
+  font-weight: 500;
+
+  i {
+    color: #d97706;
+    font-size: 1rem;
+  }
+}
+
+.footer-actions-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .summary-totals-grid {
+    gap: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .footer-actions-bar {
+    flex-direction: column;
     width: 100%;
-    height: 34px;
-    padding: 0.35rem 0.6rem;
-    font-size: 0.8125rem;
-    border: 1px solid var(--surface-border, #cbd5e1);
-    border-radius: var(--border-radius, 6px);
-    background-color: var(--surface-card, #ffffff);
-    color: var(--text-color, #1e293b);
 
-    &.text-right {
-      text-align: right;
-    }
-
-    &.input-error {
-      border-color: #dc2626;
-      background-color: #fef2f2;
-    }
-  }
-
-  .field-error-text {
-    font-size: 0.7rem;
-    color: #dc2626;
-    margin-top: 0.2rem;
-    text-align: right;
-  }
-
-  .stock-badge {
-    display: inline-block;
-    padding: 0.2rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 4px;
-
-    &.stock-ok {
-      background-color: #ecfdf5;
-      color: #047857;
-      border: 1px solid #a7f3d0;
-    }
-
-    &.stock-low {
-      background-color: #fef2f2;
-      color: #b91c1c;
-      border: 1px solid #fecaca;
-    }
-  }
-
-  .loading-stock-text {
-    color: var(--text-color-secondary, #64748b);
-    font-size: 0.8125rem;
-  }
-
-  .uom-pill {
-    display: inline-block;
-    padding: 0.2rem 0.45rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-color-secondary, #64748b);
-    background-color: var(--surface-100, #f1f5f9);
-    border-radius: 4px;
-  }
-
-  .btn-icon-remove {
-    background: transparent;
-    border: none;
-    color: var(--text-color-secondary, #94a3b8);
-    cursor: pointer;
-    padding: 0.35rem;
-    border-radius: 4px;
-    transition: all 0.15s ease-in-out;
-
-    &:hover:not(:disabled) {
-      color: #dc2626;
-      background-color: #fee2e2;
-    }
-
-    &:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
+    p-button {
+      width: 100%;
     }
   }
 }

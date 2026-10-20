@@ -21,6 +21,7 @@ import {
   WarehouseItem,
   WarehouseLocationItem
 } from '../../../../../core/models/scope.models';
+import { StockTransactionLineItem } from './stock-transaction-form.models';
 
 describe('StockTransactionFormComponent', () => {
   let component: StockTransactionFormComponent;
@@ -296,6 +297,238 @@ describe('StockTransactionFormComponent', () => {
 
       expect(component.viewIssue()).toBeTruthy();
       expect(component.viewIssue()?.issueNumber).toBe('ISS-2026-0001');
+    });
+  });
+
+  describe('Editable Table and Action Buttons Configuration', () => {
+    it('should configure receipt columns with lookup, facility, location, unit cost and quantity', () => {
+      component.transactionType = 'receipt';
+      fixture.detectChanges();
+
+      const cols = component.columns();
+      const fields = cols.map(c => c.field);
+
+      expect(fields).toContain('productCode');
+      expect(fields).toContain('warehouseId');
+      expect(fields).toContain('warehouseLocationId');
+      expect(fields).toContain('unitCost');
+      expect(fields).toContain('quantity');
+      expect(fields).toContain('unitOfMeasure');
+      expect(fields).not.toContain('availableStock');
+
+      const productCol = cols.find(c => c.field === 'productCode');
+      expect(productCol?.editType).toBe('lookup');
+      expect(productCol?.editable).toBe(true);
+      expect(productCol?.lookupOptions?.length).toBe(1);
+
+      const locCol = cols.find(c => c.field === 'warehouseLocationId');
+      expect(locCol?.header).toContain('Destination Location');
+      expect(locCol?.editType).toBe('select');
+    });
+
+    it('should configure issue columns with available stock and negative stock validation', () => {
+      component.transactionType = 'issue';
+      fixture.detectChanges();
+
+      const cols = component.columns();
+      const fields = cols.map(c => c.field);
+
+      expect(fields).toContain('productCode');
+      expect(fields).toContain('warehouseId');
+      expect(fields).toContain('warehouseLocationId');
+      expect(fields).toContain('availableStock');
+      expect(fields).toContain('quantity');
+      expect(fields).not.toContain('unitCost');
+
+      const locCol = cols.find(c => c.field === 'warehouseLocationId');
+      expect(locCol?.header).toContain('Source Location');
+
+      const qtyCol = cols.find(c => c.field === 'quantity');
+      expect(qtyCol?.validators?.length).toBeGreaterThan(0);
+
+      // Test negative stock validator
+      const validator = qtyCol?.validators![0];
+      expect(validator).toBeDefined();
+
+      const testRow: StockTransactionLineItem = {
+        id: 'line-test',
+        productId: 'prod-1',
+        productCode: 'STL-001',
+        productName: 'Galvanized Steel Sheet',
+        unitOfMeasure: 'SHT',
+        warehouseId: 'wh-1',
+        warehouseLocationId: 'loc-1',
+        availableStock: 10,
+        loadingStock: false,
+        quantity: 20
+      };
+
+      const errorMsg = validator!(20, testRow);
+      expect(errorMsg).toContain('Exceeds available stock (10)');
+
+      const validMsg = validator!(5, testRow);
+      expect(validMsg).toBeNull();
+    });
+
+    it('should generate correct default new row and recalculate line totals', () => {
+      component.transactionType = 'receipt';
+      fixture.detectChanges();
+
+      const newRow = component.defaultNewRow();
+      expect(newRow.id).toContain('line-');
+      expect(newRow.quantity).toBe(1);
+      expect(newRow.unitOfMeasure).toBe('PCS');
+
+      const rowToCalc: StockTransactionLineItem = {
+        id: 'row-1',
+        productId: 'prod-1',
+        productCode: 'STL-001',
+        productName: 'Steel',
+        unitOfMeasure: 'SHT',
+        warehouseId: 'wh-1',
+        warehouseLocationId: 'loc-1',
+        availableStock: 0,
+        loadingStock: false,
+        quantity: 10,
+        unitCost: 15.5
+      };
+
+      component.calculateRow(rowToCalc);
+      expect((rowToCalc as any).lineTotal).toBe(155);
+    });
+
+    it('should calculate total quantity and total receipt cost correctly', () => {
+      component.transactionType = 'receipt';
+      component.lines.set([
+        {
+          id: '1',
+          productId: 'p1',
+          productCode: 'C1',
+          productName: 'P1',
+          unitOfMeasure: 'PCS',
+          warehouseId: 'w1',
+          warehouseLocationId: 'l1',
+          availableStock: 0,
+          loadingStock: false,
+          quantity: 10,
+          unitCost: 20
+        },
+        {
+          id: '2',
+          productId: 'p2',
+          productCode: 'C2',
+          productName: 'P2',
+          unitOfMeasure: 'PCS',
+          warehouseId: 'w1',
+          warehouseLocationId: 'l1',
+          availableStock: 0,
+          loadingStock: false,
+          quantity: 5,
+          unitCost: 10
+        }
+      ]);
+
+      expect(component.totalQuantity()).toBe(15);
+      expect(component.totalReceiptCost()).toBe(250);
+    });
+
+    it('should synchronize lines on dataChange and cellValueChange events', () => {
+      component.transactionType = 'receipt';
+      fixture.detectChanges();
+
+      const row: StockTransactionLineItem = {
+        id: '1',
+        productId: '',
+        productCode: '',
+        productName: '',
+        unitOfMeasure: 'PCS',
+        warehouseId: 'wh-1',
+        warehouseLocationId: 'loc-1',
+        availableStock: 0,
+        loadingStock: false,
+        quantity: 1
+      };
+      component.lines.set([row]);
+
+      // Simulate cell change of product
+      component.onTableCellValueChange({
+        row,
+        column: { field: 'productId', header: 'Product' },
+        value: 'prod-1'
+      });
+
+      expect(component.lines()[0].productId).toBe('prod-1');
+      expect(component.lines()[0].productName).toBe('Galvanized Steel Sheet');
+      expect(component.lines()[0].unitCost).toBe(120);
+    });
+
+    it('should preserve user-entered unit cost when selecting product in receipt mode', () => {
+      component.transactionType = 'receipt';
+      fixture.detectChanges();
+
+      const row: StockTransactionLineItem = {
+        id: '1',
+        productId: '',
+        productCode: '',
+        productName: '',
+        unitOfMeasure: 'PCS',
+        warehouseId: 'wh-1',
+        warehouseLocationId: 'loc-1',
+        availableStock: 0,
+        loadingStock: false,
+        quantity: 1,
+        unitCost: 85.5
+      };
+      component.lines.set([row]);
+
+      component.onTableCellValueChange({
+        row,
+        column: { field: 'productId', header: 'Product' },
+        value: 'prod-1'
+      });
+
+      expect(component.lines()[0].productId).toBe('prod-1');
+      expect(component.lines()[0].unitCost).toBe(85.5);
+    });
+
+    it('should preserve user-entered unit cost when selecting product in receipt mode', () => {
+      component.transactionType = 'receipt';
+      fixture.detectChanges();
+
+      const row: StockTransactionLineItem = {
+        id: '1',
+        productId: '',
+        productCode: '',
+        productName: '',
+        unitOfMeasure: 'PCS',
+        warehouseId: 'wh-1',
+        warehouseLocationId: 'loc-1',
+        availableStock: 0,
+        loadingStock: false,
+        quantity: 1,
+        unitCost: 85.5
+      };
+      component.lines.set([row]);
+
+      component.onTableCellValueChange({
+        row,
+        column: { field: 'productId', header: 'Product' },
+        value: 'prod-1'
+      });
+
+      expect(component.lines()[0].productId).toBe('prod-1');
+      expect(component.lines()[0].unitCost).toBe(85.5);
+    });
+
+    it('should trigger cancel navigation when onCancel is called', () => {
+      const cancelSpy = vi.spyOn(component.cancel, 'emit');
+      const routerSpy = vi.spyOn(router, 'navigate');
+
+      component.transactionType = 'receipt';
+      component.onCancel();
+
+      expect(cancelSpy).toHaveBeenCalled();
+      expect(routerSpy).toHaveBeenCalledWith(['/app/inventory/stock-receipts']);
     });
   });
 });

@@ -33,6 +33,8 @@ import { TableFilterComponent } from './subcomponents/table-filter.component';
 import { TablePaginationComponent } from './subcomponents/table-pagination.component';
 import { TableSelectionComponent } from './subcomponents/table-selection.component';
 import { TableColumnChooserComponent } from './subcomponents/table-column-chooser.component';
+import { TableSelectEditorComponent } from './subcomponents/table-select-editor.component';
+import { SelectOption } from '../../models/data-table-config.model';
 
 @Component({
   selector: 'app-editable-data-table',
@@ -48,13 +50,13 @@ import { TableColumnChooserComponent } from './subcomponents/table-column-choose
     AppLoadingStateComponent,
     AppEmptyStateComponent,
     AppCheckboxComponent,
-    AppLookupDropdownComponent,
     TableSearchComponent,
     TableSortComponent,
     TableFilterComponent,
     TablePaginationComponent,
     TableSelectionComponent,
-    TableColumnChooserComponent
+    TableColumnChooserComponent,
+    TableSelectEditorComponent
   ],
   templateUrl: './editable-data-table.component.html',
   styleUrl: './editable-data-table.component.scss',
@@ -79,7 +81,16 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
   }
 
   @Input() set data(val: T[]) {
-    this.initData(val || []);
+    const incoming = val || [];
+    if (this.activeEditCell() || this.isNavigatingCells) {
+      this.workingData.set([...incoming]);
+      return;
+    }
+    if (this.dirtyRowKeys().size > 0 && incoming.length === this.workingData().length) {
+      this.workingData.set([...incoming]);
+      return;
+    }
+    this.initData(incoming);
   }
 
   @Input() set columns(cols: DataTableColumn<T>[]) {
@@ -264,6 +275,11 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     return this.processedData().slice(offset, offset + this.rows);
   });
 
+  readonly emptyRowSpaces = computed<number[]>(() => {
+    const count = this.displayedRows().length;
+    return count < 5 ? Array.from({ length: 5 - count }, (_, i) => i) : [];
+  });
+
   getRowKey(row: T): string {
     return String(row[this.rowKey] || (row as any).id || (row as any).lineId);
   }
@@ -281,19 +297,60 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     return this.validationErrors()[key]?.[field] || null;
   }
 
+  // Reliable Column-Type and Editability Contract
+  isColumnEditable(col: DataTableColumn<T>): boolean {
+    if (this.readonly) return false;
+    if (col.editable === false) return false;
+    if (col.type === 'readonly' || col.type === 'calculated' || col.type === 'actions' || (col as any).isCalculated) {
+      return false;
+    }
+    return col.editable === true;
+  }
+
+  isNumericColumn(col: DataTableColumn<T>): boolean {
+    const t = col.type;
+    const e = col.editType;
+    return (
+      t === 'number' || t === 'integer' || t === 'decimal' || t === 'double' || t === 'currency' ||
+      e === 'number' || e === 'integer' || e === 'decimal' || e === 'double' || e === 'currency'
+    );
+  }
+
+  isIntegerColumn(col: DataTableColumn<T>): boolean {
+    return col.type === 'integer' || col.editType === 'integer';
+  }
+
   // Click-to-edit management
   isCellEditing(row: T, col: DataTableColumn<T>): boolean {
-    if (!col.editable) return false;
+    if (!this.isColumnEditable(col)) return false;
     const active = this.activeEditCell();
     if (!active) return false;
     return active.rowKey === this.getRowKey(row) && active.field === String(col.field);
   }
 
   startEditing(row: T, col: DataTableColumn<T>, event?: Event): void {
-    if (this.readonly || !col.editable) return;
+    if (!this.isColumnEditable(col)) return;
     if (event) {
       event.stopPropagation();
     }
+
+    // Check if another cell is currently active and invalid before switching
+    const currentActive = this.activeEditCell();
+    if (currentActive) {
+      const currentKey = this.getRowKey(row);
+      if (currentActive.rowKey !== currentKey || currentActive.field !== String(col.field)) {
+        const activeRow = this.workingData().find(r => this.getRowKey(r) === currentActive.rowKey);
+        const activeCol = this.visibleColumns().find(c => String(c.field) === currentActive.field);
+        if (activeRow && activeCol) {
+          if (!this.isCellValid(activeRow, activeCol)) {
+            // Cannot navigate away by mouse click if active cell is invalid
+            this.refocusCurrentCell(activeRow, activeCol);
+            return;
+          }
+        }
+      }
+    }
+
     const rowKey = this.getRowKey(row);
     const field = String(col.field);
     const cellKey = `${rowKey}_${field}`;
@@ -304,24 +361,63 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
 
     this.activeEditCell.set({ rowKey, field });
 
+    this.refocusCurrentCell(row, col);
+  }
+
+  refocusCurrentCell(row: T, col: DataTableColumn<T>): void {
+    const rowKey = this.getRowKey(row);
+    const field = String(col.field);
     setTimeout(() => {
       const el = document.getElementById(`editor-${rowKey}-${field}`);
       if (el) {
         if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
           el.focus();
-          if (el instanceof HTMLInputElement && el.type !== 'number') {
+          if (el instanceof HTMLInputElement && el.type !== 'number' && el.type !== 'date' && el.type !== 'checkbox') {
             el.select();
           }
         } else {
           const innerInput = el.querySelector('input') || el.querySelector('button');
           innerInput?.focus();
+          if (innerInput instanceof HTMLInputElement && innerInput.type !== 'number' && innerInput.type !== 'date' && innerInput.type !== 'checkbox') {
+            innerInput.select();
+          }
         }
       }
-    }, 15);
+    }, 20);
   }
+
+  isCellValid(row: T, col: DataTableColumn<T>): boolean {
+    const val = row[col.field as keyof T];
+    this.validateField(row, col, val);
+    const key = this.getRowKey(row);
+    const err = this.validationErrors()[key]?.[String(col.field)];
+    return !err;
+  }
+
+  onSelectEditorCommit(row: T, col: DataTableColumn<T>): void {
+    if (!this.isCellValid(row, col)) {
+      this.refocusCurrentCell(row, col);
+      return;
+    }
+    this.stopEditing();
+  }
+
+  private isNavigatingCells: boolean = false;
 
   stopEditing(): void {
     this.activeEditCell.set(null);
+  }
+
+  onCellBlur(): void {
+    if (this.isNavigatingCells) return;
+    setTimeout(() => {
+      if (this.isNavigatingCells) return;
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.closest('.cell-editor-container') || activeEl.closest('.table-select-editor-container'))) {
+        return;
+      }
+      this.stopEditing();
+    }, 100);
   }
 
   onCellKeyDown(event: KeyboardEvent, row: T, col: DataTableColumn<T>, rowIndex: number): void {
@@ -341,6 +437,10 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
 
     if (event.key === 'Enter' && !event.ctrlKey) {
       event.preventDefault();
+      if (!this.isCellValid(row, col)) {
+        this.refocusCurrentCell(row, col);
+        return;
+      }
       this.stopEditing();
       return;
     }
@@ -376,41 +476,120 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
 
     if (event.key === 'Tab') {
       event.preventDefault();
-      const editableCols = this.visibleColumns().filter(c => c.editable);
-      const colIdx = editableCols.findIndex(c => c.field === col.field);
+      this.navigateNextCell(row, col, event.shiftKey);
+      return;
+    }
+  }
 
-      if (event.shiftKey) {
-        // Shift + Tab: Move backwards
-        if (colIdx > 0) {
-          this.startEditing(row, editableCols[colIdx - 1]);
-        } else {
-          const currRowIdx = this.workingData().findIndex(r => this.getRowKey(r) === rowKey);
-          if (currRowIdx > 0) {
-            const prevRow = this.workingData()[currRowIdx - 1];
-            this.startEditing(prevRow, editableCols[editableCols.length - 1]);
-          } else {
-            this.stopEditing();
-          }
-        }
+  getOptionsForColumn(col: DataTableColumn<T>, row: T): SelectOption[] {
+    if (col.getEditOptions) {
+      return col.getEditOptions(row);
+    }
+    if (col.editOptions) {
+      return col.editOptions;
+    }
+    if (col.lookupOptions) {
+      return col.lookupOptions.map(item => ({
+        label: item.code && item.name ? `${item.code} — ${item.name}` : (item.name || item.code || String(item.id)),
+        value: item.code || item.id,
+        subtitle: item.description,
+        badge: item.category,
+        rawItem: item
+      }));
+    }
+    return [];
+  }
+
+  getPlaceholderForColumn(col: DataTableColumn<T>, row: T): string {
+    const formatted = this.formatValue(col, row);
+    return formatted ? formatted : `Select ${col.header}...`;
+  }
+
+  onSelectOption(row: T, col: DataTableColumn<T>, opt: SelectOption): void {
+    this.onCellValueChange(row, col, opt.value);
+    if (col.onLookupSelect && opt.rawItem) {
+      col.onLookupSelect(opt.rawItem, row);
+      this.recalculateRowTotals(row);
+      this.workingData.set([...this.workingData()]);
+    }
+    this.validateField(row, col, opt.value);
+    this.stopEditing();
+  }
+
+  onCellTabOut(row: T, col: DataTableColumn<T>, event: { shiftKey: boolean; selectedOption?: SelectOption }): void {
+    if (event.selectedOption) {
+      this.onCellValueChange(row, col, event.selectedOption.value);
+      if (col.onLookupSelect && event.selectedOption.rawItem) {
+        col.onLookupSelect(event.selectedOption.rawItem, row);
+        this.recalculateRowTotals(row);
+        this.workingData.set([...this.workingData()]);
+      }
+      this.validateField(row, col, event.selectedOption.value);
+    }
+    this.navigateNextCell(row, col, event.shiftKey);
+  }
+
+  onCellCancel(row: T, col: DataTableColumn<T>): void {
+    const rowKey = this.getRowKey(row);
+    const cellKey = `${rowKey}_${String(col.field)}`;
+    if (this.cellOriginalValues.has(cellKey)) {
+      const orig = this.cellOriginalValues.get(cellKey);
+      row[col.field as keyof T] = orig;
+      this.recalculateRowTotals(row);
+      this.workingData.set([...this.workingData()]);
+    }
+    this.stopEditing();
+  }
+
+  navigateNextCell(row: T, col: DataTableColumn<T>, shiftKey: boolean = false): void {
+    if (!this.isCellValid(row, col)) {
+      this.isNavigatingCells = false;
+      this.refocusCurrentCell(row, col);
+      return;
+    }
+
+    this.isNavigatingCells = true;
+    const editableCols = this.visibleColumns().filter(c => this.isColumnEditable(c));
+    if (editableCols.length === 0) {
+      this.stopEditing();
+      this.isNavigatingCells = false;
+      return;
+    }
+    const colIdx = editableCols.findIndex(c => c.field === col.field);
+    const rowKey = this.getRowKey(row);
+    const currRowIdx = this.workingData().findIndex(r => this.getRowKey(r) === rowKey);
+
+    if (shiftKey) {
+      // Shift + Tab: Move backwards
+      if (colIdx > 0) {
+        this.startEditing(row, editableCols[colIdx - 1]);
       } else {
-        // Tab: Move forward
-        if (colIdx < editableCols.length - 1) {
-          // Next editable column in same row
-          this.startEditing(row, editableCols[colIdx + 1]);
+        if (currRowIdx > 0) {
+          const prevRow = this.workingData()[currRowIdx - 1];
+          this.startEditing(prevRow, editableCols[editableCols.length - 1]);
         } else {
-          // Last editable column of current row
-          const currRowIdx = this.workingData().findIndex(r => this.getRowKey(r) === rowKey);
-          if (currRowIdx < this.workingData().length - 1) {
-            // Next row's first editable column
-            const nextRow = this.workingData()[currRowIdx + 1];
-            this.startEditing(nextRow, editableCols[0]);
-          } else {
-            // After last column tab also add blank row!
-            this.addNewRow('end');
-          }
+          this.stopEditing();
+        }
+      }
+    } else {
+      // Tab: Move forward
+      if (colIdx < editableCols.length - 1) {
+        this.startEditing(row, editableCols[colIdx + 1]);
+      } else {
+        if (currRowIdx < this.workingData().length - 1) {
+          const nextRow = this.workingData()[currRowIdx + 1];
+          this.startEditing(nextRow, editableCols[0]);
+        } else if (this.allowAddRow && !this.readonly) {
+          this.addNewRow('end');
+        } else {
+          this.stopEditing();
         }
       }
     }
+
+    setTimeout(() => {
+      this.isNavigatingCells = false;
+    }, 150);
   }
 
   // Lookup integration
@@ -429,10 +608,18 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     const key = this.getRowKey(row);
     const fieldName = String(col.field);
 
-    // Cast numbers if needed
     let parsedVal = value;
-    if (col.editType === 'number' || col.editType === 'currency') {
-      parsedVal = value === '' || isNaN(Number(value)) ? value : Number(value);
+    if (this.isNumericColumn(col)) {
+      if (value === '' || value === null || value === undefined) {
+        parsedVal = value;
+      } else {
+        const num = Number(value);
+        if (!isNaN(num)) {
+          parsedVal = num;
+        } else {
+          parsedVal = value;
+        }
+      }
     }
     row[fieldName as keyof T] = parsedVal;
 
@@ -470,12 +657,29 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
         if (errorMsg) break;
       }
     } else {
-      if (val === '' || val === null || val === undefined) {
+      const isReq = col.required === true;
+      const isEmpty = val === '' || val === null || val === undefined;
+
+      if (isReq && isEmpty) {
         errorMsg = `${col.header} is required`;
-      } else if ((col.editType === 'number' || col.editType === 'currency') && isNaN(Number(val))) {
-        errorMsg = 'Must be a valid number';
-      } else if ((col.editType === 'number' || col.editType === 'currency') && Number(val) < 0) {
-        errorMsg = 'Cannot be negative';
+      } else if (!isEmpty) {
+        if ((col.editType === 'select' || col.editType === 'lookup') && !col.allowFreeText) {
+          const opts = this.getOptionsForColumn(col, row);
+          if (opts.length > 0 && !opts.some(o => o.value === val)) {
+            errorMsg = `Please select a valid ${col.header}`;
+          }
+        } else if (this.isNumericColumn(col)) {
+          const num = Number(val);
+          if (isNaN(num)) {
+            errorMsg = 'Must be a valid number';
+          } else if (this.isIntegerColumn(col) && !Number.isInteger(num)) {
+            errorMsg = 'Must be a whole number (integer)';
+          } else if (col.min !== undefined && num < col.min) {
+            errorMsg = `Must be at least ${col.min}`;
+          } else if (col.max !== undefined && num > col.max) {
+            errorMsg = `Cannot exceed ${col.max}`;
+          }
+        }
       }
     }
 
@@ -779,12 +983,53 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     const val = item[col.field as string];
     if (col.format) return col.format(val, item);
     if (val === null || val === undefined || val === '') return '';
-    if (col.type === 'currency' && typeof val === 'number') {
-      return new Intl.NumberFormat(this.currencyLocale, {
-        style: 'currency',
-        currency: this.currencyCode
-      }).format(val);
+
+    if (col.type === 'boolean' || col.editType === 'boolean') {
+      return val ? 'Yes' : 'No';
     }
+
+    if (col.type === 'date' || col.editType === 'date') {
+      try {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString(this.currencyLocale);
+        }
+      } catch {
+        return String(val);
+      }
+    }
+
+    if (col.editType === 'select' || col.editType === 'lookup' || col.type === 'select' || col.type === 'lookup') {
+      const opts = this.getOptionsForColumn(col, item);
+      const match = opts.find(o => o.value === val);
+      if (match) return match.label;
+    }
+
+    if (col.type === 'currency' || col.editType === 'currency') {
+      const num = Number(val);
+      if (!isNaN(num)) {
+        return new Intl.NumberFormat(this.currencyLocale, {
+          style: 'currency',
+          currency: this.currencyCode,
+          minimumFractionDigits: col.precision ?? 2,
+          maximumFractionDigits: col.precision ?? 2
+        }).format(num);
+      }
+    }
+
+    if (this.isNumericColumn(col)) {
+      const num = Number(val);
+      if (!isNaN(num)) {
+        if (col.precision !== undefined) {
+          return new Intl.NumberFormat(this.currencyLocale, {
+            minimumFractionDigits: col.precision,
+            maximumFractionDigits: col.precision
+          }).format(num);
+        }
+        return String(num);
+      }
+    }
+
     return String(val);
   }
 }
