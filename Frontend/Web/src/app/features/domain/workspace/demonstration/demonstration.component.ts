@@ -17,11 +17,13 @@ import { ModularControlsSectionComponent } from './sections/modular-controls-sec
 import { CheckboxPlaygroundSectionComponent } from './sections/checkbox-playground-section.component';
 import { SharedControlsSectionComponent } from './sections/shared-controls-section.component';
 import { AppLookupDropdownSectionComponent } from './sections/lookup-dropdown-section.component';
+import { MaterialEditableTableSectionComponent } from './sections/material-editable-table-section.component';
 
 export type ShowcaseTab =
   | 'catalogue'
   | 'readonly'
   | 'editable'
+  | 'material-editable'
   | 'modular'
   | 'checkbox'
   | 'lookup'
@@ -41,6 +43,7 @@ export type ShowcaseTab =
     CatalogueSectionComponent,
     ReadonlyTableSectionComponent,
     EditableTableSectionComponent,
+    MaterialEditableTableSectionComponent,
     ModularControlsSectionComponent,
     CheckboxPlaygroundSectionComponent,
     SharedControlsSectionComponent,

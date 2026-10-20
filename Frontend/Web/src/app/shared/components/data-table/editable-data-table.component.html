@@ -133,7 +133,7 @@
               <div class="th-content" [style.justifyContent]="col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start')">
                 <span class="th-title">
                   {{ col.header }}
-                  @if (col.editable) {
+                  @if (isColumnEditable(col)) {
                     <i class="pi pi-pencil edit-indicator-icon" title="Click cell to edit" aria-hidden="true"></i>
                   }
                 </span>
@@ -210,49 +210,71 @@
 
               @for (col of visibleColumns(); track col.field) {
                 <td
-                  [class.editable-cell]="col.editable"
+                  [class.editable-cell]="isColumnEditable(col)"
                   [class.is-editing]="isCellEditing(row, col)"
-                  [class.readonly-cell]="!col.editable"
+                  [class.readonly-cell]="!isColumnEditable(col)"
+                  [class.calculated-cell]="col.type === 'calculated' || col.isCalculated"
                   [class.has-error]="getFieldError(row, getFieldKey(col))"
                   [style.textAlign]="col.align || 'left'"
                   (click)="startEditing(row, col, $event)"
                 >
                   <!-- Active Cell Editor (Shown ONLY when cell is clicked / active) -->
-                  @if (col.editable && isCellEditing(row, col)) {
+                  @if (isColumnEditable(col) && isCellEditing(row, col)) {
                     <div class="cell-editor-container" (click)="$event.stopPropagation()">
-                      @if (col.editType === 'lookup' && col.lookupOptions) {
-                        <app-lookup-dropdown
+                      @if ((col.editType === 'lookup' && col.lookupOptions) || (col.editType === 'select' && (col.editOptions || col.getEditOptions)) || col.type === 'select' || col.type === 'lookup') {
+                        <app-table-select-editor
                           [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
-                          [items]="col.lookupOptions"
+                          [options]="getOptionsForColumn(col, row)"
+                          [value]="row[col.field]"
+                          [placeholder]="getPlaceholderForColumn(col, row)"
+                          [allowFreeText]="col.allowFreeText || false"
+                          [popupMaxWidth]="col.maxWidth"
+                          (selectOptionEvent)="onSelectOption(row, col, $event)"
+                          (commit)="onSelectEditorCommit(row, col)"
+                          (cancel)="onCellCancel(row, col)"
+                          (tabOut)="onCellTabOut(row, col, $event)"
+                        ></app-table-select-editor>
+                      } @else if (col.editType === 'boolean' || col.type === 'boolean') {
+                        <div class="boolean-editor-box">
+                          <app-checkbox
+                            [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
+                            [checked]="!!row[col.field]"
+                            (checkedChange)="onCellValueChange(row, col, $event)"
+                            size="small"
+                          ></app-checkbox>
+                        </div>
+                      } @else if (col.editType === 'date' || col.type === 'date') {
+                        <input
+                          [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
+                          type="date"
+                          class="erp-cell-input date-input"
                           [ngModel]="row[col.field]"
                           (ngModelChange)="onCellValueChange(row, col, $event)"
-                          (selectItem)="onLookupSelect(row, col, $event)"
-                          (keydown)="onCellKeyDown($event, row, col, rowIndex)"
-                          [autoOpen]="true"
-                          size="small"
-                        ></app-lookup-dropdown>
-                      } @else if (col.editType === 'select' && col.editOptions) {
-                        <select
-                          [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
-                          class="erp-cell-select"
-                          [ngModel]="row[col.field]"
-                          (ngModelChange)="onCellValueChange(row, col, $event)"
-                          (blur)="stopEditing()"
+                          (blur)="onCellBlur()"
                           (keydown)="onCellKeyDown($event, row, col, rowIndex)"
                           [class.invalid]="getFieldError(row, getFieldKey(col))"
-                        >
-                          @for (opt of col.editOptions; track opt.value) {
-                            <option [value]="opt.value">{{ opt.label }}</option>
-                          }
-                        </select>
-                      } @else if (col.editType === 'number' || col.editType === 'currency') {
+                        />
+                      } @else if (col.editType === 'integer' || col.type === 'integer') {
                         <input
                           [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
                           type="number"
+                          step="1"
+                          class="erp-cell-input numeric-input integer-input"
+                          [ngModel]="row[col.field]"
+                          (ngModelChange)="onCellValueChange(row, col, $event)"
+                          (blur)="onCellBlur()"
+                          (keydown)="onCellKeyDown($event, row, col, rowIndex)"
+                          [class.invalid]="getFieldError(row, getFieldKey(col))"
+                        />
+                      } @else if (isNumericColumn(col)) {
+                        <input
+                          [id]="'editor-' + getRowKey(row) + '-' + getFieldKey(col)"
+                          type="number"
+                          [step]="col.step || '0.01'"
                           class="erp-cell-input numeric-input"
                           [ngModel]="row[col.field]"
                           (ngModelChange)="onCellValueChange(row, col, $event)"
-                          (blur)="stopEditing()"
+                          (blur)="onCellBlur()"
                           (keydown)="onCellKeyDown($event, row, col, rowIndex)"
                           [class.invalid]="getFieldError(row, getFieldKey(col))"
                         />
@@ -263,7 +285,7 @@
                           class="erp-cell-input text-input"
                           [ngModel]="row[col.field]"
                           (ngModelChange)="onCellValueChange(row, col, $event)"
-                          (blur)="stopEditing()"
+                          (blur)="onCellBlur()"
                           (keydown)="onCellKeyDown($event, row, col, rowIndex)"
                           [class.invalid]="getFieldError(row, getFieldKey(col))"
                         />
@@ -277,19 +299,23 @@
                     </div>
                   } @else {
                     <!-- Cell Display Mode (Standard text, formatted currency/badge, click to edit) -->
-                    <div class="cell-display-container" [class.clickable]="col.editable" [title]="col.editable ? 'Click to edit' : ''">
+                    <div class="cell-display-container" [class.clickable]="isColumnEditable(col)" [title]="isColumnEditable(col) ? 'Click to edit' : ''">
                       @if (col.type === 'badge') {
                         <app-status-badge
                           [label]="row[col.field]"
                           [severity]="col.badgeSeverityMap ? col.badgeSeverityMap(row[col.field], row) : 'neutral'"
                         ></app-status-badge>
+                      } @else if (col.type === 'boolean' || col.editType === 'boolean') {
+                        <span class="cell-text-value">
+                          {{ row[col.field] ? '✓ Yes' : '— No' }}
+                        </span>
                       } @else {
                         <span class="cell-text-value" [class.font-mono]="col.field === 'productCode' || col.field === 'lineId'">
-                          {{ formatValue(col, row) || (col.editable ? '—' : '') }}
+                          {{ formatValue(col, row) || (isColumnEditable(col) ? '—' : '') }}
                         </span>
                       }
 
-                      @if (col.editable) {
+                      @if (isColumnEditable(col)) {
                         <i class="pi pi-pencil cell-edit-indicator" aria-hidden="true"></i>
                       }
                     </div>
@@ -326,6 +352,22 @@
                   </button>
                 }
               </td>
+            </tr>
+          }
+          @for (space of emptyRowSpaces(); track space) {
+            <tr class="erp-table-row erp-empty-space-row" aria-hidden="true">
+              @if (selectionMode === 'multiple') {
+                <td class="selection-cell" style="text-align: center;">&nbsp;</td>
+              }
+              @if (showRowNumbers) {
+                <td class="row-num-cell" style="text-align: center;">&nbsp;</td>
+              }
+              @for (col of visibleColumns(); track col.field) {
+                <td class="readonly-cell">&nbsp;</td>
+              }
+              @if (allowDeleteRow) {
+                <td class="row-actions-cell">&nbsp;</td>
+              }
             </tr>
           }
         }

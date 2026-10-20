@@ -189,30 +189,138 @@
           <div class="section-title-wrap">
             <span class="section-step-badge">3</span>
             <div class="section-headings">
-              <h2 class="section-title">Storage Hierarchy & Parent Positioning</h2>
+              <div class="section-title-row">
+                <h2 class="section-title">Storage Hierarchy & Parent Positioning</h2>
+                <span class="expected-parent-badge" [class.top-level]="expectedParentInfo().isTopLevel">
+                  <i [class]="expectedParentInfo().isTopLevel ? 'pi pi-compass' : 'pi pi-sitemap'"></i>
+                  Expected Parent: {{ expectedParentInfo().name }}
+                </span>
+              </div>
               <span class="section-subtitle">
-                Anchor this location inside a higher-level physical container (e.g. Bin inside a Shelf, Shelf inside a Rack).
+                {{ expectedParentInfo().helperText }}
               </span>
             </div>
           </div>
         </div>
 
-        <div class="form-grid cols-1">
-          <div class="field-wrap">
-            <label for="parentSelect" class="field-label">Parent Location</label>
-            <select id="parentSelect" formControlName="parentLocationId" class="fluent-select">
-              <option [ngValue]="null">None — Top-Level Independent Location (e.g. Floor Staging Bay, Primary Rack)</option>
-              @for (p of parentCandidates(); track (p.warehouseLocationId ?? p.locationId)) {
-                <option [value]="p.warehouseLocationId ?? p.locationId">
-                  {{ p.hierarchyPath || p.locationCode }} ({{ p.locationName }})
-                </option>
-              }
-            </select>
-            <span class="field-hint">
-              Select an existing active location to nest this location under. Circular parentage is strictly prevented.
-            </span>
+        @if (parentWarning()) {
+          <div class="parent-warning-banner">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>{{ parentWarning() }}</span>
           </div>
-        </div>
+        }
+
+        @if (expectedParentInfo().isTopLevel) {
+          <div class="top-level-info-card">
+            <div class="info-icon">
+              <i class="pi pi-check-circle"></i>
+            </div>
+            <div class="info-text">
+              <span class="info-headline">Top-Level Storage Structure (No Parent Required)</span>
+              <p class="info-desc">
+                {{ expectedParentInfo().helperText }} Locations of this classification type anchor directly inside the warehouse zone and do not have a parent location.
+              </p>
+            </div>
+          </div>
+        } @else {
+          <div class="form-grid cols-1">
+            <div class="field-wrap">
+              <div class="field-label-row">
+                <label for="parentSelect" class="field-label">
+                  Parent Location
+                  @if (expectedParentInfo().isRequired) {
+                    <span class="required-mark">*</span>
+                  }
+                </label>
+                @if (parentOptions().length > 0) {
+                  <span class="candidates-count-pill">
+                    {{ parentOptions().length }} candidate{{ parentOptions().length === 1 ? '' : 's' }} in zone
+                  </span>
+                }
+              </div>
+
+              <!-- Quick Search Filter within eligible parents -->
+              @if (parentCandidates().length > 3) {
+                <div class="parent-search-bar">
+                  <i class="pi pi-search search-icon"></i>
+                  <input
+                    type="text"
+                    class="fluent-input parent-search-input"
+                    [ngModel]="parentSearchTerm()"
+                    (ngModelChange)="parentSearchTerm.set($event)"
+                    [ngModelOptions]="{ standalone: true }"
+                    placeholder="Search parent by code, name, type, or zone..."
+                  />
+                  @if (parentSearchTerm()) {
+                    <button type="button" class="clear-search-btn" (click)="parentSearchTerm.set('')" title="Clear filter">
+                      <i class="pi pi-times"></i>
+                    </button>
+                  }
+                </div>
+              }
+
+              <!-- Select Dropdown -->
+              <select
+                id="parentSelect"
+                formControlName="parentLocationId"
+                class="fluent-select parent-select"
+                [class.is-invalid]="locationForm.controls.parentLocationId.invalid && locationForm.controls.parentLocationId.touched"
+              >
+                <option [ngValue]="null">
+                  {{ expectedParentInfo().isRequired ? '-- Select an Eligible Parent Location --' : 'None — Top-Level Independent Location' }}
+                </option>
+                @for (opt of parentOptions(); track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+
+              @if (parentEmptyGuidance()) {
+                <div class="parent-guidance-banner">
+                  <i class="pi pi-info-circle"></i>
+                  <span>{{ parentEmptyGuidance() }}</span>
+                </div>
+              }
+
+              @if (locationForm.controls.parentLocationId.invalid && locationForm.controls.parentLocationId.touched) {
+                <span class="field-error">
+                  {{ expectedParentInfo().code === 'SHELF' ? 'A bin must be placed under a shelf.' : 'Select a rack in the selected warehouse and zone.' }}
+                </span>
+              }
+
+              <span class="field-hint">
+                Only active candidate locations in the selected warehouse facility and zone are listed. Circular parentage is strictly prevented.
+              </span>
+
+              <!-- Selected Parent Details Card -->
+              @if (selectedParentOption(); as parentOpt) {
+                <div class="selected-parent-card">
+                  <div class="selected-parent-info">
+                    <div class="parent-badge-row">
+                      <span class="parent-code-badge">{{ parentOpt.code }}</span>
+                      <span class="parent-name">{{ parentOpt.name }}</span>
+                      <span class="parent-type-tag">{{ parentOpt.typeName }}</span>
+                      <span class="parent-zone-tag"><i class="pi pi-map-marker"></i> {{ parentOpt.zoneName }}</span>
+                    </div>
+                    <div class="parent-breadcrumb-row">
+                      <span class="breadcrumb-label">Physical Nesting:</span>
+                      <span class="breadcrumb-value">{{ hierarchyPathPreview() }}</span>
+                    </div>
+                  </div>
+                  @if (!expectedParentInfo().isRequired) {
+                    <button
+                      type="button"
+                      class="clear-parent-btn"
+                      (click)="clearParentSelection()"
+                      title="Clear parent selection"
+                    >
+                      <i class="pi pi-times"></i> Clear Parent
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
       </section>
 
       <!-- Section 4: Operational Capability Flags & Status -->

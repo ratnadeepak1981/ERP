@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormGroup, FormControl, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
@@ -32,11 +32,21 @@ import {
 
 export type LocationPageMode = 'create' | 'edit' | 'view';
 
+export interface ParentLocationOption {
+  value: string;
+  code: string;
+  name: string;
+  typeName: string;
+  zoneName: string;
+  label: string;
+}
+
 @Component({
   selector: 'app-location-page',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     RouterModule,
     ButtonModule,
@@ -101,13 +111,246 @@ export class LocationPageComponent implements OnInit, OnDestroy {
   readonly enteredLocationCode = toSignal(this.locationForm.controls.locationCode.valueChanges, { initialValue: '' });
   readonly selectedParentLocationId = toSignal(this.locationForm.controls.parentLocationId.valueChanges, { initialValue: null });
   readonly selectedWarehouseZoneId = toSignal(this.locationForm.controls.warehouseZoneId.valueChanges, { initialValue: null });
+  readonly selectedLocationTypeId = toSignal(this.locationForm.controls.locationTypeId.valueChanges, { initialValue: null });
 
-  // Filtered parent candidates (prevents selecting oneself as parent)
+  // Search & Validation Signals for Parent Selector
+  readonly parentSearchTerm = signal<string>('');
+  readonly parentWarning = signal<string | null>(null);
+
+  // Helper method to collect all descendant IDs of a location recursively (prevents circular hierarchies)
+  private getDescendantIds(currentId: string, locations: WarehouseLocationItem[]): Set<string> {
+    const descendants = new Set<string>();
+    const queue = [currentId];
+    while (queue.length > 0) {
+      const parentId = queue.shift()!;
+      descendants.add(parentId);
+      for (const loc of locations) {
+        const id = loc.warehouseLocationId ?? loc.locationId;
+        if (loc.parentLocationId === parentId && !descendants.has(id)) {
+          queue.push(id);
+        }
+      }
+    }
+    return descendants;
+  }
+
+  // Selected child location classification type item
+  readonly currentChildType = computed<LocationTypeItem | null>(() => {
+    const typeId = this.selectedLocationTypeId() ?? this.locationForm.controls.locationTypeId.value;
+    if (!typeId) return null;
+    return this.locationTypes().find(t => t.locationTypeId === typeId) ?? null;
+  });
+
+  // Hierarchy rules and expected parent metadata
+  readonly expectedParentInfo = computed<{
+    code: string | null;
+    name: string;
+    isTopLevel: boolean;
+    isRequired: boolean;
+    helperText: string;
+  }>(() => {
+    const type = this.currentChildType();
+    if (!type) {
+      return {
+        code: null,
+        name: 'Top-Level or Container',
+        isTopLevel: false,
+        isRequired: false,
+        helperText: 'Select a structural classification type to determine eligible parent locations.'
+      };
+    }
+
+    const code = type.code.trim().toUpperCase();
+    if (code === 'RACK') {
+      return {
+        code: null,
+        name: 'None (Top-Level)',
+        isTopLevel: true,
+        isRequired: false,
+        helperText: 'Racks are top-level locations. No parent is required.'
+      };
+    }
+    if (code === 'FLOOR') {
+      return {
+        code: null,
+        name: 'None (Top-Level)',
+        isTopLevel: true,
+        isRequired: false,
+        helperText: 'Floor staging areas are top-level locations. No parent is required.'
+      };
+    }
+    if (code === 'STAGING') {
+      return {
+        code: null,
+        name: 'None (Top-Level)',
+        isTopLevel: true,
+        isRequired: false,
+        helperText: 'Staging bays are top-level locations. No parent is required.'
+      };
+    }
+    if (code === 'SHELF') {
+      return {
+        code: 'RACK',
+        name: 'RACK',
+        isTopLevel: false,
+        isRequired: true,
+        helperText: 'Select a rack in the same warehouse and zone.'
+      };
+    }
+    if (code === 'BIN') {
+      return {
+        code: 'SHELF',
+        name: 'SHELF',
+        isTopLevel: false,
+        isRequired: true,
+        helperText: 'Select a shelf in the same warehouse and zone.'
+      };
+    }
+    // CUPBOARD or other
+    return {
+      code: null,
+      name: 'Top-Level or Container',
+      isTopLevel: false,
+      isRequired: false,
+      helperText: 'Select an active container in the same warehouse and zone, or choose Top-Level.'
+    };
+  });
+
+  // Filtered parent candidates:
+  // 1. Same warehouse
+  // 2. Same zone
+  // 3. Active status
+  // 4. Type compatibility (RACK for SHELF, SHELF for BIN, top-level for RACK/FLOOR/STAGING)
+  // 5. Exclude current location
+  // 6. Exclude all descendants of current location (circular hierarchy prevention)
+  // 7. Exclude locations with canContainChildren === false
   readonly parentCandidates = computed<WarehouseLocationItem[]>(() => {
-    const locId = this.locationId();
-    const list = this.allLocations().filter(l => l.isActive);
-    if (!locId) return list;
-    return list.filter(l => (l.warehouseLocationId ?? l.locationId) !== locId);
+    const parentRule = this.expectedParentInfo();
+
+    // RACK, FLOOR, STAGING are top-level locations
+    if (parentRule.isTopLevel) {
+      return [];
+    }
+
+    const currentWhId = this.warehouseId();
+    const currentLocId = this.locationId();
+    const selectedZone = this.selectedWarehouseZoneId() ?? this.locationForm.controls.warehouseZoneId.value;
+
+    const all = this.allLocations();
+    const excludedIds = currentLocId ? this.getDescendantIds(currentLocId, all) : new Set<string>();
+
+    return all.filter(loc => {
+      const locId = loc.warehouseLocationId ?? loc.locationId;
+      if (excludedIds.has(locId)) return false;
+
+      // Must be active
+      if (!loc.isActive) return false;
+
+      // Must belong to the same warehouse
+      if (currentWhId && loc.warehouseId && loc.warehouseId !== currentWhId) return false;
+
+      // Must belong to the selected zone
+      if (selectedZone) {
+        const lZone = loc.warehouseZoneId ?? loc.zoneId;
+        if (lZone !== selectedZone) return false;
+      } else {
+        // If unzoned child, parent must also be unzoned
+        const lZone = loc.warehouseZoneId ?? loc.zoneId;
+        if (lZone) return false;
+      }
+
+      // Must be able to contain child locations
+      const pType = this.locationTypes().find(t => t.locationTypeId === loc.locationTypeId);
+      if (pType && !pType.canContainChildren) return false;
+      if (loc.canContainChildren === false) return false;
+
+      const pTypeCode = (loc.locationTypeCode ?? pType?.code ?? '').trim().toUpperCase();
+
+      // Rule: SHELF requires RACK, BIN requires SHELF
+      if (parentRule.code) {
+        return pTypeCode === parentRule.code || pTypeCode.startsWith(parentRule.code);
+      }
+
+      // For general types, cannot be BIN
+      if (pTypeCode === 'BIN') return false;
+
+      return true;
+    });
+  });
+
+  // Formatted options with code, descriptive name, type pill, zone name, and type-ahead search
+  readonly parentOptions = computed<ParentLocationOption[]>(() => {
+    const candidates = this.parentCandidates();
+    const search = this.parentSearchTerm().trim().toLowerCase();
+
+    return candidates
+      .map(p => {
+        const type = this.locationTypes().find(t => t.locationTypeId === p.locationTypeId);
+        const typeName = p.locationTypeCode || type?.code || type?.name || 'LOCATION';
+        const zone = this.zones().find(z => z.warehouseZoneId === (p.warehouseZoneId ?? p.zoneId));
+        const zoneName = p.zoneName || zone?.zoneName || (p.warehouseZoneId ? 'Zoned' : 'General Facility');
+        const label = `${p.locationCode} — ${p.locationName} (${typeName}) · ${zoneName}`;
+        const value = p.warehouseLocationId ?? p.locationId;
+
+        return {
+          value,
+          code: p.locationCode,
+          name: p.locationName,
+          typeName,
+          zoneName,
+          label
+        };
+      })
+      .filter(opt => {
+        if (!search) return true;
+        return (
+          opt.code.toLowerCase().includes(search) ||
+          opt.name.toLowerCase().includes(search) ||
+          opt.typeName.toLowerCase().includes(search) ||
+          opt.zoneName.toLowerCase().includes(search) ||
+          opt.label.toLowerCase().includes(search)
+        );
+      });
+  });
+
+  // Selected parent item for display
+  readonly selectedParentLocation = computed<WarehouseLocationItem | null>(() => {
+    const pId = this.selectedParentLocationId() ?? this.locationForm.controls.parentLocationId.value;
+    if (!pId) return null;
+    return this.allLocations().find(l => (l.warehouseLocationId ?? l.locationId) === pId) ?? null;
+  });
+
+  readonly selectedParentOption = computed<ParentLocationOption | null>(() => {
+    const loc = this.selectedParentLocation();
+    if (!loc) return null;
+    const type = this.locationTypes().find(t => t.locationTypeId === loc.locationTypeId);
+    const typeName = loc.locationTypeCode || type?.code || type?.name || 'LOCATION';
+    const zone = this.zones().find(z => z.warehouseZoneId === (loc.warehouseZoneId ?? loc.zoneId));
+    const zoneName = loc.zoneName || zone?.zoneName || (loc.warehouseZoneId ? 'Zoned' : 'General Facility');
+    return {
+      value: loc.warehouseLocationId ?? loc.locationId,
+      code: loc.locationCode,
+      name: loc.locationName,
+      typeName,
+      zoneName,
+      label: `${loc.locationCode} — ${loc.locationName} (${typeName}) · ${zoneName}`
+    };
+  });
+
+  // Empty state guidance message
+  readonly parentEmptyGuidance = computed<string | null>(() => {
+    const rule = this.expectedParentInfo();
+    if (rule.isTopLevel) return null;
+    const candidates = this.parentCandidates();
+    if (candidates.length > 0) return null;
+
+    if (rule.code === 'RACK') {
+      return 'No eligible rack locations are available in this zone. Create an active rack first.';
+    }
+    if (rule.code === 'SHELF') {
+      return 'No eligible shelf locations are available in this zone. Create an active shelf first.';
+    }
+    return 'No compatible container locations are available in this zone. Create an active parent location first.';
   });
 
   // Predicted live hierarchy path
@@ -214,10 +457,20 @@ export class LocationPageComponent implements OnInit, OnDestroy {
       })
     );
 
-    // Watch for Location Type changes to offer recommended capability presets
+    // Watch for Zone changes to validate and clear parent if no longer valid
+    this.subs.add(
+      this.locationForm.controls.warehouseZoneId.valueChanges.subscribe(() => {
+        this.validateAndClearParentIfNeeded('zone');
+      })
+    );
+
+    // Watch for Location Type changes to offer recommended capability presets and validate parent
     this.subs.add(
       this.locationForm.controls.locationTypeId.valueChanges.subscribe(typeId => {
-        if (!typeId) return;
+        if (!typeId) {
+          this.validateAndClearParentIfNeeded('type');
+          return;
+        }
         const matched = this.locationTypes().find(t => t.locationTypeId === typeId);
         if (matched) {
           // If in create mode or pristine capability, apply standard type policy defaults
@@ -229,12 +482,36 @@ export class LocationPageComponent implements OnInit, OnDestroy {
             }, { emitEvent: false });
           }
         }
+        this.validateAndClearParentIfNeeded('type');
       })
     );
   }
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+  }
+
+  validateAndClearParentIfNeeded(trigger: 'zone' | 'type'): void {
+    const currentParentId = this.locationForm.controls.parentLocationId.value;
+    if (!currentParentId) {
+      this.parentWarning.set(null);
+      return;
+    }
+
+    const validCandidates = this.parentCandidates();
+    const isValid = validCandidates.some(c => (c.warehouseLocationId ?? c.locationId) === currentParentId);
+    if (!isValid) {
+      this.locationForm.controls.parentLocationId.setValue(null);
+      const reason = trigger === 'zone' ? 'the selected warehouse zone' : 'the selected classification type';
+      this.parentWarning.set(`Previous parent selection was cleared because it is no longer compatible with ${reason}.`);
+    } else {
+      this.parentWarning.set(null);
+    }
+  }
+
+  clearParentSelection(): void {
+    this.locationForm.controls.parentLocationId.setValue(null);
+    this.parentWarning.set(null);
   }
 
   private initCreateForm(preselectedZoneId?: string | null): void {
@@ -249,6 +526,8 @@ export class LocationPageComponent implements OnInit, OnDestroy {
       canPutAway: true,
       isActive: true
     });
+    this.parentSearchTerm.set('');
+    this.parentWarning.set(null);
     this.serverErrors.set({});
   }
 
@@ -273,8 +552,8 @@ export class LocationPageComponent implements OnInit, OnDestroy {
         this.allLocations.set(res.locations);
 
         if (this.mode() === 'create' && !this.locationForm.controls.locationTypeId.value && res.types.length > 0) {
-          // Preselect first location type default (e.g. Rack or Bin)
-          const defaultType = res.types.find(t => t.code === 'BIN') || res.types[0];
+          // Preselect first location type default (prefer RACK for top-level or first type)
+          const defaultType = res.types.find(t => t.code === 'RACK') || res.types.find(t => t.code === 'BIN') || res.types[0];
           this.locationForm.patchValue({ locationTypeId: defaultType.locationTypeId });
         }
 
@@ -327,11 +606,24 @@ export class LocationPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const raw = this.locationForm.getRawValue();
+    const typeInfo = this.expectedParentInfo();
+
+    // Enforce required parent when candidates exist
+    if (typeInfo.isRequired && !raw.parentLocationId && this.parentCandidates().length > 0) {
+      this.locationForm.controls.parentLocationId.markAsTouched();
+      const msg = typeInfo.code === 'SHELF'
+        ? 'A bin must be placed under a shelf.'
+        : 'Select a rack in the selected warehouse and zone.';
+      this.message.set({ text: msg, severity: 'warn' });
+      return;
+    }
+
     this.saving.set(true);
     this.serverErrors.set({});
     this.message.set(null);
 
-    const raw = this.locationForm.getRawValue();
+    const effectiveParentId = typeInfo.isTopLevel ? null : (raw.parentLocationId || null);
 
     if (this.mode() === 'create') {
       const dto: CreateWarehouseLocationDto = {
@@ -339,7 +631,7 @@ export class LocationPageComponent implements OnInit, OnDestroy {
         locationName: raw.locationName.trim(),
         warehouseZoneId: raw.warehouseZoneId || null,
         locationTypeId: raw.locationTypeId || null,
-        parentLocationId: raw.parentLocationId || null
+        parentLocationId: effectiveParentId
       };
 
       this.masterDataService.createWarehouseLocation(whId, dto).subscribe({
@@ -359,7 +651,7 @@ export class LocationPageComponent implements OnInit, OnDestroy {
       const dto: UpdateWarehouseLocationDto = {
         locationName: raw.locationName.trim(),
         locationTypeId: raw.locationTypeId || null,
-        parentLocationId: raw.parentLocationId || null
+        parentLocationId: effectiveParentId
       };
 
       this.masterDataService.updateWarehouseLocation(locId, dto).subscribe({

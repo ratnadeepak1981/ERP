@@ -8,6 +8,7 @@ import {
   inject,
   signal,
   computed,
+  ViewChild,
   ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -21,6 +22,9 @@ import { AppPageHeaderComponent } from '../../../../../shared/components/page-he
 import { AppLoadingStateComponent } from '../../../../../shared/components/loading-state/loading-state.component';
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
+import { AppEditableDataTableComponent } from '../../../../../shared/components/data-table/editable-data-table.component';
+import { DataTableColumn, SelectOption } from '../../../../../shared/models/data-table-config.model';
+import { LookupItem } from '../../../../../shared/components/lookup-dropdown/lookup-item.model';
 import { InventoryService } from '../../../../../core/services/inventory.service';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
@@ -62,13 +66,16 @@ import {
     AppPageHeaderComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
-    AccessDeniedComponent
+    AccessDeniedComponent,
+    AppEditableDataTableComponent
   ],
   templateUrl: './stock-transaction-form.component.html',
   styleUrl: './stock-transaction-form.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StockTransactionFormComponent implements OnInit, OnDestroy {
+  @ViewChild(AppEditableDataTableComponent) editableTable?: AppEditableDataTableComponent<StockTransactionLineItem>;
+
   readonly inventoryService = inject(InventoryService);
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
@@ -228,6 +235,282 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
   readonly activeCurrency = computed(() => {
     return this.scopeService.selectedCompany()?.currency || 'LKR';
   });
+
+  // Product Lookup Items for AppEditableDataTableComponent
+  readonly productLookupItems = computed<LookupItem[]>(() => {
+    return this.products().map(p => ({
+      id: p.productId,
+      code: p.productCode,
+      name: p.productName,
+      category: p.categoryName || 'General',
+      isEligible: p.isActive && p.isStockTracked,
+      meta: {
+        standardCost: p.standardCost,
+        unitOfMeasure: p.unitOfMeasure || 'PCS'
+      }
+    }));
+  });
+
+  // Warehouse Facility select options
+  readonly warehouseOptions = computed<SelectOption[]>(() => {
+    return this.warehouses().map(w => ({
+      label: `${w.warehouseCode} - ${w.warehouseName}`,
+      value: w.warehouseId
+    }));
+  });
+
+  // Reactive totals for footer summary
+  readonly totalQuantity = computed<number>(() => {
+    return this.lines().reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  });
+
+  readonly totalReceiptCost = computed<number>(() => {
+    return this.lines().reduce((sum, item) => {
+      const qty = Number(item.quantity) || 0;
+      const cost = Number(item.unitCost) || 0;
+      return sum + (qty * cost);
+    }, 0);
+  });
+
+  // Blank New Row Factory for AppEditableDataTableComponent
+  readonly defaultNewRow = (): Partial<StockTransactionLineItem> => {
+    const targetWh = this.headerWarehouseId() || (this.warehouses().length > 0 ? this.warehouses()[0].warehouseId : '');
+    const locs = this.getLocationsForWarehouse(targetWh);
+    const targetLoc = locs.length > 0 ? locs[0].locationId : '';
+
+    return {
+      id: `line-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      productId: '',
+      productCode: '',
+      productName: '',
+      unitOfMeasure: 'PCS',
+      warehouseId: targetWh,
+      warehouseLocationId: targetLoc,
+      availableStock: 0,
+      loadingStock: false,
+      quantity: 1,
+      unitCost: this.isReceipt() ? 0 : null
+    };
+  };
+
+  // Row Calculation Callback
+  readonly calculateRow = (row: StockTransactionLineItem): void => {
+    if (this.isReceipt()) {
+      row.unitCost = Number(row.unitCost) || 0;
+      (row as any).lineTotal = Math.round((Number(row.quantity) || 0) * (Number(row.unitCost) || 0) * 100) / 100;
+    }
+  };
+
+  // Columns Configuration for AppEditableDataTableComponent
+  readonly columns = computed<DataTableColumn<StockTransactionLineItem>[]>(() => {
+    const isReceiptMode = this.isReceipt();
+    const isIssueMode = this.isIssue();
+
+    const cols: DataTableColumn<StockTransactionLineItem>[] = [
+      {
+        field: 'productCode',
+        header: 'Product / SKU *',
+        editable: true,
+        editType: 'lookup',
+        lookupOptions: this.productLookupItems(),
+        width: '280px',
+        sortable: false,
+        filterable: false,
+        format: (_val, row) => {
+          if (row.productCode && row.productName) {
+            return `${row.productCode} — ${row.productName}`;
+          }
+          if (row.productCode) return row.productCode;
+          return '';
+        },
+        onLookupSelect: (item, row) => {
+          row.productId = String(item.id);
+          row.productCode = item.code;
+          row.productName = item.name;
+          row.unitOfMeasure = item.meta?.unitOfMeasure || 'PCS';
+          if (isReceiptMode) {
+            if (row.unitCost === null || row.unitCost === undefined || row.unitCost === 0) {
+              row.unitCost = item.meta?.standardCost ?? 0;
+            }
+            this.calculateRow(row);
+          }
+          if (isIssueMode && row.warehouseLocationId) {
+            this.refreshAvailableStock(row);
+          }
+          this.lines.update(curr => curr.map(l => l.id === row.id ? { ...l, ...row } : l));
+        },
+        validators: [
+          (_val, row) => (row.productId ? null : 'Product is required')
+        ]
+      },
+      {
+        field: 'warehouseId',
+        header: 'Warehouse Facility *',
+        editable: true,
+        editType: 'select',
+        editOptions: this.warehouseOptions(),
+        width: '220px',
+        sortable: false,
+        filterable: false,
+        format: (val) => {
+          const w = this.warehouses().find(x => x.warehouseId === val);
+          return w ? `${w.warehouseCode} - ${w.warehouseName}` : (val || '');
+        },
+        validators: [
+          (val) => (val ? null : 'Warehouse is required')
+        ]
+      },
+      {
+        field: 'warehouseLocationId',
+        header: isReceiptMode
+          ? 'Destination Location (Rack → Level → Bin) *'
+          : 'Source Location (Rack → Level → Bin) *',
+        editable: true,
+        editType: 'select',
+        getEditOptions: (row) => this.getLocationOptionsForRow(row),
+        width: '280px',
+        sortable: false,
+        filterable: false,
+        format: (val) => {
+          const loc = this.findLocation(val);
+          return loc ? this.formatLocationHierarchy(loc) : (val || '');
+        },
+        validators: [
+          (val) => (val ? null : 'Storage location is required')
+        ]
+      }
+    ];
+
+    if (isIssueMode) {
+      cols.push({
+        field: 'availableStock',
+        header: 'Available Stock',
+        editable: false,
+        align: 'right',
+        width: '130px',
+        sortable: false,
+        filterable: false,
+        format: (val, row) => {
+          if (row.loadingStock) return 'Loading...';
+          if (!row.productId || !row.warehouseLocationId) return '—';
+          return `${Number(val || 0).toLocaleString()} ${row.unitOfMeasure || 'PCS'}`;
+        }
+      });
+    }
+
+    if (isReceiptMode) {
+      cols.push({
+        field: 'unitCost',
+        header: `Unit Cost (${this.activeCurrency()})`,
+        editable: true,
+        editType: 'currency',
+        type: 'currency',
+        align: 'right',
+        width: '140px',
+        sortable: false,
+        filterable: false,
+        validators: [
+          (val) => {
+            if (val === null || val === undefined || val === '') return null;
+            const num = Number(val);
+            if (isNaN(num)) return 'Must be a valid number';
+            if (num < 0) return 'Unit cost cannot be negative';
+            return null;
+          }
+        ]
+      });
+    }
+
+    cols.push(
+      {
+        field: 'quantity',
+        header: isReceiptMode ? 'Receipt Qty *' : 'Issue Qty *',
+        editable: true,
+        editType: 'number',
+        type: 'number',
+        align: 'right',
+        width: '120px',
+        sortable: false,
+        filterable: false,
+        validators: [
+          (val, row) => {
+            const num = Number(val);
+            if (isNaN(num)) return 'Must be a valid number';
+            if (num <= 0) return 'Quantity must be > 0';
+            if (isIssueMode && num > row.availableStock) {
+              return `Exceeds available stock (${row.availableStock})`;
+            }
+            return null;
+          }
+        ]
+      },
+      {
+        field: 'unitOfMeasure',
+        header: 'UOM',
+        editable: false,
+        align: 'center',
+        width: '80px',
+        sortable: false,
+        filterable: false
+      }
+    );
+
+    return cols;
+  });
+
+  findLocation(locationId: string): WarehouseLocationItem | undefined {
+    if (!locationId) return undefined;
+    const map = this.locationsMap();
+    for (const list of Object.values(map)) {
+      const found = list.find(l => l.locationId === locationId);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  getLocationOptionsForRow(row: StockTransactionLineItem): SelectOption[] {
+    const targetWh = row.warehouseId || this.headerWarehouseId();
+    const locs = this.getLocationsForWarehouse(targetWh);
+    if (!locs || locs.length === 0) {
+      return [{ label: '-- No Storage Locations Available --', value: '' }];
+    }
+    return locs.map(l => ({
+      label: this.formatLocationHierarchy(l),
+      value: l.locationId
+    }));
+  }
+
+  onLinesDataChange(updated: StockTransactionLineItem[]): void {
+    this.lines.set([...updated]);
+  }
+
+  onTableCellValueChange(event: { row: StockTransactionLineItem; column: DataTableColumn<StockTransactionLineItem>; value: any }): void {
+    const { row, column, value } = event;
+    const field = String(column.field);
+
+    if (field === 'warehouseId') {
+      this.onLineWarehouseChange(row, value);
+    } else if (field === 'productId' || field === 'productCode') {
+      this.onProductChange(row, value);
+    } else if (field === 'warehouseLocationId') {
+      this.onLocationChange(row, value);
+    } else if (field === 'quantity') {
+      this.onQuantityChange(row, value);
+    } else if (field === 'unitCost') {
+      this.onUnitCostChange(row, value);
+    }
+
+    this.lines.update(curr => curr.map(l => l.id === row.id ? { ...l, ...row } : l));
+  }
+
+  onTableRowDelete(deleted: StockTransactionLineItem): void {
+    const remaining = this.lines().filter(l => l.id !== deleted.id);
+    if (remaining.length === 0) {
+      this.lines.set([this.defaultNewRow() as StockTransactionLineItem]);
+    } else {
+      this.lines.set(remaining);
+    }
+  }
 
   canPost(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
@@ -391,15 +674,17 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  onProductChange(line: StockTransactionLineItem, productId: string): void {
-    const product = this.products().find(p => p.productId === productId);
-    line.productId = productId;
+  onProductChange(line: StockTransactionLineItem, productIdOrCode: string): void {
+    const product = this.products().find(p => p.productId === productIdOrCode || p.productCode === productIdOrCode);
+    line.productId = product?.productId || productIdOrCode;
     line.productCode = product?.productCode || '';
     line.productName = product?.productName || '';
     line.unitOfMeasure = product?.unitOfMeasure || 'PCS';
 
     if (this.isReceipt()) {
-      line.unitCost = product?.standardCost ?? 0;
+      if (line.unitCost === null || line.unitCost === undefined || line.unitCost === 0) {
+        line.unitCost = product?.standardCost ?? 0;
+      }
     }
 
     if (this.isIssue()) {

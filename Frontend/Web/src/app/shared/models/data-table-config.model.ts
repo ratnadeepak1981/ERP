@@ -2,10 +2,18 @@ import { TemplateRef } from '@angular/core';
 
 export type ColumnType =
   | 'text'
+  | 'string'
   | 'number'
+  | 'integer'
+  | 'decimal'
+  | 'double'
   | 'currency'
   | 'date'
   | 'boolean'
+  | 'select'
+  | 'lookup'
+  | 'readonly'
+  | 'calculated'
   | 'badge'
   | 'actions';
 
@@ -13,11 +21,25 @@ export type FilterType = 'text' | 'numeric' | 'date' | 'boolean' | 'select';
 
 import { LookupItem } from '../components/lookup-dropdown/lookup-item.model';
 
-export type EditType = 'text' | 'number' | 'currency' | 'select' | 'lookup' | 'date';
+export type EditType =
+  | 'text'
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'decimal'
+  | 'double'
+  | 'currency'
+  | 'select'
+  | 'lookup'
+  | 'date'
+  | 'boolean';
 
 export interface SelectOption<V = any> {
   label: string;
   value: V;
+  subtitle?: string;
+  badge?: string;
+  rawItem?: any;
 }
 
 export interface DataTableColumn<T = any> {
@@ -30,7 +52,16 @@ export interface DataTableColumn<T = any> {
   filterOptions?: SelectOption[];
   editable?: boolean;
   editType?: EditType;
+  required?: boolean;
+  precision?: number;
+  min?: number;
+  max?: number;
+  step?: number | string;
+  isCalculated?: boolean;
+  allowFreeText?: boolean;
+  popupMaxWidth?: string;
   editOptions?: SelectOption[];
+  getEditOptions?: (row: T) => SelectOption[];
   lookupOptions?: LookupItem[];
   onLookupSelect?: (selectedItem: LookupItem, row: T) => void;
   validators?: ((value: any, row: T) => string | null)[];

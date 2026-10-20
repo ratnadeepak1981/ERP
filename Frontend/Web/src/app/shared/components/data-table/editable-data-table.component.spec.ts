@@ -244,4 +244,244 @@ describe('AppEditableDataTableComponent', () => {
     component.onCellKeyDown(upEvent, row1, textCol, 1);
     expect(component.isCellEditing(row0, textCol)).toBe(true);
   });
+
+  it('should compute emptyRowSpaces to ensure at least 5 visible row spaces without dummy records', () => {
+    // mockData has 2 items initially
+    expect(component.displayedRows().length).toBe(2);
+    expect(component.emptyRowSpaces().length).toBe(3); // 5 - 2 = 3 empty row spaces
+
+    // workingData remains genuine without fake records
+    expect(component.workingData().length).toBe(2);
+  });
+
+  it('should navigate horizontally across editable cells with Tab and wrap across rows', () => {
+    const row0 = component.workingData()[0];
+    const row1 = component.workingData()[1];
+    const editableCols = mockColumns.filter(c => c.editable);
+    const col0 = editableCols[0]; // productCode
+    const col1 = editableCols[1]; // quantity
+    const lastCol = editableCols[editableCols.length - 1]; // unitPrice
+
+    // Tab within same row: moves from col0 to col1
+    component.startEditing(row0, col0);
+    component.navigateNextCell(row0, col0, false);
+    expect(component.isCellEditing(row0, col1)).toBe(true);
+
+    // Tab on last editable column of row0 wraps to row1's first editable column
+    component.startEditing(row0, lastCol);
+    component.navigateNextCell(row0, lastCol, false);
+    expect(component.isCellEditing(row1, col0)).toBe(true);
+  });
+
+  it('should navigate backwards across editable cells with Shift+Tab and wrap up across rows', () => {
+    const row0 = component.workingData()[0];
+    const row1 = component.workingData()[1];
+    const editableCols = mockColumns.filter(c => c.editable);
+    const col0 = editableCols[0]; // productCode
+    const col1 = editableCols[1]; // quantity
+    const lastCol = editableCols[editableCols.length - 1]; // unitPrice
+
+    // Shift+Tab within same row: moves from col1 back to col0
+    component.startEditing(row0, col1);
+    component.navigateNextCell(row0, col1, true);
+    expect(component.isCellEditing(row0, col0)).toBe(true);
+
+    // Shift+Tab on first editable column of row1 wraps to row0's last editable column
+    component.startEditing(row1, col0);
+    component.navigateNextCell(row1, col0, true);
+    expect(component.isCellEditing(row0, lastCol)).toBe(true);
+  });
+
+  it('should format select column values using option label', () => {
+    const selectCol: DataTableColumn<TestItem> = {
+      field: 'productCode',
+      header: 'Category',
+      editable: true,
+      editType: 'select',
+      editOptions: [
+        { label: 'High Grade Steel', value: 'STEEL-01' },
+        { label: 'Cast Aluminum', value: 'ALUM-02' }
+      ]
+    };
+
+    const formatted = component.formatValue(selectCol, component.workingData()[0]);
+    expect(formatted).toBe('High Grade Steel');
+  });
+
+  it('should handle onSelectOption and onCellCancel correctly', () => {
+    const row = component.workingData()[0];
+    const textCol = mockColumns.find(c => c.field === 'productCode')!;
+
+    // Start editing
+    component.startEditing(row, textCol);
+    expect(component.isCellEditing(row, textCol)).toBe(true);
+
+    // Cancel restores original
+    row.productCode = 'TEMPORARY-CHANGE';
+    component.onCellCancel(row, textCol);
+    expect(component.isCellEditing(row, textCol)).toBe(false);
+    expect(row.productCode).toBe('STEEL-01');
+
+    // onSelectOption updates and stops editing
+    component.startEditing(row, textCol);
+    component.onSelectOption(row, textCol, { label: 'New Steel', value: 'STEEL-99' });
+    expect(component.isCellEditing(row, textCol)).toBe(false);
+    expect(row.productCode).toBe('STEEL-99');
+  });
+
+  it('should support onCellTabOut to select highlighted option and navigate to next column', () => {
+    const row0 = component.workingData()[0];
+    const editableCols = mockColumns.filter(c => c.editable);
+    const col0 = editableCols[0]; // productCode
+    const col1 = editableCols[1]; // quantity
+
+    component.startEditing(row0, col0);
+    component.onCellTabOut(row0, col0, {
+      shiftKey: false,
+      selectedOption: { label: 'Selected Steel', value: 'STEEL-TAB' }
+    });
+
+    expect(row0.productCode).toBe('STEEL-TAB');
+    expect(component.isCellEditing(row0, col1)).toBe(true);
+  });
+
+  it('should adapt lookupOptions into SelectOption list with label, subtitle and badge', () => {
+    const lookupCol: DataTableColumn<TestItem> = {
+      field: 'productCode',
+      header: 'Product',
+      editable: true,
+      editType: 'lookup',
+      lookupOptions: [
+        {
+          id: 'p-1',
+          code: 'XYZ-01',
+          name: 'Industrial Valve',
+          category: 'Mechanical',
+          description: 'High pressure brass valve'
+        }
+      ]
+    };
+
+    const options = component.getOptionsForColumn(lookupCol, component.workingData()[0]);
+    expect(options.length).toBe(1);
+    expect(options[0].label).toBe('XYZ-01 — Industrial Valve');
+    expect(options[0].value).toBe('XYZ-01');
+    expect(options[0].subtitle).toBe('High pressure brass valve');
+    expect(options[0].badge).toBe('Mechanical');
+    expect(options[0].rawItem?.id).toBe('p-1');
+  });
+
+  describe('Column-Type Contract and Editability Rules', () => {
+    it('should determine isColumnEditable deterministically without inferring from field name', () => {
+      const editableCol: DataTableColumn<TestItem> = { field: 'productCode', header: 'Product', editable: true };
+      const readonlyCol: DataTableColumn<TestItem> = { field: 'productCode', header: 'Product', editable: false };
+      const explicitReadonlyType: DataTableColumn<TestItem> = { field: 'productCode', header: 'Product', editable: true, type: 'readonly' };
+      const calculatedType: DataTableColumn<TestItem> = { field: 'lineTotal', header: 'Total', editable: true, type: 'calculated' };
+      const isCalculatedFlag: DataTableColumn<TestItem> = { field: 'lineTotal', header: 'Total', editable: true, isCalculated: true };
+
+      expect(component.isColumnEditable(editableCol)).toBe(true);
+      expect(component.isColumnEditable(readonlyCol)).toBe(false);
+      expect(component.isColumnEditable(explicitReadonlyType)).toBe(false);
+      expect(component.isColumnEditable(calculatedType)).toBe(false);
+      expect(component.isColumnEditable(isCalculatedFlag)).toBe(false);
+
+      // Table readonly disables all columns
+      component.readonly = true;
+      expect(component.isColumnEditable(editableCol)).toBe(false);
+      component.readonly = false;
+    });
+
+    it('should reject editing and not activate editor on readonly or calculated cells', () => {
+      const row = component.workingData()[0];
+      const readonlyCol: DataTableColumn<TestItem> = { field: 'lineId', header: 'Line #', editable: false, type: 'readonly' };
+      const calculatedCol: DataTableColumn<TestItem> = { field: 'lineTotal', header: 'Total', type: 'calculated' };
+
+      component.startEditing(row, readonlyCol);
+      expect(component.isCellEditing(row, readonlyCol)).toBe(false);
+
+      component.startEditing(row, calculatedCol);
+      expect(component.isCellEditing(row, calculatedCol)).toBe(false);
+    });
+
+    it('should format boolean, date, decimal precision, and currency data types accurately', () => {
+      const row = component.workingData()[0];
+
+      const boolCol: DataTableColumn<TestItem> = { field: 'productCode', header: 'Active', type: 'boolean' };
+      expect(component.formatValue(boolCol, { productCode: true } as any)).toBe('Yes');
+      expect(component.formatValue(boolCol, { productCode: false } as any)).toBe('No');
+
+      const dateCol: DataTableColumn<TestItem> = { field: 'productCode', header: 'Date', type: 'date' };
+      const formattedDate = component.formatValue(dateCol, { productCode: '2026-10-20' } as any);
+      expect(formattedDate).toBeTruthy();
+      expect(formattedDate).toContain('2026');
+
+      const decimalCol: DataTableColumn<TestItem> = { field: 'quantity', header: 'Weight', type: 'decimal', precision: 3 };
+      expect(component.formatValue(decimalCol, { quantity: 15.5 } as any)).toBe('15.500');
+
+      const currCol: DataTableColumn<TestItem> = { field: 'unitPrice', header: 'Price', type: 'currency', precision: 2 };
+      expect(component.formatValue(currCol, { unitPrice: 49.9 } as any)).toBe('$49.90');
+    });
+
+    it('should validate integer column and reject decimal/fractional input', () => {
+      const row = component.workingData()[0];
+      const integerCol: DataTableColumn<TestItem> = {
+        field: 'quantity',
+        header: 'Boxes',
+        editable: true,
+        type: 'integer',
+        editType: 'integer'
+      };
+
+      // Valid integer
+      component.onCellValueChange(row, integerCol, 12);
+      expect(component.getFieldError(row, 'quantity')).toBeNull();
+
+      // Fractional value on integer column
+      component.onCellValueChange(row, integerCol, 12.75);
+      expect(component.getFieldError(row, 'quantity')).toBe('Must be a whole number (integer)');
+      expect(component.hasErrors()).toBe(true);
+    });
+
+    it('should validate min and max numeric constraints', () => {
+      const row = component.workingData()[0];
+      const boundedCol: DataTableColumn<TestItem> = {
+        field: 'quantity',
+        header: 'Quantity',
+        editable: true,
+        type: 'number',
+        min: 5,
+        max: 50
+      };
+
+      component.onCellValueChange(row, boundedCol, 2);
+      expect(component.getFieldError(row, 'quantity')).toBe('Must be at least 5');
+
+      component.onCellValueChange(row, boundedCol, 60);
+      expect(component.getFieldError(row, 'quantity')).toBe('Cannot exceed 50');
+
+      component.onCellValueChange(row, boundedCol, 25);
+      expect(component.getFieldError(row, 'quantity')).toBeNull();
+    });
+
+    it('should preserve invalid non-numeric input for visibility and validation feedback', () => {
+      const row = component.workingData()[0];
+      const numCol: DataTableColumn<TestItem> = { field: 'quantity', header: 'Qty', editable: true, type: 'number' };
+
+      component.onCellValueChange(row, numCol, 'abc-invalid');
+      expect(row.quantity).toBe('abc-invalid' as any);
+      expect(component.getFieldError(row, 'quantity')).toBe('Must be a valid number');
+    });
+
+    it('should emit cellValueChange exactly once per logical edit', () => {
+      const changeSpy = vi.fn();
+      component.cellValueChange.subscribe(changeSpy);
+
+      const row = component.workingData()[0];
+      const col = mockColumns.find(c => c.field === 'productCode')!;
+
+      component.onCellValueChange(row, col, 'NEW-VAL');
+      expect(changeSpy).toHaveBeenCalledTimes(1);
+      expect(changeSpy).toHaveBeenCalledWith(expect.objectContaining({ value: 'NEW-VAL' }));
+    });
+  });
 });

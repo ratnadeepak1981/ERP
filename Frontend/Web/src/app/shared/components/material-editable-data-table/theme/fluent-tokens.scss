@@ -1,0 +1,46 @@
+// Fluent-inspired Design Tokens for ApexERP Material Grid
+
+:root {
+  --fluent-primary: #0078d4;
+  --fluent-primary-hover: #106ebe;
+  --fluent-primary-active: #005a9e;
+  --fluent-primary-light: #eff6fc;
+
+  --fluent-neutral-dark: #201f1e;
+  --fluent-neutral-primary: #323130;
+  --fluent-neutral-secondary: #605e5c;
+  --fluent-neutral-tertiary: #a19f9d;
+  --fluent-neutral-light: #edebe9;
+  --fluent-neutral-lighter: #f3f2f1;
+  --fluent-neutral-lightest: #faf9f8;
+  --fluent-neutral-white: #ffffff;
+
+  --fluent-error: #a4262c;
+  --fluent-error-bg: #fde7e9;
+  --fluent-error-border: #f1707b;
+
+  --fluent-success: #107c41;
+  --fluent-success-bg: #dff6dd;
+
+  --fluent-warning: #797775;
+  --fluent-warning-bg: #fff4ce;
+
+  --fluent-border-color: #edebe9;
+  --fluent-border-strong: #8a8886;
+  --fluent-border-radius: 4px;
+
+  --fluent-font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --fluent-font-size-base: 13px;
+  --fluent-font-size-sm: 11px;
+  --fluent-font-size-lg: 14px;
+  --fluent-font-weight-regular: 400;
+  --fluent-font-weight-semibold: 600;
+
+  --fluent-row-height: 36px;
+  --fluent-header-height: 38px;
+  --fluent-cell-padding-x: 10px;
+  --fluent-cell-padding-y: 6px;
+
+  --fluent-elevation-dropdown: 0 4px 16px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.12);
+  --fluent-elevation-card: 0 1.6px 3.6px 0 rgba(0, 0, 0, 0.13), 0 0.3px 0.9px 0 rgba(0, 0, 0, 0.11);
+}

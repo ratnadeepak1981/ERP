@@ -667,5 +667,129 @@ public class WarehouseLocationHierarchyTests : IClassFixture<TestSecurityFixture
         var deactWhSuccessRes = await client.DeleteAsync($"/api/warehouses/{whId}");
         Assert.Equal(HttpStatusCode.NoContent, deactWhSuccessRes.StatusCode);
     }
+
+    [Fact]
+    public async Task WarehouseLocation_PhysicalHierarchyTypeValidation_EnforcesRackShelfBinRules()
+    {
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenantadmin_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Tenant Admin" },
+            new[] { "WAREHOUSE.VIEW", "WAREHOUSE.CREATE", "WAREHOUSE.MANAGE_ZONES", "LOCATION.VIEW", "LOCATION.CREATE", "LOCATION.UPDATE", "LOCATION.DELETE" });
+
+        // 1. Create warehouse
+        var whRes = await client.PostAsJsonAsync("/api/warehouses", new CreateWarehouseRequest
+        {
+            WarehouseCode = $"W_HR_{Guid.NewGuid():N}"[..12],
+            WarehouseName = $"Hierarchy WH_{Guid.NewGuid():N}"[..22],
+            City = "Colombo"
+        });
+        Assert.Equal(HttpStatusCode.Created, whRes.StatusCode);
+        var wh = await whRes.ReadDataJsonElementAsync();
+        var whId = wh.GetProperty("warehouseId").GetGuid();
+
+        // 2. Create standard location types: RACK, SHELF, BIN
+        var rackTypeRes = await client.PostAsJsonAsync("/api/warehouses/location-types", new CreateLocationTypeRequest
+        {
+            Code = $"RACK_{Guid.NewGuid():N}"[..8],
+            Name = "Storage Rack",
+            CanStoreInventory = false,
+            CanPick = false,
+            CanPutAway = false,
+            CanContainChildren = true
+        });
+        Assert.Equal(HttpStatusCode.OK, rackTypeRes.StatusCode);
+        var rackType = await rackTypeRes.ReadDataJsonElementAsync();
+        var rackTypeId = rackType.GetProperty("locationTypeId").GetGuid();
+
+        var shelfTypeRes = await client.PostAsJsonAsync("/api/warehouses/location-types", new CreateLocationTypeRequest
+        {
+            Code = $"SHELF_{Guid.NewGuid():N}"[..8],
+            Name = "Storage Shelf",
+            CanStoreInventory = false,
+            CanPick = false,
+            CanPutAway = false,
+            CanContainChildren = true
+        });
+        Assert.Equal(HttpStatusCode.OK, shelfTypeRes.StatusCode);
+        var shelfType = await shelfTypeRes.ReadDataJsonElementAsync();
+        var shelfTypeId = shelfType.GetProperty("locationTypeId").GetGuid();
+
+        var binTypeRes = await client.PostAsJsonAsync("/api/warehouses/location-types", new CreateLocationTypeRequest
+        {
+            Code = $"BIN_{Guid.NewGuid():N}"[..8],
+            Name = "Storage Bin",
+            CanStoreInventory = true,
+            CanPick = true,
+            CanPutAway = true,
+            CanContainChildren = false
+        });
+        Assert.Equal(HttpStatusCode.OK, binTypeRes.StatusCode);
+        var binType = await binTypeRes.ReadDataJsonElementAsync();
+        var binTypeId = binType.GetProperty("locationTypeId").GetGuid();
+
+        // 3. Create RACK (top-level, no parent) -> succeeds
+        var rackRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
+        {
+            LocationCode = "RACK_01",
+            LocationName = "General Rack 01",
+            LocationTypeId = rackTypeId
+        });
+        Assert.Equal(HttpStatusCode.OK, rackRes.StatusCode);
+        var rack = await rackRes.ReadDataJsonElementAsync();
+        var rackId = rack.GetProperty("warehouseLocationId").GetGuid();
+
+        // 4. Create SHELF under RACK -> succeeds
+        var shelfRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
+        {
+            LocationCode = "SHELF_01",
+            LocationName = "Rack 01 Shelf 01",
+            LocationTypeId = shelfTypeId,
+            ParentLocationId = rackId
+        });
+        Assert.Equal(HttpStatusCode.OK, shelfRes.StatusCode);
+        var shelf = await shelfRes.ReadDataJsonElementAsync();
+        var shelfId = shelf.GetProperty("warehouseLocationId").GetGuid();
+
+        // 5. Create BIN under SHELF -> succeeds
+        var binRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
+        {
+            LocationCode = "BIN_01",
+            LocationName = "Shelf 01 Bin 01",
+            LocationTypeId = binTypeId,
+            ParentLocationId = shelfId
+        });
+        Assert.Equal(HttpStatusCode.OK, binRes.StatusCode);
+        var bin = await binRes.ReadDataJsonElementAsync();
+        var binId = bin.GetProperty("warehouseLocationId").GetGuid();
+
+        // 6. Attempt to create a child under BIN (which has CanContainChildren=false) -> 409 Conflict
+        var invalidChildRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
+        {
+            LocationCode = "BIN_CHILD_INVALID",
+            LocationName = "Invalid Child Under Bin",
+            LocationTypeId = binTypeId,
+            ParentLocationId = binId
+        });
+        Assert.Equal(HttpStatusCode.Conflict, invalidChildRes.StatusCode);
+
+        // 7. Deactivate SHELF, then attempt to create new child under inactive SHELF -> 409 Conflict
+        // First delete BIN so shelf can be deactivated
+        var delBinRes = await client.DeleteAsync($"/api/warehouses/locations/{binId}");
+        Assert.Equal(HttpStatusCode.NoContent, delBinRes.StatusCode);
+
+        var deactShelfRes = await client.DeleteAsync($"/api/warehouses/locations/{shelfId}");
+        Assert.Equal(HttpStatusCode.NoContent, deactShelfRes.StatusCode);
+
+        var childUnderInactiveRes = await client.PostAsJsonAsync($"/api/warehouses/{whId}/locations", new CreateWarehouseLocationRequest
+        {
+            LocationCode = "BIN_UNDER_INACTIVE",
+            LocationName = "Bin Under Inactive Shelf",
+            LocationTypeId = binTypeId,
+            ParentLocationId = shelfId
+        });
+        Assert.Equal(HttpStatusCode.Conflict, childUnderInactiveRes.StatusCode);
+    }
 }
 

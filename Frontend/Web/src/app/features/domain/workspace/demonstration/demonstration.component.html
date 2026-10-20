@@ -74,6 +74,18 @@
       type="button"
       role="tab"
       class="nav-tab"
+      [class.active]="activeTab() === 'material-editable'"
+      [attr.aria-selected]="activeTab() === 'material-editable'"
+      (click)="setTab('material-editable')"
+    >
+      <i class="pi pi-table"></i>
+      <span>Material Editable Data Table — D365-Inspired</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab"
       [class.active]="activeTab() === 'lookup'"
       [attr.aria-selected]="activeTab() === 'lookup'"
       (click)="setTab('lookup')"
@@ -115,6 +127,9 @@
         }
         @case ('editable') {
           <app-editable-table-section></app-editable-table-section>
+        }
+        @case ('material-editable') {
+          <app-material-editable-table-section></app-material-editable-table-section>
         }
         @case ('lookup') {
           <app-lookup-dropdown-section></app-lookup-dropdown-section>

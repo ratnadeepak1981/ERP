@@ -47,6 +47,8 @@ export class AppLookupDropdownComponent implements ControlValueAccessor, OnInit,
   @Output() selectItem = new EventEmitter<LookupItem>();
   @Output() valueChange = new EventEmitter<any>();
   @Output() clear = new EventEmitter<void>();
+  @Output() tabOut = new EventEmitter<{ shiftKey: boolean }>();
+  @Output() cancel = new EventEmitter<void>();
 
   @ViewChild('searchInput') searchInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('triggerButton') triggerButtonRef?: ElementRef<HTMLButtonElement>;
@@ -114,7 +116,10 @@ export class AppLookupDropdownComponent implements ControlValueAccessor, OnInit,
   readonly displayText = computed(() => {
     const item = this.selectedItem();
     if (item) {
-      return `${item.code} — ${item.name}`;
+      if (item.code && item.name) {
+        return `${item.code} — ${item.name}`;
+      }
+      return item.name || item.code || '';
     }
     const rawVal = this.selectedValue();
     return rawVal ? String(rawVal) : '';
@@ -204,6 +209,8 @@ export class AppLookupDropdownComponent implements ControlValueAccessor, OnInit,
 
   onSearchInputKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
       const items = this.filteredItems();
       if (items.length > 0) {
         const idx = this.activeIndex() >= 0 && this.activeIndex() < items.length ? this.activeIndex() : 0;
@@ -214,21 +221,24 @@ export class AppLookupDropdownComponent implements ControlValueAccessor, OnInit,
         this.selectItem.emit(itemToSelect);
       }
       this.close();
-      // Tab bubbles naturally to move to the next cell
+      this.tabOut.emit({ shiftKey: event.shiftKey });
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
+      event.stopPropagation();
       const count = this.filteredItems().length;
       if (count > 0) {
         this.activeIndex.set((this.activeIndex() + 1) % count);
       }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
+      event.stopPropagation();
       const count = this.filteredItems().length;
       if (count > 0) {
         this.activeIndex.set((this.activeIndex() - 1 + count) % count);
       }
     } else if (event.key === 'Enter') {
       event.preventDefault();
+      event.stopPropagation();
       const items = this.filteredItems();
       if (items.length > 0) {
         const idx = this.activeIndex() >= 0 && this.activeIndex() < items.length ? this.activeIndex() : 0;
@@ -236,8 +246,12 @@ export class AppLookupDropdownComponent implements ControlValueAccessor, OnInit,
       }
     } else if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
       this.close();
+      this.cancel.emit();
       this.triggerButtonRef?.nativeElement.focus();
+    } else {
+      event.stopPropagation();
     }
   }
 
@@ -245,10 +259,12 @@ export class AppLookupDropdownComponent implements ControlValueAccessor, OnInit,
     if (!this.isOpen()) {
       if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
+        event.stopPropagation();
         this.open();
       }
       return;
     }
+    event.stopPropagation();
   }
 
   @HostListener('document:click', ['$event'])
