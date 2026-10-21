@@ -17,13 +17,21 @@
     "
     [breadcrumbs]="breadcrumbs()"
   >
-    <div header-actions class="header-action-group">
+    <div actions header-actions class="header-action-group">
       <p-button
         label="Back to Register"
         icon="pi pi-arrow-left"
         severity="secondary"
         [outlined]="true"
         (onClick)="onCancel()"
+      ></p-button>
+
+      <p-button
+        *ngIf="mode === 'view' && isReceipt()"
+        label="Create Putaway"
+        icon="pi pi-box"
+        severity="primary"
+        (onClick)="createPutawayFromReceipt()"
       ></p-button>
 
       <p-button

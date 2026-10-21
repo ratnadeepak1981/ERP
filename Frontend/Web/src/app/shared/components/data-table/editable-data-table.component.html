@@ -161,7 +161,7 @@
             </th>
           }
 
-          @if (allowDeleteRow) {
+          @if (hasActionsColumn()) {
             <th style="width: 76px; text-align: center;">Actions</th>
           }
         </tr>
@@ -330,28 +330,32 @@
               }
 
               <!-- Actions Cell (Insert blank row below & Delete) -->
-              <td class="row-actions-cell" style="text-align: center; white-space: nowrap;">
-                <button
-                  type="button"
-                  class="row-action-btn row-insert-btn"
-                  title="Insert blank row below (or press Insert key)"
-                  aria-label="Insert blank row below"
-                  (click)="insertRowAt(pageOffset() + rowIndex, $event)"
-                >
-                  <i class="pi pi-plus" aria-hidden="true"></i>
-                </button>
-                @if (allowDeleteRow && !readonly) {
-                  <button
-                    type="button"
-                    class="row-action-btn row-delete-btn"
-                    title="Delete line item"
-                    aria-label="Delete line item"
-                    (click)="promptDelete(row, $event)"
-                  >
-                    <i class="pi pi-trash" aria-hidden="true"></i>
-                  </button>
-                }
-              </td>
+              @if (hasActionsColumn()) {
+                <td class="row-actions-cell" style="text-align: center; white-space: nowrap;">
+                  @if (allowAddRow && !readonly) {
+                    <button
+                      type="button"
+                      class="row-action-btn row-insert-btn"
+                      title="Insert blank row below (or press Insert key)"
+                      aria-label="Insert blank row below"
+                      (click)="insertRowAt(pageOffset() + rowIndex, $event)"
+                    >
+                      <i class="pi pi-plus" aria-hidden="true"></i>
+                    </button>
+                  }
+                  @if (allowDeleteRow && !readonly) {
+                    <button
+                      type="button"
+                      class="row-action-btn row-delete-btn"
+                      title="Delete line item"
+                      aria-label="Delete line item"
+                      (click)="promptDelete(row, $event)"
+                    >
+                      <i class="pi pi-trash" aria-hidden="true"></i>
+                    </button>
+                  }
+                </td>
+              }
             </tr>
           }
           @for (space of emptyRowSpaces(); track space) {
@@ -365,7 +369,7 @@
               @for (col of visibleColumns(); track col.field) {
                 <td class="readonly-cell">&nbsp;</td>
               }
-              @if (allowDeleteRow) {
+              @if (hasActionsColumn()) {
                 <td class="row-actions-cell">&nbsp;</td>
               }
             </tr>
@@ -388,7 +392,7 @@
             <td class="subtotal-value-cell" style="text-align: right; font-weight: 700; color: #0f6cbd;">
               {{ computedSubtotal() | currency:currencyCode:'symbol':'1.2-2' }}
             </td>
-            @if (allowDeleteRow) {
+            @if (hasActionsColumn()) {
               <td></td>
             }
           </tr>

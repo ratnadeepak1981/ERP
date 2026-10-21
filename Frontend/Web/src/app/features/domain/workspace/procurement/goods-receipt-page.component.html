@@ -40,6 +40,16 @@
             (onClick)="cancelCurrentDraft()"
           ></p-button>
         }
+
+        @if (currentGrn()?.status === 2) {
+          <p-button
+            label="Create Putaway"
+            icon="pi pi-box"
+            size="small"
+            severity="primary"
+            (onClick)="createPutawayFromGrn()"
+          ></p-button>
+        }
       }
     </div>
   </app-page-header>

@@ -149,11 +149,13 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     }, 0);
   });
 
+  readonly hasActionsColumn = computed(() => !this.readonly && (this.allowDeleteRow || this.allowAddRow));
+
   getTotalColspan(): number {
     return this.visibleColumns().length
       + (this.selectionMode === 'multiple' ? 1 : 0)
       + (this.showRowNumbers ? 1 : 0)
-      + (this.allowDeleteRow ? 1 : 0);
+      + (this.hasActionsColumn() ? 1 : 0);
   }
 
   getSubtotalLeadingColspan(): number {
