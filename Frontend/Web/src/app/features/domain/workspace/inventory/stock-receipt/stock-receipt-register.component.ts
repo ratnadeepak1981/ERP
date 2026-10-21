@@ -201,6 +201,13 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
       icon: 'pi pi-eye',
       severity: 'secondary',
       action: (row: StockReceiptDto) => this.navigateToReceipt(row)
+    },
+    {
+      id: 'putaway',
+      label: 'Putaway',
+      icon: 'pi pi-box',
+      severity: 'primary',
+      action: (row: StockReceiptDto) => this.navigateToPutaway(row)
     }
   ];
 
@@ -251,5 +258,14 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
 
   navigateToReceipt(receipt: StockReceiptDto): void {
     this.router.navigate(['/app/inventory/stock-receipts', receipt.stockReceiptId]);
+  }
+
+  navigateToPutaway(receipt: StockReceiptDto): void {
+    this.router.navigate(['/app/inventory/store-putaway/new'], {
+      queryParams: {
+        sourceType: 'StockReceipt',
+        sourceId: receipt.stockReceiptId
+      }
+    });
   }
 }

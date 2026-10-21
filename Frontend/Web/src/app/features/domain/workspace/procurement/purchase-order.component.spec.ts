@@ -349,4 +349,29 @@ describe('PurchaseOrderComponent', () => {
     (scopeService as any).scopeChangeSubject?.next(scopeService.activeScope());
     expect(getOrdersSpy).toHaveBeenCalledTimes(2);
   });
+
+  describe('Standardized List Navigation & Actions', () => {
+    it('should navigate to amend mode for draft purchase order', () => {
+      const navSpy = vi.spyOn(component['router']!, 'navigate');
+      component.navigateToAmend(mockOrders[0]);
+      expect(navSpy).toHaveBeenCalledWith(['/app/procurement/purchase-orders', mockOrders[0].id, 'amend']);
+    });
+
+    it('should navigate to approval mode for purchase order approval', () => {
+      const navSpy = vi.spyOn(component['router']!, 'navigate');
+      component.navigateToApproval(mockOrders[1]);
+      expect(navSpy).toHaveBeenCalledWith(['/app/procurement/purchase-orders', mockOrders[1].id, 'approve']);
+    });
+
+    it('should check permissions for amend action', () => {
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasRole').mockReturnValue(false);
+      expect(component.canEditOrder()).toBe(false);
+
+      vi.spyOn(authService, 'hasPermission').mockImplementation((p: string) => p === 'PURCHASE_ORDER.EDIT');
+      expect(component.canEditOrder()).toBe(true);
+    });
+  });
 });

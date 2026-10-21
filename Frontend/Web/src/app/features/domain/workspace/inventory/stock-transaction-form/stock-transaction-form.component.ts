@@ -882,6 +882,19 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     return getStockIssuePurposeName(purpose);
   }
 
+  createPutawayFromReceipt(): void {
+    const receipt = this.viewReceipt();
+    const receiptId = receipt?.stockReceiptId || this.recordId;
+    if (!receiptId) return;
+
+    this.router.navigate(['/app/inventory/store-putaway/new'], {
+      queryParams: {
+        sourceType: 'StockReceipt',
+        sourceId: receiptId
+      }
+    });
+  }
+
   onCancel(): void {
     this.cancel.emit();
     if (this.isReceipt()) {

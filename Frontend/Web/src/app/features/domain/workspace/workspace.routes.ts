@@ -190,6 +190,16 @@ export const workspaceRoutes: Routes = [
               import('./procurement/purchase-order-page.component').then(m => m.PurchaseOrderPageComponent)
           },
           {
+            path: ':id/amend',
+            loadComponent: () =>
+              import('./procurement/purchase-order-page.component').then(m => m.PurchaseOrderPageComponent)
+          },
+          {
+            path: ':id/approve',
+            loadComponent: () =>
+              import('./procurement/purchase-order-page.component').then(m => m.PurchaseOrderPageComponent)
+          },
+          {
             path: ':id',
             loadComponent: () =>
               import('./procurement/purchase-order-page.component').then(m => m.PurchaseOrderPageComponent)
@@ -259,10 +269,29 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'store-putaway',
-        loadComponent: () =>
-          import('./inventory/store-putaway/store-putaway.component').then(
-            m => m.StorePutawayComponent
-          )
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./inventory/store-putaway/store-putaway-register.component').then(
+                m => m.StorePutawayRegisterComponent
+              )
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./inventory/store-putaway/store-putaway-page.component').then(
+                m => m.StorePutawayPageComponent
+              )
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./inventory/store-putaway/store-putaway-page.component').then(
+                m => m.StorePutawayPageComponent
+              )
+          }
+        ]
       },
       {
         path: 'transfers',

@@ -4,7 +4,7 @@
     subtitle="Warehouse bin placement, receiving storage locations, and putaway status"
     [breadcrumbs]="breadcrumbs"
   >
-    <div header-actions class="header-action-group">
+    <div actions header-actions class="header-action-group">
       <p-button
         label="Refresh"
         icon="pi pi-refresh"
@@ -14,10 +14,10 @@
       ></p-button>
 
       <p-button
-        label="Receive Stock (GRN)"
-        icon="pi pi-inbox"
+        label="New Putaway"
+        icon="pi pi-plus"
         severity="primary"
-        routerLink="/app/procurement/goods-receipts/new"
+        (onClick)="navigateToCreate()"
       ></p-button>
     </div>
   </app-page-header>

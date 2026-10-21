@@ -152,6 +152,19 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.Sales.Shipment.SalesShipmentItem> SalesShipmentItems
         => Set<Domain.Features.Sales.Shipment.SalesShipmentItem>();
 
+
+    public DbSet<Domain.Features.Inventory.Putaway.Putaway> Putaways
+        => Set<Domain.Features.Inventory.Putaway.Putaway>();
+
+    public DbSet<Domain.Features.Inventory.Putaway.PutawayLine> PutawayLines
+        => Set<Domain.Features.Inventory.Putaway.PutawayLine>();
+
+    public DbSet<Domain.Features.Inventory.Putaway.PutawayLineAllocation> PutawayLineAllocations
+        => Set<Domain.Features.Inventory.Putaway.PutawayLineAllocation>();
+
+
+
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {

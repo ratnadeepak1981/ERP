@@ -244,6 +244,10 @@ export class StorePutawayComponent implements OnInit, OnDestroy {
     });
   }
 
+  navigateToCreate(): void {
+    this.router.navigate(['/app/inventory/store-putaway/new']);
+  }
+
   canView(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;

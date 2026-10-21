@@ -1,0 +1,322 @@
+<div class="store-putaway-page">
+  <!-- Section 1: Page Header -->
+  <app-page-header
+    [title]="pageTitle()"
+    subtitle="Allocate received goods from staging to permanent warehouse storage bins."
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="header-actions">
+      <p-button
+        label="Back to Register"
+        icon="pi pi-arrow-left"
+        severity="secondary"
+        [outlined]="true"
+        routerLink="/app/inventory/store-putaway"
+      ></p-button>
+
+      @if (!isReadOnlyMode()) {
+        <p-button
+          label="Save Draft"
+          icon="pi pi-save"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="saving() || workingLines().length === 0"
+          [loading]="saving()"
+          (onClick)="saveDraft()"
+        ></p-button>
+
+        <p-button
+          label="Confirm Putaway"
+          icon="pi pi-check"
+          severity="success"
+          [disabled]="saving() || workingLines().length === 0"
+          [loading]="saving()"
+          (onClick)="confirmPutaway()"
+        ></p-button>
+      } @else if (isDraftRecord()) {
+        <p-button
+          label="Confirm Putaway"
+          icon="pi pi-check"
+          severity="success"
+          [disabled]="saving()"
+          [loading]="saving()"
+          (onClick)="confirmExistingDraft()"
+        ></p-button>
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Feedback Banner -->
+  @if (feedbackMessage(); as msg) {
+    <div class="erp-feedback-banner" [class.banner-success]="msg.type === 'success'" [class.banner-error]="msg.type === 'error'">
+      <div class="banner-content">
+        <i [class]="msg.type === 'success' ? 'pi pi-check-circle' : 'pi pi-exclamation-circle'"></i>
+        <span>{{ msg.text }}</span>
+      </div>
+      <button type="button" class="close-banner-btn" aria-label="Dismiss feedback message" (click)="feedbackMessage.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Access Denied State -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    message="You do not have permission to access warehouse storage and putaway operations."
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    message="Loading stores putaway transaction details..."
+  ></app-loading-state>
+
+  <!-- Error State -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied()"
+    title="Putaway Error"
+    [message]="error()!"
+  ></app-error-state>
+
+  <!-- Form Content -->
+  <div *ngIf="!loading() && !error() && !isAccessDenied()" class="putaway-content-container">
+    <!-- Section 1: Putaway Header -->
+    <section class="erp-card putaway-header-card">
+      <div class="card-header-bar">
+        <div class="title-with-badge">
+          <h2 class="section-title">1. Putaway Header</h2>
+          @if (currentRecord(); as rec) {
+            <app-status-badge
+              [status]="rec.statusName"
+              [severity]="getPutawayStatusSeverity(rec.status)"
+              size="small"
+            ></app-status-badge>
+          } @else {
+            <span class="draft-badge">Draft</span>
+          }
+        </div>
+      </div>
+
+      <form [formGroup]="headerForm" class="header-form-grid">
+        <div class="form-field-group">
+          <label for="paNumber" class="field-label">Putaway Number</label>
+          <input
+            id="paNumber"
+            type="text"
+            class="erp-form-input readonly-input"
+            formControlName="putawayNumber"
+            readonly
+          />
+        </div>
+
+        <div class="form-field-group">
+          <label for="paDate" class="field-label">Putaway Date <span class="required">*</span></label>
+          <input
+            id="paDate"
+            type="date"
+            class="erp-form-input"
+            formControlName="putawayDate"
+            [readonly]="isReadOnlyMode()"
+          />
+        </div>
+
+        <div class="form-field-group">
+          <label for="sourceDocType" class="field-label">Source Document</label>
+          @if (!isReadOnlyMode()) {
+            <select
+              id="sourceDocType"
+              class="erp-form-select"
+              formControlName="sourceDocumentType"
+              (change)="onSourceDocTypeChange($any($event.target).value)"
+            >
+              <option value="StockReceipt">Stock Receipt</option>
+              <option value="GoodsReceipt">Goods Receipt Note (GRN)</option>
+            </select>
+          } @else {
+            <input
+              type="text"
+              class="erp-form-input readonly-input"
+              [value]="headerForm.controls.sourceDocumentType.value === 'StockReceipt' ? 'Stock Receipt' : 'Goods Receipt Note (GRN)'"
+              readonly
+            />
+          }
+        </div>
+
+        <div class="form-field-group">
+          <label for="sourceReceipt" class="field-label">Source Receipt # / Reference <span class="required">*</span></label>
+          @if (!isReadOnlyMode()) {
+            <select
+              id="sourceReceipt"
+              class="erp-form-select highlight-select"
+              formControlName="sourceReceiptId"
+              (change)="onSourceReceiptChange($event)"
+            >
+              <option value="">Select source receipt...</option>
+              <option *ngFor="let r of filteredAvailableReceipts()" [value]="r.id">
+                {{ r.number }} ({{ r.type === 'StockReceipt' ? 'Stock Receipt' : 'GRN' }} &bull; {{ r.date }} &bull; Outstanding: {{ r.outstandingQuantity }} units)
+              </option>
+            </select>
+          } @else {
+            <input
+              type="text"
+              class="erp-form-input readonly-input"
+              [value]="currentRecord()?.sourceDocumentNumber || currentRecord()?.sourceDocumentId || '—'"
+              readonly
+            />
+          }
+        </div>
+
+        <div class="form-field-group">
+          <label for="warehouseFacility" class="field-label">Warehouse Facility <span class="required">*</span></label>
+          @if (!isReadOnlyMode()) {
+            <select
+              id="warehouseFacility"
+              class="erp-form-select"
+              formControlName="warehouseId"
+              (change)="onWarehouseSelectChange($event)"
+            >
+              <option value="">Select warehouse...</option>
+              <option *ngFor="let wh of warehouses()" [value]="wh.warehouseId">
+                {{ wh.warehouseCode }} — {{ wh.warehouseName }}
+              </option>
+            </select>
+          } @else {
+            <input
+              type="text"
+              class="erp-form-input readonly-input"
+              [value]="currentRecord()?.warehouseName || '—'"
+              readonly
+            />
+          }
+        </div>
+
+        <div class="form-field-group">
+          <label class="field-label">Operating Branch</label>
+          <input
+            type="text"
+            class="erp-form-input readonly-input"
+            [value]="scopeService.selectedBranch()?.name || 'Main Branch'"
+            readonly
+          />
+        </div>
+      </form>
+    </section>
+
+    <!-- Section 2: Detail Lines -->
+    <section class="erp-card putaway-lines-card">
+      <div class="card-header-bar lines-card-header">
+        <div>
+          <h2 class="section-title">2. Putaway Detail Lines</h2>
+          <span class="detail-subtitle">
+            Allocate each item to its designated storage bin (Zone &rarr; Area &rarr; Rack &rarr; Level &rarr; Bin)
+          </span>
+        </div>
+        @if (!isReadOnlyMode() && workingLines().length > 0) {
+          <div class="line-header-actions">
+            <p-button
+              label="Split Line to Multiple Bins"
+              icon="pi pi-plus"
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              (onClick)="splitLine()"
+              pTooltip="Allocate stock for this product across more than one destination bin"
+            ></p-button>
+          </div>
+        }
+      </div>
+
+      <app-editable-data-table
+        [data]="workingLines()"
+        [columns]="detailColumns()"
+        rowKey="lineId"
+        [readonly]="isReadOnlyMode()"
+        [showActionBar]="false"
+        [allowAddRow]="false"
+        [allowDeleteRow]="!isReadOnlyMode()"
+        (dataChange)="onLinesChange($event)"
+        emptyTitle="No receipt items loaded"
+        emptyDescription="Select a confirmed Source Receipt above to populate line items for warehouse putaway."
+      ></app-editable-data-table>
+    </section>
+
+    <!-- Section 3: Footer / Summary -->
+    <section class="erp-card putaway-footer-card">
+      <div class="card-header-bar">
+        <h2 class="section-title">3. Footer / Summary</h2>
+      </div>
+
+      <div class="summary-content-grid">
+        <div class="summary-stat-box">
+          <span class="stat-label">Total Lines</span>
+          <span class="stat-value">{{ totalLinesCount() }}</span>
+        </div>
+
+        <div class="summary-stat-box">
+          <span class="stat-label">Total Putaway Quantity</span>
+          <span class="stat-value highlight-value">{{ totalPutawayQuantity() | number }}</span>
+        </div>
+
+        <div class="summary-stat-box">
+          <span class="stat-label">Stock Unit of Measure</span>
+          <span class="stat-value">Units</span>
+        </div>
+      </div>
+
+      <div class="notes-form-group">
+        <label for="putawayNotes" class="field-label">Notes & Handling Instructions</label>
+        <textarea
+          id="putawayNotes"
+          class="erp-form-textarea"
+          rows="3"
+          [formControl]="headerForm.controls.notes"
+          [readonly]="isReadOnlyMode()"
+          placeholder="Optional handling instructions, storage remarks, or bin placement details..."
+        ></textarea>
+      </div>
+
+      <div class="footer-actions-bar">
+        <p-button
+          label="Back to Register"
+          icon="pi pi-arrow-left"
+          severity="secondary"
+          [outlined]="true"
+          routerLink="/app/inventory/store-putaway"
+        ></p-button>
+
+        @if (!isReadOnlyMode()) {
+          <p-button
+            label="Save Draft"
+            icon="pi pi-save"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="saving() || workingLines().length === 0"
+            [loading]="saving()"
+            (onClick)="saveDraft()"
+          ></p-button>
+
+          <p-button
+            label="Confirm Putaway"
+            icon="pi pi-check"
+            severity="success"
+            [disabled]="saving() || workingLines().length === 0"
+            [loading]="saving()"
+            (onClick)="confirmPutaway()"
+          ></p-button>
+        } @else if (isDraftRecord()) {
+          <p-button
+            label="Confirm Putaway"
+            icon="pi pi-check"
+            severity="success"
+            [disabled]="saving()"
+            [loading]="saving()"
+            (onClick)="confirmExistingDraft()"
+          ></p-button>
+        }
+      </div>
+    </section>
+  </div>
+</div>

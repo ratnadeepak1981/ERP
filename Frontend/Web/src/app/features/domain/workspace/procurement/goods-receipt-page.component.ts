@@ -661,6 +661,17 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  createPutawayFromGrn(): void {
+    const grn = this.currentGrn();
+    if (!grn) return;
+    this.router.navigate(['/app/inventory/store-putaway/new'], {
+      queryParams: {
+        sourceType: 'GoodsReceipt',
+        sourceId: grn.goodsReceiptNoteId
+      }
+    });
+  }
+
   navigateBack(): void {
     if (this.sourcePo()) {
       this.router.navigate(['/app/procurement/purchase-orders', this.sourcePo()!.id]);

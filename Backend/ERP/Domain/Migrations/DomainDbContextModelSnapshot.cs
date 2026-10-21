@@ -22,6 +22,197 @@ namespace Domain.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Domain.Features.Inventory.Putaway.Putaway", b =>
+                {
+                    b.Property<Guid>("PutawayId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("PutawayDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PutawayNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SourceDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceDocumentNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SourceDocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("PutawayId");
+
+                    b.HasIndex("TenantId", "SourceDocumentId");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.HasIndex("TenantId", "WarehouseId");
+
+                    b.HasIndex("TenantId", "CompanyId", "PutawayNumber")
+                        .IsUnique();
+
+                    b.ToTable("Putaways", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.Inventory.Putaway.PutawayLine", b =>
+                {
+                    b.Property<Guid>("PutawayLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("OutstandingQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("PreviouslyPutawayQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PutawayId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("PutawayQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("SourceDocumentLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SourceWarehouseLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UnitOfMeasureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("PutawayLineId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PutawayId");
+
+                    b.HasIndex("SourceDocumentLineId");
+
+                    b.ToTable("PutawayLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.Inventory.Putaway.PutawayLineAllocation", b =>
+                {
+                    b.Property<Guid>("PutawayLineAllocationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("AllocatedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DestinationWarehouseLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("InventoryTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("MovementSequence")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PutawayLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("PutawayLineAllocationId");
+
+                    b.HasIndex("DestinationWarehouseLocationId");
+
+                    b.HasIndex("InventoryTransactionId");
+
+                    b.HasIndex("PutawayLineId");
+
+                    b.ToTable("PutawayLineAllocations", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Address.Address", b =>
                 {
                     b.Property<Guid>("AddressId")
@@ -2929,6 +3120,24 @@ namespace Domain.Migrations
                     b.ToTable("DomainAuditRecords", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Features.Inventory.Putaway.PutawayLine", b =>
+                {
+                    b.HasOne("Domain.Features.Inventory.Putaway.Putaway", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("PutawayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Features.Inventory.Putaway.PutawayLineAllocation", b =>
+                {
+                    b.HasOne("Domain.Features.Inventory.Putaway.PutawayLine", null)
+                        .WithMany("Allocations")
+                        .HasForeignKey("PutawayLineId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Address.Address", b =>
                 {
                     b.HasOne("Domain.Features.MasterData.Country.Country", null)
@@ -3581,6 +3790,16 @@ namespace Domain.Migrations
                         .HasPrincipalKey("TenantId", "WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Features.Inventory.Putaway.Putaway", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Features.Inventory.Putaway.PutawayLine", b =>
+                {
+                    b.Navigation("Allocations");
                 });
 
             modelBuilder.Entity("Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote", b =>

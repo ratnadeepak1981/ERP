@@ -1,0 +1,229 @@
+:host {
+  display: block;
+}
+
+.store-putaway-page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.putaway-content-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.erp-card {
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: var(--border-radius, 8px);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.card-header-bar {
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  .title-with-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .section-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-color, #1e293b);
+    margin: 0;
+  }
+
+  .detail-subtitle {
+    font-size: 0.8125rem;
+    color: var(--text-color-secondary, #64748b);
+  }
+
+  .draft-badge {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+}
+
+.header-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem 1.25rem;
+}
+
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  .field-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-color-secondary, #475569);
+
+    .required {
+      color: #dc2626;
+      margin-left: 2px;
+    }
+  }
+
+  .erp-form-input,
+  .erp-form-select {
+    width: 100%;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--surface-border, #cbd5e1);
+    border-radius: 6px;
+    background-color: var(--surface-card, #ffffff);
+    color: var(--text-color, #1e293b);
+    outline: none;
+    transition: border-color 0.15s ease-in-out;
+
+    &:focus {
+      border-color: var(--primary-color, #0f6cbd);
+      box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.15);
+    }
+
+    &.readonly-input {
+      background-color: var(--surface-ground, #f8fafc);
+      color: var(--text-color-secondary, #64748b);
+      cursor: default;
+    }
+
+    &.highlight-select {
+      font-weight: 500;
+      border-color: #93c5fd;
+    }
+  }
+}
+
+.summary-content-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.summary-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1.15rem;
+  background-color: var(--surface-ground, #f8fafc);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: 6px;
+
+  .stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-color-secondary, #64748b);
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color, #1e293b);
+
+    &.highlight-value {
+      color: var(--primary-color, #0f6cbd);
+    }
+  }
+}
+
+.notes-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+
+  .erp-form-textarea {
+    width: 100%;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--surface-border, #cbd5e1);
+    border-radius: 6px;
+    background-color: var(--surface-card, #ffffff);
+    color: var(--text-color, #1e293b);
+    outline: none;
+    resize: vertical;
+
+    &:focus {
+      border-color: var(--primary-color, #0f6cbd);
+      box-shadow: 0 0 0 2px rgba(15, 108, 189, 0.15);
+    }
+  }
+}
+
+.footer-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--surface-border, #e2e8f0);
+}
+
+.erp-feedback-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+
+  .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .close-banner-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    opacity: 0.7;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &.banner-success {
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+  }
+
+  &.banner-error {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+  }
+}
