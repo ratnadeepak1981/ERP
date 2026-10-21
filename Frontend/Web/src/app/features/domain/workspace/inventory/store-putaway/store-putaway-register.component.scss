@@ -1,0 +1,128 @@
+:host {
+  display: block;
+}
+
+.store-putaway-register-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.register-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.filters-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--surface-card, #ffffff);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: var(--border-radius, 8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.status-pill-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: 1px solid var(--surface-border, #cbd5e1);
+  background-color: transparent;
+  color: var(--text-color-secondary, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+
+  &:hover {
+    background-color: var(--surface-hover, #f1f5f9);
+    color: var(--text-color, #1e293b);
+  }
+
+  &.active {
+    background-color: var(--primary-color, #0f6cbd);
+    border-color: var(--primary-color, #0f6cbd);
+    color: #ffffff;
+    font-weight: 600;
+  }
+}
+
+.filters-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.warehouse-filter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .filter-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-color-secondary, #64748b);
+  }
+
+  .erp-select-filter {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+    border-radius: 6px;
+    border: 1px solid var(--surface-border, #cbd5e1);
+    background-color: var(--surface-ground, #f8fafc);
+    color: var(--text-color, #1e293b);
+    outline: none;
+
+    &:focus {
+      border-color: var(--primary-color, #0f6cbd);
+    }
+  }
+}
+
+.search-input-wrap {
+  position: relative;
+  min-width: 260px;
+
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.875rem;
+    color: var(--text-color-secondary, #94a3b8);
+  }
+
+  .erp-search-input {
+    width: 100%;
+    padding: 0.45rem 0.75rem 0.45rem 2rem;
+    font-size: 0.8125rem;
+    border-radius: 6px;
+    border: 1px solid var(--surface-border, #cbd5e1);
+    background-color: var(--surface-ground, #f8fafc);
+    color: var(--text-color, #1e293b);
+    outline: none;
+
+    &:focus {
+      border-color: var(--primary-color, #0f6cbd);
+      background-color: #ffffff;
+    }
+  }
+}

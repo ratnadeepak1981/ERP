@@ -24,6 +24,7 @@ describe('WorkspaceScopeService', () => {
   ];
 
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [
         WorkspaceScopeService,
@@ -74,5 +75,26 @@ describe('WorkspaceScopeService', () => {
     expect(service.selectedBranch()?.name).toBe('Kandy Plant');
     expect(service.isAllBranches()).toBe(false);
     expect(service.currentScopeDescription()).toBe('Alpha Corp / Kandy Plant');
+  });
+
+  it('should emit scopeChange$ and select default branch when initializeScope runs with companies and branches', () => {
+    vi.spyOn(authService, 'isAuthenticated').mockReturnValue(true);
+    vi.spyOn(companyService, 'getCompanies').mockReturnValue(of(mockCompanies));
+    const getBranchesSpy = vi.spyOn(companyService, 'getBranches').mockReturnValue(of(mockBranches));
+
+    let emittedScope: any = null;
+    service.scopeChange$.subscribe(scope => {
+      emittedScope = scope;
+    });
+
+    service.initializeScope();
+
+    expect(getBranchesSpy).toHaveBeenCalledWith('c1');
+    expect(service.selectedCompany()?.id).toBe('c1');
+    expect(service.selectedBranch()?.id).toBe('b1');
+    expect(service.canOperateTransactions()).toBe(true);
+    expect(emittedScope).not.toBeNull();
+    expect(emittedScope?.company?.id).toBe('c1');
+    expect(emittedScope?.branch?.id).toBe('b1');
   });
 });

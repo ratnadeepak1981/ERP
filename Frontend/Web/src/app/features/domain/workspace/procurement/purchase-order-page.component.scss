@@ -338,6 +338,19 @@
   }
 }
 
+.dialog-actions-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.required-indicator {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
 @media (max-width: 768px) {
   .scope-selectors-grid {
     grid-template-columns: 1fr;

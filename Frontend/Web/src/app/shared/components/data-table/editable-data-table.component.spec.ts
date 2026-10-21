@@ -484,4 +484,71 @@ describe('AppEditableDataTableComponent', () => {
       expect(changeSpy).toHaveBeenCalledWith(expect.objectContaining({ value: 'NEW-VAL' }));
     });
   });
+
+  describe('dataChange & End-Append Integration Regression Tests', () => {
+    it('should append new row to the end when addNewRow("end") is called and emit dataChange', () => {
+      let emittedData: any[] | null = null;
+      component.dataChange.subscribe((data: any[]) => {
+        emittedData = data;
+      });
+
+      const initialCount = component.workingData().length;
+      component.addNewRow('end');
+
+      expect(component.workingData().length).toBe(initialCount + 1);
+      // Verify newly added row is at the end (index 2)
+      expect(component.workingData()[0].lineId).toBe('LINE-01');
+      expect(component.workingData()[1].lineId).toBe('LINE-02');
+      expect(component.workingData()[2].lineId).toBe('LINE-103');
+      // Verify dataChange emitted the new array
+      expect(emittedData).not.toBeNull();
+      expect(emittedData!.length).toBe(initialCount + 1);
+    });
+
+    it('should emit dataChange when onCellValueChange is called', () => {
+      let emittedData: any[] | null = null;
+      component.dataChange.subscribe((data: any[]) => {
+        emittedData = data;
+      });
+
+      const row = component.workingData()[0];
+      const col = mockColumns.find(c => c.field === 'quantity')!;
+
+      component.onCellValueChange(row, col, 99);
+
+      expect(emittedData).not.toBeNull();
+      expect(emittedData![0].quantity).toBe(99);
+    });
+
+    it('should emit dataChange when onSelectOption is called', () => {
+      let emittedData: any[] | null = null;
+      component.dataChange.subscribe((data: any[]) => {
+        emittedData = data;
+      });
+
+      const row = component.workingData()[0];
+      const col = mockColumns.find(c => c.field === 'productCode')!;
+
+      component.onSelectOption(row, col, { label: 'PROD-X', value: 'PROD-X' });
+
+      expect(emittedData).not.toBeNull();
+      expect(emittedData![0].productCode).toBe('PROD-X');
+    });
+
+    it('should not reinitialize or corrupt internal table state when data input receives the emitted snapshot back', () => {
+      const row = component.workingData()[0];
+      const col = mockColumns.find(c => c.field === 'quantity')!;
+
+      component.startEditing(row, col);
+      expect(component.isCellEditing(row, col)).toBe(true);
+
+      // Simulate parent component two-way binding setting component.data to workingData
+      component.data = component.workingData();
+      fixture.detectChanges();
+
+      // State and editing should remain stable without being wiped
+      expect(component.workingData().length).toBe(2);
+      expect(component.isCellEditing(row, col)).toBe(true);
+    });
+  });
 });

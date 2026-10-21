@@ -1,0 +1,106 @@
+<div class="store-putaway-register-page">
+  <app-page-header
+    title="Stores Putaway"
+    subtitle="Inbound inventory putaway register, receiving staging clearance, and bin storage allocation"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="header-actions">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="loadData()"
+      ></p-button>
+
+      <p-button
+        *ngIf="canCreate()"
+        label="New Putaway"
+        icon="pi pi-plus"
+        severity="primary"
+        (onClick)="navigateToCreate()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Access Denied State -->
+  <app-access-denied
+    *ngIf="isAccessDenied()"
+    title="Access Restricted"
+    message="You do not have permission to access warehouse storage and putaway operations."
+    [showBackAction]="true"
+    [showHomeAction]="true"
+  ></app-access-denied>
+
+  <!-- Loading State -->
+  <app-loading-state
+    *ngIf="loading() && !isAccessDenied()"
+    message="Loading stores putaway records from warehouse ledger..."
+  ></app-loading-state>
+
+  <!-- Error State -->
+  <app-error-state
+    *ngIf="error() && !loading() && !isAccessDenied()"
+    title="Failed to Load Stores Putaway"
+    [message]="error()!"
+    (retry)="loadData()"
+  ></app-error-state>
+
+  <!-- Content -->
+  <div *ngIf="!loading() && !error() && !isAccessDenied()" class="register-content">
+    <!-- Filter Card -->
+    <div class="filters-card">
+      <div class="status-pills">
+        <button
+          *ngFor="let opt of statusOptions"
+          type="button"
+          class="status-pill-btn"
+          [class.active]="selectedStatusFilter() === opt.value"
+          (click)="selectedStatusFilter.set(opt.value)"
+        >
+          {{ opt.label }}
+        </button>
+      </div>
+
+      <div class="filters-right">
+        <div class="warehouse-filter-wrap">
+          <label for="whFilter" class="filter-label">Warehouse:</label>
+          <select
+            id="whFilter"
+            class="erp-select-filter"
+            [ngModel]="selectedWarehouseFilter()"
+            (ngModelChange)="selectedWarehouseFilter.set($event)"
+          >
+            <option value="all">All Warehouses</option>
+            <option *ngFor="let wh of warehouses()" [value]="wh.warehouseId">
+              {{ wh.warehouseCode }} — {{ wh.warehouseName }}
+            </option>
+          </select>
+        </div>
+
+        <div class="search-input-wrap">
+          <i class="pi pi-search search-icon"></i>
+          <input
+            type="text"
+            class="erp-search-input"
+            placeholder="Search putaway #, receipt #, warehouse..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <app-data-table
+      [data]="filteredPutaways()"
+      [columns]="columns"
+      [rowActions]="tableActions"
+      rowKey="putawayId"
+      [paginator]="true"
+      [rows]="10"
+      emptyTitle="No putaway records found"
+      emptyDescription="Click 'New Putaway' above to allocate received inventory into warehouse storage bins."
+    ></app-data-table>
+  </div>
+</div>

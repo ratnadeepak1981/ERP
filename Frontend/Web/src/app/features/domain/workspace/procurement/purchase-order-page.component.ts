@@ -15,6 +15,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
+import { SharedModule } from 'primeng/api';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppReactiveFormComponent } from '../../../../shared/components/forms/reactive-form.component';
 import { FormFieldConfig } from '../../../../shared/components/forms/form-field-config.model';
@@ -40,7 +41,7 @@ import { DataTableColumn } from '../../../../shared/models/data-table-config.mod
 import { LookupItem } from '../../../../shared/components/lookup-dropdown/lookup-item.model';
 import { Company, Branch, SupplierItem, ProductItem } from '../../../../core/models/scope.models';
 
-export type POPageMode = 'create' | 'edit' | 'view';
+export type POPageMode = 'create' | 'view' | 'amend' | 'approval';
 
 export interface EditablePOLine {
   lineId: string;
@@ -64,6 +65,7 @@ export interface EditablePOLine {
     ButtonModule,
     InputTextModule,
     DialogModule,
+    SharedModule,
     TooltipModule,
     AppPageHeaderComponent,
     AppReactiveFormComponent,
@@ -122,6 +124,19 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly remarksText = signal<string>('');
   readonly remarksError = signal<string | null>(null);
 
+  // Dedicated Dialog States
+  readonly approveDialogVisible = signal<boolean>(false);
+  readonly approveRemarks = signal<string>('');
+  readonly approveError = signal<string | null>(null);
+
+  readonly rejectDialogVisible = signal<boolean>(false);
+  readonly rejectRemarks = signal<string>('');
+  readonly rejectError = signal<string | null>(null);
+
+  readonly cancelDialogVisible = signal<boolean>(false);
+  readonly cancelRemarks = signal<string>('');
+  readonly cancelError = signal<string | null>(null);
+
   // Reactive Header Form
   readonly headerForm = new FormGroup({
     orderNumber: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
@@ -137,6 +152,9 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     notes: new FormControl<string>('')
   });
 
+  // Read-only state for view and approval modes
+  readonly isReadOnlyMode = computed<boolean>(() => this.mode() === 'view' || this.mode() === 'approval');
+
   // Breadcrumbs
   readonly breadcrumbs = computed(() => {
     const list = [
@@ -145,25 +163,39 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       { label: 'Purchase Orders', routerLink: '/app/procurement/purchase-orders' }
     ];
 
-    if (this.mode() === 'create') {
-      list.push({ label: 'New Purchase Order', routerLink: '' });
-    } else {
-      const num = this.currentOrder()?.orderNumber || 'Order Details';
-      list.push({ label: num, routerLink: '' });
+    switch (this.mode()) {
+      case 'create':
+        list.push({ label: 'New Purchase Order', routerLink: '' });
+        break;
+      case 'amend':
+        list.push({ label: 'Amend Purchase Order', routerLink: '' });
+        break;
+      case 'approval':
+        list.push({ label: 'Purchase Order Approval', routerLink: '' });
+        break;
+      case 'view':
+      default: {
+        const num = this.currentOrder()?.orderNumber || 'Order Details';
+        list.push({ label: num, routerLink: '' });
+        break;
+      }
     }
     return list;
   });
 
   // Page Title & Subtitle
   readonly pageTitle = computed(() => {
+    const num = this.currentOrder()?.orderNumber ? ` - ${this.currentOrder()?.orderNumber}` : '';
     switch (this.mode()) {
       case 'create':
         return 'New Purchase Order';
-      case 'edit':
-        return `Edit Purchase Order ${this.currentOrder()?.orderNumber || ''}`.trim();
+      case 'amend':
+        return `Amend Purchase Order${num}`;
+      case 'approval':
+        return `Purchase Order Approval${num}`;
       case 'view':
       default:
-        return `Purchase Order ${this.currentOrder()?.orderNumber || ''}`.trim();
+        return `Purchase Order Details${num}`;
     }
   });
 
@@ -171,8 +203,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     switch (this.mode()) {
       case 'create':
         return 'Create a formal vendor requisition with multi-branch scope, item pricing, and approval workflow.';
-      case 'edit':
+      case 'amend':
         return 'Modify requisition lines, delivery timeline, and supplier information before submission.';
+      case 'approval':
+        return 'Review requisition lines and commercial terms to authorize or reject this purchase order.';
       case 'view':
       default:
         return 'Inspect order fulfillment status, line requisitions, and audit history.';
@@ -196,11 +230,20 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
   // Form Field Configurations for Reusable Form
   readonly formFields = computed<FormFieldConfig[]>(() => {
-    const isView = this.mode() === 'view';
-    const supplierOptions = this.suppliers().map(s => ({
+    const isReadOnly = this.isReadOnlyMode();
+    const supplierOptions = [...this.suppliers().map(s => ({
       label: `${s.supplierName} (${s.supplierCode})`,
       value: s.supplierId
-    }));
+    }))];
+
+    // Ensure currently selected order's supplier is in options if not present
+    const currentOrd = this.currentOrder();
+    if (currentOrd?.supplierId && !supplierOptions.some(o => o.value === currentOrd.supplierId)) {
+      supplierOptions.unshift({
+        label: currentOrd.supplierName ? `${currentOrd.supplierName}` : currentOrd.supplierId,
+        value: currentOrd.supplierId
+      });
+    }
 
     return [
       {
@@ -209,7 +252,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         type: 'text',
         required: true,
         placeholder: 'e.g. PO-2026-001',
-        readonly: isView || this.mode() === 'edit',
+        readonly: isReadOnly || this.mode() === 'amend',
         tooltip: 'Unique identifier for the purchase order',
         colSpan: 1
       },
@@ -220,7 +263,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         required: true,
         placeholder: '-- Select Supplier --',
         options: supplierOptions,
-        disabled: isView,
+        disabled: isReadOnly,
         colSpan: 1
       },
       {
@@ -228,14 +271,14 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         label: 'Order Date',
         type: 'date',
         required: true,
-        disabled: isView,
+        disabled: isReadOnly,
         colSpan: 1
       },
       {
         name: 'deliveryDate',
         label: 'Expected Delivery Date',
         type: 'date',
-        disabled: isView,
+        disabled: isReadOnly,
         colSpan: 1
       },
       {
@@ -248,7 +291,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
           { label: 'GBP (£)', value: 'GBP' },
           { label: 'LKR (Rs)', value: 'LKR' }
         ],
-        disabled: isView,
+        disabled: isReadOnly,
         colSpan: 1
       },
       {
@@ -261,7 +304,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
           { label: 'Due Upon Receipt', value: 'Due on Receipt' },
           { label: 'Advance Payment', value: 'Advance' }
         ],
-        disabled: isView,
+        disabled: isReadOnly,
         colSpan: 1
       },
       {
@@ -269,7 +312,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         label: 'Shipping Method',
         type: 'text',
         placeholder: 'e.g. Standard Freight, Express',
-        disabled: isView,
+        disabled: isReadOnly,
         colSpan: 1
       },
       {
@@ -278,7 +321,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         type: 'textarea',
         placeholder: 'Enter delivery gate details, packaging guidelines, or vendor terms...',
         rows: 2,
-        disabled: isView,
+        disabled: isReadOnly,
         colSpan: 2
       }
     ];
@@ -286,18 +329,19 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
   // Columns for the Editable Line Items Table
   readonly editableItemColumns = computed<DataTableColumn<EditablePOLine>[]>(() => {
-    const isView = this.mode() === 'view';
+    const isReadOnly = this.isReadOnlyMode();
     return [
       {
         field: 'productCode',
         header: 'Product Code & Name',
         sortable: true,
         width: '260px',
-        editable: !isView,
+        editable: !isReadOnly,
         editType: 'lookup',
         lookupOptions: this.productLookupItems(),
         onLookupSelect: (item, row) => {
           row.productId = String(item.id);
+          row.productCode = item.code;
           row.productName = item.name;
           if (item.meta?.cost !== undefined) {
             row.unitCost = Number(item.meta.cost) || 0;
@@ -322,7 +366,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         sortable: true,
         align: 'right',
         width: '120px',
-        editable: !isView,
+        editable: !isReadOnly,
         editType: 'number',
         validators: [
           (val: any) => {
@@ -340,7 +384,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         align: 'right',
         width: '130px',
         type: 'currency',
-        editable: !isView,
+        editable: !isReadOnly,
         editType: 'currency',
         validators: [
           (val: any) => {
@@ -368,8 +412,15 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     const qty = Number(row.quantity) || 0;
     const cost = Number(row.unitCost) || 0;
     row.lineTotal = Math.round(qty * cost * 100) / 100;
-    this.workingLines.set([...this.workingLines()]);
+    const current = this.workingLines();
+    if (current.some(l => l.lineId === row.lineId)) {
+      this.workingLines.set(current.map(l => (l.lineId === row.lineId ? { ...l, ...row } : l)));
+    }
   };
+
+  onLinesChange(updated: EditablePOLine[]): void {
+    this.workingLines.set([...updated]);
+  }
 
   // Blank New Row Factory
   readonly defaultNewRow = (): Partial<EditablePOLine> => {
@@ -415,6 +466,26 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly availableCompanies = computed<Company[]>(() => this.scopeService.companies());
   readonly availableBranches = computed<Branch[]>(() => this.scopeService.branches());
 
+  readonly orderCompanyName = computed<string>(() => {
+    const ord = this.currentOrder();
+    if (ord?.companyId) {
+      const match = this.availableCompanies().find(c => c.id.toLowerCase() === ord.companyId.toLowerCase());
+      if (match) return `${match.name} (${match.code})`;
+    }
+    const current = this.scopeService.selectedCompany();
+    return current ? `${current.name} (${current.code})` : 'Assigned Company';
+  });
+
+  readonly orderBranchName = computed<string>(() => {
+    const ord = this.currentOrder();
+    if (ord?.branchId) {
+      const match = this.availableBranches().find(b => b.id.toLowerCase() === ord.branchId.toLowerCase());
+      if (match) return `${match.name} (${match.code})`;
+    }
+    const current = this.scopeService.selectedBranch();
+    return current ? `${current.name} (${current.code})` : 'Assigned Branch';
+  });
+
   readonly currentOperatingScopeText = computed<string>(() => {
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
@@ -428,33 +499,49 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     this.initScope();
     this.loadMasterData();
 
-    this.subs.add(
-      this.route.paramMap.subscribe(() => {
-        this.detectRouteMode();
-      })
-    );
+    if (this.route.paramMap) {
+      this.subs.add(
+        this.route.paramMap.subscribe(() => {
+          this.detectRouteMode();
+        })
+      );
+    }
+    if (this.route.queryParamMap) {
+      this.subs.add(
+        this.route.queryParamMap.subscribe(() => {
+          this.detectRouteMode();
+        })
+      );
+    }
   }
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
   }
 
-  // Detect mode: /new (create), /:id/edit (edit), /:id (view)
+  // Detect mode: /new (create), /:id/edit or /:id/amend (amend), /:id/approve or ?mode=approval (approval), /:id (view)
   private detectRouteMode(): void {
-    const url = this.router.url;
-    const id = this.route.snapshot.paramMap.get('id');
+    const url = this.router.url || '';
+    const id = this.route.snapshot?.paramMap?.get('id') || null;
+    const queryMode = (
+      this.route.snapshot?.queryParamMap?.get('mode') ||
+      (this.route.snapshot?.queryParams as any)?.['mode'] ||
+      ''
+    ).toLowerCase();
 
-    if (url.includes('/purchase-orders/new')) {
+    if (url.includes('/purchase-orders/new') || queryMode === 'create') {
       this.mode.set('create');
       this.orderId.set(null);
       this.initCreateForm();
-    } else if (url.endsWith('/edit') && id) {
-      this.mode.set('edit');
-      this.orderId.set(id);
-      this.loadExistingOrder(id);
     } else if (id) {
-      this.mode.set('view');
       this.orderId.set(id);
+      if (url.endsWith('/approve') || queryMode === 'approval' || queryMode === 'approve') {
+        this.mode.set('approval');
+      } else if (url.endsWith('/edit') || url.endsWith('/amend') || queryMode === 'amend' || queryMode === 'edit') {
+        this.mode.set('amend');
+      } else {
+        this.mode.set('view');
+      }
       this.loadExistingOrder(id);
     } else {
       this.mode.set('create');
@@ -588,6 +675,25 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
           this.error.set('Order not found.');
           return;
         }
+
+        // Status & Permission Enforcement for Amend Mode
+        if (this.mode() === 'amend') {
+          const st = Number(order.status);
+          if (st !== PurchaseOrderStatus.Draft) {
+            this.showMessage(
+              `Purchase Order ${order.orderNumber} is in status '${getPurchaseOrderStatusName(order.status)}' and cannot be amended. Viewing in read-only mode.`,
+              'warn'
+            );
+            this.mode.set('view');
+          } else if (!this.canEdit()) {
+            this.showMessage(
+              "You don't have authorization to amend purchase orders. Viewing in read-only mode.",
+              'warn'
+            );
+            this.mode.set('view');
+          }
+        }
+
         this.populateOrderData(order);
       },
       error: err => {
@@ -601,6 +707,25 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  private enrichLinesWithProductMaster(lines: EditablePOLine[]): EditablePOLine[] {
+    const prodList = this.products();
+    if (!prodList || prodList.length === 0) return lines;
+    return lines.map(line => {
+      if (line.productId && (!line.productCode || !line.productName)) {
+        const found = prodList.find(p => p.productId?.toLowerCase() === line.productId.toLowerCase());
+        if (found) {
+          return {
+            ...line,
+            productCode: line.productCode || found.productCode,
+            productName: line.productName || found.productName,
+            unitOfMeasureId: line.unitOfMeasureId || found.unitOfMeasureId || null
+          };
+        }
+      }
+      return line;
+    });
+  }
+
   private populateOrderData(order: PurchaseOrderDto): void {
     this.currentOrder.set(order);
     this.headerForm.patchValue({
@@ -609,6 +734,13 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       orderDate: order.orderDate ? order.orderDate.substring(0, 10) : new Date().toISOString().substring(0, 10),
       notes: ''
     });
+
+    if (order.companyId) {
+      this.selectedCompanyId.set(order.companyId);
+    }
+    if (order.branchId) {
+      this.selectedBranchId.set(order.branchId);
+    }
 
     if (order.items && order.items.length > 0) {
       const lines: EditablePOLine[] = order.items.map(item => ({
@@ -621,7 +753,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         unitCost: item.unitPrice,
         lineTotal: item.lineTotal || item.quantity * item.unitPrice
       }));
-      this.workingLines.set(lines);
+      this.workingLines.set(this.enrichLinesWithProductMaster(lines));
     } else {
       this.workingLines.set([this.defaultNewRow() as EditablePOLine]);
     }
@@ -635,12 +767,18 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     });
 
     this.masterDataService.getProducts().subscribe({
-      next: products => this.products.set(products),
+      next: products => {
+        this.products.set(products);
+        const current = this.workingLines();
+        if (current.some(l => l.productId && (!l.productCode || !l.productName))) {
+          this.workingLines.set(this.enrichLinesWithProductMaster(current));
+        }
+      },
       error: () => {}
     });
   }
 
-  // Save Order (Draft or Submit)
+  // Save Order (Draft or Submit for Create / Amend)
   saveOrder(submit: boolean): void {
     if (!this.scopeService.canOperateTransactions()) {
       this.showMessage('Please select an operating company and branch first.', 'warn');
@@ -663,6 +801,83 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     const branch = this.scopeService.selectedBranch()!;
     const formVal = this.headerForm.getRawValue();
 
+    // Amend Mode: Update existing order
+    if (this.mode() === 'amend' && this.orderId()) {
+      const orderId = this.orderId()!;
+      if (!this.canEdit()) {
+        this.showMessage('Approved or non-draft purchase orders cannot be modified.', 'danger');
+        return;
+      }
+
+      this.actionInProgress.set(true);
+
+      const newLines = validLines.filter(l => l.lineId.startsWith('line-'));
+      if (newLines.length > 0) {
+        const addSequentially = (idx: number) => {
+          if (idx >= newLines.length) {
+            if (submit) {
+              this.poService.submitOrder(company.id, branch.id, orderId).subscribe({
+                next: () => {
+                  this.actionInProgress.set(false);
+                  this.showMessage(`Purchase Order ${formVal.orderNumber} updated and submitted successfully.`, 'success');
+                  this.router.navigate(['/app/procurement/purchase-orders', orderId]);
+                },
+                error: subErr => {
+                  this.actionInProgress.set(false);
+                  this.showMessage(
+                    `Requisition items added, but submission failed: ${this.getCleanErrorMessage(subErr, 'Permission denied.')}`,
+                    'warn'
+                  );
+                  this.router.navigate(['/app/procurement/purchase-orders', orderId]);
+                }
+              });
+            } else {
+              this.actionInProgress.set(false);
+              this.showMessage(`Purchase Order ${formVal.orderNumber} updated successfully.`, 'success');
+              this.router.navigate(['/app/procurement/purchase-orders', orderId]);
+            }
+            return;
+          }
+
+          const line = newLines[idx];
+          this.poService.addItem(company.id, branch.id, orderId, {
+            productId: line.productId,
+            unitOfMeasureId: line.unitOfMeasureId || null,
+            quantity: Number(line.quantity),
+            unitPrice: Number(line.unitCost)
+          }).subscribe({
+            next: () => addSequentially(idx + 1),
+            error: err => {
+              this.actionInProgress.set(false);
+              this.showMessage(this.getCleanErrorMessage(err, 'Failed to add requisition line item.'), 'danger');
+            }
+          });
+        };
+
+        addSequentially(0);
+      } else {
+        if (submit) {
+          this.poService.submitOrder(company.id, branch.id, orderId).subscribe({
+            next: () => {
+              this.actionInProgress.set(false);
+              this.showMessage(`Purchase Order ${formVal.orderNumber} submitted successfully.`, 'success');
+              this.router.navigate(['/app/procurement/purchase-orders', orderId]);
+            },
+            error: subErr => {
+              this.actionInProgress.set(false);
+              this.showMessage(this.getCleanErrorMessage(subErr, 'Failed to submit order.'), 'danger');
+            }
+          });
+        } else {
+          this.actionInProgress.set(false);
+          this.showMessage(`Purchase Order ${formVal.orderNumber} saved.`, 'success');
+          this.router.navigate(['/app/procurement/purchase-orders', orderId]);
+        }
+      }
+      return;
+    }
+
+    // Create Mode: Create new purchase order
     const items = validLines.map(l => ({
       productId: l.productId,
       unitOfMeasureId: l.unitOfMeasureId || null,
@@ -715,11 +930,31 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  // View Mode Workflow Actions
-  navigateToEdit(): void {
+  // Navigation helpers for modes
+  navigateToAmend(): void {
     const id = this.orderId();
     if (id) {
-      this.router.navigate(['/app/procurement/purchase-orders', id, 'edit']);
+      this.router.navigate(['/app/procurement/purchase-orders', id, 'amend']);
+    }
+  }
+
+  navigateToEdit(): void {
+    this.navigateToAmend();
+  }
+
+  navigateToApproval(): void {
+    const id = this.orderId();
+    if (id) {
+      this.router.navigate(['/app/procurement/purchase-orders', id, 'approve']);
+    }
+  }
+
+  navigateToView(): void {
+    const id = this.orderId();
+    if (id) {
+      this.router.navigate(['/app/procurement/purchase-orders', id]);
+    } else {
+      this.navigateBack();
     }
   }
 
@@ -740,7 +975,11 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   navigateBack(): void {
-    this.router.navigate(['/app/procurement/purchase-orders']);
+    if (this.mode() === 'amend' && this.orderId()) {
+      this.router.navigate(['/app/procurement/purchase-orders', this.orderId()]);
+    } else {
+      this.router.navigate(['/app/procurement/purchase-orders']);
+    }
   }
 
   submitCurrentOrder(): void {
@@ -763,77 +1002,221 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  openRemarksDialog(action: 'approve' | 'reject' | 'cancel'): void {
-    this.remarksAction.set(action);
+  openApproveDialog(): void {
+    this.approveRemarks.set('');
+    this.approveError.set(null);
+    this.remarksAction.set('approve');
     this.remarksText.set('');
     this.remarksError.set(null);
+    this.approveDialogVisible.set(true);
     this.remarksDialogVisible.set(true);
   }
 
-  confirmRemarksDecision(): void {
-    const action = this.remarksAction();
+  onApproveDialogHide(): void {
+    this.approveDialogVisible.set(false);
+    this.remarksDialogVisible.set(false);
+    this.approveError.set(null);
+  }
+
+  confirmApprove(): void {
     const ord = this.currentOrder();
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
-    if (!action || !ord || !company || !branch) return;
+    if (!ord || !company || !branch) return;
 
-    const remarks = this.remarksText().trim();
-    if (action === 'reject' && !remarks) {
-      this.remarksError.set('Remarks are mandatory when rejecting a purchase order.');
-      return;
-    }
-
+    const remarks = (this.approveRemarks().trim() || this.remarksText().trim());
     this.actionInProgress.set(true);
+    this.approveError.set(null);
     this.remarksError.set(null);
 
-    let obs;
-    if (action === 'approve') {
-      obs = this.poService.approveOrder(company.id, branch.id, ord.id, remarks);
-    } else if (action === 'reject') {
-      obs = this.poService.rejectOrder(company.id, branch.id, ord.id, remarks);
-    } else {
-      obs = this.poService.cancelOrder(company.id, branch.id, ord.id, remarks);
-    }
-
-    obs.subscribe({
+    this.poService.approveOrder(company.id, branch.id, ord.id, remarks).subscribe({
       next: updated => {
         this.actionInProgress.set(false);
+        this.approveDialogVisible.set(false);
         this.remarksDialogVisible.set(false);
         this.currentOrder.set(updated);
-        const actionVerb = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'cancelled';
-        this.showMessage(`Purchase Order ${ord.orderNumber} ${actionVerb} successfully.`, 'success');
+        this.showMessage(`Purchase Order ${ord.orderNumber} approved successfully.`, 'success');
       },
       error: err => {
         this.actionInProgress.set(false);
-        this.remarksError.set(this.getCleanErrorMessage(err, `Failed to ${action} order.`));
+        const errMsg = this.getCleanErrorMessage(err, 'Failed to approve order.');
+        this.approveError.set(errMsg);
+        this.remarksError.set(errMsg);
       }
     });
   }
 
+  openRejectDialog(): void {
+    this.rejectRemarks.set('');
+    this.rejectError.set(null);
+    this.remarksAction.set('reject');
+    this.remarksText.set('');
+    this.remarksError.set(null);
+    this.rejectDialogVisible.set(true);
+    this.remarksDialogVisible.set(true);
+  }
+
+  onRejectDialogHide(): void {
+    this.rejectDialogVisible.set(false);
+    this.remarksDialogVisible.set(false);
+    this.rejectError.set(null);
+  }
+
+  confirmReject(): void {
+    const ord = this.currentOrder();
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!ord || !company || !branch) return;
+
+    const remarks = (this.rejectRemarks().trim() || this.remarksText().trim());
+    if (!remarks) {
+      const errMsg = 'Remarks are mandatory when rejecting a purchase order.';
+      this.rejectError.set(errMsg);
+      this.remarksError.set(errMsg);
+      return;
+    }
+
+    this.actionInProgress.set(true);
+    this.rejectError.set(null);
+    this.remarksError.set(null);
+
+    this.poService.rejectOrder(company.id, branch.id, ord.id, remarks).subscribe({
+      next: updated => {
+        this.actionInProgress.set(false);
+        this.rejectDialogVisible.set(false);
+        this.remarksDialogVisible.set(false);
+        this.currentOrder.set(updated);
+        this.showMessage(`Purchase Order ${ord.orderNumber} rejected successfully.`, 'success');
+      },
+      error: err => {
+        this.actionInProgress.set(false);
+        const errMsg = this.getCleanErrorMessage(err, 'Failed to reject order.');
+        this.rejectError.set(errMsg);
+        this.remarksError.set(errMsg);
+      }
+    });
+  }
+
+  openCancelDialog(): void {
+    this.cancelRemarks.set('');
+    this.cancelError.set(null);
+    this.remarksAction.set('cancel');
+    this.remarksText.set('');
+    this.remarksError.set(null);
+    this.cancelDialogVisible.set(true);
+    this.remarksDialogVisible.set(true);
+  }
+
+  onCancelDialogHide(): void {
+    this.cancelDialogVisible.set(false);
+    this.remarksDialogVisible.set(false);
+    this.cancelError.set(null);
+  }
+
+  confirmCancel(): void {
+    const ord = this.currentOrder();
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!ord || !company || !branch) return;
+
+    const remarks = (this.cancelRemarks().trim() || this.remarksText().trim());
+    this.actionInProgress.set(true);
+    this.cancelError.set(null);
+    this.remarksError.set(null);
+
+    this.poService.cancelOrder(company.id, branch.id, ord.id, remarks).subscribe({
+      next: updated => {
+        this.actionInProgress.set(false);
+        this.cancelDialogVisible.set(false);
+        this.remarksDialogVisible.set(false);
+        this.currentOrder.set(updated);
+        this.showMessage(`Purchase Order ${ord.orderNumber} cancelled successfully.`, 'success');
+      },
+      error: err => {
+        this.actionInProgress.set(false);
+        const errMsg = this.getCleanErrorMessage(err, 'Failed to cancel order.');
+        this.cancelError.set(errMsg);
+        this.remarksError.set(errMsg);
+      }
+    });
+  }
+
+  openRemarksDialog(action: 'approve' | 'reject' | 'cancel'): void {
+    if (action === 'approve') {
+      this.openApproveDialog();
+    } else if (action === 'reject') {
+      this.openRejectDialog();
+    } else {
+      this.openCancelDialog();
+    }
+  }
+
+  confirmRemarksDecision(): void {
+    const action = this.remarksAction();
+    if (action === 'approve') {
+      this.confirmApprove();
+    } else if (action === 'reject') {
+      this.confirmReject();
+    } else if (action === 'cancel') {
+      this.confirmCancel();
+    }
+  }
+
   // Permission Checks
   canApprove(): boolean {
-    return this.authService.hasRole('TenantAdmin') || this.authService.hasRole('Approver');
+    const ord = this.currentOrder();
+    if (ord) {
+      const st = Number(ord.status);
+      if (st !== PurchaseOrderStatus.Submitted) return false;
+    }
+    return (
+      this.authService.hasPermission('PURCHASE_ORDER.APPROVE') ||
+      this.authService.isTenantAdmin() ||
+      this.authService.isPlatformAdmin() ||
+      this.authService.hasRole('Tenant Manager') ||
+      this.authService.hasRole('Approver')
+    );
   }
 
   canEdit(): boolean {
     const ord = this.currentOrder();
     if (!ord) return true;
     const st = Number(ord.status);
-    return st === PurchaseOrderStatus.Draft;
+    if (st !== PurchaseOrderStatus.Draft) return false;
+    return (
+      this.authService.hasPermission('PURCHASE_ORDER.EDIT') ||
+      this.authService.isTenantAdmin() ||
+      this.authService.isPlatformAdmin() ||
+      this.authService.hasRole('Tenant User') ||
+      this.authService.hasRole('Branch User')
+    );
   }
 
   canSubmit(): boolean {
     const ord = this.currentOrder();
     if (!ord) return true;
     const st = Number(ord.status);
-    return st === PurchaseOrderStatus.Draft;
+    if (st !== PurchaseOrderStatus.Draft) return false;
+    return (
+      this.authService.hasPermission('PURCHASE_ORDER.SUBMIT') ||
+      this.authService.isTenantAdmin() ||
+      this.authService.isPlatformAdmin() ||
+      this.authService.hasRole('Tenant User') ||
+      this.authService.hasRole('Branch User')
+    );
   }
 
   canCancel(): boolean {
     const ord = this.currentOrder();
     if (!ord) return false;
     const st = Number(ord.status);
-    return st === PurchaseOrderStatus.Draft || st === PurchaseOrderStatus.Submitted;
+    if (st !== PurchaseOrderStatus.Draft && st !== PurchaseOrderStatus.Submitted) return false;
+    return (
+      this.authService.hasPermission('PURCHASE_ORDER.CANCEL') ||
+      this.authService.isTenantAdmin() ||
+      this.authService.isPlatformAdmin() ||
+      this.authService.hasRole('Tenant User')
+    );
   }
 
   // Error Sanitization

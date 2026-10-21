@@ -128,6 +128,14 @@ export class GoodsReceiptRegisterComponent implements OnInit, OnDestroy {
       icon: 'pi pi-eye',
       severity: 'secondary',
       action: (row: GoodsReceiptNoteDto) => this.navigateToView(row)
+    },
+    {
+      id: 'putaway',
+      label: 'Putaway',
+      icon: 'pi pi-box',
+      severity: 'primary',
+      visible: (row: GoodsReceiptNoteDto) => row.status === GoodsReceiptNoteStatus.Confirmed || row.status === 2,
+      action: (row: GoodsReceiptNoteDto) => this.navigateToPutaway(row)
     }
   ];
 
@@ -201,6 +209,15 @@ export class GoodsReceiptRegisterComponent implements OnInit, OnDestroy {
 
   navigateToView(grn: GoodsReceiptNoteDto): void {
     this.router.navigate(['/app/procurement/goods-receipts', grn.goodsReceiptNoteId]);
+  }
+
+  navigateToPutaway(grn: GoodsReceiptNoteDto): void {
+    this.router.navigate(['/app/inventory/store-putaway/new'], {
+      queryParams: {
+        sourceType: 'GoodsReceipt',
+        sourceId: grn.goodsReceiptNoteId
+      }
+    });
   }
 
   private isForbiddenError(err: any): boolean {

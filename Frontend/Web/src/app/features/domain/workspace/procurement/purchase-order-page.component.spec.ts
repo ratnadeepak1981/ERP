@@ -343,4 +343,322 @@ describe('PurchaseOrderPageComponent', () => {
     expect(compiled.querySelector('.po-access-denied-wrapper')).toBeTruthy();
     expect(compiled.textContent).not.toContain('http://localhost:4200');
   });
+
+  describe('Multi-line PO Data Loss & Synchronisation Regression Tests', () => {
+    it('should update workingLines signal when onLinesChange is triggered by table dataChange event', () => {
+      fixture.detectChanges();
+
+      const multiLines = [
+        {
+          lineId: 'line-1',
+          productId: 'p1',
+          productCode: 'RAW-001',
+          productName: 'Steel Sheet 2mm',
+          quantity: 2,
+          unitCost: 10,
+          lineTotal: 20
+        },
+        {
+          lineId: 'line-2',
+          productId: 'p2',
+          productCode: 'RAW-002',
+          productName: 'Aluminium Plate',
+          quantity: 5,
+          unitCost: 30,
+          lineTotal: 150
+        },
+        {
+          lineId: 'line-3',
+          productId: 'p3',
+          productCode: 'RAW-003',
+          productName: 'Copper Wire',
+          quantity: 10,
+          unitCost: 5,
+          lineTotal: 50
+        }
+      ];
+
+      component.onLinesChange(multiLines);
+
+      expect(component.workingLines().length).toBe(3);
+      expect(component.workingLines()[0].productId).toBe('p1');
+      expect(component.workingLines()[1].productId).toBe('p2');
+      expect(component.workingLines()[2].productId).toBe('p3');
+      expect(component.subtotalAmount()).toBe(220);
+    });
+
+    it('should preserve all lines and calculate subtotal reactively when calculateRow is called', () => {
+      fixture.detectChanges();
+
+      const initialLines = [
+        {
+          lineId: 'line-1',
+          productId: 'p1',
+          productCode: 'RAW-001',
+          productName: 'Steel Sheet 2mm',
+          quantity: 2,
+          unitCost: 10,
+          lineTotal: 20
+        },
+        {
+          lineId: 'line-2',
+          productId: 'p2',
+          productCode: 'RAW-002',
+          productName: 'Aluminium Plate',
+          quantity: 5,
+          unitCost: 30,
+          lineTotal: 150
+        },
+        {
+          lineId: 'line-3',
+          productId: 'p3',
+          productCode: 'RAW-003',
+          productName: 'Copper Wire',
+          quantity: 10,
+          unitCost: 5,
+          lineTotal: 50
+        }
+      ];
+
+      component.workingLines.set(initialLines);
+
+      // Modify middle line (line-2)
+      const lineToEdit = component.workingLines()[1];
+      lineToEdit.quantity = 8;
+      lineToEdit.unitCost = 35;
+
+      component.calculateRow(lineToEdit);
+
+      expect(component.workingLines().length).toBe(3);
+      // Line 1 intact
+      expect(component.workingLines()[0].productId).toBe('p1');
+      expect(component.workingLines()[0].lineTotal).toBe(20);
+
+      // Line 2 recalculated (8 * 35 = 280)
+      expect(component.workingLines()[1].productId).toBe('p2');
+      expect(component.workingLines()[1].lineTotal).toBe(280);
+
+      // Line 3 intact
+      expect(component.workingLines()[2].productId).toBe('p3');
+      expect(component.workingLines()[2].lineTotal).toBe(50);
+
+      // Total order subtotal updated
+      expect(component.subtotalAmount()).toBe(20 + 280 + 50);
+    });
+
+    it('should include all multiple lines when saving purchase order', () => {
+      fixture.detectChanges();
+
+      component.headerForm.patchValue({
+        orderNumber: 'PO-2026-MULTI',
+        supplierId: 's1',
+        orderDate: '2026-10-18'
+      });
+
+      const threeLines = [
+        {
+          lineId: 'line-1',
+          productId: 'p1',
+          productCode: 'RAW-001',
+          productName: 'Steel Sheet 2mm',
+          quantity: 2,
+          unitCost: 10,
+          lineTotal: 20
+        },
+        {
+          lineId: 'line-2',
+          productId: 'p2',
+          productCode: 'RAW-002',
+          productName: 'Aluminium Plate',
+          quantity: 4,
+          unitCost: 25,
+          lineTotal: 100
+        },
+        {
+          lineId: 'line-3',
+          productId: 'p3',
+          productCode: 'RAW-003',
+          productName: 'Copper Wire',
+          quantity: 1,
+          unitCost: 50,
+          lineTotal: 50
+        }
+      ];
+
+      component.workingLines.set(threeLines);
+
+      const createSpy = vi.spyOn(poService, 'createOrder').mockReturnValue(of(mockOrder));
+      const navSpy = vi.spyOn(router, 'navigate');
+
+      component.saveOrder(false);
+
+      expect(createSpy).toHaveBeenCalledWith(
+        mockCompanyA.id,
+        mockBranchA.id,
+        expect.objectContaining({
+          items: [
+            expect.objectContaining({ productId: 'p1', quantity: 2, unitPrice: 10 }),
+            expect.objectContaining({ productId: 'p2', quantity: 4, unitPrice: 25 }),
+            expect.objectContaining({ productId: 'p3', quantity: 1, unitPrice: 50 })
+          ]
+        })
+      );
+    });
+  });
+
+  describe('Standardized 4-Mode & Master Data Enrichment Tests', () => {
+    it('should support view mode with read-only properties and title', () => {
+      fixture.detectChanges();
+      component.mode.set('view');
+      component.currentOrder.set(mockOrder);
+
+      expect(component.isReadOnlyMode()).toBe(true);
+      expect(component.pageTitle()).toBe('Purchase Order Details - PO-2026-101');
+      expect(component.editableItemColumns().every(col => col.editable === false || col.field === 'productName' || col.field === 'lineTotal')).toBe(true);
+    });
+
+    it('should support approval mode with read-only properties and approval title', () => {
+      fixture.detectChanges();
+      component.mode.set('approval');
+      component.currentOrder.set({ ...mockOrder, status: PurchaseOrderStatus.Submitted });
+
+      expect(component.isReadOnlyMode()).toBe(true);
+      expect(component.pageTitle()).toBe('Purchase Order Approval - PO-2026-101');
+      expect(component.canApprove()).toBe(false); // No approver role yet
+
+      vi.spyOn(authService, 'hasRole').mockImplementation((r: string) => r === 'Approver');
+      expect(component.canApprove()).toBe(true);
+    });
+
+    it('should support amend mode for draft order and allow editing', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(true);
+      fixture.detectChanges();
+      component.mode.set('amend');
+      component.currentOrder.set(mockOrder);
+
+      expect(component.isReadOnlyMode()).toBe(false);
+      expect(component.pageTitle()).toBe('Amend Purchase Order - PO-2026-101');
+      expect(component.canEdit()).toBe(true);
+      expect(component.editableItemColumns().some(col => col.field === 'productCode' && col.editable === true)).toBe(true);
+    });
+
+    it('should enforce read-only fallback when attempting to amend an approved purchase order', () => {
+      fixture.detectChanges();
+      component.mode.set('amend');
+
+      const approvedOrder: PurchaseOrderDto = {
+        ...mockOrder,
+        status: PurchaseOrderStatus.Approved
+      };
+      vi.spyOn(poService, 'getOrder').mockReturnValue(of(approvedOrder));
+
+      component.loadExistingOrder(approvedOrder.id);
+
+      expect(component.mode()).toBe('view');
+      expect(component.isReadOnlyMode()).toBe(true);
+      expect(component.message()?.severity).toBe('warn');
+      expect(component.message()?.text).toContain('cannot be amended');
+    });
+
+    it('should enrich line items with product master code and name when loaded without them', () => {
+      fixture.detectChanges();
+      // Backend returns order items with productId only, missing productCode and productName
+      const orderWithBareItems: PurchaseOrderDto = {
+        ...mockOrder,
+        items: [
+          {
+            id: 'poi-bare',
+            purchaseOrderId: 'po-101',
+            productId: 'p1',
+            quantity: 5,
+            unitPrice: 20.0,
+            lineTotal: 100.0,
+            isActive: true
+          }
+        ]
+      };
+
+      vi.spyOn(poService, 'getOrder').mockReturnValue(of(orderWithBareItems));
+      component.loadExistingOrder(orderWithBareItems.id);
+
+      const lines = component.workingLines();
+      expect(lines.length).toBe(1);
+      expect(lines[0].productId).toBe('p1');
+      expect(lines[0].productCode).toBe('RAW-001');
+      expect(lines[0].productName).toBe('Steel Sheet 2mm');
+    });
+
+    it('should open approval dialog and successfully confirm approval with optional remarks', () => {
+      fixture.detectChanges();
+      component.currentOrder.set({ ...mockOrder, status: PurchaseOrderStatus.Submitted });
+
+      component.openApproveDialog();
+      expect(component.approveDialogVisible()).toBe(true);
+      expect(component.approveRemarks()).toBe('');
+
+      component.approveRemarks.set('Approved as per budget plan Q4');
+      const approveSpy = vi.spyOn(poService, 'approveOrder').mockReturnValue(
+        of({ ...mockOrder, status: PurchaseOrderStatus.Approved })
+      );
+
+      component.confirmApprove();
+      expect(approveSpy).toHaveBeenCalledWith(
+        mockCompanyA.id,
+        mockBranchA.id,
+        mockOrder.id,
+        'Approved as per budget plan Q4'
+      );
+      expect(component.approveDialogVisible()).toBe(false);
+      expect(component.currentOrder()?.status).toBe(PurchaseOrderStatus.Approved);
+    });
+
+    it('should retain approval dialog open and show error feedback if approval API fails', () => {
+      fixture.detectChanges();
+      component.currentOrder.set({ ...mockOrder, status: PurchaseOrderStatus.Submitted });
+
+      component.openApproveDialog();
+      expect(component.approveDialogVisible()).toBe(true);
+
+      const errorResponse = {
+        status: 400,
+        error: { message: 'Order has already been approved by another manager.' }
+      };
+      vi.spyOn(poService, 'approveOrder').mockReturnValue(throwError(() => errorResponse));
+
+      component.confirmApprove();
+      expect(component.approveDialogVisible()).toBe(true);
+      expect(component.approveError()).toContain('Order has already been approved');
+      expect(component.actionInProgress()).toBe(false);
+    });
+
+    it('should enforce mandatory remarks for rejection dialog', () => {
+      fixture.detectChanges();
+      component.currentOrder.set({ ...mockOrder, status: PurchaseOrderStatus.Submitted });
+
+      component.openRejectDialog();
+      expect(component.rejectDialogVisible()).toBe(true);
+
+      // Attempt confirm without remarks
+      component.rejectRemarks.set('   ');
+      component.confirmReject();
+      expect(component.rejectError()).toContain('Remarks are mandatory');
+      expect(component.rejectDialogVisible()).toBe(true);
+
+      // Enter valid rejection remarks
+      component.rejectRemarks.set('Pricing exceeds approved rate contract');
+      const rejectSpy = vi.spyOn(poService, 'rejectOrder').mockReturnValue(
+        of({ ...mockOrder, status: PurchaseOrderStatus.Rejected })
+      );
+
+      component.confirmReject();
+      expect(rejectSpy).toHaveBeenCalledWith(
+        mockCompanyA.id,
+        mockBranchA.id,
+        mockOrder.id,
+        'Pricing exceeds approved rate contract'
+      );
+      expect(component.rejectDialogVisible()).toBe(false);
+      expect(component.currentOrder()?.status).toBe(PurchaseOrderStatus.Rejected);
+    });
+  });
 });

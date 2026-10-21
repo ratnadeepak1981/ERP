@@ -111,7 +111,7 @@ export class WorkspaceScopeService {
           targetCompany = companies[0];
         }
 
-        this.selectCompany(targetCompany, false);
+        this.selectCompany(targetCompany, true);
       },
       error: (err) => {
         this.loading.set(false);

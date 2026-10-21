@@ -81,7 +81,13 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
   }
 
   @Input() set data(val: T[]) {
+    if (this.isEmittingData) {
+      return;
+    }
     const incoming = val || [];
+    if (incoming === this.workingData()) {
+      return;
+    }
     if (this.activeEditCell() || this.isNavigatingCells) {
       this.workingData.set([...incoming]);
       return;
@@ -143,11 +149,13 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     }, 0);
   });
 
+  readonly hasActionsColumn = computed(() => !this.readonly && (this.allowDeleteRow || this.allowAddRow));
+
   getTotalColspan(): number {
     return this.visibleColumns().length
       + (this.selectionMode === 'multiple' ? 1 : 0)
       + (this.showRowNumbers ? 1 : 0)
-      + (this.allowDeleteRow ? 1 : 0);
+      + (this.hasActionsColumn() ? 1 : 0);
   }
 
   getSubtotalLeadingColspan(): number {
@@ -395,6 +403,7 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
   }
 
   onSelectEditorCommit(row: T, col: DataTableColumn<T>): void {
+    if (!this.activeEditCell()) return;
     if (!this.isCellValid(row, col)) {
       this.refocusCurrentCell(row, col);
       return;
@@ -403,6 +412,15 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
   }
 
   private isNavigatingCells: boolean = false;
+  private isEmittingData: boolean = false;
+
+  private emitDataChange(data: T[]): void {
+    this.isEmittingData = true;
+    this.dataChange.emit(data);
+    setTimeout(() => {
+      this.isEmittingData = false;
+    }, 0);
+  }
 
   stopEditing(): void {
     this.activeEditCell.set(null);
@@ -511,6 +529,7 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
       col.onLookupSelect(opt.rawItem, row);
       this.recalculateRowTotals(row);
       this.workingData.set([...this.workingData()]);
+      this.emitDataChange(this.workingData());
     }
     this.validateField(row, col, opt.value);
     this.stopEditing();
@@ -523,6 +542,7 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
         col.onLookupSelect(event.selectedOption.rawItem, row);
         this.recalculateRowTotals(row);
         this.workingData.set([...this.workingData()]);
+        this.emitDataChange(this.workingData());
       }
       this.validateField(row, col, event.selectedOption.value);
     }
@@ -639,6 +659,7 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     this.workingData.set([...this.workingData()]);
 
     this.cellValueChange.emit({ row, column: col, value: parsedVal });
+    this.emitDataChange(this.workingData());
   }
 
   private validateField(row: T, col: DataTableColumn<T>, val: any): void {
@@ -740,14 +761,17 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
       : [newRecord, ...this.workingData()];
     this.workingData.set(current);
 
+    const actualKey = this.getRowKey(newRecord);
     const dirties = new Set(this.dirtyRowKeys());
-    dirties.add(newId);
+    dirties.add(actualKey);
     this.dirtyRowKeys.set(dirties);
 
     this.feedbackMessage.set({
       type: 'info',
-      text: `Added new blank line item ${newId}. Click any cell to enter data.`
+      text: `Added new blank line item ${actualKey}. Click any cell to enter data.`
     });
+
+    this.emitDataChange(current);
 
     const editableCols = this.visibleColumns().filter(c => c.editable);
     if (editableCols.length > 0) {
@@ -783,14 +807,17 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     current.splice(insertIdx, 0, newRecord);
     this.workingData.set(current);
 
+    const actualKey = this.getRowKey(newRecord);
     const dirties = new Set(this.dirtyRowKeys());
-    dirties.add(newId);
+    dirties.add(actualKey);
     this.dirtyRowKeys.set(dirties);
 
     this.feedbackMessage.set({
       type: 'info',
-      text: `Inserted blank row ${newId} into position ${insertIdx + 1}. Click any cell to enter data.`
+      text: `Inserted blank row ${actualKey} into position ${insertIdx + 1}. Click any cell to enter data.`
     });
+
+    this.emitDataChange(current);
 
     const editableCols = this.visibleColumns().filter(c => c.editable);
     if (editableCols.length > 0) {
@@ -824,6 +851,7 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     this.deleteDialogVisible.set(false);
     this.pendingDeleteRow.set(null);
     this.rowDelete.emit(row);
+    this.emitDataChange(updated);
 
     this.feedbackMessage.set({
       type: 'info',

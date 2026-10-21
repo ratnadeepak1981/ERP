@@ -7,6 +7,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
+import { SharedModule } from 'primeng/api';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppDataTableComponent } from '../../../../shared/components/data-table/data-table.component';
 import { AppEditableDataTableComponent } from '../../../../shared/components/data-table/editable-data-table.component';
@@ -53,6 +54,7 @@ export type POStatusFilter = 'all' | 'draft' | 'submitted' | 'approved' | 'fulfi
     ButtonModule,
     InputTextModule,
     DialogModule,
+    SharedModule,
     TooltipModule,
     AppPageHeaderComponent,
     AppDataTableComponent,
@@ -197,6 +199,15 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
       action: (row: PurchaseOrderDto) => this.navigateToView(row)
     },
     {
+      id: 'amend',
+      label: 'Amend',
+      icon: 'pi pi-pencil',
+      severity: 'secondary',
+      visible: (row: PurchaseOrderDto) => this.isStatus(row, PurchaseOrderStatus.Draft),
+      disabled: () => !this.canEditOrder(),
+      action: (row: PurchaseOrderDto) => this.navigateToAmend(row)
+    },
+    {
       id: 'submit',
       label: 'Submit',
       icon: 'pi pi-send',
@@ -212,7 +223,7 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
       severity: 'success',
       visible: (row: PurchaseOrderDto) => this.isStatus(row, PurchaseOrderStatus.Submitted),
       disabled: () => !this.canApproveOrder(),
-      action: (row: PurchaseOrderDto) => this.openRemarksDialog('approve', row)
+      action: (row: PurchaseOrderDto) => this.navigateToApproval(row)
     },
     {
       id: 'reject',
@@ -541,6 +552,16 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
     );
   }
 
+  canEditOrder(): boolean {
+    return (
+      this.authService.hasPermission('PURCHASE_ORDER.EDIT') ||
+      this.authService.isTenantAdmin() ||
+      this.authService.isPlatformAdmin() ||
+      this.authService.hasRole('Tenant User') ||
+      this.authService.hasRole('Branch User')
+    );
+  }
+
   // Navigation methods
   navigateToCreate(): void {
     if (this.router) {
@@ -555,6 +576,22 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
       this.router.navigate(['/app/procurement/purchase-orders', order.id]);
     } else {
       this.openOrderDetails(order);
+    }
+  }
+
+  navigateToAmend(order: PurchaseOrderDto): void {
+    if (this.router) {
+      this.router.navigate(['/app/procurement/purchase-orders', order.id, 'amend']);
+    } else {
+      this.openOrderDetails(order);
+    }
+  }
+
+  navigateToApproval(order: PurchaseOrderDto): void {
+    if (this.router) {
+      this.router.navigate(['/app/procurement/purchase-orders', order.id, 'approve']);
+    } else {
+      this.openRemarksDialog('approve', order);
     }
   }
 
