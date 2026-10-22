@@ -1,12 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { of } from 'rxjs';
 import { UserSecurityComponent } from './user-security.component';
 import { UserSecurityService } from '../../../../core/services/user-security.service';
 import { CompanyService } from '../../../../core/services/company.service';
-import { of } from 'rxjs';
+import { UserAccount, RoleDefinition, UserScopeAssignment } from '../../../../core/models/security.models';
 
 describe('UserSecurityComponent', () => {
   let component: UserSecurityComponent;
@@ -14,8 +15,65 @@ describe('UserSecurityComponent', () => {
   let securityService: UserSecurityService;
   let companyService: CompanyService;
 
+  let currentUsers: UserAccount[] = [];
+  let currentRoles: RoleDefinition[] = [];
+  let currentScopes: UserScopeAssignment[] = [];
+
   beforeEach(async () => {
     localStorage.clear();
+
+    currentRoles = [
+      {
+        id: 'role-admin',
+        tenantId: 't1',
+        name: 'Tenant Administrator',
+        description: 'Complete administrative access',
+        assignmentMode: 'simple',
+        permissions: ['scope.switch', 'warehouses.view', 'reports.export'],
+        usersCount: 1,
+        isSystem: true,
+        createdAt: '2026-01-01'
+      }
+    ];
+
+    currentUsers = [
+      {
+        id: 'usr-admin-01',
+        tenantId: 't1',
+        firstName: 'John',
+        lastName: 'Doe',
+        fullName: 'John Doe',
+        email: 'admin@alphamfg.com',
+        username: 'johndoe',
+        accountStatus: 'Active',
+        roleId: 'role-admin',
+        roleName: 'Tenant Administrator',
+        primaryCompanyId: 'comp-1',
+        primaryCompanyName: 'Alpha Industries',
+        primaryBranchId: 'br-1',
+        primaryBranchName: 'Colombo HQ Plant',
+        createdAt: '2026-01-01'
+      }
+    ];
+
+    currentScopes = [
+      {
+        id: 'scp-1',
+        userId: 'usr-admin-01',
+        userName: 'John Doe',
+        userEmail: 'admin@alphamfg.com',
+        companyId: 'comp-1',
+        companyName: 'Alpha Industries',
+        branchId: 'br-1',
+        branchName: 'Colombo HQ Plant',
+        isAllBranches: false,
+        isPrimary: true,
+        status: 'Authorized',
+        grantedAt: '2026-01-01',
+        grantedBy: 'Admin'
+      }
+    ];
+
     await TestBed.configureTestingModule({
       imports: [UserSecurityComponent],
       providers: [
@@ -40,6 +98,74 @@ describe('UserSecurityComponent', () => {
       { id: 'br-1', companyId: 'comp-1', name: 'Colombo HQ Plant', code: 'CMB-01', isActive: true },
       { id: 'br-2', companyId: 'comp-1', name: 'Kandy Assembly', code: 'KDY-01', isActive: true }
     ]));
+
+    // Mock security service methods
+    vi.spyOn(securityService, 'getRoles').mockImplementation(() => of([...currentRoles]));
+    vi.spyOn(securityService, 'getUsers').mockImplementation(() => of([...currentUsers]));
+    vi.spyOn(securityService, 'getUserScopes').mockImplementation(() => of([...currentScopes]));
+
+    vi.spyOn(securityService, 'createUser').mockImplementation((dto, roleName, compName, brName) => {
+      const newUser: UserAccount = {
+        id: 'usr-new-' + Date.now(),
+        tenantId: 't1',
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        fullName: `${dto.firstName} ${dto.lastName}`,
+        email: dto.email,
+        username: dto.username,
+        accountStatus: dto.accountStatus,
+        roleId: dto.roleId,
+        roleName: roleName,
+        primaryCompanyId: dto.companyId,
+        primaryCompanyName: compName,
+        primaryBranchId: dto.branchId,
+        primaryBranchName: brName,
+        createdAt: new Date().toISOString()
+      };
+      currentUsers.push(newUser);
+      return of(newUser);
+    });
+
+    vi.spyOn(securityService, 'createRole').mockImplementation((dto) => {
+      const newRole: RoleDefinition = {
+        id: 'role-new-' + Date.now(),
+        tenantId: 't1',
+        name: dto.name,
+        description: dto.description,
+        assignmentMode: dto.assignmentMode,
+        permissions: dto.permissions,
+        usersCount: 0,
+        isSystem: false,
+        createdAt: new Date().toISOString()
+      };
+      currentRoles.push(newRole);
+      return of(newRole);
+    });
+
+    vi.spyOn(securityService, 'assignUserScope').mockImplementation((dto, userName, userEmail, compName, brName) => {
+      const newScope: UserScopeAssignment = {
+        id: 'scp-new-' + Date.now(),
+        userId: dto.userId,
+        userName: userName,
+        userEmail: userEmail,
+        companyId: dto.companyId,
+        companyName: compName,
+        branchId: dto.branchId,
+        branchName: brName,
+        isAllBranches: !!dto.isAllBranches,
+        isPrimary: false,
+        status: 'Authorized',
+        grantedAt: new Date().toISOString(),
+        grantedBy: 'Tenant Admin'
+      };
+      currentScopes.push(newScope);
+      return of(newScope);
+    });
+
+    vi.spyOn(securityService, 'revokeUserScope').mockImplementation((scopeId: string) => {
+      currentScopes = currentScopes.filter(s => s.id !== scopeId);
+      return of(true);
+    });
 
     fixture.detectChanges();
   });
@@ -151,9 +277,9 @@ describe('UserSecurityComponent', () => {
     expect(component.activeTab()).toBe('user-scope');
 
     // Open Assign Scope Modal
-    component.openAssignScopeModal('usr-proc-02');
+    component.openAssignScopeModal('usr-admin-01');
     expect(component.showAssignScopeModal()).toBe(true);
-    expect(component.assignScopeUserId).toBe('usr-proc-02');
+    expect(component.assignScopeUserId).toBe('usr-admin-01');
 
     // Fill valid company and branch
     component.assignScopeCompanyId = 'comp-1';
@@ -165,7 +291,7 @@ describe('UserSecurityComponent', () => {
 
     // Verify the scope assignment was added
     const userScopes = component.userScopes();
-    const newScope = userScopes.find(s => s.userId === 'usr-proc-02' && s.branchId === 'br-2');
+    const newScope = userScopes.find(s => s.userId === 'usr-admin-01' && s.branchId === 'br-2');
     expect(newScope).toBeDefined();
     expect(newScope?.isPrimary).toBe(false);
 

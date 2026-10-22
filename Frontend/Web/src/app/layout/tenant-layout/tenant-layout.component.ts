@@ -183,6 +183,7 @@ export class TenantLayoutComponent implements OnInit {
         children: [
           { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/master-data' },
           { label: 'Products', icon: 'pi pi-box', route: '/app/master-data/products' },
+          { label: 'Customers', icon: 'pi pi-users', route: '/app/master-data/customers' },
           { label: 'Suppliers', icon: 'pi pi-truck', route: '/app/master-data/suppliers' },
           { label: 'Warehouses & Locations', icon: 'pi pi-building', route: '/app/master-data/warehouses' }
         ]
@@ -192,6 +193,13 @@ export class TenantLayoutComponent implements OnInit {
     if (this.canViewProcurement()) {
       items.push({ label: 'Procurement Overview', icon: 'pi pi-chart-line', route: '/app/procurement' });
       items.push({ label: 'Purchase Orders', icon: 'pi pi-shopping-cart', route: '/app/procurement/purchase-orders' });
+    }
+
+    if (this.canViewSales()) {
+      items.push({ label: 'Sales Overview', icon: 'pi pi-chart-line', route: '/app/sales' });
+      items.push({ label: 'Sales Orders', icon: 'pi pi-shopping-bag', route: '/app/sales/orders' });
+      items.push({ label: 'Dispatch Notes', icon: 'pi pi-send', route: '/app/sales/dispatches' });
+      items.push({ label: 'Sales Invoices', icon: 'pi pi-file-invoice', route: '/app/sales/invoices' });
     }
 
     items.push({
@@ -216,6 +224,28 @@ export class TenantLayoutComponent implements OnInit {
     }
     const perms = this.authService.permissions();
     if (perms && perms.length > 0 && !perms.includes('PURCHASE_ORDER.VIEW') && !perms.includes('Product.Read')) {
+      return false;
+    }
+    return true;
+  }
+
+  canViewSales(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('SALES_ORDER.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
+  canViewCustomers(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('CUSTOMER.VIEW')) {
       return false;
     }
     return true;

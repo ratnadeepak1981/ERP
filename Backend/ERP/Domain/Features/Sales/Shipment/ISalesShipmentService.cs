@@ -9,13 +9,13 @@ public interface ISalesShipmentService
     Task<List<SalesShipmentDto>> GetShipmentsAsync(
         Guid tenantId,
         Guid companyId,
-        Guid branchId,
+        Guid? branchId = null,
         SalesShipmentStatus? status = null);
 
     Task<SalesShipmentDto?> GetShipmentByIdAsync(
         Guid tenantId,
         Guid companyId,
-        Guid branchId,
+        Guid? branchId,
         Guid shipmentId);
 
     Task<SalesShipmentDto> CreateFromOrderAsync(

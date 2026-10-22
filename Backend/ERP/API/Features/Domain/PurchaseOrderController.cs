@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using API.Common;
 using API.Common.Sorting;
 using API.Security.Authorization;
+using Domain.Features.MasterData.Branch;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseOrder;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,7 @@ public class PurchaseOrderController : BaseApiController
     private readonly IPurchaseOrderService _orderService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+    private readonly IBranchService _branchService;
 
     private static readonly SortMapping<PurchaseOrder> _sortMapping = new SortMapping<PurchaseOrder>()
         .Add("orderNumber", o => o.OrderNumber, isDefault: true)
@@ -30,11 +32,115 @@ public class PurchaseOrderController : BaseApiController
     public PurchaseOrderController(
         IPurchaseOrderService orderService,
         ICurrentUserContext currentUserContext,
-        IUserAccessService userAccessService)
+        IUserAccessService userAccessService,
+        IBranchService branchService)
     {
         _orderService = orderService;
         _currentUserContext = currentUserContext;
         _userAccessService = userAccessService;
+        _branchService = branchService;
+    }
+
+    [HttpGet("~/api/companies/{companyId:guid}/purchase-orders")]
+    public async Task<IActionResult> GetCompanyOrders(
+        Guid companyId,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
+
+        if (!canAccessCompany)
+        {
+            return Forbid();
+        }
+
+        List<PurchaseOrder> orders;
+        var isTenantAdmin = User.IsInRole("Tenant Admin");
+        if (isTenantAdmin)
+        {
+            orders = await _orderService.GetOrdersByCompanyAsync(tenantId.Value, companyId);
+        }
+        else
+        {
+            var branches = await _branchService.GetBranchesAsync(tenantId.Value, companyId);
+            var accessibleBranchIds = new List<Guid>();
+            foreach (var b in branches)
+            {
+                if (await _userAccessService.CanAccessBranchAsync(_currentUserContext.UserId, tenantId.Value, companyId, b.Id))
+                {
+                    accessibleBranchIds.Add(b.Id);
+                }
+            }
+            orders = await _orderService.GetOrdersByCompanyAsync(tenantId.Value, companyId, accessibleBranchIds);
+        }
+
+        return PaginateAndSort(orders, page, pageSize, sortBy, sortDirection, _sortMapping);
+    }
+
+    [HttpGet("~/api/companies/{companyId:guid}/purchase-orders/{id:guid}")]
+    public async Task<IActionResult> GetCompanyOrder(
+        Guid companyId,
+        Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
+
+        if (!canAccessCompany)
+        {
+            return Forbid();
+        }
+
+        var order = await _orderService.GetOrderByIdAsync(
+            tenantId.Value,
+            companyId,
+            id);
+
+        if (order == null)
+        {
+            return NotFoundResponse("Purchase order not found in the authorized scope.");
+        }
+
+        var canAccessBranch = await _userAccessService.CanAccessBranchAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId,
+            order.BranchId);
+
+        if (!canAccessBranch)
+        {
+            return Forbid();
+        }
+
+        return SuccessResponse(order);
     }
 
     [HttpGet]

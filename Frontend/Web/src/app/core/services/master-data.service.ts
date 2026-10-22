@@ -9,6 +9,8 @@ import {
   UpdateProductDto,
   SupplierItem,
   CreateSupplierDto,
+  CustomerItem,
+  CreateCustomerDto,
   CategoryItem,
   UnitOfMeasureItem,
   WarehouseItem,
@@ -97,6 +99,41 @@ export class MasterDataService {
 
   deactivateSupplier(id: string): Observable<void> {
     return this.http.delete<void>(buildApiUrl(`/suppliers/${id}`));
+  }
+
+  // --- Customers ---
+  getCustomers(): Observable<CustomerItem[]> {
+    return this.http
+      .get<ApiResponse<CustomerItem[] | { items: CustomerItem[] }>>(buildApiUrl('/customers'))
+      .pipe(
+        map(res => {
+          if (!res?.data) return [];
+          if (Array.isArray(res.data)) return res.data;
+          return (res.data as { items: CustomerItem[] }).items || [];
+        })
+      );
+  }
+
+  getCustomer(id: string): Observable<CustomerItem | null> {
+    return this.http
+      .get<ApiResponse<CustomerItem>>(buildApiUrl(`/customers/${id}`))
+      .pipe(map(res => res?.data ?? null));
+  }
+
+  createCustomer(dto: CreateCustomerDto): Observable<CustomerItem> {
+    return this.http
+      .post<ApiResponse<CustomerItem>>(buildApiUrl('/customers'), dto)
+      .pipe(map(res => res.data));
+  }
+
+  updateCustomer(id: string, dto: Partial<CreateCustomerDto>): Observable<CustomerItem> {
+    return this.http
+      .put<ApiResponse<CustomerItem>>(buildApiUrl(`/customers/${id}`), dto)
+      .pipe(map(res => res.data));
+  }
+
+  deactivateCustomer(id: string): Observable<void> {
+    return this.http.delete<void>(buildApiUrl(`/customers/${id}`));
   }
 
   // --- Categories ---

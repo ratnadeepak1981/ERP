@@ -87,17 +87,30 @@ describe('TenantLayoutComponent', () => {
     expect(component.isItemExpanded(inventoryItem!)).toBe(false);
   });
 
+  it('should include Sales Overview and Sales Orders when permitted', () => {
+    fixture.detectChanges();
+    const supplyGroup = component.navGroups().find(g => g.groupName === 'Supply Chain & Operations');
+    const salesOverview = supplyGroup?.items.find(i => i.label === 'Sales Overview');
+    const salesOrders = supplyGroup?.items.find(i => i.label === 'Sales Orders');
+
+    expect(salesOverview).toBeTruthy();
+    expect(salesOverview?.route).toBe('/app/sales');
+    expect(salesOrders).toBeTruthy();
+    expect(salesOrders?.route).toBe('/app/sales/orders');
+  });
+
   it('should include Master Data with standardized sub-screens under expandable menu', () => {
     fixture.detectChanges();
     const supplyGroup = component.navGroups().find(g => g.groupName === 'Supply Chain & Operations');
     const masterDataItem = supplyGroup?.items.find(i => i.label === 'Master Data');
     expect(masterDataItem).toBeTruthy();
     expect(masterDataItem?.children).toBeTruthy();
-    expect(masterDataItem?.children?.length).toBe(4);
+    expect(masterDataItem?.children?.length).toBe(5);
 
     const childLabels = masterDataItem?.children?.map(c => c.label);
     expect(childLabels).toContain('Overview');
     expect(childLabels).toContain('Products');
+    expect(childLabels).toContain('Customers');
     expect(childLabels).toContain('Suppliers');
     expect(childLabels).toContain('Warehouses & Locations');
   });

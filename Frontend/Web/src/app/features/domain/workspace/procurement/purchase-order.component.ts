@@ -140,54 +140,74 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
   });
 
   // Columns for the main orders data-table
-  readonly tableColumns: DataTableColumn<PurchaseOrderDto>[] = [
-    {
-      field: 'orderNumber',
-      header: 'PO Number',
-      sortable: true,
-      width: '160px'
-    },
-    {
-      field: 'supplierName',
-      header: 'Supplier',
-      sortable: true,
-      width: '220px',
-      format: (val: any) => val || 'Standard Vendor'
-    },
-    {
-      field: 'orderDate',
-      header: 'Order Date',
-      sortable: true,
-      width: '130px',
-      format: (val: any) => {
-        if (!val) return '-';
-        const d = new Date(val);
-        return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
+  readonly tableColumns = computed<DataTableColumn<PurchaseOrderDto>[]>(() => {
+    const cols: DataTableColumn<PurchaseOrderDto>[] = [
+      {
+        field: 'orderNumber',
+        header: 'PO Number',
+        sortable: true,
+        width: '160px'
+      },
+      {
+        field: 'supplierName',
+        header: 'Supplier',
+        sortable: true,
+        width: '220px',
+        format: (val: any) => val || 'Standard Vendor'
       }
-    },
-    {
-      field: 'totalAmount',
-      header: 'Total Amount',
-      sortable: true,
-      align: 'right',
-      width: '150px',
-      type: 'currency'
-    },
-    {
-      field: 'status',
-      header: 'Status',
-      width: '130px',
-      type: 'badge',
-      badgeSeverityMap: (val: any) => getPurchaseOrderStatusSeverity(val),
-      format: (val: any) => getPurchaseOrderStatusName(val)
-    },
-    {
-      field: 'id',
-      header: 'Actions',
-      width: '280px',
-      type: 'actions'
+    ];
+
+    if (this.scopeService.isAllBranches()) {
+      cols.push({
+        field: 'branchId',
+        header: 'Branch',
+        sortable: true,
+        width: '180px',
+        format: (val: any) => {
+          const br = this.scopeService.branches().find(b => b.id.toLowerCase() === String(val).toLowerCase());
+          return br ? br.name : '-';
+        }
+      });
     }
-  ];
+
+    cols.push(
+      {
+        field: 'orderDate',
+        header: 'Order Date',
+        sortable: true,
+        width: '130px',
+        format: (val: any) => {
+          if (!val) return '-';
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
+        }
+      },
+      {
+        field: 'totalAmount',
+        header: 'Total Amount',
+        sortable: true,
+        align: 'right',
+        width: '150px',
+        type: 'currency'
+      },
+      {
+        field: 'status',
+        header: 'Status',
+        width: '130px',
+        type: 'badge',
+        badgeSeverityMap: (val: any) => getPurchaseOrderStatusSeverity(val),
+        format: (val: any) => getPurchaseOrderStatusName(val)
+      },
+      {
+        field: 'id',
+        header: 'Actions',
+        width: '280px',
+        type: 'actions'
+      }
+    );
+
+    return cols;
+  });
 
   // Row actions for each PO in the list
   readonly tableActions: DataTableAction<PurchaseOrderDto>[] = [
@@ -402,13 +422,13 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
       );
     }
 
-    if (this.scopeService.canOperateTransactions()) {
+    if (this.scopeService.hasCompany()) {
       this.loadOrders();
     }
 
     this.subs.add(
       this.scopeService.scopeChange$.subscribe(() => {
-        if (this.scopeService.canOperateTransactions()) {
+        if (this.scopeService.hasCompany()) {
           this.loadOrders();
         } else {
           this.orders.set([]);
@@ -424,7 +444,16 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
   // Master data loading
   loadMasterData(): void {
     this.masterDataService.getSuppliers().subscribe({
-      next: suppliers => this.suppliers.set(suppliers),
+      next: suppliers => {
+        this.suppliers.set(suppliers);
+        const supplierMap = new Map(suppliers.map(s => [s.supplierId, s.supplierName]));
+        this.orders.update(orders =>
+          orders.map(o => ({
+            ...o,
+            supplierName: (o.supplierId ? supplierMap.get(o.supplierId) : undefined) || o.supplierName || 'Standard Vendor'
+          }))
+        );
+      },
       error: () => {}
     });
 
@@ -456,17 +485,19 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
   // Load orders for active company and branch
   loadOrders(): void {
     const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) {
+    if (!company) {
       this.orders.set([]);
       return;
     }
+
+    const branch = this.scopeService.selectedBranch();
+    const branchId = this.scopeService.isAllBranches() || !branch ? null : branch.id;
 
     this.loading.set(true);
     this.error.set(null);
     this.isAccessDenied.set(false);
 
-    this.poService.getOrders(company.id, branch.id).subscribe({
+    this.poService.getOrders(company.id, branchId).subscribe({
       next: orders => {
         this.loading.set(false);
         this.isAccessDenied.set(false);
@@ -474,7 +505,7 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
         const supplierMap = new Map(this.suppliers().map(s => [s.supplierId, s.supplierName]));
         const enriched = orders.map(o => ({
           ...o,
-          supplierName: o.supplierName || (o.supplierId ? supplierMap.get(o.supplierId) : undefined) || 'Standard Vendor'
+          supplierName: (o.supplierId ? supplierMap.get(o.supplierId) : undefined) || o.supplierName || 'Standard Vendor'
         }));
         this.orders.set(enriched);
 
@@ -514,7 +545,7 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
   // Permission Checks
   canCreateOrder(): boolean {
     return (
-      this.scopeService.canOperateTransactions() &&
+      this.scopeService.hasCompany() &&
       (this.authService.hasPermission('PURCHASE_ORDER.CREATE') ||
         this.authService.isTenantAdmin() ||
         this.authService.isPlatformAdmin() ||

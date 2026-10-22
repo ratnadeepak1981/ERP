@@ -1,0 +1,401 @@
+<div class="sales-order-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Orders"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (orderId()) {
+        <p-button
+          icon="pi pi-refresh"
+          [outlined]="true"
+          size="small"
+          severity="secondary"
+          [loading]="loading()"
+          (onClick)="loadExistingOrder(orderId()!)"
+          title="Reload order details"
+        ></p-button>
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Global Status / Notification Message -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="so-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/sales/orders"
+        homeLabel="Back to Sales Orders"
+      ></app-access-denied>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading sales order details..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="orderId() ? loadExistingOrder(orderId()!) : initCreateForm()"></app-error-state>
+    </div>
+  } @else {
+    <div class="so-form-container">
+      <!-- Section 1: Operating Scope -->
+      <section class="erp-card scope-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 1</span>
+            <h3 class="section-title">Operating Scope</h3>
+          </div>
+          <p class="section-desc">Commercial sales orders are bound to the operating company and branch context.</p>
+        </div>
+
+        <div class="scope-indicator-grid">
+          <div class="scope-field-wrap">
+            <label>Operating Company</label>
+            <div class="scope-readonly-val">{{ orderCompanyName() }}</div>
+          </div>
+          <div class="scope-field-wrap">
+            <label>Operating Branch</label>
+            <div class="scope-readonly-val">{{ orderBranchName() }}</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Header Information -->
+      <section class="erp-card header-details-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 2</span>
+            <h3 class="section-title">Order Information</h3>
+          </div>
+          <p class="section-desc">Customer account, document identifiers, dates, and commercial terms.</p>
+        </div>
+
+        @if (currentOrder()) {
+          <div class="order-status-banner">
+            <div class="status-info">
+              <span class="status-label">Document Status:</span>
+              <app-status-badge
+                [severity]="orderStatusSeverity()"
+                [label]="orderStatusName()"
+              ></app-status-badge>
+            </div>
+
+            @if (currentOrder()?.status === 3) {
+              <div class="fulfillment-hint">
+                <i class="pi pi-info-circle"></i>
+                <span>Confirmed order ready for stock issuance / dispatch release.</span>
+              </div>
+            }
+          </div>
+        }
+
+        <app-reactive-form
+          [form]="headerForm"
+          [fields]="formFields()"
+          [readonly]="isReadOnlyMode()"
+          [serverErrors]="serverErrors()"
+          [columns]="3"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Section 3: Editable Line Items -->
+      <section class="erp-card line-items-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 3</span>
+            <h3 class="section-title">Order Line Items</h3>
+            <span class="item-count-pill">{{ workingLines().length }} items</span>
+          </div>
+          <p class="section-desc">Search sellable products, specify quantities, pricing, discount, and tax.</p>
+        </div>
+
+        <app-editable-data-table
+          [data]="workingLines()"
+          [columns]="editableItemColumns()"
+          rowKey="lineId"
+          [readonly]="isReadOnlyMode()"
+          [showActionBar]="!isReadOnlyMode()"
+          [allowAddRow]="!isReadOnlyMode()"
+          [allowDeleteRow]="!isReadOnlyMode()"
+          [defaultNewRow]="defaultNewRow"
+          [onRowCalculate]="calculateRow"
+          (dataChange)="onLinesChange($event)"
+          subtotalField="lineTotal"
+          subtotalLabel="Line Items Total"
+          [currencyCode]="activeCurrency()"
+          emptyTitle="No line items added"
+          emptyDescription="Click 'Add Row' to search and select products for this sales order."
+        ></app-editable-data-table>
+      </section>
+
+      <!-- Section 4: Summary Totals & Workflow Actions -->
+      <section class="erp-card footer-summary-section">
+        <div class="summary-totals-grid">
+          <div class="summary-row">
+            <span class="summary-label">Items Subtotal:</span>
+            <span class="summary-value">{{ subtotalAmount() | currency:activeCurrency():'symbol':'1.2-2' }}</span>
+          </div>
+          @if (discountAmount() > 0) {
+            <div class="summary-row discount-row">
+              <span class="summary-label">Total Discount:</span>
+              <span class="summary-value">-{{ discountAmount() | currency:activeCurrency():'symbol':'1.2-2' }}</span>
+            </div>
+          }
+          <div class="summary-row">
+            <span class="summary-label">Total Tax:</span>
+            <span class="summary-value">{{ taxAmount() | currency:activeCurrency():'symbol':'1.2-2' }}</span>
+          </div>
+          <div class="summary-row total-row">
+            <span class="summary-label">Total Order Value:</span>
+            <span class="summary-value">{{ totalOrderAmount() | currency:activeCurrency():'symbol':'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <!-- Workflow Action Buttons -->
+        <div class="workflow-action-buttons">
+          <div class="left-actions">
+            <p-button
+              label="Cancel"
+              [outlined]="true"
+              size="small"
+              severity="secondary"
+              (onClick)="navigateBack()"
+              [disabled]="actionInProgress()"
+            ></p-button>
+
+            <!-- Status Transition: Cancel Order -->
+            @if (isCancelVisible()) {
+              <p-button
+                label="Cancel Order"
+                icon="pi pi-ban"
+                size="small"
+                severity="danger"
+                [outlined]="true"
+                [disabled]="!canCancelOrder() || actionInProgress()"
+                (onClick)="openRemarksDialog('cancel')"
+              ></p-button>
+            }
+          </div>
+
+          <div class="right-actions">
+            <!-- Mode: Create -->
+            @if (mode() === 'create') {
+              <p-button
+                label="Save as Draft"
+                icon="pi pi-save"
+                [outlined]="true"
+                size="small"
+                severity="primary"
+                [loading]="actionInProgress()"
+                [disabled]="!canCreateOrder()"
+                (onClick)="saveOrder(false)"
+              ></p-button>
+
+              <p-button
+                label="Save & Submit"
+                icon="pi pi-send"
+                size="small"
+                severity="primary"
+                [loading]="actionInProgress()"
+                [disabled]="!canCreateOrder() || !canSubmitOrder()"
+                (onClick)="saveOrder(true)"
+              ></p-button>
+            }
+
+            <!-- Mode: Amend -->
+            @if (mode() === 'amend') {
+              <p-button
+                label="Save Draft Changes"
+                icon="pi pi-save"
+                [outlined]="true"
+                size="small"
+                severity="primary"
+                [loading]="actionInProgress()"
+                [disabled]="!canEditOrder()"
+                (onClick)="saveOrder(false)"
+              ></p-button>
+
+              <p-button
+                label="Submit Order"
+                icon="pi pi-send"
+                size="small"
+                severity="primary"
+                [loading]="actionInProgress()"
+                [disabled]="!canSubmitOrder()"
+                (onClick)="saveOrder(true)"
+              ></p-button>
+            }
+
+            <!-- Mode: Confirm -->
+            @if (mode() === 'confirm') {
+              <p-button
+                label="Reject Order"
+                icon="pi pi-times"
+                size="small"
+                severity="danger"
+                [outlined]="true"
+                [disabled]="!canConfirmOrder() || actionInProgress()"
+                (onClick)="openRemarksDialog('reject')"
+              ></p-button>
+
+              <p-button
+                label="Confirm Order"
+                icon="pi pi-check"
+                size="small"
+                severity="success"
+                [loading]="actionInProgress()"
+                [disabled]="!canConfirmOrder()"
+                (onClick)="openRemarksDialog('confirm')"
+              ></p-button>
+            }
+
+            <!-- Mode: View -->
+            @if (mode() === 'view' && currentOrder()) {
+              <!-- Draft Order Actions in View Mode -->
+              @if (currentOrder()?.status === 1) {
+                <p-button
+                  label="Amend Order"
+                  icon="pi pi-pencil"
+                  [outlined]="true"
+                  size="small"
+                  severity="secondary"
+                  [disabled]="!canEditOrder()"
+                  (onClick)="navigateToAmendMode()"
+                ></p-button>
+
+                <p-button
+                  label="Submit Order"
+                  icon="pi pi-send"
+                  size="small"
+                  severity="primary"
+                  [loading]="actionInProgress()"
+                  [disabled]="!canSubmitOrder()"
+                  (onClick)="submitCurrentOrder()"
+                ></p-button>
+              }
+
+              <!-- Submitted Order Actions in View Mode -->
+              @if (currentOrder()?.status === 2) {
+                <p-button
+                  label="Reject Order"
+                  icon="pi pi-times"
+                  size="small"
+                  severity="danger"
+                  [outlined]="true"
+                  [disabled]="!canConfirmOrder() || actionInProgress()"
+                  (onClick)="openRemarksDialog('reject')"
+                ></p-button>
+
+                <p-button
+                  label="Confirm Order"
+                  icon="pi pi-check"
+                  size="small"
+                  severity="success"
+                  [loading]="actionInProgress()"
+                  [disabled]="!canConfirmOrder()"
+                  (onClick)="openRemarksDialog('confirm')"
+                ></p-button>
+              }
+
+              <!-- Confirmed Order: Issue Stock (Dispatch) -->
+              @if (currentOrder()?.status === 3) {
+                <p-button
+                  label="Generate Dispatch Note"
+                  icon="pi pi-send"
+                  size="small"
+                  severity="success"
+                  (onClick)="navigateToDispatch()"
+                  title="Fulfill order via warehouse stock issuance"
+                ></p-button>
+              }
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  }
+
+  <!-- REMARKS DIALOG (Confirm / Reject / Cancel) -->
+  <p-dialog
+    [(visible)]="remarksDialogVisible"
+    [modal]="true"
+    [header]="remarksDialogTitle()"
+    [style]="{ width: '480px', maxWidth: '95vw' }"
+    [closable]="!actionInProgress()"
+  >
+    <div class="remarks-dialog-content">
+      <div class="dialog-order-summary">
+        <span><strong>Order:</strong> {{ headerForm.get('orderNumber')?.value }}</span>
+        <span><strong>Total:</strong> {{ totalOrderAmount() | currency:activeCurrency():'symbol':'1.2-2' }}</span>
+      </div>
+
+      <div class="form-group">
+        <label for="remarksText">
+          Remarks {{ remarksAction() === 'reject' ? '(Required)' : '(Optional)' }}
+        </label>
+        <textarea
+          id="remarksText"
+          class="p-inputtext p-inputtext-sm"
+          rows="3"
+          [placeholder]="remarksPlaceholder()"
+          [ngModel]="remarksText()"
+          (ngModelChange)="remarksText.set($event)"
+          [disabled]="actionInProgress()"
+        ></textarea>
+      </div>
+
+      @if (remarksError()) {
+        <div class="field-error">{{ remarksError() }}</div>
+      }
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cancel"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [disabled]="actionInProgress()"
+        (onClick)="closeRemarksDialog()"
+      ></p-button>
+
+      <p-button
+        [label]="remarksSubmitLabel()"
+        [icon]="remarksSubmitIcon()"
+        size="small"
+        [severity]="remarksSubmitSeverity()"
+        [loading]="actionInProgress()"
+        (onClick)="submitRemarksAction()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

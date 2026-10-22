@@ -31,6 +31,27 @@ public class PurchaseOrderRepository : IPurchaseOrderRepository
             .ToListAsync();
     }
 
+    public async Task<List<PurchaseOrder>> GetByCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
+        IEnumerable<Guid>? branchIds = null)
+    {
+        var query = _context.PurchaseOrders
+            .Include(x => x.Items)
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.CompanyId == companyId &&
+                x.IsActive);
+
+        if (branchIds != null)
+        {
+            var branchList = branchIds.ToList();
+            query = query.Where(x => branchList.Contains(x.BranchId));
+        }
+
+        return await query.ToListAsync();
+    }
+
     public async Task<PurchaseOrder?> GetByIdAsync(
         Guid tenantId,
         Guid companyId,
@@ -44,6 +65,20 @@ public class PurchaseOrderRepository : IPurchaseOrderRepository
                 x.TenantId == tenantId &&
                 x.CompanyId == companyId &&
                 x.BranchId == branchId &&
+                x.IsActive);
+    }
+
+    public async Task<PurchaseOrder?> GetByIdAndCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid orderId)
+    {
+        return await _context.PurchaseOrders
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x =>
+                x.Id == orderId &&
+                x.TenantId == tenantId &&
+                x.CompanyId == companyId &&
                 x.IsActive);
     }
 

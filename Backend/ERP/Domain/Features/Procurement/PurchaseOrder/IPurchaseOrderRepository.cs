@@ -11,10 +11,20 @@ public interface IPurchaseOrderRepository
         Guid companyId,
         Guid branchId);
 
+    Task<List<PurchaseOrder>> GetByCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
+        IEnumerable<Guid>? branchIds = null);
+
     Task<PurchaseOrder?> GetByIdAsync(
         Guid tenantId,
         Guid companyId,
         Guid branchId,
+        Guid orderId);
+
+    Task<PurchaseOrder?> GetByIdAndCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
         Guid orderId);
 
     Task<bool> ExistsOrderNumberAsync(

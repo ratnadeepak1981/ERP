@@ -25,13 +25,16 @@ export interface PurchaseOrderQueryParams {
 export class PurchaseOrderService {
   private readonly http = inject(HttpClient);
 
-  private buildPath(companyId: string, branchId: string, suffix = ''): string {
-    return buildApiUrl(`/companies/${companyId}/branches/${branchId}/purchase-orders${suffix}`);
+  private buildPath(companyId: string, branchId?: string | null, suffix = ''): string {
+    if (branchId) {
+      return buildApiUrl(`/companies/${companyId}/branches/${branchId}/purchase-orders${suffix}`);
+    }
+    return buildApiUrl(`/companies/${companyId}/purchase-orders${suffix}`);
   }
 
   getOrders(
     companyId: string,
-    branchId: string,
+    branchId?: string | null,
     params?: PurchaseOrderQueryParams
   ): Observable<PurchaseOrderDto[]> {
     let httpParams = new HttpParams();
@@ -54,9 +57,11 @@ export class PurchaseOrderService {
       );
   }
 
-  getOrder(companyId: string, branchId: string, id: string): Observable<PurchaseOrderDto | null> {
+  getOrder(companyId: string, branchIdOrId?: string | null, id?: string): Observable<PurchaseOrderDto | null> {
+    const orderId = id || branchIdOrId;
+    const branchId = id ? branchIdOrId : null;
     return this.http
-      .get<ApiResponse<PurchaseOrderDto>>(this.buildPath(companyId, branchId, `/${id}`))
+      .get<ApiResponse<PurchaseOrderDto>>(this.buildPath(companyId, branchId, `/${orderId}`))
       .pipe(map(res => res?.data ?? null));
   }
 

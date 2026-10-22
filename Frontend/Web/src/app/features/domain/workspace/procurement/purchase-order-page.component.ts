@@ -659,16 +659,18 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   // Load Existing Order for Edit or View
   loadExistingOrder(orderId: string): void {
     const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) {
+    if (!company) {
       return;
     }
+
+    const branch = this.scopeService.selectedBranch();
+    const branchId = this.scopeService.isAllBranches() || !branch ? null : branch.id;
 
     this.loading.set(true);
     this.error.set(null);
     this.isAccessDenied.set(false);
 
-    this.poService.getOrder(company.id, branch.id, orderId).subscribe({
+    this.poService.getOrder(company.id, branchId, orderId).subscribe({
       next: order => {
         this.loading.set(false);
         if (!order) {

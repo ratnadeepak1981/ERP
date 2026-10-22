@@ -1,0 +1,203 @@
+<div class="sales-shipment-register">
+  <!-- Page Header -->
+  <app-page-header
+    title="Dispatch Notes"
+    subtitle="Manage goods delivery notes, fulfillment dispatches, and warehouse stock issuance"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        icon="pi pi-refresh"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [loading]="loading()"
+        (onClick)="loadData()"
+        title="Refresh dispatches"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Notification Banner -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Access Denied -->
+  @if (isAccessDenied()) {
+    <div class="erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Back to Dashboard"
+      ></app-access-denied>
+    </div>
+  } @else {
+    <!-- Metrics Bar -->
+    <div class="metrics-bar">
+      <div class="metric-pill">
+        <span class="metric-label">Total Dispatches:</span>
+        <span class="metric-value">{{ shipments().length }}</span>
+      </div>
+      <div class="metric-pill info">
+        <span class="metric-label">Draft:</span>
+        <span class="metric-value">{{ draftCount() }}</span>
+      </div>
+      <div class="metric-pill success">
+        <span class="metric-label">Delivered:</span>
+        <span class="metric-value">{{ deliveredCount() }}</span>
+      </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="filters-bar erp-card">
+      <div class="filter-group">
+        <span class="filter-label">Status:</span>
+        <div class="filter-buttons">
+          @for (opt of statusOptions; track opt.value) {
+            <button
+              type="button"
+              class="filter-btn"
+              [class.active]="activeStatusFilter() === opt.value"
+              (click)="setStatusFilter(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="search-box">
+        <i class="pi pi-search search-icon"></i>
+        <input
+          type="text"
+          pInputText
+          placeholder="Search by dispatch #, order #, customer, carrier..."
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          class="p-inputtext-sm search-input"
+        />
+        @if (searchTerm()) {
+          <button type="button" class="clear-search-btn" (click)="searchTerm.set('')" title="Clear search">
+            <i class="pi pi-times"></i>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    @if (loading() && shipments().length === 0) {
+      <div class="erp-card state-card">
+        <app-loading-state message="Loading dispatch notes..."></app-loading-state>
+      </div>
+    } @else if (error()) {
+      <div class="erp-card state-card">
+        <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+      </div>
+    } @else {
+      <div class="table-card erp-card">
+        <app-data-table
+          [data]="filteredShipments()"
+          [columns]="columns"
+          [rowActions]="tableActions"
+          rowKey="id"
+          [loading]="loading()"
+          emptyTitle="No dispatch notes found"
+          emptyDescription="No dispatch notes match your current filter or none exist for this operating branch yet."
+          [showGlobalSearch]="false"
+          [paginator]="true"
+          [rows]="10"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          (rowClick)="navigateToView($event)"
+        ></app-data-table>
+      </div>
+    }
+  }
+
+  <!-- Deliver Confirmation Dialog -->
+  <p-dialog
+    [(visible)]="deliverDialogVisible"
+    [modal]="true"
+    header="Deliver Shipment & Post Stock Issue"
+    [style]="{ width: '480px', maxWidth: '95vw' }"
+    [closable]="!actionInProgress()"
+  >
+    <div class="deliver-dialog-content">
+      <p class="dialog-notice">
+        Delivering this dispatch note will post the warehouse inventory issue and automatically generate a
+        <strong>Sales Invoice Draft</strong>.
+      </p>
+
+      @if (deliverTargetShipment()) {
+        <div class="dialog-details">
+          <div><strong>Dispatch #:</strong> {{ deliverTargetShipment()!.shipmentNumber }}</div>
+          <div><strong>Order #:</strong> {{ deliverTargetShipment()!.orderNumber }}</div>
+          <div><strong>Customer:</strong> {{ deliverTargetShipment()!.customerName }}</div>
+          <div><strong>Total Lines:</strong> {{ deliverTargetShipment()!.items.length }}</div>
+        </div>
+      }
+
+      <div class="form-group">
+        <label for="recipientInput">Recipient Name (Optional)</label>
+        <input
+          id="recipientInput"
+          type="text"
+          pInputText
+          class="p-inputtext-sm full-width"
+          [ngModel]="deliverRecipientName()"
+          (ngModelChange)="deliverRecipientName.set($event)"
+          placeholder="Customer or recipient representative..."
+          [disabled]="actionInProgress()"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="deliverNotesInput">Delivery Notes (Optional)</label>
+        <textarea
+          id="deliverNotesInput"
+          class="p-inputtext p-inputtext-sm full-width"
+          rows="2"
+          [ngModel]="deliverNotes()"
+          (ngModelChange)="deliverNotes.set($event)"
+          placeholder="Proof of delivery reference, handover notes..."
+          [disabled]="actionInProgress()"
+        ></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cancel"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [disabled]="actionInProgress()"
+        (onClick)="closeDeliverDialog()"
+      ></p-button>
+
+      <p-button
+        label="Deliver & Issue Stock"
+        icon="pi pi-check-circle"
+        size="small"
+        severity="success"
+        [loading]="actionInProgress()"
+        (onClick)="executeDelivery()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

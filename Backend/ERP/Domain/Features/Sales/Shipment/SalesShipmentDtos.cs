@@ -151,6 +151,8 @@ public class SalesShipmentDto
 
     public string? Notes { get; set; }
 
+    public Guid? InvoiceId { get; set; }
+
     public List<SalesShipmentItemDto> Items { get; set; } = new();
 }
 

@@ -25,14 +25,15 @@ describe('MasterDataOverviewComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('should create and render all 8 master data cards from target architecture', () => {
+  it('should create and render all master data cards from target architecture', () => {
     fixture.detectChanges();
     expect(component).toBeTruthy();
-    expect(component.masterCards.length).toBe(8);
+    expect(component.masterCards.length).toBe(9);
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.banner-text h2')?.textContent).toContain('Supply Chain Masters');
     expect(compiled.textContent).toContain('Product Master');
+    expect(compiled.textContent).toContain('Customer Master');
     expect(compiled.textContent).toContain('Supplier Master');
     expect(compiled.textContent).toContain('Units of Measure');
     expect(compiled.textContent).toContain('Warehouse & Locations');

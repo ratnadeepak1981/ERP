@@ -1,0 +1,131 @@
+<div class="customer-master-page">
+  <app-page-header
+    title="Customer Master"
+    subtitle="Manage enterprise customer profiles, commercial credit terms, billing addresses, and operational status."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading customer records from server..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadCustomers()"></app-error-state>
+  } @else {
+    <div class="customer-table-card erp-card">
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm search-field"
+              placeholder="Search code, customer, contact, or city..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'all'"
+              (click)="statusFilter.set('all')"
+            >
+              All Customers
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'active'"
+              (click)="statusFilter.set('active')"
+            >
+              Active Only
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'inactive'"
+              (click)="statusFilter.set('inactive')"
+            >
+              Inactive Only
+            </button>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateDialog()">
+            <i class="pi pi-plus p-button-icon-left"></i>
+            <span class="p-button-label">New Customer</span>
+          </button>
+        </div>
+      </div>
+
+      @if (filteredCustomers().length === 0) {
+        <app-empty-state
+          title="No customers found"
+          description="No customer accounts match your query or none are registered yet."
+          actionLabel="Register First Customer"
+          actionIcon="pi pi-plus"
+          (action)="openCreateDialog()"
+        ></app-empty-state>
+      } @else {
+        <div class="data-table-wrapper">
+          <table class="enterprise-grid-table">
+            <thead>
+              <tr>
+                <th style="width: 130px;">Code</th>
+                <th>Customer Name</th>
+                <th>Contact Person</th>
+                <th>City / Region</th>
+                <th>Payment Terms</th>
+                <th style="width: 100px;">Status</th>
+                <th style="width: 110px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (cust of filteredCustomers(); track cust.customerId) {
+                <tr>
+                  <td><code class="code-badge">{{ cust.customerCode }}</code></td>
+                  <td>
+                    <div class="customer-cell">
+                      <strong>{{ cust.customerName }}</strong>
+                      @if (cust.email) {
+                        <span class="customer-subtext">{{ cust.email }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>{{ cust.contactPerson || '—' }}</td>
+                  <td>{{ cust.city || '—' }}</td>
+                  <td>{{ cust.paymentTerms || 'Net 30' }}</td>
+                  <td>
+                    <app-status-badge [status]="cust.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="action-buttons-cell">
+                      <button
+                        type="button"
+                        class="p-button p-button-sm p-button-text"
+                        (click)="openEditDialog(cust)"
+                        title="Edit Customer"
+                      >
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="p-button p-button-sm p-button-text p-button-danger"
+                        (click)="onDeactivate(cust)"
+                        title="Deactivate Customer"
+                      >
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

@@ -35,7 +35,27 @@ public class SalesShipmentRepository : ISalesShipmentRepository
             query = query.Where(x => x.Status == status.Value);
         }
 
-        return await query.ToListAsync();
+        return await query.OrderByDescending(x => x.ShipmentDate).ThenByDescending(x => x.CreatedAt).ToListAsync();
+    }
+
+    public async Task<List<SalesShipment>> GetByCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
+        SalesShipmentStatus? status = null)
+    {
+        var query = _context.SalesShipments
+            .Include(x => x.Items)
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.CompanyId == companyId &&
+                x.IsActive);
+
+        if (status.HasValue)
+        {
+            query = query.Where(x => x.Status == status.Value);
+        }
+
+        return await query.OrderByDescending(x => x.ShipmentDate).ThenByDescending(x => x.CreatedAt).ToListAsync();
     }
 
     public async Task<SalesShipment?> GetByIdAsync(
@@ -51,6 +71,18 @@ public class SalesShipmentRepository : ISalesShipmentRepository
                 x.TenantId == tenantId &&
                 x.CompanyId == companyId &&
                 x.BranchId == branchId &&
+                x.IsActive);
+    }
+
+    public async Task<SalesShipment?> GetByIdAsync(
+        Guid tenantId,
+        Guid shipmentId)
+    {
+        return await _context.SalesShipments
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x =>
+                x.Id == shipmentId &&
+                x.TenantId == tenantId &&
                 x.IsActive);
     }
 

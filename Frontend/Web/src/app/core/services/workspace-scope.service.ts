@@ -128,7 +128,11 @@ export class WorkspaceScopeService {
       this.branches.set([]);
       this.selectedBranch.set(null);
       this.isAllBranches.set(true);
-      this.saveToStorage(STORAGE_KEY_BRANCH, null);
+      const company = this.selectedCompany();
+    if (company) {
+      this.saveToStorage(`${STORAGE_KEY_BRANCH}_${company.id}`, null);
+    }
+    this.saveToStorage(STORAGE_KEY_BRANCH, null);
       if (emit) this.emitScopeChange();
       return;
     }
@@ -139,7 +143,8 @@ export class WorkspaceScopeService {
         this.loading.set(false);
         this.branches.set(branches);
 
-        const savedBranchId = this.getFromStorage(STORAGE_KEY_BRANCH);
+        const companyBranchKey = `${STORAGE_KEY_BRANCH}_${company.id}`;
+        const savedBranchId = this.getFromStorage(companyBranchKey) || this.getFromStorage(STORAGE_KEY_BRANCH);
         const targetBranch = branches.find(b => b.id === savedBranchId);
 
         if (targetBranch) {
@@ -170,6 +175,10 @@ export class WorkspaceScopeService {
   selectBranch(branch: Branch | null): void {
     this.selectedBranch.set(branch);
     this.isAllBranches.set(!branch);
+    const company = this.selectedCompany();
+    if (company) {
+      this.saveToStorage(`${STORAGE_KEY_BRANCH}_${company.id}`, branch?.id ?? null);
+    }
     this.saveToStorage(STORAGE_KEY_BRANCH, branch?.id ?? null);
     this.emitScopeChange();
   }
@@ -177,6 +186,10 @@ export class WorkspaceScopeService {
   selectAllBranches(): void {
     this.selectedBranch.set(null);
     this.isAllBranches.set(true);
+    const company = this.selectedCompany();
+    if (company) {
+      this.saveToStorage(`${STORAGE_KEY_BRANCH}_${company.id}`, null);
+    }
     this.saveToStorage(STORAGE_KEY_BRANCH, null);
     this.emitScopeChange();
   }

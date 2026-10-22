@@ -12,10 +12,19 @@ public interface ISalesShipmentRepository
         Guid branchId,
         SalesShipmentStatus? status = null);
 
+    Task<List<SalesShipment>> GetByCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
+        SalesShipmentStatus? status = null);
+
     Task<SalesShipment?> GetByIdAsync(
         Guid tenantId,
         Guid companyId,
         Guid branchId,
+        Guid shipmentId);
+
+    Task<SalesShipment?> GetByIdAsync(
+        Guid tenantId,
         Guid shipmentId);
 
     Task<List<SalesShipment>> GetBySalesOrderIdAsync(

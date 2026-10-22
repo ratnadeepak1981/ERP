@@ -45,6 +45,8 @@ public class SalesShipment : Auditable, ITenantScopedEntity, ICompanyScopedEntit
 
     public string? Notes { get; set; }
 
+    public Guid? InvoiceId { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public List<SalesShipmentItem> Items { get; set; } = new();
