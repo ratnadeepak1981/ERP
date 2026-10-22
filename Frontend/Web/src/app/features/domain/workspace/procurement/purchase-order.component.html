@@ -22,7 +22,7 @@
         size="small"
         severity="primary"
         [disabled]="!canCreateOrder() || actionInProgress()"
-        [title]="!scopeService.canOperateTransactions() ? 'Select an operating company and branch first' : 'Create a new purchase order'"
+        [title]="!scopeService.hasCompany() ? 'Select an operating company first' : 'Create a new purchase order'"
         (onClick)="navigateToCreate()"
       ></p-button>
     </div>
@@ -57,12 +57,12 @@
         homeLabel="Workspace Home"
       ></app-access-denied>
     </div>
-  } @else if (!scopeService.canOperateTransactions()) {
+  } @else if (!scopeService.hasCompany()) {
     <div class="scope-required-wrapper erp-card">
       <app-empty-state
         icon="pi pi-compass"
         title="Operating Company and Branch Required"
-        description="Purchase orders and procurement workflows are strictly scoped to an operating company and physical branch. Please select both from the scope switcher in the navigation bar to proceed."
+        description="Purchase orders and procurement workflows require an operating company. Please select an operating company and branch from the scope switcher in the navigation bar to proceed."
       ></app-empty-state>
     </div>
   } @else if (loading()) {
@@ -139,7 +139,7 @@
         <div class="scope-info-pill" title="Current Transaction Scope">
           <i class="pi pi-building"></i>
           <span class="scope-text">
-            {{ scopeService.selectedCompany()?.name }} / {{ scopeService.selectedBranch()?.name }}
+            {{ scopeService.currentScopeDescription() }}
           </span>
         </div>
       </div>
@@ -147,7 +147,7 @@
       <!-- Main PO List Data Table -->
       <app-data-table
         [data]="filteredOrders()"
-        [columns]="tableColumns"
+        [columns]="tableColumns()"
         [rowActions]="tableActions"
         rowKey="id"
         [loading]="loading()"

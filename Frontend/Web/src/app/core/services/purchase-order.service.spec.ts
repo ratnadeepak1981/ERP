@@ -164,4 +164,31 @@ describe('PurchaseOrderService', () => {
       }
     });
   });
+
+  it('should fetch company-wide purchase orders without branchId', () => {
+    service.getOrders(companyId).subscribe(orders => {
+      expect(orders.length).toBe(1);
+    });
+
+    const companyPath = `${environment.apiBaseUrl}/companies/${companyId}/purchase-orders`;
+    const req = httpMock.expectOne(companyPath);
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      succeeded: true,
+      data: [
+        {
+          id: 'po-1',
+          tenantId: 't1',
+          companyId,
+          branchId,
+          orderNumber: 'PO-2026-001',
+          orderDate: '2026-10-18T00:00:00Z',
+          status: PurchaseOrderStatus.Draft,
+          totalAmount: 1250,
+          isActive: true,
+          items: []
+        }
+      ]
+    });
+  });
 });

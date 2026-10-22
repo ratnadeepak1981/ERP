@@ -1,0 +1,397 @@
+<div class="sales-shipment-page">
+  <!-- Page Header -->
+  <app-page-header
+    [title]="mode() === 'create' ? 'Create Dispatch Note' : 'Dispatch Note ' + (headerForm.get('shipmentNumber')?.value || '')"
+    subtitle="Goods delivery note, line allocation, fulfillment tracking, and inventory issue"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Dispatches"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (shipmentId()) {
+        <p-button
+          icon="pi pi-refresh"
+          [outlined]="true"
+          size="small"
+          severity="secondary"
+          [loading]="loading()"
+          (onClick)="loadShipment(shipmentId()!)"
+          title="Reload dispatch details"
+        ></p-button>
+      }
+
+      @if (isDelivered() && currentShipment()?.invoiceId) {
+        <p-button
+          label="View Sales Invoice"
+          icon="pi pi-file-invoice"
+          size="small"
+          severity="info"
+          (onClick)="navigateToInvoice()"
+        ></p-button>
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Notification Banner -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Access Denied -->
+  @if (isAccessDenied()) {
+    <div class="erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        message="You don't have permission to access this dispatch note."
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/sales/dispatches"
+        homeLabel="Back to Dispatches"
+      ></app-access-denied>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading dispatch note details..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="shipmentId() ? loadShipment(shipmentId()!) : navigateBack()"></app-error-state>
+    </div>
+  } @else {
+    <div class="shipment-form-container">
+      <!-- Section 1: Header / Document Information -->
+      <section class="erp-card section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Dispatch Document Information</h3>
+          </div>
+          @if (currentShipment()) {
+            <app-status-badge
+              [label]="currentShipment()!.status === 1 ? 'Draft' : (currentShipment()!.status === 3 ? 'Delivered' : 'Dispatched')"
+              [severity]="currentShipment()!.status === 3 ? 'success' : (currentShipment()!.status === 1 ? 'info' : 'warning')"
+            ></app-status-badge>
+          }
+        </div>
+
+        <form [formGroup]="headerForm" class="header-form-grid">
+          <div class="form-field">
+            <label for="shipmentNumber">Dispatch Note #</label>
+            <input
+              id="shipmentNumber"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="shipmentNumber"
+              [disabled]="mode() !== 'create'"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="orderNumber">Sales Order #</label>
+            <input
+              id="orderNumber"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="orderNumber"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="customerName">Customer</label>
+            <input
+              id="customerName"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="customerName"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="method">Fulfillment Method</label>
+            <select
+              id="method"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="method"
+            >
+              @for (opt of methodOptions; track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="shipmentDate">Dispatch Date</label>
+            <input
+              id="shipmentDate"
+              type="date"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="shipmentDate"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="carrierName">Carrier / Courier Name</label>
+            <input
+              id="carrierName"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="carrierName"
+              placeholder="e.g. DHL, FedEx, In-house fleet..."
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="trackingNumber">Tracking / Consignment #</label>
+            <input
+              id="trackingNumber"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="trackingNumber"
+              placeholder="Waybill or tracking reference..."
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="vehicleNumber">Vehicle Registration #</label>
+            <input
+              id="vehicleNumber"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="vehicleNumber"
+              placeholder="Truck/van registration..."
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="recipientName">Recipient Name</label>
+            <input
+              id="recipientName"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="recipientName"
+              placeholder="Contact receiving goods..."
+            />
+          </div>
+
+          <div class="form-field full-row">
+            <label for="deliveryAddress">Delivery Destination Address</label>
+            <input
+              id="deliveryAddress"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="deliveryAddress"
+              placeholder="Customer delivery site address..."
+            />
+          </div>
+
+          <div class="form-field full-row">
+            <label for="notes">Notes / Handling Instructions</label>
+            <textarea
+              id="notes"
+              class="p-inputtext p-inputtext-sm full-width"
+              rows="2"
+              formControlName="notes"
+              placeholder="Special handling, fragile, delivery instructions..."
+            ></textarea>
+          </div>
+        </form>
+      </section>
+
+      <!-- Section 2: Line Items & Allocation -->
+      <section class="erp-card section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Dispatch Items & Warehouse Allocation</h3>
+          </div>
+          <span class="lines-count-badge">{{ workingLines().length }} items</span>
+        </div>
+
+        <div class="items-table-wrapper">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th style="min-width: 180px;">Product</th>
+                <th style="width: 100px; text-align: right;">Ordered</th>
+                <th style="width: 130px; text-align: right;">To Dispatch</th>
+                <th style="min-width: 160px;">Warehouse</th>
+                <th style="min-width: 160px;">Location</th>
+                <th style="min-width: 120px;">Batch #</th>
+                <th style="min-width: 120px;">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of workingLines(); track line.lineId; let idx = $index) {
+                <tr>
+                  <td class="col-idx">{{ idx + 1 }}</td>
+                  <td class="col-product">
+                    <span class="product-code">{{ line.productCode }}</span>
+                    <span class="product-name">{{ line.productName }}</span>
+                  </td>
+                  <td class="col-ordered" style="text-align: right;">
+                    {{ line.orderedQuantity | number:'1.2-4' }}
+                  </td>
+                  <td class="col-qty" style="text-align: right;">
+                    @if (isDraft()) {
+                      <input
+                        type="number"
+                        min="0.0001"
+                        [max]="line.orderedQuantity"
+                        step="1"
+                        class="p-inputtext p-inputtext-sm qty-input"
+                        [ngModel]="line.quantityDispatched"
+                        (ngModelChange)="updateLineQuantity(idx, $event)"
+                        [disabled]="actionInProgress()"
+                      />
+                    } @else {
+                      <span class="qty-readonly">{{ line.quantityDispatched | number:'1.2-4' }}</span>
+                    }
+                  </td>
+                  <td class="col-wh">
+                    @if (isDraft()) {
+                      <select
+                        class="p-inputtext p-inputtext-sm full-width"
+                        [ngModel]="line.warehouseId"
+                        (ngModelChange)="updateLineWarehouse(idx, $event)"
+                        [disabled]="actionInProgress()"
+                      >
+                        <option value="">Select Warehouse</option>
+                        @for (wh of warehouses(); track wh.warehouseId) {
+                          <option [value]="wh.warehouseId">{{ wh.warehouseName }}</option>
+                        }
+                      </select>
+                    } @else {
+                      <span>{{ line.warehouseId }}</span>
+                    }
+                  </td>
+                  <td class="col-loc">
+                    @if (isDraft()) {
+                      <select
+                        class="p-inputtext p-inputtext-sm full-width"
+                        [ngModel]="line.warehouseLocationId"
+                        (ngModelChange)="updateLineLocation(idx, $event)"
+                        [disabled]="actionInProgress()"
+                      >
+                        <option value="">Select Location</option>
+                        @for (loc of locations(); track loc.locationId) {
+                          @if (!line.warehouseId || loc.warehouseId === line.warehouseId) {
+                            <option [value]="loc.locationId">{{ loc.locationCode }} ({{ loc.locationName }})</option>
+                          }
+                        }
+                      </select>
+                    } @else {
+                      <span>{{ line.warehouseLocationId }}</span>
+                    }
+                  </td>
+                  <td class="col-batch">
+                    @if (isDraft()) {
+                      <input
+                        type="text"
+                        class="p-inputtext p-inputtext-sm full-width"
+                        [(ngModel)]="line.batchNumber"
+                        placeholder="Optional"
+                        [disabled]="actionInProgress()"
+                      />
+                    } @else {
+                      <span>{{ line.batchNumber || '-' }}</span>
+                    }
+                  </td>
+                  <td class="col-notes">
+                    @if (isDraft()) {
+                      <input
+                        type="text"
+                        class="p-inputtext p-inputtext-sm full-width"
+                        [(ngModel)]="line.notes"
+                        placeholder="Optional"
+                        [disabled]="actionInProgress()"
+                      />
+                    } @else {
+                      <span>{{ line.notes || '-' }}</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section 3: Bottom Action Toolbar -->
+      <section class="erp-card action-bar-card">
+        <div class="action-bar-content">
+          <div class="action-info">
+            @if (isDraft()) {
+              <i class="pi pi-info-circle info-icon"></i>
+              <span>Draft mode: Stock is <strong>NOT deducted</strong> until you click "Deliver & Issue Stock".</span>
+            } @else if (isDelivered()) {
+              <i class="pi pi-check-circle success-icon"></i>
+              <span>Delivered: Warehouse inventory movement has been successfully posted.</span>
+            }
+          </div>
+
+          <div class="action-buttons">
+            @if (isDraft()) {
+              @if (mode() === 'view') {
+                <p-button
+                  label="Edit Draft"
+                  icon="pi pi-pencil"
+                  size="small"
+                  [outlined]="true"
+                  (onClick)="mode.set('edit'); headerForm.enable();"
+                ></p-button>
+              }
+
+              <p-button
+                label="Save Draft"
+                icon="pi pi-save"
+                size="small"
+                severity="secondary"
+                [loading]="actionInProgress()"
+                (onClick)="saveDraft()"
+              ></p-button>
+
+              @if (shipmentId() && canDeliver()) {
+                <p-button
+                  label="Deliver & Issue Stock"
+                  icon="pi pi-check-circle"
+                  size="small"
+                  severity="success"
+                  [loading]="actionInProgress()"
+                  (onClick)="deliverShipment()"
+                  title="Deliver goods, deduct inventory, and auto-generate Sales Invoice"
+                ></p-button>
+              }
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  }
+</div>

@@ -244,3 +244,40 @@ export interface CreateSupplierDto {
   leadTimeDays?: number;
   isActive?: boolean;
 }
+
+
+export interface CustomerItem {
+  customerId: string;
+  tenantId?: string;
+  customerCode: string;
+  customerName: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  taxNumber?: string;
+  creditLimit?: number;
+  paymentTerms?: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface CreateCustomerDto {
+  customerCode: string;
+  customerName: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city: string;
+  postalCode?: string;
+  country?: string;
+  taxNumber?: string;
+  creditLimit?: number;
+  paymentTerms?: string;
+}

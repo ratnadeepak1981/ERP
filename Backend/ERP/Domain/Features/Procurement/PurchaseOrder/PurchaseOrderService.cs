@@ -45,6 +45,17 @@ public class PurchaseOrderService : IPurchaseOrderService
             branchId);
     }
 
+    public async Task<List<PurchaseOrder>> GetOrdersByCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
+        IEnumerable<Guid>? branchIds = null)
+    {
+        return await _repository.GetByCompanyAsync(
+            tenantId,
+            companyId,
+            branchIds);
+    }
+
     public async Task<PurchaseOrder?> GetOrderAsync(
         Guid tenantId,
         Guid companyId,
@@ -55,6 +66,17 @@ public class PurchaseOrderService : IPurchaseOrderService
             tenantId,
             companyId,
             branchId,
+            orderId);
+    }
+
+    public async Task<PurchaseOrder?> GetOrderByIdAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid orderId)
+    {
+        return await _repository.GetByIdAndCompanyAsync(
+            tenantId,
+            companyId,
             orderId);
     }
 

@@ -44,6 +44,31 @@ export const workspaceRoutes: Routes = [
         ]
       },
       {
+        path: 'customers',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./master-data/customers/customer-master.component').then(m => m.CustomerMasterComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./master-data/customers/customer-page.component').then(m => m.CustomerPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./master-data/customers/customer-page.component').then(m => m.CustomerPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./master-data/customers/customer-page.component').then(m => m.CustomerPageComponent)
+          }
+        ]
+      },
+      {
         path: 'suppliers',
         children: [
           {
@@ -337,7 +362,87 @@ export const workspaceRoutes: Routes = [
   },
   {
     path: 'sales',
-    redirectTo: 'demonstration'
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./sales/sales-overview.component').then(m => m.SalesOverviewComponent)
+      },
+      {
+        path: 'overview',
+        redirectTo: '',
+        pathMatch: 'full'
+      },
+      {
+        path: 'orders',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./sales/sales-order-register.component').then(m => m.SalesOrderRegisterComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./sales/sales-order-page.component').then(m => m.SalesOrderPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./sales/sales-order-page.component').then(m => m.SalesOrderPageComponent)
+          },
+          {
+            path: ':id/confirm',
+            loadComponent: () =>
+              import('./sales/sales-order-page.component').then(m => m.SalesOrderPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./sales/sales-order-page.component').then(m => m.SalesOrderPageComponent)
+          }
+        ]
+      }
+,
+      {
+        path: 'dispatches',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./sales/dispatches/sales-shipment-register.component').then(m => m.SalesShipmentRegisterComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () => import('./sales/dispatches/sales-shipment-page.component').then(m => m.SalesShipmentPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () => import('./sales/dispatches/sales-shipment-page.component').then(m => m.SalesShipmentPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () => import('./sales/dispatches/sales-shipment-page.component').then(m => m.SalesShipmentPageComponent)
+          }
+        ]
+      },
+      {
+        path: 'invoices',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./sales/invoices/sales-invoice-register.component').then(m => m.SalesInvoiceRegisterComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () => import('./sales/invoices/sales-invoice-page.component').then(m => m.SalesInvoicePageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () => import('./sales/invoices/sales-invoice-page.component').then(m => m.SalesInvoicePageComponent)
+          }
+        ]
+      }
+    ]
   },
   {
     path: 'saas',

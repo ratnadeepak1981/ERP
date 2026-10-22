@@ -1,0 +1,155 @@
+<div class="customer-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Customers"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (currentCustomer() && mode() !== 'create') {
+        <app-status-badge
+          [label]="currentCustomer()?.isActive ? 'Active' : 'Inactive'"
+          [severity]="currentCustomer()?.isActive ? 'success' : 'neutral'"
+        ></app-status-badge>
+      }
+
+      <p-button
+        [label]="mode() === 'create' ? 'Save Customer' : 'Update Customer'"
+        icon="pi pi-check"
+        size="small"
+        severity="primary"
+        [loading]="saving()"
+        (onClick)="saveCustomer()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading customer account from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state
+        title="Unable to load customer account"
+        [message]="error()!"
+        (retry)="loadCustomer(customerId()!)"
+      ></app-error-state>
+    </div>
+  } @else {
+    <div class="customer-form-layout">
+      <!-- Section 1: Business Identity & Contact -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">1</span>
+            <div class="section-headings">
+              <h2 class="section-title">Customer Identity & Commercial Contact</h2>
+              <span class="section-subtitle">
+                Specify client account code, registered entity trade name, and key contact person.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <app-reactive-form
+          [form]="customerForm"
+          [fields]="identityFields()"
+          [serverErrors]="serverErrors()"
+          [columns]="3"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Section 2: Address & Electronic Communication -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">2</span>
+            <div class="section-headings">
+              <h2 class="section-title">Communication & Billing Address</h2>
+              <span class="section-subtitle">
+                Configure primary billing email, telephone contact, municipal jurisdiction, and tax number.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <app-reactive-form
+          [form]="customerForm"
+          [fields]="addressFields()"
+          [serverErrors]="serverErrors()"
+          [columns]="3"
+        ></app-reactive-form>
+      </section>
+
+      <!-- Section 3: Commercial Terms & Credit Control -->
+      <section class="erp-card form-section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">3</span>
+            <div class="section-headings">
+              <h2 class="section-title">Commercial Terms & Credit Line</h2>
+              <span class="section-subtitle">
+                Define contractual settlement terms, approved credit limit, and active sales eligibility.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <app-reactive-form
+          [form]="customerForm"
+          [fields]="termsFields()"
+          [serverErrors]="serverErrors()"
+          [columns]="3"
+        ></app-reactive-form>
+      </section>
+
+      <div class="form-bottom-actions erp-card">
+        <div class="footer-hint">
+          <i class="pi pi-info-circle"></i>
+          <span>Fields marked with an asterisk (<strong class="required-mark">*</strong>) are mandatory.</span>
+        </div>
+        <div class="footer-buttons">
+          <p-button
+            label="Cancel"
+            [outlined]="true"
+            size="small"
+            severity="secondary"
+            (onClick)="navigateBack()"
+          ></p-button>
+          <p-button
+            [label]="mode() === 'create' ? 'Save Customer' : 'Update Customer'"
+            icon="pi pi-check"
+            size="small"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveCustomer()"
+          ></p-button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

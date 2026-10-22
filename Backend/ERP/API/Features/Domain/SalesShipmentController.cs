@@ -35,6 +35,83 @@ public class SalesShipmentController : BaseApiController
         _userAccessService = userAccessService;
     }
 
+    [HttpGet("~/api/companies/{companyId:guid}/sales-shipments")]
+    public async Task<IActionResult> GetCompanyShipments(
+        Guid companyId,
+        [FromQuery] SalesShipmentStatus? status = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
+
+        if (!canAccessCompany)
+        {
+            return Forbid();
+        }
+
+        var list = await _shipmentService.GetShipmentsAsync(
+            tenantId.Value,
+            companyId,
+            branchId: null,
+            status: status);
+
+        return PaginateAndSort(list, page, pageSize, sortBy, sortDirection, _sortMapping);
+    }
+
+    [HttpGet("~/api/companies/{companyId:guid}/sales-shipments/{id:guid}")]
+    public async Task<IActionResult> GetCompanyShipment(Guid companyId, Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
+
+        if (!canAccessCompany)
+        {
+            return Forbid();
+        }
+
+        var shipment = await _shipmentService.GetShipmentByIdAsync(
+            tenantId.Value,
+            companyId,
+            branchId: null,
+            shipmentId: id);
+
+        if (shipment == null)
+        {
+            return NotFoundResponse("Sales shipment not found in the authorized scope.");
+        }
+
+        return SuccessResponse(shipment);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetShipments(
         Guid companyId,

@@ -1,15 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { of } from 'rxjs';
 import { UserSecurityService } from './user-security.service';
 import { CompanyService } from './company.service';
 
 describe('UserSecurityService', () => {
   let service: UserSecurityService;
+  let httpMock: HttpTestingController;
+  let companyService: CompanyService;
 
   beforeEach(() => {
-    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [
         UserSecurityService,
@@ -19,6 +21,16 @@ describe('UserSecurityService', () => {
       ]
     });
     service = TestBed.inject(UserSecurityService);
+    httpMock = TestBed.inject(HttpTestingController);
+    companyService = TestBed.inject(CompanyService);
+
+    vi.spyOn(companyService, 'getCompanies').mockReturnValue(of([
+      { id: 'comp-1', tenantId: 't1', name: 'XYZ Manufacturing Ltd', code: 'XYZ', isActive: true }
+    ]));
+  });
+
+  afterEach(() => {
+    httpMock.verify();
   });
 
   it('should initialize with system permissions and predefined templates', () => {
@@ -26,90 +38,171 @@ describe('UserSecurityService', () => {
     expect(service.permissionTemplates.length).toBeGreaterThan(3);
   });
 
-  it('should return initial seeded roles', () => {
+  it('should retrieve roles from backend API without mock data', () => {
     service.getRoles().subscribe(roles => {
-      expect(roles.length).toBeGreaterThan(0);
-      const adminRole = roles.find(r => r.name === 'Tenant Administrator');
-      expect(adminRole).toBeDefined();
+      expect(roles.length).toBe(1);
+      expect(roles[0].name).toBe('Tenant Administrator');
+      expect(roles[0].isSystem).toBe(true);
+    });
+
+    const req = httpMock.expectOne(r => r.url.includes('/Role') && r.method === 'GET');
+    req.flush({
+      data: [
+        {
+          id: 'role-admin',
+          name: 'Tenant Administrator',
+          description: 'Tenant Administrator role',
+          isSystem: true,
+          usersCount: 1
+        }
+      ]
     });
   });
 
-  it('should create a custom role with permissions', () => {
+  it('should create a custom role via backend API', () => {
     service.createRole({
       name: 'Custom Safety Inspector',
       description: 'Oversees safety and compliance',
       assignmentMode: 'advanced',
       permissions: ['scope.switch', 'warehouses.view', 'reports.export']
     }).subscribe(role => {
-      expect(role.id).toBeDefined();
+      expect(role.id).toBe('role-99');
       expect(role.name).toBe('Custom Safety Inspector');
       expect(role.permissions).toContain('warehouses.view');
     });
+
+    const req = httpMock.expectOne(r => r.url.includes('/Role') && r.method === 'POST');
+    expect(req.request.body).toEqual({
+      name: 'Custom Safety Inspector',
+      description: 'Oversees safety and compliance'
+    });
+
+    req.flush({
+      data: {
+        roleId: 'role-99',
+        name: 'Custom Safety Inspector',
+        description: 'Oversees safety and compliance'
+      }
+    });
   });
 
-  it('should return initial seeded users and create new users with primary scope', () => {
+  it('should retrieve users from backend API and create new user via tenant-user endpoint', () => {
     service.getUsers().subscribe(users => {
-      expect(users.length).toBeGreaterThan(0);
+      expect(users.length).toBe(1);
+      expect(users[0].username).toBe('xyzadmin');
+      expect(users[0].primaryCompanyName).toBe('XYZ Manufacturing Ltd');
+    });
+
+    const getReq = httpMock.expectOne(r => r.url.includes('/User') && r.method === 'GET');
+    getReq.flush({
+      data: [
+        {
+          id: 'u-1',
+          username: 'xyzadmin',
+          email: 'admin@xyz.lk',
+          isActive: true,
+          roles: [
+            {
+              roleId: 'r-admin',
+              roleName: 'Tenant Administrator',
+              scopes: [{ companyId: 'comp-1', branchId: 'br-1' }]
+            }
+          ]
+        }
+      ]
     });
 
     service.createUser(
       {
         firstName: 'Jane',
         lastName: 'Watson',
-        email: 'jane.watson@alphamfg.com',
+        email: 'jane.watson@xyz.lk',
         username: 'jwatson',
         accountStatus: 'Active',
-        roleId: 'role-procurement',
-        companyId: 'comp_test',
-        branchId: 'br_test'
+        roleId: 'r-proc',
+        companyId: 'comp-1',
+        branchId: 'br-1'
       },
       'Procurement Officer',
-      'Test Company',
-      'Test Branch'
+      'XYZ Manufacturing Ltd',
+      'Colombo Plant'
     ).subscribe(newUser => {
       expect(newUser.fullName).toBe('Jane Watson');
-      expect(newUser.primaryCompanyName).toBe('Test Company');
+      expect(newUser.primaryCompanyName).toBe('XYZ Manufacturing Ltd');
+      expect(newUser.id).toBe('u-created-01');
+    });
 
-      // Verify that primary scope was automatically registered
-      service.getUserScopes(newUser.id).subscribe(scopes => {
-        expect(scopes.length).toBe(1);
-        expect(scopes[0].isPrimary).toBe(true);
-      });
+    const postReq = httpMock.expectOne(r => r.url.includes('/User/tenant-user') && r.method === 'POST');
+    expect(postReq.request.body.email).toBe('jane.watson@xyz.lk');
+    postReq.flush({
+      data: {
+        userId: 'u-created-01',
+        username: 'jwatson',
+        roleName: 'Procurement Officer'
+      }
     });
   });
 
-  it('should toggle user account status between Active and Suspended', () => {
-    service.getUsers().subscribe(users => {
-      const firstUser = users[0];
-      const initialStatus = firstUser.accountStatus;
+  it('should toggle user account status via backend API', () => {
+    service.toggleUserStatus('u-1').subscribe(res => {
+      expect(res).not.toBeNull();
+      expect(res?.accountStatus).toBe('Suspended');
+    });
 
-      service.toggleUserStatus(firstUser.id).subscribe(updated => {
-        expect(updated).not.toBeNull();
-        expect(updated?.accountStatus).not.toBe(initialStatus);
-      });
+    const req = httpMock.expectOne(r => r.url.includes('/User/u-1/toggle-status') && r.method === 'PUT');
+    req.flush({
+      data: {
+        userId: 'u-1',
+        isActive: false,
+        accountStatus: 'Suspended'
+      }
     });
   });
 
-  it('should assign and revoke additional company/branch scope', () => {
+  it('should retrieve user scopes and assign new user scope via backend API', () => {
+    service.getUserScopes().subscribe(scopes => {
+      expect(scopes.length).toBe(1);
+      expect(scopes[0].companyName).toBe('XYZ Manufacturing Ltd');
+      expect(scopes[0].status).toBe('Authorized');
+    });
+
+    const getReq = httpMock.expectOne(r => r.url.includes('/User/scopes') && r.method === 'GET');
+    getReq.flush({
+      data: [
+        {
+          id: 'scp-1',
+          userId: 'u-1',
+          userName: 'xyzadmin',
+          companyId: 'comp-1',
+          branchId: 'br-1',
+          isActive: true
+        }
+      ]
+    });
+
     service.assignUserScope(
       {
-        userId: 'usr-proc-02',
-        companyId: 'comp_extra',
-        branchId: 'br_extra',
-        notes: 'Temporary plant assignment'
+        userId: 'u-1',
+        companyId: 'comp-1',
+        branchId: 'br-2',
+        notes: 'Central plant assignment'
       },
-      'Sarah Connor',
-      's.connor@alphamfg.com',
-      'Extra Company Ltd',
-      'Extra Branch Plant'
+      'xyzadmin',
+      'admin@xyz.lk',
+      'XYZ Manufacturing Ltd',
+      'Kandy Assembly'
     ).subscribe(assignedScope => {
-      expect(assignedScope.id).toBeDefined();
+      expect(assignedScope.id).toBe('scp-new-99');
       expect(assignedScope.isPrimary).toBe(false);
+      expect(assignedScope.branchName).toBe('Kandy Assembly');
+    });
 
-      // Verify revoke
-      service.revokeUserScope(assignedScope.id).subscribe(success => {
-        expect(success).toBe(true);
-      });
+    const postReq = httpMock.expectOne(r => r.url.includes('/User/scope') && r.method === 'POST');
+    expect(postReq.request.body.branchId).toBe('br-2');
+    postReq.flush({
+      data: {
+        scopeId: 'scp-new-99'
+      }
     });
   });
 });
