@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using Domain.Features.Sales.Invoice;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +23,7 @@ public class SalesShipmentService : ISalesShipmentService
     private readonly IInventoryPostingService _postingService;
     private readonly DomainDbContext _context;
     private readonly ISubscriptionUsageService? _subscriptionUsageService;
+    private readonly IServiceProvider? _serviceProvider;
 
     public SalesShipmentService(
         ISalesShipmentRepository shipmentRepository,
@@ -29,7 +32,8 @@ public class SalesShipmentService : ISalesShipmentService
         IWarehouseRepository warehouseRepository,
         IInventoryPostingService postingService,
         DomainDbContext context,
-        ISubscriptionUsageService? subscriptionUsageService = null)
+        ISubscriptionUsageService? subscriptionUsageService = null,
+        IServiceProvider? serviceProvider = null)
     {
         _shipmentRepository = shipmentRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -38,19 +42,29 @@ public class SalesShipmentService : ISalesShipmentService
         _postingService = postingService;
         _context = context;
         _subscriptionUsageService = subscriptionUsageService;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<List<SalesShipmentDto>> GetShipmentsAsync(
         Guid tenantId,
         Guid companyId,
-        Guid branchId,
+        Guid? branchId = null,
         SalesShipmentStatus? status = null)
     {
-        var shipments = await _shipmentRepository.GetByBranchAsync(tenantId, companyId, branchId, status);
+        List<SalesShipment> shipments;
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            shipments = await _shipmentRepository.GetByBranchAsync(tenantId, companyId, branchId.Value, status);
+        }
+        else
+        {
+            shipments = await _shipmentRepository.GetByCompanyAsync(tenantId, companyId, status);
+        }
+
         var dtos = new List<SalesShipmentDto>();
         foreach (var s in shipments)
         {
-            var order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, branchId, s.SalesOrderId);
+            var order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, s.BranchId, s.SalesOrderId);
             dtos.Add(MapToDto(s, order?.OrderNumber ?? string.Empty));
         }
         return dtos;
@@ -59,13 +73,23 @@ public class SalesShipmentService : ISalesShipmentService
     public async Task<SalesShipmentDto?> GetShipmentByIdAsync(
         Guid tenantId,
         Guid companyId,
-        Guid branchId,
+        Guid? branchId,
         Guid shipmentId)
     {
-        var shipment = await _shipmentRepository.GetByIdAsync(tenantId, companyId, branchId, shipmentId);
+        SalesShipment? shipment;
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            shipment = await _shipmentRepository.GetByIdAsync(tenantId, companyId, branchId.Value, shipmentId);
+        }
+        else
+        {
+            shipment = await _shipmentRepository.GetByIdAsync(tenantId, shipmentId);
+            if (shipment != null && shipment.CompanyId != companyId) shipment = null;
+        }
+
         if (shipment == null) return null;
 
-        var order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, branchId, shipment.SalesOrderId);
+        var order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, shipment.BranchId, shipment.SalesOrderId);
         return MapToDto(shipment, order?.OrderNumber ?? string.Empty);
     }
 
@@ -440,6 +464,7 @@ public class SalesShipmentService : ISalesShipmentService
 
         if (existingShipment.Status == SalesShipmentStatus.Delivered)
         {
+            await EnsureInvoiceCreatedAsync(tenantId, companyId, branchId, existingShipment);
             var order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, branchId, existingShipment.SalesOrderId);
             return MapToDto(existingShipment, order?.OrderNumber ?? string.Empty);
         }
@@ -471,6 +496,7 @@ public class SalesShipmentService : ISalesShipmentService
         }
 
         await _shipmentRepository.SaveChangesAsync();
+        await EnsureInvoiceCreatedAsync(tenantId, companyId, branchId, existingShipment);
 
         var ord = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, branchId, existingShipment.SalesOrderId);
         return MapToDto(existingShipment, ord?.OrderNumber ?? string.Empty);
@@ -641,6 +667,11 @@ public class SalesShipmentService : ISalesShipmentService
             await _context.SaveChangesAsync();
             await domainTx.CommitAsync();
 
+            if (targetStatus == SalesShipmentStatus.Delivered)
+            {
+                await EnsureInvoiceCreatedAsync(tenantId, companyId, branchId, shipment);
+            }
+
             return MapToDto(shipment, order.OrderNumber);
         };
 
@@ -698,6 +729,7 @@ public class SalesShipmentService : ISalesShipmentService
             DeliveryAddress = shipment.DeliveryAddress,
             VehicleNumber = shipment.VehicleNumber,
             Notes = shipment.Notes,
+            InvoiceId = shipment.InvoiceId,
             Items = shipment.Items.Where(i => i.IsActive).Select(i => new SalesShipmentItemDto
             {
                 Id = i.Id,
@@ -713,5 +745,25 @@ public class SalesShipmentService : ISalesShipmentService
                 Notes = i.Notes
             }).ToList()
         };
+    }
+    private async Task EnsureInvoiceCreatedAsync(Guid tenantId, Guid companyId, Guid branchId, SalesShipment shipment)
+    {
+        if (shipment.InvoiceId.HasValue) return;
+
+        try
+        {
+            var invoiceService = _serviceProvider?.GetService<ISalesInvoiceService>();
+            if (invoiceService != null)
+            {
+                var inv = await invoiceService.CreateDraftFromShipmentAsync(tenantId, companyId, branchId, shipment.Id);
+                shipment.InvoiceId = inv.Id;
+                await _shipmentRepository.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            // Resilient boundary: stock deduction was already safely posted and committed.
+            // Failure in auto-invoice draft creation does not invalidate stock ledger.
+        }
     }
 }

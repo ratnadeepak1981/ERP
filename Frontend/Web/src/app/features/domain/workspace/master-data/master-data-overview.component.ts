@@ -41,7 +41,16 @@ export class MasterDataOverviewComponent {
       route: '/app/master-data/products',
       available: true
     },
-    {
+        {
+      title: 'Customer Master',
+      badge: 'Core master',
+      badgeSeverity: 'info',
+      icon: 'pi pi-users',
+      description: 'Customer directory, billing addresses, contact details, credit limits and trading status.',
+      route: '/app/master-data/customers',
+      available: true
+    },
+{
       title: 'Supplier Master',
       badge: 'Core master',
       badgeSeverity: 'info',

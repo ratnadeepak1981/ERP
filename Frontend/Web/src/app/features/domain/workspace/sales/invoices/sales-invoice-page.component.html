@@ -1,0 +1,412 @@
+<div class="sales-invoice-page">
+  <!-- Page Header -->
+  <app-page-header
+    [title]="'Sales Invoice ' + (headerForm.get('invoiceNumber')?.value || '')"
+    subtitle="Customer billing details, commercial terms, item pricing amendments, and formal confirmation"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Invoices"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (invoiceId()) {
+        <p-button
+          icon="pi pi-refresh"
+          [outlined]="true"
+          size="small"
+          severity="secondary"
+          [loading]="loading()"
+          (onClick)="loadInvoice(invoiceId()!)"
+          title="Reload invoice details"
+        ></p-button>
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Notification Banner -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Loading / Error States -->
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading sales invoice details..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="invoiceId() ? loadInvoice(invoiceId()!) : navigateBack()"></app-error-state>
+    </div>
+  } @else {
+    <div class="invoice-form-container">
+      <!-- Section 1: Header / Document Information -->
+      <section class="erp-card section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Invoice Information</h3>
+          </div>
+          @if (currentInvoice()) {
+            <app-status-badge
+              [label]="currentInvoice()!.status === 1 ? 'Draft' : (currentInvoice()!.status === 2 ? 'Confirmed' : (currentInvoice()!.status === 4 ? 'Paid' : 'Cancelled'))"
+              [severity]="currentInvoice()!.status === 2 || currentInvoice()!.status === 4 ? 'success' : (currentInvoice()!.status === 1 ? 'info' : 'danger')"
+            ></app-status-badge>
+          }
+        </div>
+
+        <form [formGroup]="headerForm" class="header-form-grid">
+          <div class="form-field">
+            <label for="invoiceNumber">Invoice #</label>
+            <input
+              id="invoiceNumber"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="invoiceNumber"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="orderNumber">Sales Order #</label>
+            <input
+              id="orderNumber"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="orderNumber"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="shipmentNumber">Dispatch Note #</label>
+            <input
+              id="shipmentNumber"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="shipmentNumber"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="customerName">Customer Account</label>
+            <input
+              id="customerName"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="customerName"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="invoiceDate">Invoice Date</label>
+            <input
+              id="invoiceDate"
+              type="date"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="invoiceDate"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="dueDate">Due Date</label>
+            <input
+              id="dueDate"
+              type="date"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="dueDate"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="paymentTerms">Payment Terms</label>
+            <input
+              id="paymentTerms"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="paymentTerms"
+              placeholder="e.g. Net 30, Due on Receipt..."
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="currency">Billing Currency</label>
+            <input
+              id="currency"
+              type="text"
+              pInputText
+              class="p-inputtext-sm"
+              formControlName="currency"
+            />
+          </div>
+
+          <div class="form-field full-row">
+            <label for="notes">Invoice Remarks / Notes</label>
+            <textarea
+              id="notes"
+              class="p-inputtext p-inputtext-sm full-width"
+              rows="2"
+              formControlName="notes"
+              placeholder="Commercial terms, bank details, delivery reference..."
+            ></textarea>
+          </div>
+        </form>
+      </section>
+
+      <!-- Section 2: Line Items -->
+      <section class="erp-card section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Invoice Billed Line Items</h3>
+          </div>
+          <span class="lines-count-badge">{{ workingLines().length }} items</span>
+        </div>
+
+        <div class="items-table-wrapper">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th style="min-width: 180px;">Product</th>
+                <th style="width: 90px; text-align: right;">Billed Qty</th>
+                <th style="width: 120px; text-align: right;">Unit Price</th>
+                <th style="width: 90px; text-align: right;">Disc %</th>
+                <th style="width: 90px; text-align: right;">Tax %</th>
+                <th style="width: 110px; text-align: right;">Subtotal</th>
+                <th style="width: 110px; text-align: right;">Tax Amt</th>
+                <th style="width: 120px; text-align: right;">Line Total</th>
+                <th style="min-width: 120px;">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of workingLines(); track line.id; let idx = $index) {
+                <tr>
+                  <td class="col-idx">{{ idx + 1 }}</td>
+                  <td class="col-product">
+                    <span class="product-code">{{ line.productCode }}</span>
+                    <span class="product-name">{{ line.productName }}</span>
+                  </td>
+                  <td class="col-qty" style="text-align: right;">
+                    {{ line.quantity | number:'1.2-4' }}
+                  </td>
+                  <td class="col-price" style="text-align: right;">
+                    @if (isDraft() && mode() === 'edit') {
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="p-inputtext p-inputtext-sm price-input"
+                        [ngModel]="line.unitPrice"
+                        (ngModelChange)="updateLinePrice(idx, $event)"
+                        [disabled]="actionInProgress()"
+                      />
+                    } @else {
+                      <span>{{ line.unitPrice | currency:'USD':'symbol':'1.2-2' }}</span>
+                    }
+                  </td>
+                  <td class="col-disc" style="text-align: right;">
+                    @if (isDraft() && mode() === 'edit') {
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        class="p-inputtext p-inputtext-sm rate-input"
+                        [ngModel]="line.discountRate"
+                        (ngModelChange)="updateLineDiscount(idx, $event)"
+                        [disabled]="actionInProgress()"
+                      />
+                    } @else {
+                      <span>{{ line.discountRate | number:'1.1-2' }}%</span>
+                    }
+                  </td>
+                  <td class="col-tax" style="text-align: right;">
+                    @if (isDraft() && mode() === 'edit') {
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        class="p-inputtext p-inputtext-sm rate-input"
+                        [ngModel]="line.taxRate"
+                        (ngModelChange)="updateLineTax(idx, $event)"
+                        [disabled]="actionInProgress()"
+                      />
+                    } @else {
+                      <span>{{ line.taxRate | number:'1.1-2' }}%</span>
+                    }
+                  </td>
+                  <td class="col-sub" style="text-align: right;">
+                    {{ line.subtotal | currency:'USD':'symbol':'1.2-2' }}
+                  </td>
+                  <td class="col-taxamt" style="text-align: right;">
+                    {{ line.taxAmount | currency:'USD':'symbol':'1.2-2' }}
+                  </td>
+                  <td class="col-total" style="text-align: right; font-weight: 600;">
+                    {{ line.lineTotal | currency:'USD':'symbol':'1.2-2' }}
+                  </td>
+                  <td class="col-notes">
+                    @if (isDraft() && mode() === 'edit') {
+                      <input
+                        type="text"
+                        class="p-inputtext p-inputtext-sm full-width"
+                        [(ngModel)]="line.notes"
+                        placeholder="Optional"
+                        [disabled]="actionInProgress()"
+                      />
+                    } @else {
+                      <span>{{ line.notes || '-' }}</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Totals Summary Block -->
+        <div class="totals-summary-wrapper">
+          <div class="totals-block">
+            <div class="total-row">
+              <span class="total-label">Subtotal:</span>
+              <span class="total-val">{{ subtotalAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Discount:</span>
+              <span class="total-val text-warn">- {{ discountAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="total-row">
+              <span class="total-label">Tax:</span>
+              <span class="total-val">+ {{ taxAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="total-row grand-total">
+              <span class="total-label">Total Amount:</span>
+              <span class="total-val text-primary">{{ grandTotalAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Action Toolbar -->
+      <section class="erp-card action-bar-card">
+        <div class="action-bar-content">
+          <div class="action-info">
+            @if (isDraft()) {
+              <i class="pi pi-info-circle info-icon"></i>
+              <span>Invoice is in <strong>Draft</strong> mode. You can amend prices/taxes before explicitly confirming.</span>
+            } @else if (isConfirmed()) {
+              <i class="pi pi-check-circle success-icon"></i>
+              <span>Invoice is <strong>Confirmed</strong> and finalized for customer payment processing.</span>
+            }
+          </div>
+
+          <div class="action-buttons">
+            @if (isDraft()) {
+              @if (mode() === 'view') {
+                <p-button
+                  label="Amend Draft"
+                  icon="pi pi-pencil"
+                  size="small"
+                  [outlined]="true"
+                  (onClick)="mode.set('edit'); headerForm.enable();"
+                ></p-button>
+              }
+
+              @if (mode() === 'edit') {
+                <p-button
+                  label="Save Draft"
+                  icon="pi pi-save"
+                  size="small"
+                  severity="secondary"
+                  [loading]="actionInProgress()"
+                  (onClick)="saveDraft()"
+                ></p-button>
+              }
+
+              @if (canConfirm()) {
+                <p-button
+                  label="Confirm Invoice"
+                  icon="pi pi-check"
+                  size="small"
+                  severity="success"
+                  [loading]="actionInProgress()"
+                  (onClick)="openConfirmDialog()"
+                  title="Finalize and confirm this sales invoice"
+                ></p-button>
+              }
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  }
+
+  <!-- Confirm Dialog -->
+  <p-dialog
+    [(visible)]="confirmDialogVisible"
+    [modal]="true"
+    header="Confirm Sales Invoice"
+    [style]="{ width: '480px', maxWidth: '95vw' }"
+    [closable]="!actionInProgress()"
+  >
+    <div class="confirm-dialog-body">
+      <p class="dialog-notice">
+        Are you sure you want to confirm this invoice? Once confirmed, the invoice amount of
+        <strong>{{ grandTotalAmount() | currency:'USD':'symbol':'1.2-2' }}</strong> is formally finalized.
+      </p>
+
+      <div class="form-group">
+        <label for="dialogConfirmNotes">Remarks / Confirmation Note (Optional)</label>
+        <textarea
+          id="dialogConfirmNotes"
+          class="p-inputtext p-inputtext-sm full-width"
+          rows="2"
+          [ngModel]="confirmNotes()"
+          (ngModelChange)="confirmNotes.set($event)"
+          placeholder="Enter optional remarks..."
+          [disabled]="actionInProgress()"
+        ></textarea>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cancel"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [disabled]="actionInProgress()"
+        (onClick)="closeConfirmDialog()"
+      ></p-button>
+
+      <p-button
+        label="Yes, Confirm Invoice"
+        icon="pi pi-check"
+        size="small"
+        severity="success"
+        [loading]="actionInProgress()"
+        (onClick)="executeConfirm()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

@@ -1,0 +1,235 @@
+<div class="sales-orders-page">
+  <app-page-header
+    title="Sales Orders"
+    subtitle="Manage customer sales orders, line items, pricing, commercial terms, and order dispatch workflow."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Refresh"
+        icon="pi pi-refresh"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [loading]="loading()"
+        (onClick)="loadOrders()"
+        title="Reload orders list"
+      ></p-button>
+
+      <p-button
+        label="New Sales Order"
+        icon="pi pi-plus"
+        size="small"
+        severity="primary"
+        [disabled]="!canCreateOrder() || actionInProgress()"
+        [title]="!scopeService.canOperateTransactions() ? 'Select an operating company and branch first' : 'Create a new sales order'"
+        (onClick)="navigateToCreate()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Global Status / Notification Message -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="so-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (!scopeService.canOperateTransactions()) {
+    <div class="scope-required-wrapper erp-card">
+      <app-empty-state
+        icon="pi pi-compass"
+        title="Operating Company and Branch Required"
+        description="Sales orders and order operations are strictly scoped to an operating company and physical branch. Please select both from the scope switcher in the navigation bar to proceed."
+      ></app-empty-state>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading sales orders from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="loadOrders()"></app-error-state>
+    </div>
+  } @else {
+    <!-- Main Content Area: Search, Filter Pills & Data Table -->
+    <div class="so-table-card erp-card">
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <!-- Quick Search -->
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm search-field"
+              placeholder="Search SO # or customer name..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <!-- Status Filter Pills -->
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'all'"
+              (click)="activeStatusFilter.set('all')"
+            >
+              All Status
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'draft'"
+              (click)="activeStatusFilter.set('draft')"
+            >
+              <i class="pi pi-file-edit pill-icon"></i> Draft
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'submitted'"
+              (click)="activeStatusFilter.set('submitted')"
+            >
+              <i class="pi pi-clock pill-icon"></i> Pending Confirmation
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'confirmed'"
+              (click)="activeStatusFilter.set('confirmed')"
+            >
+              <i class="pi pi-check pill-icon"></i> Confirmed
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'fulfilled'"
+              (click)="activeStatusFilter.set('fulfilled')"
+            >
+              <i class="pi pi-box pill-icon"></i> Fulfilled
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'cancelled'"
+              (click)="activeStatusFilter.set('cancelled')"
+            >
+              <i class="pi pi-ban pill-icon"></i> Cancelled
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Badge Indicator -->
+        <div class="scope-info-pill" title="Current Transaction Scope">
+          <i class="pi pi-building"></i>
+          <span class="scope-text">
+            {{ scopeService.selectedCompany()?.name }} / {{ scopeService.selectedBranch()?.name }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Main Sales Orders Data Table -->
+      <app-data-table
+        [data]="filteredOrders()"
+        [columns]="tableColumns"
+        [rowActions]="tableActions"
+        rowKey="id"
+        [loading]="loading()"
+        emptyTitle="No sales orders found"
+        emptyDescription="No sales orders match your current filter or none exist for this operating branch yet."
+        [showGlobalSearch]="false"
+        [showColumnChooser]="true"
+        [showExport]="true"
+        [showViewSwitcher]="true"
+        cardTitleField="orderNumber"
+        cardSubtitleField="customerName"
+        cardIcon="pi pi-shopping-bag"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+        (rowClick)="navigateToView($event)"
+      ></app-data-table>
+    </div>
+  }
+
+  <!-- REMARKS DIALOG (Confirm / Reject / Cancel) -->
+  <p-dialog
+    [(visible)]="remarksDialogVisible"
+    [modal]="true"
+    [header]="remarksDialogTitle()"
+    [style]="{ width: '480px', maxWidth: '95vw' }"
+    [closable]="!actionInProgress()"
+  >
+    @if (remarksTargetOrder()) {
+      <div class="remarks-dialog-content">
+        <div class="dialog-order-summary">
+          <span><strong>Order:</strong> {{ remarksTargetOrder()!.orderNumber }}</span>
+          <span><strong>Customer:</strong> {{ remarksTargetOrder()!.customerName || 'Standard Customer' }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="remarksText">
+            Remarks {{ remarksAction() === 'reject' ? '(Required)' : '(Optional)' }}
+          </label>
+          <textarea
+            id="remarksText"
+            class="p-inputtext p-inputtext-sm"
+            rows="3"
+            [placeholder]="remarksPlaceholder()"
+            [ngModel]="remarksText()"
+            (ngModelChange)="remarksText.set($event)"
+            [disabled]="actionInProgress()"
+          ></textarea>
+        </div>
+
+        @if (remarksError()) {
+          <div class="field-error">{{ remarksError() }}</div>
+        }
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cancel"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        [disabled]="actionInProgress()"
+        (onClick)="closeRemarksDialog()"
+      ></p-button>
+
+      <p-button
+        [label]="remarksSubmitLabel()"
+        [icon]="remarksSubmitIcon()"
+        size="small"
+        [severity]="remarksSubmitSeverity()"
+        [loading]="actionInProgress()"
+        (onClick)="submitRemarksAction()"
+      ></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

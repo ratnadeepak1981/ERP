@@ -11,10 +11,20 @@ public interface IPurchaseOrderService
         Guid companyId,
         Guid branchId);
 
+    Task<List<PurchaseOrder>> GetOrdersByCompanyAsync(
+        Guid tenantId,
+        Guid companyId,
+        IEnumerable<Guid>? branchIds = null);
+
     Task<PurchaseOrder?> GetOrderAsync(
         Guid tenantId,
         Guid companyId,
         Guid branchId,
+        Guid orderId);
+
+    Task<PurchaseOrder?> GetOrderByIdAsync(
+        Guid tenantId,
+        Guid companyId,
         Guid orderId);
 
     Task<PurchaseOrder> CreateOrderAsync(

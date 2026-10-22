@@ -127,11 +127,24 @@ export class AuthService {
               permissions: data.permissions || [
                 'Product.Read',
                 'Product.Write',
+                'PRODUCT.VIEW',
+                'PRODUCT.CREATE',
+                'PRODUCT.EDIT',
+                'CUSTOMER.VIEW',
+                'CUSTOMER.CREATE',
+                'CUSTOMER.EDIT',
+                'CUSTOMER.DELETE',
                 'PURCHASE_ORDER.VIEW',
                 'PURCHASE_ORDER.CREATE',
                 'PURCHASE_ORDER.SUBMIT',
                 'PURCHASE_ORDER.APPROVE',
-                'PURCHASE_ORDER.CANCEL'
+                'PURCHASE_ORDER.CANCEL',
+                'SALES_ORDER.VIEW',
+                'SALES_ORDER.CREATE',
+                'SALES_ORDER.EDIT',
+                'SALES_ORDER.SUBMIT',
+                'SALES_ORDER.CONFIRM',
+                'SALES_ORDER.CANCEL'
               ],
               token: data.token
             };
@@ -158,6 +171,9 @@ export class AuthService {
   }
 
   hasPermission(permission: string): boolean {
+    if (this.isTenantAdmin() || this.isPlatformAdmin()) {
+      return true;
+    }
     return this.permissions().includes(permission);
   }
 
