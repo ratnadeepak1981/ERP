@@ -3,7 +3,7 @@ import { PublicLayoutComponent } from './layout/public-layout/public-layout.comp
 import { TenantLayoutComponent } from './layout/tenant-layout/tenant-layout.component';
 import { PlatformAdminLayoutComponent } from './layout/platform-admin-layout/platform-admin-layout.component';
 import { PlatformStaffLayoutComponent } from './layout/platform-staff-layout/platform-staff-layout.component';
-import { roleGuard } from './core/guards/auth.guard';
+import { roleGuard, workspaceGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   // 1. Platform Public (Public SaaS Shell)
@@ -41,7 +41,7 @@ export const routes: Routes = [
   {
     path: 'app',
     component: TenantLayoutComponent,
-    canActivate: [roleGuard(['Tenant Admin', 'Tenant User', 'Branch User', 'Viewer', 'Platform Admin'])],
+    canActivate: [workspaceGuard],
     loadChildren: () => import('./features/domain/workspace/workspace.routes').then(m => m.workspaceRoutes)
   },
 

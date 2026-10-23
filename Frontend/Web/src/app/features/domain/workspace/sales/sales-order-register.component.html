@@ -177,59 +177,38 @@
   }
 
   <!-- REMARKS DIALOG (Confirm / Reject / Cancel) -->
-  <p-dialog
+  <app-action-dialog
     [(visible)]="remarksDialogVisible"
-    [modal]="true"
-    [header]="remarksDialogTitle()"
-    [style]="{ width: '480px', maxWidth: '95vw' }"
-    [closable]="!actionInProgress()"
+    [title]="remarksDialogTitle()"
+    [loading]="actionInProgress()"
+    [confirmLabel]="remarksSubmitLabel()"
+    [confirmIcon]="remarksSubmitIcon()"
+    [confirmSeverity]="remarksSubmitSeverity()"
+    (onCancel)="closeRemarksDialog()"
+    (onConfirm)="submitRemarksAction()"
   >
-    @if (remarksTargetOrder()) {
-      <div class="remarks-dialog-content">
-        <div class="dialog-order-summary">
-          <span><strong>Order:</strong> {{ remarksTargetOrder()!.orderNumber }}</span>
-          <span><strong>Customer:</strong> {{ remarksTargetOrder()!.customerName || 'Standard Customer' }}</span>
-        </div>
-
-        <div class="form-group">
-          <label for="remarksText">
-            Remarks {{ remarksAction() === 'reject' ? '(Required)' : '(Optional)' }}
-          </label>
-          <textarea
-            id="remarksText"
-            class="p-inputtext p-inputtext-sm"
-            rows="3"
-            [placeholder]="remarksPlaceholder()"
-            [ngModel]="remarksText()"
-            (ngModelChange)="remarksText.set($event)"
-            [disabled]="actionInProgress()"
-          ></textarea>
-        </div>
-
-        @if (remarksError()) {
-          <div class="field-error">{{ remarksError() }}</div>
-        }
+    <ng-container *ngIf="remarksTargetOrder()">
+      <div class="dialog-order-summary">
+        <span><strong>Order:</strong> {{ remarksTargetOrder()!.orderNumber }}</span>
+        <span><strong>Customer:</strong> {{ remarksTargetOrder()!.customerName || 'Standard Customer' }}</span>
       </div>
-    }
 
-    <ng-template pTemplate="footer">
-      <p-button
-        label="Cancel"
-        [outlined]="true"
-        size="small"
-        severity="secondary"
-        [disabled]="actionInProgress()"
-        (onClick)="closeRemarksDialog()"
-      ></p-button>
+      <div class="form-group">
+        <label for="remarksText">
+          Remarks {{ remarksAction() === 'reject' ? '(Required)' : '(Optional)' }}
+        </label>
+        <textarea
+          id="remarksText"
+          class="p-inputtext p-inputtext-sm"
+          rows="3"
+          [placeholder]="remarksPlaceholder()"
+          [ngModel]="remarksText()"
+          (ngModelChange)="remarksText.set($event)"
+          [disabled]="actionInProgress()"
+        ></textarea>
+      </div>
 
-      <p-button
-        [label]="remarksSubmitLabel()"
-        [icon]="remarksSubmitIcon()"
-        size="small"
-        [severity]="remarksSubmitSeverity()"
-        [loading]="actionInProgress()"
-        (onClick)="submitRemarksAction()"
-      ></p-button>
-    </ng-template>
-  </p-dialog>
+      <div class="field-error" *ngIf="remarksError()">{{ remarksError() }}</div>
+    </ng-container>
+  </app-action-dialog>
 </div>

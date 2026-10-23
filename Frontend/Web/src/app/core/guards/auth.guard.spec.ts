@@ -4,7 +4,7 @@ import { Router, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@a
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { authGuard, roleGuard, permissionGuard } from './auth.guard';
+import { authGuard, roleGuard, permissionGuard, workspaceGuard } from './auth.guard';
 import { AuthService } from '../auth/auth.service';
 import { UserSession } from '../models/auth.models';
 
@@ -95,9 +95,17 @@ describe('Auth Guards', () => {
   });
 
   describe('Tenant ERP Workspace Boundary (/app)', () => {
-    const workspaceGuard = roleGuard(['Tenant Admin', 'Tenant User', 'Branch User', 'Viewer', 'Platform Admin']);
+    it('should redirect unauthenticated users to login with returnUrl when accessing /app/dashboard', () => {
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/dashboard' } as RouterStateSnapshot;
 
-    it('should permit verified tenant user roles (Tenant User, Branch User, Viewer, Tenant Admin)', () => {
+      const result = TestBed.runInInjectionContext(() => workspaceGuard(route, state));
+      expect(result instanceof UrlTree).toBe(true);
+      const tree = result as UrlTree;
+      expect(tree.toString()).toContain('/login?returnUrl=%2Fapp%2Fdashboard');
+    });
+
+    it('should permit verified standard tenant user roles (Tenant User, Branch User, Viewer, Tenant Admin, Platform Admin)', () => {
       for (const role of ['Tenant Admin', 'Tenant User', 'Branch User', 'Viewer', 'Platform Admin']) {
         authService.currentUser.set(createSession([role]));
         const route = {} as ActivatedRouteSnapshot;
@@ -106,6 +114,17 @@ describe('Auth Guards', () => {
         const result = TestBed.runInInjectionContext(() => workspaceGuard(route, state));
         expect(result).toBe(true);
       }
+    });
+
+    it('should permit custom tenant operational roles (e.g. Procurment Manager) with active tenant assignment', () => {
+      authService.currentUser.set(
+        createSession(['Procurment Manager'], 'DDCA51A5-246F-4EAB-A0A0-7D51C6D52896')
+      );
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/dashboard' } as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() => workspaceGuard(route, state));
+      expect(result).toBe(true);
     });
 
     it('should block customer accounts from accessing internal ERP workspace', () => {
@@ -122,6 +141,28 @@ describe('Auth Guards', () => {
 
     it('should block platform staff without explicit workspace authorization from accessing internal ERP workspace', () => {
       authService.currentUser.set(createSession(['Platform Staff']));
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/dashboard' } as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() => workspaceGuard(route, state));
+      expect(result instanceof UrlTree).toBe(true);
+      const tree = result as UrlTree;
+      expect(tree.toString()).toContain('/access-denied');
+    });
+
+    it('should block users with missing or invalid tenant context (tenantId is null for non-admin roles)', () => {
+      authService.currentUser.set(createSession(['Procurment Manager'], null));
+      const route = {} as ActivatedRouteSnapshot;
+      const state = { url: '/app/dashboard' } as RouterStateSnapshot;
+
+      const result = TestBed.runInInjectionContext(() => workspaceGuard(route, state));
+      expect(result instanceof UrlTree).toBe(true);
+      const tree = result as UrlTree;
+      expect(tree.toString()).toContain('/access-denied');
+    });
+
+    it('should block users with empty roles array even if tenantId is present', () => {
+      authService.currentUser.set(createSession([], 'DDCA51A5-246F-4EAB-A0A0-7D51C6D52896'));
       const route = {} as ActivatedRouteSnapshot;
       const state = { url: '/app/dashboard' } as RouterStateSnapshot;
 

@@ -17,6 +17,7 @@ import { AppEmptyStateComponent } from '../../../../shared/components/empty-stat
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
 import { SalesOrderService } from '../../../../core/services/sales-order.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
+import { ActionDialogComponent } from '../../../../shared/components/action-dialog/action-dialog.component';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import {
@@ -46,7 +47,8 @@ export type SOStatusFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'fulf
     AppLoadingStateComponent,
     AppErrorStateComponent,
     AppEmptyStateComponent,
-    AccessDeniedComponent
+    AccessDeniedComponent,
+    ActionDialogComponent
   ],
   templateUrl: './sales-order-register.component.html',
   styleUrl: './sales-order-register.component.scss',
@@ -55,7 +57,7 @@ export type SOStatusFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'fulf
 export class SalesOrderRegisterComponent implements OnInit, OnDestroy {
   readonly salesOrderService = inject(SalesOrderService);
   readonly masterDataService = inject(MasterDataService);
-  readonly scopeService = inject(WorkspaceScopeService);
+  readonly scopeService: WorkspaceScopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
   readonly router = inject(Router);
 
