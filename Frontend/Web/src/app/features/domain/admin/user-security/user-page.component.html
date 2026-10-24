@@ -1,0 +1,319 @@
+<div class="user-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Users"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (mode() !== 'create') {
+        <app-status-badge
+          [label]="accountStatus === 'Active' ? 'Active' : 'Suspended'"
+          [severity]="accountStatus === 'Active' ? 'success' : 'danger'"
+        ></app-status-badge>
+
+        <p-button
+          [label]="accountStatus === 'Active' ? 'Suspend Access' : 'Activate Access'"
+          [icon]="accountStatus === 'Active' ? 'pi pi-ban' : 'pi pi-check'"
+          [outlined]="true"
+          size="small"
+          [severity]="accountStatus === 'Active' ? 'danger' : 'success'"
+          (onClick)="toggleAccountStatus()"
+        ></p-button>
+      }
+
+      <p-button
+        [label]="mode() === 'create' ? 'Save User Account' : 'Update Profile &amp; Role'"
+        icon="pi pi-check"
+        size="small"
+        severity="primary"
+        [loading]="saving()"
+        (onClick)="saveUser()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  @if (errorMessage()) {
+    <div class="message-banner banner-danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">{{ errorMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="errorMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message-banner banner-success">
+      <i class="pi pi-check-circle"></i>
+      <span class="message-text">{{ successMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="successMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading user account information from server..."></app-loading-state>
+    </div>
+  } @else {
+    <div class="user-page-grid">
+      <!-- Left Column: User Profile & Security Details -->
+      <div class="user-main-col">
+        <!-- Card 1: Identity Profile -->
+        <div class="erp-card form-section-card">
+          <div class="section-card-header">
+            <div class="section-icon">
+              <i class="pi pi-user"></i>
+            </div>
+            <div>
+              <h3>Identity &amp; Profile Details</h3>
+              <p>Personal credentials, contact details, and authentication identity.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="firstName">First Name <span class="required">*</span></label>
+              <input
+                pInputText
+                id="firstName"
+                type="text"
+                placeholder="e.g. Alexander"
+                [(ngModel)]="firstName"
+                [disabled]="mode() !== 'create'"
+                class="w-full"
+              />
+            </div>
+
+            <div class="form-field">
+              <label for="lastName">Last Name <span class="required">*</span></label>
+              <input
+                pInputText
+                id="lastName"
+                type="text"
+                placeholder="e.g. Hamilton"
+                [(ngModel)]="lastName"
+                [disabled]="mode() !== 'create'"
+                class="w-full"
+              />
+            </div>
+
+            <div class="form-field">
+              <label for="userEmail">Work Email Address <span class="required">*</span></label>
+              <input
+                pInputText
+                id="userEmail"
+                type="email"
+                placeholder="user@enterprise.com"
+                [(ngModel)]="email"
+                class="w-full"
+              />
+              <span class="field-hint">Used for primary system authentication and notifications.</span>
+            </div>
+
+            <div class="form-field">
+              <label for="username">System Username</label>
+              <input
+                pInputText
+                id="username"
+                type="text"
+                placeholder="e.g. ahamilton"
+                [(ngModel)]="username"
+                class="w-full"
+              />
+              <span class="field-hint">Unique identifier for audit logging and session context.</span>
+            </div>
+
+            <div class="form-field full-width">
+              <label for="userPhone">Contact Phone Number</label>
+              <input
+                pInputText
+                id="userPhone"
+                type="text"
+                placeholder="+94 11 234 5678"
+                [(ngModel)]="phone"
+                class="w-full"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Role Assignment & Authentication Policy -->
+        <div class="erp-card form-section-card">
+          <div class="section-card-header">
+            <div class="section-icon shield">
+              <i class="pi pi-shield"></i>
+            </div>
+            <div>
+              <h3>Role &amp; Capability Assignment</h3>
+              <p>Assign capability role governing functional permissions across ERP modules.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-field full-width">
+              <label for="roleSelect">Assigned System Role <span class="required">*</span></label>
+              <select id="roleSelect" class="fluent-select" [(ngModel)]="selectedRoleId">
+                <option value="" disabled>-- Select Capability Role --</option>
+                @for (role of roles(); track role.id) {
+                  <option [value]="role.id">
+                    {{ role.name }} ({{ role.isSystem ? 'System Defined' : 'Custom Tenant Role' }})
+                  </option>
+                }
+              </select>
+              <span class="field-hint">Role governs view, edit, post, and administrative capabilities.</span>
+            </div>
+
+            @if (mode() === 'create') {
+              <div class="form-field full-width">
+                <label for="userPassword">Initial Authentication Password</label>
+                <input
+                  pInputText
+                  id="userPassword"
+                  type="text"
+                  [(ngModel)]="password"
+                  class="w-full font-mono"
+                />
+                <span class="field-hint">User will use this initial password on first sign-in.</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        @if (mode() === 'create') {
+          <!-- Card 3: Initial Operating Facility Scope (Create mode) -->
+          <div class="erp-card form-section-card">
+            <div class="section-card-header">
+              <div class="section-icon sitemap">
+                <i class="pi pi-sitemap"></i>
+              </div>
+              <div>
+                <h3>Primary Operating Facility Scope</h3>
+                <p>Assign initial company legal entity and operating branch facility.</p>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="compSelect">Operating Legal Company <span class="required">*</span></label>
+                <select
+                  id="compSelect"
+                  class="fluent-select"
+                  [(ngModel)]="selectedCompanyId"
+                  (ngModelChange)="onCompanyChange($event)"
+                >
+                  <option value="" disabled>-- Select Company --</option>
+                  @for (c of companies(); track c.id) {
+                    <option [value]="c.id">{{ c.name }} ({{ c.code }})</option>
+                  }
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="branchSelect">Operating Branch Facility</label>
+                <select id="branchSelect" class="fluent-select" [(ngModel)]="selectedBranchId">
+                  <option value="">All Facilities / Unspecified</option>
+                  @for (b of availableBranches(); track b.id) {
+                    <option [value]="b.id">{{ b.name }} ({{ b.code }})</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Right Column: Scopes & Metadata (in view/edit mode) -->
+      @if (mode() !== 'create') {
+        <div class="user-side-col">
+          <div class="erp-card summary-card">
+            <div class="summary-header">
+              <h4>Account Summary</h4>
+              <app-status-badge
+                [label]="accountStatus === 'Active' ? 'Active' : 'Suspended'"
+                [severity]="accountStatus === 'Active' ? 'success' : 'danger'"
+              ></app-status-badge>
+            </div>
+
+            <div class="summary-meta-list">
+              <div class="summary-item">
+                <span class="label">User Identifier</span>
+                <code class="val-code">{{ user()?.id }}</code>
+              </div>
+              <div class="summary-item">
+                <span class="label">Account Status</span>
+                <strong class="val-text">{{ accountStatus }}</strong>
+              </div>
+              <div class="summary-item">
+                <span class="label">Provisioned Date</span>
+                <span class="val-text">{{ user()?.createdAt | date:'mediumDate' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Scopes Sub-Panel -->
+          <div class="erp-card scopes-panel">
+            <div class="scopes-panel-header">
+              <div>
+                <h4>Operating Facility Scopes</h4>
+                <p>Assigned legal entities and facility branches.</p>
+              </div>
+              <p-button
+                label="Add Scope"
+                icon="pi pi-plus"
+                size="small"
+                [outlined]="true"
+                (onClick)="navigateToAddScope()"
+              ></p-button>
+            </div>
+
+            @if (userScopes().length === 0) {
+              <div class="empty-scopes">
+                <i class="pi pi-info-circle"></i>
+                <p>No additional operating facility scopes assigned.</p>
+              </div>
+            } @else {
+              <div class="scopes-list">
+                @for (sc of userScopes(); track sc.id) {
+                  <div class="scope-item-card">
+                    <div class="scope-icon">
+                      <i class="pi pi-building"></i>
+                    </div>
+                    <div class="scope-item-info">
+                      <strong>{{ sc.companyName }}</strong>
+                      <span class="branch-text"><i class="pi pi-map-marker"></i> {{ sc.branchName || 'All Operating Branches' }}</span>
+                      <span class="status-sub" [class.revoked]="sc.status === 'Revoked'">
+                        Status: {{ sc.status }}
+                      </span>
+                    </div>
+                    @if (sc.status === 'Authorized' && !sc.isPrimary) {
+                      <button
+                        type="button"
+                        class="revoke-btn"
+                        pTooltip="Revoke this facility scope"
+                        tooltipPosition="left"
+                        (click)="revokeScope(sc)"
+                      >
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

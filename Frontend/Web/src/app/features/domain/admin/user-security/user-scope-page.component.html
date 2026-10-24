@@ -1,0 +1,420 @@
+<div class="user-scope-page">
+  <app-page-header
+    title="Assign Operating Scope"
+    subtitle="Configure organizational company and branch facility jurisdiction for an authorized user."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Scopes"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (currentSelectionStatus() === 'ACTIVE') {
+        <p-button
+          label="Already Authorized"
+          icon="pi pi-check-circle"
+          size="small"
+          severity="secondary"
+          [disabled]="true"
+        ></p-button>
+      } @else if (currentSelectionStatus() === 'REVOKED') {
+        <p-button
+          label="Reactivate Scope Authorization"
+          icon="pi pi-replay"
+          size="small"
+          severity="warn"
+          [loading]="saving()"
+          (onClick)="saveScope()"
+        ></p-button>
+      } @else {
+        <p-button
+          label="Grant Scope Authorization"
+          icon="pi pi-check"
+          size="small"
+          severity="primary"
+          [loading]="saving()"
+          (onClick)="saveScope()"
+        ></p-button>
+      }
+    </div>
+  </app-page-header>
+
+  @if (errorMessage()) {
+    <div class="message-banner banner-danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">{{ errorMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="errorMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message-banner banner-success">
+      <i class="pi pi-check-circle"></i>
+      <span class="message-text">{{ successMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="successMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading organizational metadata from server..."></app-loading-state>
+    </div>
+  } @else {
+    <div class="scope-page-grid">
+      <!-- Main Column -->
+      <div class="main-col">
+        <!-- 1. User Selection & Search Card -->
+        <div class="erp-card user-selection-card">
+          <div class="card-title-bar">
+            <div class="title-icon">
+              <i class="pi pi-user"></i>
+            </div>
+            <div>
+              <h3>Authorized User Account</h3>
+              <p>Select target user to inspect existing scopes and grant additional jurisdiction.</p>
+            </div>
+          </div>
+
+          <div class="user-picker-wrap">
+            <div class="search-field-row">
+              <span class="p-input-icon-left w-full">
+                <i class="pi pi-search"></i>
+                <input
+                  type="text"
+                  pInputText
+                  [ngModel]="userSearchTerm()"
+                  (ngModelChange)="userSearchTerm.set($event)"
+                  placeholder="Filter users by name, email, or role..."
+                  class="user-filter-input"
+                />
+              </span>
+            </div>
+
+            <div class="field-item">
+              <label for="scopeUserInput">Select Target User <span class="required">*</span></label>
+              <select
+                id="scopeUserInput"
+                class="fluent-select user-select"
+                [ngModel]="selectedUserId"
+                (ngModelChange)="onUserChange($event)"
+              >
+                <option value="" disabled>-- Select Authorized User --</option>
+                @for (u of filteredUsers(); track u.id) {
+                  <option [value]="u.id">
+                    {{ u.fullName || u.username }} ({{ u.email }}) — {{ u.roleName }}
+                  </option>
+                }
+              </select>
+            </div>
+
+            @if (selectedUser(); as user) {
+              <div class="user-meta-strip">
+                <div class="user-avatar-tag">
+                  {{ (user.fullName || user.username || 'U').substring(0, 2).toUpperCase() }}
+                </div>
+                <div class="user-meta-details">
+                  <strong>{{ user.fullName || user.username }}</strong>
+                  <span class="meta-email">{{ user.email }}</span>
+                </div>
+                <div class="user-role-badge">
+                  <i class="pi pi-id-card"></i>
+                  <span>{{ user.roleName }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- 2. Existing Scopes for Selected User Card -->
+        <div class="erp-card existing-scopes-card">
+          <div class="card-title-bar">
+            <div class="title-icon info">
+              <i class="pi pi-shield"></i>
+            </div>
+            <div class="title-with-count">
+              <div>
+                <h3>Existing Scope Assignments</h3>
+                <p>Current company and operating branch authorizations persisted in database.</p>
+              </div>
+              <span class="scopes-count-pill">{{ userScopes().length }} Scopes</span>
+            </div>
+          </div>
+
+          <div class="scopes-table-container">
+            @if (loadingUserScopes()) {
+              <div class="p-4">
+                <app-loading-state message="Retrieving scope assignments from database..."></app-loading-state>
+              </div>
+            } @else if (userScopes().length === 0) {
+              <div class="empty-scopes-state">
+                <i class="pi pi-info-circle"></i>
+                <div class="empty-text">
+                  <strong>No Operating Scopes Assigned</strong>
+                  <p>This user currently has no assigned company or branch scopes. Use the form below to grant a new operating scope.</p>
+                </div>
+              </div>
+            } @else {
+              <div class="scopes-table-wrapper">
+                <table class="fluent-table">
+                  <thead>
+                    <tr>
+                      <th>Company Jurisdiction</th>
+                      <th>Branch / Facility</th>
+                      <th>Scope Type</th>
+                      <th>Status</th>
+                      <th>Granted Date</th>
+                      <th class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (s of userScopes(); track s.id) {
+                      <tr [class.revoked-row]="s.status === 'Revoked'">
+                        <td>
+                          <div class="company-cell">
+                            <span class="comp-name">{{ s.companyName }}</span>
+                            @if (s.companyCode) {
+                              <span class="comp-code">{{ s.companyCode }}</span>
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <div class="branch-cell">
+                            @if (s.isAllBranches) {
+                              <span class="all-facilities-badge">
+                                <i class="pi pi-globe"></i>
+                                All Facilities
+                              </span>
+                            } @else {
+                              <span class="branch-name">{{ s.branchName }}</span>
+                              @if (s.branchCode) {
+                                <span class="branch-code">{{ s.branchCode }}</span>
+                              }
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <span class="scope-type-tag" [class.company-wide]="s.isAllBranches">
+                            {{ s.isAllBranches ? 'Company-wide' : 'Branch-specific' }}
+                          </span>
+                        </td>
+                        <td>
+                          <app-status-badge
+                            [status]="s.status"
+                            [label]="s.status"
+                          ></app-status-badge>
+                        </td>
+                        <td>
+                          <span class="date-cell">{{ s.grantedAt | date:'mediumDate' }}</span>
+                        </td>
+                        <td class="text-right">
+                          @if (s.status === 'Authorized') {
+                            <p-button
+                              label="Revoke"
+                              icon="pi pi-ban"
+                              size="small"
+                              severity="danger"
+                              [text]="true"
+                              [loading]="revokingScopeId() === s.id"
+                              (onClick)="revokeScope(s)"
+                            ></p-button>
+                          } @else {
+                            <span class="revoked-label">Revoked</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- 3. Grant Additional Scope Authorization Card -->
+        <div class="erp-card form-card">
+          <div class="card-title-bar">
+            <div class="title-icon success">
+              <i class="pi pi-plus-circle"></i>
+            </div>
+            <div>
+              <h3>Grant Additional Scope Authorization</h3>
+              <p>Authorize an additional company or branch facility jurisdiction for this user.</p>
+            </div>
+          </div>
+
+          <!-- Scope Conflict / Reactivation In-Form Notice -->
+          @if (currentSelectionStatus() === 'ACTIVE') {
+            <div class="scope-conflict-alert alert-warning">
+              <i class="pi pi-exclamation-triangle"></i>
+              <div class="alert-content">
+                <strong>Scope Already Active</strong>
+                <span>This user is already authorized for <strong>{{ selectedCompany()?.name }}</strong> — <strong>{{ isAllBranches ? 'All Facilities' : (selectedBranch()?.name || 'Selected Facility') }}</strong>. Duplicate assignments cannot be submitted.</span>
+              </div>
+            </div>
+          } @else if (currentSelectionStatus() === 'REVOKED') {
+            <div class="scope-conflict-alert alert-info">
+              <i class="pi pi-replay"></i>
+              <div class="alert-content">
+                <strong>Reactivate Previously Revoked Scope</strong>
+                <span>This user previously held this operating scope, but it was revoked. Submitting will reactivate this authorization in the database.</span>
+              </div>
+            </div>
+          }
+
+          <div class="form-fields-wrap">
+            <div class="field-item">
+              <label for="scopeCompInput">Company Jurisdiction <span class="required">*</span></label>
+              <select
+                id="scopeCompInput"
+                class="fluent-select"
+                [(ngModel)]="selectedCompanyId"
+                (ngModelChange)="onCompanyChange($event)"
+              >
+                <option value="" disabled>-- Select Operating Company --</option>
+                @for (c of companies(); track c.id) {
+                  <option [value]="c.id">{{ c.name }} ({{ c.code }})</option>
+                }
+              </select>
+            </div>
+
+            <div class="field-item">
+              <div class="branch-label-row">
+                <label for="scopeBranchInput">Branch / Operating Facility</label>
+                <label class="all-facilities-checkbox">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="isAllBranches"
+                  />
+                  <span>Authorize All Facilities in Company</span>
+                </label>
+              </div>
+
+              @if (!isAllBranches) {
+                <select
+                  id="scopeBranchInput"
+                  class="fluent-select"
+                  [(ngModel)]="selectedBranchId"
+                  [disabled]="isAllBranches || branches().length === 0"
+                >
+                  <option value="" disabled>-- Select Facility / Branch --</option>
+                  @for (b of branches(); track b.id) {
+                    <option [value]="b.id">{{ b.name }} ({{ b.code }})</option>
+                  }
+                </select>
+                @if (branches().length === 0 && selectedCompanyId) {
+                  <span class="field-hint text-warning">
+                    <i class="pi pi-info-circle"></i> No specific branch facilities registered under this company yet. Enable "Authorize All Facilities" or register a branch in Company Setup.
+                  </span>
+                }
+              } @else {
+                <div class="all-facilities-notice">
+                  <i class="pi pi-check-circle"></i>
+                  <span>This user will have operational jurisdiction across <strong>all facilities</strong> within {{ selectedCompany()?.name || 'the selected company' }}.</span>
+                </div>
+              }
+            </div>
+
+            <div class="field-item">
+              <label for="scopeNotesInput">Scope Justification &amp; Notes</label>
+              <textarea
+                id="scopeNotesInput"
+                rows="3"
+                class="fluent-textarea"
+                placeholder="e.g. Authorized for Central Hub procurement and inventory transactions..."
+                [(ngModel)]="scopeNotes"
+              ></textarea>
+            </div>
+
+            <div class="form-submit-row">
+              @if (currentSelectionStatus() === 'ACTIVE') {
+                <p-button
+                  label="Already Authorized"
+                  icon="pi pi-check-circle"
+                  severity="secondary"
+                  [disabled]="true"
+                ></p-button>
+              } @else if (currentSelectionStatus() === 'REVOKED') {
+                <p-button
+                  label="Reactivate Scope Authorization"
+                  icon="pi pi-replay"
+                  severity="warn"
+                  [loading]="saving()"
+                  (onClick)="saveScope()"
+                ></p-button>
+              } @else {
+                <p-button
+                  label="Grant Scope Authorization"
+                  icon="pi pi-check"
+                  severity="primary"
+                  [loading]="saving()"
+                  (onClick)="saveScope()"
+                ></p-button>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side Column: Architecture & Scope Governance Summary -->
+      <div class="side-col">
+        <div class="erp-card summary-card">
+          <div class="summary-head">
+            <i class="pi pi-shield"></i>
+            <h4>Scope Hierarchy Summary</h4>
+          </div>
+
+          <div class="hierarchy-tree">
+            <div class="tree-node tenant-node">
+              <div class="node-icon"><i class="pi pi-globe"></i></div>
+              <div class="node-content">
+                <span class="node-title">Tenant Organization</span>
+                <span class="node-sub">Active Enterprise Tenant</span>
+              </div>
+            </div>
+
+            <div class="tree-line"></div>
+
+            <div class="tree-node company-node" [class.active]="!!selectedCompany()">
+              <div class="node-icon"><i class="pi pi-building"></i></div>
+              <div class="node-content">
+                <span class="node-title">{{ selectedCompany()?.name || 'Operating Company' }}</span>
+                <span class="node-sub">{{ selectedCompany() ? selectedCompany()?.code : 'Awaiting Selection' }}</span>
+              </div>
+            </div>
+
+            <div class="tree-line"></div>
+
+            <div class="tree-node branch-node" [class.active]="isAllBranches || !!selectedBranch()">
+              <div class="node-icon"><i class="pi pi-map-marker"></i></div>
+              <div class="node-content">
+                <span class="node-title">
+                  {{ isAllBranches ? 'All Operating Facilities' : (selectedBranch()?.name || 'Operating Facility') }}
+                </span>
+                <span class="node-sub">
+                  {{ isAllBranches ? 'Company-wide facility access' : (selectedBranch() ? selectedBranch()?.code : 'Awaiting Selection') }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="governance-rule-box">
+            <div class="rule-icon"><i class="pi pi-info"></i></div>
+            <div class="rule-text">
+              <strong>Warehouse Access Inheritance</strong>
+              <p>ApexERP authorizes transactional activity by matching the user's assigned facility scope. Warehouses configured under this facility boundary are directly governed by the user's role-based permissions.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>
