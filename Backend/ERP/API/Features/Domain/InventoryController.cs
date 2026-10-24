@@ -12,7 +12,7 @@ namespace API.Features.Domain;
 
 [ApiController]
 [Route("api/inventory")]
-[RequirePermission("PRODUCT.VIEW")]
+[RequirePermission("INVENTORY.VIEW")]
 public class InventoryController : BaseApiController
 {
     private readonly IInventoryService _inventoryService;
@@ -150,7 +150,7 @@ public class InventoryController : BaseApiController
     }
 
     [HttpPost("stock-issues")]
-    [RequirePermission("PRODUCT.EDIT")]
+    [RequirePermission("STOCK_ISSUE.POST")]
     public async Task<IActionResult> CreateStockIssue([FromBody] CreateStockIssueRequest request)
     {
         if (_currentUserContext.IsPlatformUser)
@@ -223,7 +223,7 @@ public class InventoryController : BaseApiController
     }
 
     [HttpPost("stock-receipts")]
-    [RequirePermission("PRODUCT.EDIT")]
+    [RequirePermission("STOCK_RECEIPT.POST")]
     public async Task<IActionResult> CreateStockReceipt([FromBody] CreateStockReceiptRequest request)
     {
         if (_currentUserContext.IsPlatformUser)

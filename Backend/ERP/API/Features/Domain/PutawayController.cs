@@ -12,7 +12,7 @@ namespace API.Features.Domain;
 
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches/{branchId:guid}/putaways")]
-[RequirePermission("PRODUCT.VIEW")]
+[RequirePermission("INVENTORY.VIEW")]
 public class PutawayController : BaseApiController
 {
     private readonly IPutawayService _putawayService;
@@ -97,7 +97,7 @@ public class PutawayController : BaseApiController
     }
 
     [HttpPost]
-    [RequirePermission("PRODUCT.EDIT")]
+    [RequirePermission("PUTAWAY.POST")]
     public async Task<IActionResult> CreateDraft(
         Guid companyId,
         Guid branchId,
@@ -121,7 +121,7 @@ public class PutawayController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("PRODUCT.EDIT")]
+    [RequirePermission("PUTAWAY.POST")]
     public async Task<IActionResult> UpdateDraft(
         Guid companyId,
         Guid branchId,
@@ -143,7 +143,7 @@ public class PutawayController : BaseApiController
     }
 
     [HttpPost("{id:guid}/confirm")]
-    [RequirePermission("PRODUCT.EDIT")]
+    [RequirePermission("PUTAWAY.POST")]
     public async Task<IActionResult> ConfirmPutaway(Guid companyId, Guid branchId, Guid id)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
@@ -161,7 +161,7 @@ public class PutawayController : BaseApiController
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [RequirePermission("PRODUCT.EDIT")]
+    [RequirePermission("PUTAWAY.POST")]
     public async Task<IActionResult> CancelPutaway(Guid companyId, Guid branchId, Guid id)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);

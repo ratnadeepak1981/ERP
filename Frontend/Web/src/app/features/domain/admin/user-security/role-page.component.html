@@ -1,0 +1,325 @@
+<div class="role-page">
+  <app-page-header
+    [title]="pageTitle()"
+    subtitle="Configure operational role definition and granular capability permissions."
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Back to Roles"
+        icon="pi pi-arrow-left"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        (onClick)="navigateBack()"
+      ></p-button>
+
+      @if (mode() !== 'create') {
+        @if (isSystemRole()) {
+          <span class="system-tag-header">Built-in System Role</span>
+        } @else {
+          <app-status-badge
+            [label]="role()?.isActive !== false ? 'Active' : 'Inactive'"
+            [severity]="role()?.isActive !== false ? 'success' : 'neutral'"
+          ></app-status-badge>
+
+          <p-button
+            [label]="role()?.isActive !== false ? 'Deactivate Role' : 'Activate Role'"
+            [icon]="role()?.isActive !== false ? 'pi pi-ban' : 'pi pi-check'"
+            [outlined]="true"
+            size="small"
+            [severity]="role()?.isActive !== false ? 'danger' : 'success'"
+            (onClick)="toggleRoleStatus()"
+          ></p-button>
+        }
+      }
+
+      @if (!isSystemRole()) {
+        <p-button
+          [label]="mode() === 'create' ? 'Save Role Definition' : 'Save Changes'"
+          icon="pi pi-check"
+          size="small"
+          severity="primary"
+          [loading]="saving()"
+          (onClick)="saveRole()"
+        ></p-button>
+      }
+    </div>
+  </app-page-header>
+
+  @if (errorMessage()) {
+    <div class="message-banner banner-danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">{{ errorMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="errorMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message-banner banner-success">
+      <i class="pi pi-check-circle"></i>
+      <span class="message-text">{{ successMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="successMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading role definition and capability permissions from server..."></app-loading-state>
+    </div>
+  } @else {
+    @if (isSystemRole()) {
+      <div class="protected-system-banner">
+        <i class="pi pi-lock"></i>
+        <div>
+          <strong>Protected System Role</strong>
+          <p>This is a foundational platform/system-defined role. Its name, core policy, and baseline permission bindings are strictly protected by backend security rules.</p>
+        </div>
+      </div>
+    }
+
+    <div class="role-page-grid">
+      <!-- Card 1: Role Metadata -->
+      <div class="erp-card metadata-card">
+        <div class="card-title-bar">
+          <div class="title-icon">
+            <i class="pi pi-id-card"></i>
+          </div>
+          <div>
+            <h3>Role Information</h3>
+            <p>Role name and operational scope description.</p>
+          </div>
+        </div>
+
+        <div class="form-fields-wrap">
+          <div class="field-item">
+            <label for="roleNameInput">Role Name <span class="required">*</span></label>
+            <input
+              pInputText
+              id="roleNameInput"
+              type="text"
+              placeholder="e.g. Warehouse Stores Manager"
+              [(ngModel)]="roleName"
+              [disabled]="isSystemRole()"
+              class="w-full"
+            />
+          </div>
+
+          <div class="field-item">
+            <label for="roleDescInput">Description</label>
+            <textarea
+              id="roleDescInput"
+              rows="3"
+              class="fluent-textarea"
+              placeholder="Detailed description of responsibilities and permissions..."
+              [(ngModel)]="roleDescription"
+              [disabled]="isSystemRole()"
+            ></textarea>
+          </div>
+
+          @if (mode() === 'create') {
+            <div class="field-item">
+              <label>Configuration Mode</label>
+              <div class="mode-toggle-group">
+                <button
+                  type="button"
+                  class="mode-btn"
+                  [class.active]="assignmentMode === 'advanced'"
+                  (click)="onRoleAssignmentModeChange('advanced')"
+                >
+                  <i class="pi pi-sliders-h"></i>
+                  Granular Dual-List
+                </button>
+                <button
+                  type="button"
+                  class="mode-btn"
+                  [class.active]="assignmentMode === 'simple'"
+                  (click)="onRoleAssignmentModeChange('simple')"
+                >
+                  <i class="pi pi-bookmark"></i>
+                  Template Quick Setup
+                </button>
+              </div>
+            </div>
+
+            @if (assignmentMode === 'simple') {
+              <div class="field-item template-select-item">
+                <label for="tmplSelect">Select Role Template</label>
+                <select
+                  id="tmplSelect"
+                  class="fluent-select"
+                  [(ngModel)]="selectedTemplateId"
+                  (ngModelChange)="onTemplateChange($event)"
+                >
+                  <option value="" disabled>-- Select Preset Template --</option>
+                  @for (t of templates(); track t.id) {
+                    <option [value]="t.id">{{ t.name }} ({{ t.permissionCodes.length }} capabilities)</option>
+                  }
+                </select>
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- Card 2: Permissions Dual-List -->
+      <div class="erp-card matrix-card">
+        <div class="matrix-header-bar">
+          <div>
+            <h3>Capability Permissions Assignment</h3>
+            <p>{{ assignedPermissionsList().length }} of {{ allPermissions().length }} total system capabilities assigned to this role</p>
+          </div>
+        </div>
+
+        <div class="dual-list-container">
+          <div class="dual-list-header-note">
+            <i class="pi pi-info-circle"></i>
+            <span>Transfer capabilities between <strong>Available</strong> and <strong>Assigned</strong> lists using selection arrows.</span>
+          </div>
+
+          <div class="dual-list-grid">
+            <!-- Left Box: Available Permissions -->
+            <div class="dual-list-box">
+              <div class="box-head">
+                <strong>Available Permissions</strong>
+                <span class="count-badge">{{ filteredAvailablePermissions().length }}</span>
+              </div>
+              <div class="box-search">
+                <i class="pi pi-search"></i>
+                <input
+                  type="text"
+                  placeholder="Filter available..."
+                  [ngModel]="availableSearchQuery()"
+                  (ngModelChange)="availableSearchQuery.set($event)"
+                  [disabled]="isSystemRole()"
+                />
+              </div>
+              <div class="box-scroll">
+                @if (filteredAvailablePermissions().length === 0) {
+                  <div class="empty-list-msg">No available permissions</div>
+                }
+                @for (p of filteredAvailablePermissions(); track p.code) {
+                  <div
+                    class="list-item"
+                    [class.selected]="selectedAvailableCodes().has(p.code)"
+                    [class.disabled]="isSystemRole()"
+                    (click)="toggleSelectAvailable(p.code)"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="selectedAvailableCodes().has(p.code)"
+                      [disabled]="isSystemRole()"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleSelectAvailable(p.code)"
+                    />
+                    <div class="item-text">
+                      <span class="item-name">{{ p.name }}</span>
+                      <div class="item-meta">
+                        <code class="item-code">{{ p.code }}</code>
+                        <span class="item-cat-tag">{{ p.category }}</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Center Controls: Transfer Arrows -->
+            <div class="dual-list-controls">
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveSelectedToAssigned()"
+                [disabled]="isSystemRole() || selectedAvailableCodes().size === 0"
+                title="Assign Selected"
+                aria-label="Assign Selected"
+              >
+                <i class="pi pi-angle-right"></i>
+              </button>
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveAllToAssigned()"
+                [disabled]="isSystemRole() || availablePermissionsList().length === 0"
+                title="Assign All"
+                aria-label="Assign All"
+              >
+                <i class="pi pi-angle-double-right"></i>
+              </button>
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveSelectedToAvailable()"
+                [disabled]="isSystemRole() || selectedAssignedCodes().size === 0"
+                title="Remove Selected"
+                aria-label="Remove Selected"
+              >
+                <i class="pi pi-angle-left"></i>
+              </button>
+              <button
+                type="button"
+                class="control-arrow-btn"
+                (click)="moveAllToAvailable()"
+                [disabled]="isSystemRole() || assignedPermissionsList().length === 0"
+                title="Remove All"
+                aria-label="Remove All"
+              >
+                <i class="pi pi-angle-double-left"></i>
+              </button>
+            </div>
+
+            <!-- Right Box: Assigned Permissions -->
+            <div class="dual-list-box">
+              <div class="box-head">
+                <strong>Assigned Permissions</strong>
+                <span class="count-badge primary">{{ filteredAssignedPermissions().length }}</span>
+              </div>
+              <div class="box-search">
+                <i class="pi pi-search"></i>
+                <input
+                  type="text"
+                  placeholder="Filter assigned..."
+                  [ngModel]="assignedSearchQuery()"
+                  (ngModelChange)="assignedSearchQuery.set($event)"
+                  [disabled]="isSystemRole()"
+                />
+              </div>
+              <div class="box-scroll">
+                @if (filteredAssignedPermissions().length === 0) {
+                  <div class="empty-list-msg">No permissions assigned yet</div>
+                }
+                @for (p of filteredAssignedPermissions(); track p.code) {
+                  <div
+                    class="list-item"
+                    [class.selected]="selectedAssignedCodes().has(p.code)"
+                    [class.disabled]="isSystemRole()"
+                    (click)="toggleSelectAssigned(p.code)"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="selectedAssignedCodes().has(p.code)"
+                      [disabled]="isSystemRole()"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleSelectAssigned(p.code)"
+                    />
+                    <div class="item-text">
+                      <span class="item-name">{{ p.name }}</span>
+                      <div class="item-meta">
+                        <code class="item-code">{{ p.code }}</code>
+                        <span class="item-cat-tag">{{ p.category }}</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

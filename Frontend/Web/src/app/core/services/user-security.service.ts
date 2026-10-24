@@ -13,7 +13,9 @@ import {
   PermissionItem,
   PermissionTemplate,
   UserScopeAssignment,
-  AssignScopeDto
+  AssignScopeDto,
+  UpdateUserDto,
+  UpdateRoleDto
 } from '../models/security.models';
 
 @Injectable({
@@ -293,21 +295,39 @@ export class UserSecurityService {
   }
 
   // --- User Scope Assignments (Company & Branch Assignment) ---
-  getUserScopes(userId?: string): Observable<UserScopeAssignment[]> {
+  getUserScopes(userId?: string, includeInactive: boolean = true): Observable<UserScopeAssignment[]> {
+    let url = buildApiUrl('/User/scopes');
+    const queryParams: string[] = [];
+    if (userId) {
+      queryParams.push(`userId=${encodeURIComponent(userId)}`);
+    }
+    if (includeInactive) {
+      queryParams.push('includeInactive=true');
+    }
+    if (queryParams.length > 0) {
+      url += '?' + queryParams.join('&');
+    }
+
     return this.companyService.getCompanies().pipe(
       switchMap(companies => {
-        const compMap = new Map<string, string>();
+        const compMap = new Map<string, { name: string; code: string }>();
         for (const c of companies) {
-          compMap.set(c.id, c.name);
+          compMap.set(c.id, { name: c.name, code: c.code });
         }
 
-        return this.http.get<ApiResponse<any[]>>(buildApiUrl('/User/scopes')).pipe(
+        return this.http.get<ApiResponse<any[]>>(url).pipe(
           map(res => {
             const list = res?.data || [];
             if (!Array.isArray(list)) return [];
 
             let scopes: UserScopeAssignment[] = list.map(s => {
-              const compName = compMap.get(s.companyId) || (s.companyId ? 'Operating Company' : 'All Companies');
+              const compInfo = compMap.get(s.companyId);
+              const compName = s.companyName || compInfo?.name || (s.companyId ? 'Operating Company' : 'All Companies');
+              const compCode = s.companyCode || compInfo?.code || '';
+              const isAll = s.isAllBranches ?? !s.branchId;
+              const branchName = s.branchName || (s.branchId ? 'Operating Branch' : 'All Facilities');
+              const statusStr = (s.isActive === false || s.status === 'Revoked') ? 'Revoked' : 'Authorized';
+
               return {
                 id: s.id || s.scopeId,
                 userId: s.userId,
@@ -315,19 +335,22 @@ export class UserSecurityService {
                 userEmail: s.userEmail || '',
                 companyId: s.companyId || '',
                 companyName: compName,
+                companyCode: compCode,
                 branchId: s.branchId || '',
-                branchName: s.branchId ? 'Operating Branch' : 'All Facilities',
-                isAllBranches: !s.branchId,
+                branchName: isAll ? 'All Facilities' : branchName,
+                branchCode: s.branchCode || '',
+                isAllBranches: isAll,
+                scopeLevel: s.scopeLevel || (isAll ? 'Company-wide' : 'Branch-specific'),
                 isPrimary: false,
-                status: s.isActive ? 'Authorized' : 'Revoked',
+                status: statusStr,
                 grantedAt: s.grantedAt || new Date().toISOString(),
-                grantedBy: 'Tenant Admin',
-                notes: 'Operating facility scope authorization.'
+                grantedBy: s.grantedBy || 'Tenant Admin',
+                notes: s.notes || (isAll ? 'Company-wide organizational scope authorization.' : 'Operating facility scope authorization.')
               };
             });
 
             if (userId) {
-              scopes = scopes.filter(s => s.userId === userId);
+              scopes = scopes.filter(s => s.userId.toLowerCase() === userId.toLowerCase());
             }
             return scopes;
           })
@@ -347,7 +370,7 @@ export class UserSecurityService {
     const payload = {
       userId: dto.userId,
       companyId: dto.companyId,
-      branchId: dto.branchId === 'all' ? null : dto.branchId,
+      branchId: dto.branchId === 'all' || !dto.branchId ? null : dto.branchId,
       isAllBranches: !!dto.isAllBranches,
       notes: dto.notes
     };
@@ -355,16 +378,20 @@ export class UserSecurityService {
     return this.http.post<ApiResponse<any>>(buildApiUrl('/User/scope'), payload).pipe(
       map(res => {
         const data = res?.data;
+        const isAll = data?.isAllBranches ?? !!dto.isAllBranches;
         return {
           id: data?.scopeId || ('scp-' + Date.now().toString(36)),
           userId: dto.userId,
           userName: userName,
           userEmail: userEmail,
           companyId: dto.companyId,
-          companyName: companyName,
+          companyName: data?.companyName || companyName,
+          companyCode: data?.companyCode || '',
           branchId: dto.branchId,
-          branchName: branchName,
-          isAllBranches: !!dto.isAllBranches,
+          branchName: isAll ? 'All Facilities' : (data?.branchName || branchName),
+          branchCode: data?.branchCode || '',
+          isAllBranches: isAll,
+          scopeLevel: data?.scopeLevel || (isAll ? 'Company-wide' : 'Branch-specific'),
           isPrimary: false,
           status: 'Authorized',
           grantedAt: new Date().toISOString(),
@@ -376,6 +403,181 @@ export class UserSecurityService {
   }
 
   revokeUserScope(scopeId: string): Observable<boolean> {
-    return of(true);
+    return this.http.delete<ApiResponse<any>>(buildApiUrl('/User/scope/' + scopeId)).pipe(
+      map(res => res?.succeeded ?? true),
+      catchError(() => of(false))
+    );
   }
+
+  getRole(roleId: string): Observable<RoleDefinition> {
+    return this.http.get<ApiResponse<any>>(buildApiUrl('/Role/' + roleId)).pipe(
+      map(res => {
+        const r = res?.data;
+        if (!r) throw new Error('Role record not found or returned empty from server.');
+        const perms: string[] = Array.isArray(r.permissions)
+          ? r.permissions.map((p: any) => typeof p === 'string' ? p : p.code)
+          : [];
+        return {
+          id: r.id || roleId,
+          tenantId: r.tenantId || this.getTenantStorageKey(),
+          name: r.name,
+          description: r.description || '',
+          assignmentMode: 'advanced' as const,
+          permissions: perms,
+          usersCount: r.usersCount || 0,
+          isSystem: !!r.isSystem,
+          isActive: r.isActive !== false,
+          createdAt: r.createdAt || new Date().toISOString()
+        };
+      })
+    );
+  }
+
+  updateRole(roleId: string, dto: UpdateRoleDto): Observable<RoleDefinition> {
+    const payload = {
+      name: dto.name.trim(),
+      description: dto.description?.trim() || ''
+    };
+    return this.http.put<ApiResponse<any>>(buildApiUrl('/Role/' + roleId), payload).pipe(
+      map(res => {
+        const r = res?.data;
+        return {
+          id: r?.id || roleId,
+          tenantId: r?.tenantId || this.getTenantStorageKey(),
+          name: r?.name || dto.name.trim(),
+          description: r?.description || dto.description?.trim() || '',
+          assignmentMode: 'advanced' as const,
+          permissions: [],
+          usersCount: 0,
+          isSystem: !!r?.isSystemRole,
+          isActive: r?.isActive !== false,
+          createdAt: new Date().toISOString()
+        };
+      })
+    );
+  }
+
+  toggleRoleStatus(roleId: string): Observable<RoleDefinition | null> {
+    return this.http.put<ApiResponse<any>>(buildApiUrl('/Role/' + roleId + '/toggle-status'), {}).pipe(
+      map(res => {
+        const r = res?.data;
+        if (!r) return null;
+        return {
+          id: r.id || roleId,
+          name: r.name,
+          isActive: r.isActive !== false
+        } as unknown as RoleDefinition;
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  getPermissions(): Observable<PermissionItem[]> {
+    return this.http.get<ApiResponse<any[]>>(buildApiUrl('/permission')).pipe(
+      map(res => {
+        const list = res?.data;
+        if (!Array.isArray(list) || list.length === 0) {
+          return this.systemPermissions;
+        }
+        return list.map(p => ({
+          id: p.id,
+          category: p.module || 'General',
+          code: p.code,
+          name: p.name,
+          description: p.description || ''
+        }));
+      }),
+      catchError(() => of(this.systemPermissions))
+    );
+  }
+
+  getRolePermissions(roleId: string): Observable<PermissionItem[]> {
+    return this.http.get<ApiResponse<any[]>>(buildApiUrl('/RolePermission/' + roleId)).pipe(
+      map(res => {
+        const list = res?.data;
+        if (!Array.isArray(list)) return [];
+        return list.map(p => ({
+          id: p.id,
+          category: p.module || 'General',
+          code: p.code,
+          name: p.name,
+          description: p.description || ''
+        }));
+      }),
+      catchError(() => of([]))
+    );
+  }
+
+  syncRolePermissions(roleId: string, permissionCodes: string[], permissionIds?: string[]): Observable<ApiResponse<any>> {
+    const payload = {
+      roleId,
+      permissionCodes: permissionCodes && permissionCodes.length > 0 ? permissionCodes : [],
+      permissionIds: permissionIds && permissionIds.length > 0 ? permissionIds : []
+    };
+    return this.http.post<ApiResponse<any>>(buildApiUrl('/RolePermission/batch'), payload);
+  }
+
+  getUser(userId: string): Observable<UserAccount | null> {
+    return this.companyService.getCompanies().pipe(
+      switchMap(companies => {
+        const compMap = new Map<string, string>();
+        for (const c of companies) {
+          compMap.set(c.id, c.name);
+        }
+        return this.http.get<ApiResponse<any>>(buildApiUrl('/User/' + userId)).pipe(
+          map(res => {
+            const u = res?.data;
+            if (!u) return null;
+            const primaryRole = u.roles?.[0];
+            const primaryScope = primaryRole?.scopes?.[0];
+            const compId = primaryScope?.companyId || '';
+            const branchId = primaryScope?.branchId || '';
+            const compName = compMap.get(compId) || (compId ? 'Primary Operating Company' : 'Assigned Company');
+            const branchName = branchId ? 'Assigned Operating Branch' : 'All Facilities';
+
+            return {
+              id: u.id || u.userId || userId,
+              tenantId: u.tenantId || this.getTenantStorageKey(),
+              firstName: u.firstName || u.username,
+              lastName: u.lastName || '',
+              fullName: u.fullName || u.username,
+              email: u.email,
+              username: u.username,
+              phone: u.phone || '',
+              accountStatus: ((u.accountStatus === 'Suspended' || u.accountStatus === 'Inactive') ? u.accountStatus : (u.isActive === false ? 'Suspended' : 'Active')) as 'Active' | 'Suspended' | 'Inactive',
+              roleId: primaryRole?.roleId || '',
+              roleName: primaryRole?.roleName || 'Authorized User',
+              primaryCompanyId: compId,
+              primaryCompanyName: compName,
+              primaryBranchId: branchId,
+              primaryBranchName: branchName,
+              createdAt: u.createdAt || new Date().toISOString()
+            } as UserAccount;
+          })
+        );
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  updateUser(userId: string, dto: UpdateUserDto): Observable<UserAccount> {
+    const payload: any = {};
+    if (dto.username) payload.username = dto.username;
+    if (dto.email) payload.email = dto.email;
+    if (dto.isActive !== undefined) payload.isActive = dto.isActive;
+    if (dto.roleId) payload.roleId = dto.roleId;
+
+    return this.http.put<ApiResponse<any>>(buildApiUrl('/User/' + userId), payload).pipe(
+      map(res => {
+        const d = res?.data;
+        return {
+          id: d?.userId || userId,
+          username: d?.username || dto.username || '',
+          email: d?.email || dto.email || '',
+          accountStatus: d?.isActive ? 'Active' : 'Suspended'
+        } as UserAccount;
+      })
+    );
+  }
+
 }

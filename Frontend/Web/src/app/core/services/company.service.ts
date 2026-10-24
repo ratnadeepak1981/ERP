@@ -34,15 +34,19 @@ export class CompanyService {
               list = (res.data as any).items;
             }
           }
-          if (list.length > 0) {
-            return list;
-          }
-          // If backend returns empty, check local tenant stored companies
-          return this.getLocalCompanies();
+          // Return what the backend provides. Do NOT fall back to localStorage
+          // on a successful response (even empty): stale localStorage entries
+          // have fake IDs that cause every scope-gated API call to return 403.
+          return list;
         }),
-        catchError(() => {
-          // Fallback to local stored companies if API is unavailable or unseeded
-          return of(this.getLocalCompanies());
+        catchError((err) => {
+          // Only use localStorage on genuine network errors (status 0 / no response).
+          // For 401/403/5xx the backend responded — return [] so the UI shows
+          // "no company" rather than a stale company with a fake local ID.
+          if (err?.status === 0 || err?.status == null) {
+            return of(this.getLocalCompanies());
+          }
+          return of([]);
         })
       );
   }

@@ -30,6 +30,13 @@ export interface CreateUserDto {
   branchId: string;
 }
 
+export interface UpdateUserDto {
+  username?: string;
+  email?: string;
+  isActive?: boolean;
+  roleId?: string;
+}
+
 export interface PermissionItem {
   id: string;
   category: string;
@@ -55,6 +62,7 @@ export interface RoleDefinition {
   permissions: string[];
   usersCount: number;
   isSystem: boolean;
+  isActive?: boolean;
   createdAt: string;
 }
 
@@ -66,6 +74,11 @@ export interface CreateRoleDto {
   permissions: string[];
 }
 
+export interface UpdateRoleDto {
+  name: string;
+  description?: string;
+}
+
 export interface UserScopeAssignment {
   id: string;
   userId: string;
@@ -73,9 +86,12 @@ export interface UserScopeAssignment {
   userEmail: string;
   companyId: string;
   companyName: string;
+  companyCode?: string;
   branchId: string;
   branchName: string;
+  branchCode?: string;
   isAllBranches: boolean;
+  scopeLevel?: string;
   isPrimary: boolean;
   status: 'Authorized' | 'Revoked';
   grantedAt: string;
