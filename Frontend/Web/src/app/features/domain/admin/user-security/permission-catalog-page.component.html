@@ -1,0 +1,154 @@
+<div class="permission-catalog-page">
+  <app-page-header
+    title="Capability &amp; Permission Catalog"
+    subtitle="Inspect all registered operational permissions and capability codes across ApexERP modules."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Manage Roles"
+        icon="pi pi-shield"
+        size="small"
+        severity="primary"
+        routerLink="/tenant-admin/roles"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Metric / Overview Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap primary">
+        <i class="pi pi-key"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Total Capabilities</span>
+        <strong class="metric-value">{{ totalCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap success">
+        <i class="pi pi-th-large"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Functional Modules</span>
+        <strong class="metric-value">{{ moduleCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap info">
+        <i class="pi pi-check-circle"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Authorization Engine</span>
+        <strong class="metric-value">Active</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decoupling Architecture Callout Banner -->
+  <div class="decoupling-callout-banner">
+    <i class="pi pi-verified"></i>
+    <div>
+      <strong>Independent Operational Permissions</strong>
+      <p>
+        ApexERP enforces decoupled, domain-specific authorizations. Inventory, Putaway, Stock Receipts, and Stock Issues are protected by independent operational permissions (such as <code>INVENTORY.VIEW</code> and <code>PUTAWAY.POST</code>), fully decoupled from Master Data maintenance permissions (<code>PRODUCT.VIEW</code>, <code>PRODUCT.CREATE</code>).
+      </p>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="p-4">
+      <app-error-state
+        title="Unable to load permissions"
+        [message]="errorMessage()!"
+        (retry)="loadPermissions()"
+      ></app-error-state>
+    </div>
+  }
+
+  <!-- Main Catalog Card -->
+  <div class="catalog-main-card erp-card">
+    <div class="catalog-search-row">
+      <div class="search-input-wrap">
+        <i class="pi pi-search"></i>
+        <input
+          pInputText
+          type="text"
+          placeholder="Search by code, capability name, or description..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          class="w-full"
+        />
+      </div>
+
+      <div class="category-filter-pills">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="selectedCategory() === 'ALL'"
+          (click)="selectedCategory.set('ALL')"
+        >
+          All Modules ({{ permissions().length }})
+        </button>
+        @for (cat of categories(); track cat) {
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="selectedCategory() === cat"
+            (click)="selectedCategory.set(cat)"
+          >
+            {{ cat }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="p-6">
+        <app-loading-state message="Loading capability permissions from database..."></app-loading-state>
+      </div>
+    } @else {
+      @if (groupedPermissions().length === 0) {
+        <div class="empty-results-box">
+          <i class="pi pi-search"></i>
+          <h4>No Capabilities Found</h4>
+          <p>No permissions match your search query: "{{ searchQuery() }}".</p>
+        </div>
+      } @else {
+        <div class="modules-stack">
+          @for (grp of groupedPermissions(); track grp.category) {
+            <div class="module-group-card">
+              <div class="module-card-header">
+                <div class="header-title-box">
+                  <i class="pi pi-folder"></i>
+                  <h3>{{ grp.category }}</h3>
+                </div>
+                <span class="count-pill">{{ grp.count }} Capabilities</span>
+              </div>
+
+              <div class="permissions-card-grid">
+                @for (p of grp.items; track p.id) {
+                  <div class="permission-item-card">
+                    <div class="perm-top-line">
+                      <strong class="perm-title">{{ p.name }}</strong>
+                      <code class="perm-badge">{{ p.code }}</code>
+                    </div>
+                    <p class="perm-desc-text">{{ p.description }}</p>
+                    <div class="perm-footer-meta">
+                      <span class="perm-category-tag">
+                        <i class="pi pi-tag"></i> {{ grp.category }}
+                      </span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+</div>

@@ -1,0 +1,205 @@
+<div class="role-register-page">
+  <app-page-header
+    title="Role Administration"
+    subtitle="Configure operational roles, define capability policies, and govern authorization boundaries."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Permissions Catalog"
+        icon="pi pi-key"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        routerLink="/tenant-admin/permissions"
+      ></p-button>
+
+      <p-button
+        label="New Role"
+        icon="pi pi-plus"
+        size="small"
+        severity="primary"
+        (onClick)="navigateToCreateRole()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Metrics Grid -->
+  <div class="metrics-grid">
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap primary">
+        <i class="pi pi-shield"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Total Defined Roles</span>
+        <strong class="metric-value">{{ roles().length }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap info">
+        <i class="pi pi-lock"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Built-in System Roles</span>
+        <strong class="metric-value">{{ systemRolesCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap success">
+        <i class="pi pi-sliders-h"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Custom Tenant Roles</span>
+        <strong class="metric-value">{{ customRolesCount() }}</strong>
+      </div>
+    </div>
+  </div>
+
+  @if (actionMessage()) {
+    <div class="message-banner" [ngClass]="'banner-' + actionMessage()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': actionMessage()!.severity === 'success',
+        'pi-exclamation-triangle': actionMessage()!.severity === 'danger',
+        'pi-info-circle': actionMessage()!.severity === 'info'
+      }"></i>
+      <span class="message-text">{{ actionMessage()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="actionMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Main Role Register Area -->
+  <div class="register-main-card erp-card">
+    <div class="table-search-row">
+      <div class="search-input-wrap">
+        <i class="pi pi-search"></i>
+        <input
+          pInputText
+          type="text"
+          placeholder="Filter roles by name or description..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          class="w-full"
+        />
+      </div>
+
+      <div class="type-filter-pills">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="typeFilter() === 'all'"
+          (click)="typeFilter.set('all')"
+        >
+          All Roles ({{ roles().length }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="typeFilter() === 'custom'"
+          (click)="typeFilter.set('custom')"
+        >
+          Custom Roles ({{ customRolesCount() }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="typeFilter() === 'system'"
+          (click)="typeFilter.set('system')"
+        >
+          System Roles ({{ systemRolesCount() }})
+        </button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="p-4">
+        <app-loading-state message="Loading role policies from server..."></app-loading-state>
+      </div>
+    } @else if (error()) {
+      <div class="p-4">
+        <app-error-state
+          title="Unable to load roles"
+          [message]="error()!"
+          (retry)="loadRoles()"
+        ></app-error-state>
+      </div>
+    } @else if (displayedRoles().length === 0) {
+      <div class="empty-roles-state">
+        <i class="pi pi-shield"></i>
+        <h4>No Roles Found</h4>
+        <p>No capability roles match your search or filter criteria.</p>
+      </div>
+    } @else {
+      <div class="roles-cards-grid">
+        @for (role of displayedRoles(); track role.id) {
+          <div class="role-grid-card" (click)="navigateToRoleDetails(role)" role="button" tabindex="0">
+            <div class="card-header-row">
+              <div class="role-title-wrap">
+                <div class="role-icon-box" [class.system]="role.isSystem">
+                  <i class="pi pi-shield"></i>
+                </div>
+                <div>
+                  <h4 class="role-name">{{ role.name }}</h4>
+                  <div class="tags-row">
+                    @if (role.isSystem) {
+                      <span class="system-badge">System Defined</span>
+                    } @else {
+                      <span class="custom-badge">Custom Role</span>
+                    }
+                    <app-status-badge
+                      [label]="role.isActive !== false ? 'Active' : 'Inactive'"
+                      [severity]="role.isActive !== false ? 'success' : 'neutral'"
+                    ></app-status-badge>
+                  </div>
+                </div>
+              </div>
+
+              <div class="header-action">
+                <button
+                  type="button"
+                  class="edit-action-btn"
+                  title="View &amp; Edit Role Permissions"
+                  (click)="navigateToRoleDetails(role); $event.stopPropagation()"
+                >
+                  <i class="pi pi-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <p class="role-desc">{{ role.description || 'No description provided.' }}</p>
+
+            <div class="card-footer-metrics">
+              <span class="metric-pill">
+                <i class="pi pi-key"></i>
+                {{ role.permissions.length }} Capabilities
+              </span>
+              <span class="metric-pill">
+                <i class="pi pi-users"></i>
+                {{ role.usersCount }} Assigned Users
+              </span>
+
+              @if (!role.isSystem) {
+                <button
+                  type="button"
+                  class="toggle-status-link"
+                  (click)="toggleRoleStatus(role, $event)"
+                  [title]="role.isActive !== false ? 'Deactivate this custom role' : 'Activate this custom role'"
+                >
+                  <i [class]="role.isActive !== false ? 'pi pi-ban' : 'pi pi-check'"></i>
+                  {{ role.isActive !== false ? 'Deactivate' : 'Activate' }}
+                </button>
+              } @else {
+                <span class="protected-text" title="Protected System Role">
+                  <i class="pi pi-lock"></i> Protected
+                </span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
