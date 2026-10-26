@@ -11,4 +11,5 @@ public interface ICategoryService
     Task<Category> CreateCategoryAsync(Guid tenantId, CreateCategoryRequest request);
     Task<Category> UpdateCategoryAsync(Guid tenantId, Guid categoryId, UpdateCategoryRequest request);
     Task DeactivateCategoryAsync(Guid tenantId, Guid categoryId);
+    Task<Category> ReactivateCategoryAsync(Guid tenantId, Guid categoryId);
 }

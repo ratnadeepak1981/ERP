@@ -38,10 +38,19 @@ export class CustomerMasterComponent implements OnInit {
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
+  readonly message = signal<{ text: string; severity: 'success' | 'warn' | 'error' } | null>(null);
 
   readonly customers = signal<CustomerItem[]>([]);
   readonly searchTerm = signal<string>('');
   readonly statusFilter = signal<'all' | 'active' | 'inactive'>('all');
+
+  // Inline Confirmation Banner State (Strictly NO POPUPS)
+  readonly pendingAction = signal<{
+    type: 'deactivate' | 'reactivate';
+    id: string;
+    code: string;
+    name: string;
+  } | null>(null);
 
   readonly breadcrumbs = [
     { label: 'Workspace', routerLink: '/app/dashboard' },
@@ -97,11 +106,59 @@ export class CustomerMasterComponent implements OnInit {
     this.router.navigate(['/app/master-data/customers', customer.customerId]);
   }
 
-  onDeactivate(customer: CustomerItem): void {
-    if (confirm(`Deactivate customer ${customer.customerName} (${customer.customerCode})?`)) {
-      this.masterDataService.deactivateCustomer(customer.customerId).subscribe({
-        next: () => this.loadCustomers(),
-        error: (err) => alert(err?.error?.message || 'Failed to deactivate customer.')
+  promptDeactivate(customer: CustomerItem): void {
+    this.pendingAction.set({
+      type: 'deactivate',
+      id: customer.customerId,
+      code: customer.customerCode,
+      name: customer.customerName
+    });
+    this.message.set(null);
+  }
+
+  promptReactivate(customer: CustomerItem): void {
+    this.pendingAction.set({
+      type: 'reactivate',
+      id: customer.customerId,
+      code: customer.customerCode,
+      name: customer.customerName
+    });
+    this.message.set(null);
+  }
+
+  cancelPendingAction(): void {
+    this.pendingAction.set(null);
+  }
+
+  confirmPendingAction(): void {
+    const action = this.pendingAction();
+    if (!action) return;
+
+    if (action.type === 'deactivate') {
+      this.masterDataService.deactivateCustomer(action.id).subscribe({
+        next: () => {
+          this.customers.update(list =>
+            list.map(c => c.customerId === action.id ? { ...c, isActive: false } : c)
+          );
+          this.pendingAction.set(null);
+          this.message.set({ text: `Customer "${action.name}" deactivated successfully.`, severity: 'success' });
+        },
+        error: (err) => {
+          this.message.set({ text: err?.error?.message || 'Failed to deactivate customer.', severity: 'error' });
+        }
+      });
+    } else {
+      this.masterDataService.reactivateCustomer(action.id).subscribe({
+        next: () => {
+          this.customers.update(list =>
+            list.map(c => c.customerId === action.id ? { ...c, isActive: true } : c)
+          );
+          this.pendingAction.set(null);
+          this.message.set({ text: `Customer "${action.name}" reactivated successfully.`, severity: 'success' });
+        },
+        error: (err) => {
+          this.message.set({ text: err?.error?.message || 'Failed to reactivate customer.', severity: 'error' });
+        }
       });
     }
   }

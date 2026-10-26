@@ -29,9 +29,44 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
             .HasColumnType("decimal(18,2)")
             .IsRequired();
 
+        builder.Property(x => x.DiscountRate)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.DiscountAmount)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.TaxCodeId)
+            .IsRequired(false);
+
+        builder.Property(x => x.TaxRate)
+            .HasColumnType("decimal(18,4)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.TaxAmount)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.SubTotal)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
         builder.Property(x => x.LineTotal)
             .HasColumnType("decimal(18,2)")
             .IsRequired();
+
+        builder.Property(x => x.IsTaxInclusive)
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(x => x.Notes)
+            .HasMaxLength(500);
 
         builder.Property(x => x.IsActive)
             .IsRequired();

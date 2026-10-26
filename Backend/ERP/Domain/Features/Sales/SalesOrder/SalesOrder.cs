@@ -45,6 +45,10 @@ public class SalesOrder : Auditable, ITenantScopedEntity, ICompanyScopedEntity, 
 
     public Guid? OpportunityId { get; set; }
 
+    public Guid? DeliveryAddressId { get; set; }
+
+    public string? DeliveryAddressSnapshot { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public List<SalesOrderItem> Items { get; set; } = new();
@@ -62,7 +66,9 @@ public class SalesOrder : Auditable, ITenantScopedEntity, ICompanyScopedEntity, 
         string? paymentTerms = null,
         string? notes = null,
         Guid? createdByUserId = null,
-        Guid? opportunityId = null)
+        Guid? opportunityId = null,
+        Guid? deliveryAddressId = null,
+        string? deliveryAddressSnapshot = null)
     {
         return new SalesOrder
         {
@@ -80,6 +86,8 @@ public class SalesOrder : Auditable, ITenantScopedEntity, ICompanyScopedEntity, 
             Notes = notes?.Trim(),
             CreatedByUserId = createdByUserId,
             OpportunityId = opportunityId,
+            DeliveryAddressId = deliveryAddressId,
+            DeliveryAddressSnapshot = deliveryAddressSnapshot?.Trim(),
             Status = SalesOrderStatus.Draft,
             SubTotal = 0,
             DiscountAmount = 0,
@@ -96,7 +104,9 @@ public class SalesOrder : Auditable, ITenantScopedEntity, ICompanyScopedEntity, 
         decimal discountRate = 0m,
         decimal taxRate = 0m,
         Guid? unitOfMeasureId = null,
-        string? notes = null)
+        string? notes = null,
+        Guid? taxCodeId = null,
+        bool isTaxInclusive = false)
     {
         if (Status != SalesOrderStatus.Draft)
             throw new InvalidOperationException($"Cannot add items to sales order '{OrderNumber}' because it is in status '{Status}'. Only Draft orders can be modified.");
@@ -116,13 +126,32 @@ public class SalesOrder : Auditable, ITenantScopedEntity, ICompanyScopedEntity, 
         decimal roundedQuantity = Math.Round(quantity, 4, MidpointRounding.AwayFromZero);
         decimal roundedUnitPrice = Math.Round(unitPrice, 2, MidpointRounding.AwayFromZero);
         decimal roundedDiscountRate = Math.Round(discountRate, 2, MidpointRounding.AwayFromZero);
-        decimal roundedTaxRate = Math.Round(taxRate, 2, MidpointRounding.AwayFromZero);
+        decimal roundedTaxRate = Math.Round(taxRate, 4, MidpointRounding.AwayFromZero);
 
-        decimal lineSubTotal = Math.Round(roundedQuantity * roundedUnitPrice, 2, MidpointRounding.AwayFromZero);
-        decimal lineDiscount = Math.Round(lineSubTotal * (roundedDiscountRate / 100m), 2, MidpointRounding.AwayFromZero);
-        decimal taxableAmount = lineSubTotal - lineDiscount;
-        decimal lineTax = Math.Round(taxableAmount * (roundedTaxRate / 100m), 2, MidpointRounding.AwayFromZero);
-        decimal lineTotal = Math.Round(taxableAmount + lineTax, 2, MidpointRounding.AwayFromZero);
+        decimal lineSubTotal;
+        decimal lineDiscount;
+        decimal taxableAmount;
+        decimal lineTax;
+        decimal lineTotal;
+
+        if (isTaxInclusive)
+        {
+            decimal gross = Math.Round(roundedQuantity * roundedUnitPrice, 2, MidpointRounding.AwayFromZero);
+            lineDiscount = Math.Round(gross * (roundedDiscountRate / 100m), 2, MidpointRounding.AwayFromZero);
+            decimal discountedGross = gross - lineDiscount;
+            taxableAmount = Math.Round(discountedGross / (1m + (roundedTaxRate / 100m)), 2, MidpointRounding.AwayFromZero);
+            lineTax = discountedGross - taxableAmount;
+            lineSubTotal = gross;
+            lineTotal = discountedGross;
+        }
+        else
+        {
+            lineSubTotal = Math.Round(roundedQuantity * roundedUnitPrice, 2, MidpointRounding.AwayFromZero);
+            lineDiscount = Math.Round(lineSubTotal * (roundedDiscountRate / 100m), 2, MidpointRounding.AwayFromZero);
+            taxableAmount = lineSubTotal - lineDiscount;
+            lineTax = Math.Round(taxableAmount * (roundedTaxRate / 100m), 2, MidpointRounding.AwayFromZero);
+            lineTotal = Math.Round(taxableAmount + lineTax, 2, MidpointRounding.AwayFromZero);
+        }
 
         var item = new SalesOrderItem
         {
@@ -134,10 +163,12 @@ public class SalesOrder : Auditable, ITenantScopedEntity, ICompanyScopedEntity, 
             UnitPrice = roundedUnitPrice,
             DiscountRate = roundedDiscountRate,
             DiscountAmount = lineDiscount,
+            TaxCodeId = taxCodeId,
             TaxRate = roundedTaxRate,
             TaxAmount = lineTax,
             SubTotal = lineSubTotal,
             LineTotal = lineTotal,
+            IsTaxInclusive = isTaxInclusive,
             Notes = notes?.Trim(),
             IsActive = true
         };

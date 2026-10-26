@@ -20,6 +20,8 @@ public class SalesOrderItem
 
     public decimal DiscountAmount { get; set; } = 0;
 
+    public Guid? TaxCodeId { get; set; }
+
     public decimal TaxRate { get; set; } = 0;
 
     public decimal TaxAmount { get; set; } = 0;
@@ -27,6 +29,8 @@ public class SalesOrderItem
     public decimal SubTotal { get; set; }
 
     public decimal LineTotal { get; set; }
+
+    public bool IsTaxInclusive { get; set; } = false;
 
     public string? Notes { get; set; }
 

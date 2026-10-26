@@ -63,6 +63,10 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryService, ERP.Domain.Features.MasterData.Category.CategoryService>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureService>();
+        services.AddScoped<Domain.Features.MasterData.Currency.ICurrencyService, Domain.Features.MasterData.Currency.CurrencyService>();
+        services.AddScoped<Domain.Features.MasterData.Brand.IBrandService, Domain.Features.MasterData.Brand.BrandService>();
+        services.AddScoped<Domain.Features.MasterData.PaymentTerm.IPaymentTermService, Domain.Features.MasterData.PaymentTerm.PaymentTermService>();
+        services.AddScoped<Domain.Features.MasterData.TaxCode.ITaxCodeService, Domain.Features.MasterData.TaxCode.TaxCodeService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Customer.ICustomerService, ERP.Domain.Features.MasterData.Customer.CustomerService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Supplier.ISupplierService, ERP.Domain.Features.MasterData.Supplier.SupplierService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseService, ERP.Domain.Features.MasterData.Warehouse.WarehouseService>();

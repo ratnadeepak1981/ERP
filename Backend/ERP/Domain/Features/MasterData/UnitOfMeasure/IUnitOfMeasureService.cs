@@ -11,9 +11,11 @@ public interface IUnitOfMeasureService
     Task<UnitOfMeasure> CreateUnitAsync(Guid tenantId, CreateUnitOfMeasureRequest request);
     Task<UnitOfMeasure> UpdateUnitAsync(Guid tenantId, Guid unitOfMeasureId, UpdateUnitOfMeasureRequest request);
     Task DeactivateUnitAsync(Guid tenantId, Guid unitOfMeasureId);
+    Task<UnitOfMeasure> ReactivateUnitAsync(Guid tenantId, Guid unitOfMeasureId);
 
     Task<List<UnitOfMeasureConversion>> GetConversionsAsync(Guid tenantId);
     Task<UnitOfMeasureConversion> CreateConversionAsync(Guid tenantId, CreateUnitOfMeasureConversionRequest request);
     Task<UnitOfMeasureConversion> UpdateConversionAsync(Guid tenantId, Guid conversionId, UpdateUnitOfMeasureConversionRequest request);
     Task DeactivateConversionAsync(Guid tenantId, Guid conversionId);
+    Task<ConvertUnitOfMeasureResult> ConvertQuantityAsync(Guid tenantId, Guid fromUnitId, Guid toUnitId, decimal quantity);
 }

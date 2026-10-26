@@ -57,7 +57,15 @@ export interface PurchaseOrderItemDto {
   quantity: number;
   receivedQuantity?: number;
   unitPrice: number;
+  discountRate?: number;
+  discountAmount?: number;
+  taxCodeId?: string | null;
+  taxRate?: number;
+  taxAmount?: number;
+  subTotal?: number;
   lineTotal: number;
+  isTaxInclusive?: boolean;
+  notes?: string;
   isActive?: boolean;
 }
 
@@ -72,6 +80,9 @@ export interface PurchaseOrderDto {
   orderNumber: string;
   orderDate: string;
   status: PurchaseOrderStatus | number | string;
+  subTotal?: number;
+  discountAmount?: number;
+  taxAmount?: number;
   totalAmount: number;
   isActive: boolean;
   items: PurchaseOrderItemDto[];
@@ -82,6 +93,11 @@ export interface CreatePurchaseOrderItemRequest {
   unitOfMeasureId?: string | null;
   quantity: number;
   unitPrice?: number;
+  discountRate?: number;
+  taxCodeId?: string | null;
+  taxRate?: number;
+  isTaxInclusive?: boolean;
+  notes?: string;
 }
 
 export interface CreatePurchaseOrderRequest {

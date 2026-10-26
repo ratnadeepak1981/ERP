@@ -128,6 +128,207 @@
         ></app-reactive-form>
       </section>
 
+      <!-- Section 4: Multiple Supplier Locations & Warehouses (Strictly NO POPUPS) -->
+      @if (mode() !== 'create' && supplierId()) {
+        <section class="erp-card form-section-card">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <span class="section-step-badge">4</span>
+              <div class="section-headings">
+                <h2 class="section-title">Operational Locations & Supply Depots</h2>
+                <span class="section-subtitle">
+                  Configure supplier manufacturing plants, distribution hubs, regional dispatch points, and offices.
+                </span>
+              </div>
+            </div>
+            @if (!showAddressForm()) {
+              <button type="button" class="p-button p-button-sm p-button-outlined" (click)="openAddAddress()">
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span class="p-button-label">Add Supplier Location</span>
+              </button>
+            }
+          </div>
+
+          <!-- Consequential Removal Confirmation Banner (Strictly NO POPUPS) -->
+          @if (pendingDeleteAddress()) {
+            <div class="address-confirm-bar">
+              <div class="confirm-info">
+                <i class="pi pi-question-circle"></i>
+                <span>
+                  Unlink location <strong>"{{ pendingDeleteAddress()?.address?.addressName || 'Selected Location' }}"</strong> from this supplier?
+                  Existing purchasing records will preserve their historical snapshot.
+                </span>
+              </div>
+              <div class="confirm-actions">
+                <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelRemoveAddress()">Cancel</button>
+                <button type="button" class="p-button p-button-sm p-button-danger" (click)="confirmRemoveAddress()">
+                  Confirm Unlink
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Inline Address Form Panel (Strictly NO POPUPS) -->
+          @if (showAddressForm()) {
+            <div class="inline-address-card">
+              <div class="inline-card-header">
+                <h3>New Supplier Depot / Factory Address</h3>
+                <button type="button" class="btn-close" (click)="cancelAddAddress()">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="address-grid">
+                <div class="form-group">
+                  <label>Depot / Plant Name <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Export Processing Plant, Northern Distribution Hub"
+                    [(ngModel)]="addrName"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Location Purpose / Type <span class="required">*</span></label>
+                  <select class="custom-select" [(ngModel)]="addrTypeId">
+                    @for (t of addressTypes(); track t.addressTypeId) {
+                      <option [value]="t.addressTypeId">{{ t.name }} ({{ t.code }})</option>
+                    }
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Street Address Line 1 <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Industrial Zone Phase 2"
+                    [(ngModel)]="addrLine1"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Address Line 2 (Optional)</label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Building 4A"
+                    [(ngModel)]="addrLine2"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>City / Region <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Biyagama"
+                    [(ngModel)]="addrCity"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Postal Code</label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. 11650"
+                    [(ngModel)]="addrPostalCode"
+                  />
+                </div>
+                <div class="form-group checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" [(ngModel)]="addrIsDefault" />
+                    <span>Set as Primary Operating Location for Purchase Orders</span>
+                  </label>
+                </div>
+              </div>
+              <div class="address-form-actions">
+                <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelAddAddress()" [disabled]="addrSaving()">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-primary"
+                  (click)="saveNewAddress()"
+                  [disabled]="addrSaving() || !addrName.trim() || !addrLine1.trim() || !addrCity.trim()"
+                >
+                  @if (addrSaving()) {
+                    <i class="pi pi-spin pi-spinner"></i>
+                  } @else {
+                    <i class="pi pi-check"></i>
+                  }
+                  <span>Save & Link Location</span>
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Address Grid Table -->
+          @if (loadingAddresses()) {
+            <app-loading-state message="Loading supplier locations..."></app-loading-state>
+          } @else if (supplierAddresses().length === 0) {
+            <div class="empty-addresses-notice">
+              <i class="pi pi-map-marker"></i>
+              <p>No operational locations or supply depots configured yet. Add one above to record vendor distribution points.</p>
+            </div>
+          } @else {
+            <div class="address-table-wrapper">
+              <table class="address-table">
+                <thead>
+                  <tr>
+                    <th>Location / Depot Name</th>
+                    <th style="width: 130px;">Purpose</th>
+                    <th>Full Street Address</th>
+                    <th style="width: 140px;">Default Status</th>
+                    <th style="width: 120px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (sa of supplierAddresses(); track sa.supplierAddressId) {
+                    <tr>
+                      <td>
+                        <strong>{{ sa.address?.addressName || 'Depot Location' }}</strong>
+                      </td>
+                      <td>
+                        <span class="type-pill">{{ sa.addressTypeName || 'Office' }}</span>
+                      </td>
+                      <td class="address-cell">
+                        <span>{{ sa.address?.addressLine1 }}</span>
+                        @if (sa.address?.addressLine2) {
+                          <span class="text-secondary">, {{ sa.address?.addressLine2 }}</span>
+                        }
+                        <span class="text-secondary"> — {{ sa.address?.city }} {{ sa.address?.postalCode }}</span>
+                      </td>
+                      <td>
+                        @if (sa.isDefault) {
+                          <span class="default-badge">
+                            <i class="pi pi-check-circle"></i> Default
+                          </span>
+                        } @else {
+                          <button
+                            type="button"
+                            class="btn-text-action"
+                            (click)="setAsDefault(sa)"
+                          >
+                            Set Default
+                          </button>
+                        }
+                      </td>
+                      <td style="text-align: right;">
+                        <button
+                          type="button"
+                          class="btn-icon-danger"
+                          title="Unlink Location"
+                          (click)="promptRemoveAddress(sa)"
+                        >
+                          <i class="pi pi-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+
       <!-- Bottom Action Footer -->
       <div class="form-bottom-actions erp-card">
         <div class="footer-hint">

@@ -83,7 +83,7 @@ public class UnitOfMeasureController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("UOM.UPDATE")]
+    [RequirePermission("UOM.EDIT")]
     public async Task<IActionResult> UpdateUnit(Guid id, [FromBody] UpdateUnitOfMeasureRequest request)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
@@ -122,6 +122,26 @@ public class UnitOfMeasureController : BaseApiController
         }
     }
 
+    [HttpPost("{id:guid}/reactivate")]
+    [RequirePermission("UOM.EDIT")]
+    public async Task<IActionResult> ReactivateUnit(Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var unit = await _uomService.ReactivateUnitAsync(tenantId.Value, id);
+            return SuccessResponse(unit, "Unit of measure reactivated successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpGet("conversions")]
     public async Task<IActionResult> GetConversions()
     {
@@ -147,6 +167,28 @@ public class UnitOfMeasureController : BaseApiController
         {
             var conversion = await _uomService.CreateConversionAsync(tenantId.Value, request);
             return SuccessResponse(conversion, "Unit of measure conversion created successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("convert")]
+    public async Task<IActionResult> ConvertQuantity(
+        [FromQuery] Guid fromUnitId,
+        [FromQuery] Guid toUnitId,
+        [FromQuery] decimal quantity)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var result = await _uomService.ConvertQuantityAsync(tenantId.Value, fromUnitId, toUnitId, quantity);
+            return SuccessResponse(result);
         }
         catch (Exception ex)
         {

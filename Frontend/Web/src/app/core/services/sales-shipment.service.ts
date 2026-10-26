@@ -8,7 +8,9 @@ import {
   SalesShipmentStatus,
   CreateShipmentFromOrderRequest,
   UpdateSalesShipmentRequest,
-  DeliverShipmentRequest
+  DeliverShipmentRequest,
+  SalesOrderDispatchAvailabilityDto,
+  DispatchOrderRequest
 } from '../models/sales-shipment.models';
 
 @Injectable({
@@ -52,6 +54,38 @@ export class SalesShipmentService {
     return this.http
       .get<ApiResponse<SalesShipmentDto>>(`${this.baseUrl(companyId, branchId)}/${id}`)
       .pipe(map(res => res?.data ?? null));
+  }
+
+  getOrderDispatchAvailability(
+    companyId: string,
+    branchId: string,
+    salesOrderId: string,
+    locationId?: string | null
+  ): Observable<SalesOrderDispatchAvailabilityDto> {
+    let params = new HttpParams();
+    if (locationId) {
+      params = params.set('locationId', locationId);
+    }
+    return this.http
+      .get<ApiResponse<SalesOrderDispatchAvailabilityDto>>(
+        `${this.baseUrl(companyId, branchId)}/from-order/${salesOrderId}/availability`,
+        { params }
+      )
+      .pipe(map(res => res.data));
+  }
+
+  dispatchFromOrder(
+    companyId: string,
+    branchId: string,
+    salesOrderId: string,
+    request: DispatchOrderRequest
+  ): Observable<SalesShipmentDto> {
+    return this.http
+      .post<ApiResponse<SalesShipmentDto>>(
+        `${this.baseUrl(companyId, branchId)}/from-order/${salesOrderId}/dispatch`,
+        request
+      )
+      .pipe(map(res => res.data));
   }
 
   createFromOrder(

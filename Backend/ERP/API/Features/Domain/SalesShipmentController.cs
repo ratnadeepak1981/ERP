@@ -154,6 +154,65 @@ public class SalesShipmentController : BaseApiController
         return SuccessResponse(shipment);
     }
 
+    [HttpGet("from-order/{salesOrderId:guid}/availability")]
+    [RequirePermission("SALES_SHIPMENT.VIEW")]
+    public async Task<IActionResult> GetOrderDispatchAvailability(
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        [FromQuery] Guid? locationId = null)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var availability = await _shipmentService.GetOrderDispatchAvailabilityAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                salesOrderId,
+                locationId);
+
+            return SuccessResponse(availability);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("from-order/{salesOrderId:guid}/dispatch")]
+    [RequirePermission("SALES_SHIPMENT.DISPATCH")]
+    public async Task<IActionResult> CreateAndDispatchFromOrder(
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        [FromBody] DispatchOrderRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var shipment = await _shipmentService.CreateAndDispatchFromOrderAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                salesOrderId,
+                request);
+
+            return CreatedResponse(
+                nameof(GetShipment),
+                new { companyId, branchId, id = shipment.Id },
+                shipment);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost("from-order/{salesOrderId:guid}")]
     [RequirePermission("SALES_SHIPMENT.CREATE")]
     public async Task<IActionResult> CreateFromOrder(

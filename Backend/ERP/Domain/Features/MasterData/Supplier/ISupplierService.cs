@@ -11,6 +11,7 @@ public interface ISupplierService
     Task<Supplier> CreateSupplierAsync(Guid tenantId, CreateSupplierRequest request);
     Task<Supplier> UpdateSupplierAsync(Guid tenantId, Guid supplierId, UpdateSupplierRequest request);
     Task DeactivateSupplierAsync(Guid tenantId, Guid supplierId);
+    Task<Supplier> ReactivateSupplierAsync(Guid tenantId, Guid supplierId);
 
     Task<List<SupplierAddress>> GetAddressesAsync(Guid tenantId, Guid supplierId);
     Task<SupplierAddress> LinkAddressAsync(Guid tenantId, Guid supplierId, SupplierAddressLinkRequest request);

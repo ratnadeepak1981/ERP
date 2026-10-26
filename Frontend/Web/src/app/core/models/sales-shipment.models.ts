@@ -131,3 +131,62 @@ export interface DeliverShipmentRequest {
   recipientName?: string | null;
   notes?: string | null;
 }
+
+
+export interface EligibleLocationDto {
+  warehouseId: string;
+  warehouseName: string;
+  warehouseCode: string;
+  locationId: string;
+  locationCode: string;
+  locationName: string;
+  isDefault: boolean;
+}
+
+export interface SalesOrderDispatchLineAvailabilityDto {
+  salesOrderItemId: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  orderedQuantity: number;
+  alreadyDispatchedQuantity: number;
+  remainingQuantity: number;
+  availableQuantity: number;
+  shortageQuantity: number;
+  canFulfil: boolean;
+  unitOfMeasureId?: string | null;
+}
+
+export interface SalesOrderDispatchAvailabilityDto {
+  salesOrderId: string;
+  orderNumber: string;
+  defaultWarehouseId?: string | null;
+  defaultWarehouseName?: string | null;
+  defaultLocationId?: string | null;
+  defaultLocationCode?: string | null;
+  defaultLocationName?: string | null;
+  selectedWarehouseId?: string | null;
+  selectedWarehouseName?: string | null;
+  selectedLocationId?: string | null;
+  selectedLocationCode?: string | null;
+  selectedLocationName?: string | null;
+  canDefaultLocationFulfil: boolean;
+  canFulfil: boolean;
+  hasShortages: boolean;
+  eligibleLocations: EligibleLocationDto[];
+  lines: SalesOrderDispatchLineAvailabilityDto[];
+}
+
+export interface DispatchOrderRequest {
+  warehouseId: string;
+  warehouseLocationId: string;
+  shipmentNumber?: string;
+  method?: FulfillmentMethod;
+  shipmentDate?: string;
+  carrierName?: string;
+  trackingNumber?: string;
+  recipientName?: string;
+  deliveryAddress?: string;
+  vehicleNumber?: string;
+  notes?: string;
+}
