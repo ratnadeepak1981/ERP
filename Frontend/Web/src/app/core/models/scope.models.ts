@@ -122,7 +122,7 @@ export interface CreateWarehouseDto {
   branchId?: string | null;
   addressLine1?: string;
   addressLine2?: string;
-  city: string;
+  city?: string;
   postalCode?: string;
   country?: string;
 }
@@ -134,7 +134,7 @@ export interface UpdateWarehouseDto {
   branchId?: string | null;
   addressLine1?: string;
   addressLine2?: string;
-  city: string;
+  city?: string;
   postalCode?: string;
   country?: string;
 }
@@ -245,7 +245,6 @@ export interface CreateSupplierDto {
   isActive?: boolean;
 }
 
-
 export interface CustomerItem {
   customerId: string;
   tenantId?: string;
@@ -274,10 +273,150 @@ export interface CreateCustomerDto {
   phone?: string;
   addressLine1?: string;
   addressLine2?: string;
-  city: string;
+  city?: string;
   postalCode?: string;
   country?: string;
   taxNumber?: string;
   creditLimit?: number;
   paymentTerms?: string;
+}
+
+export interface UnitOfMeasureConversionItem {
+  conversionId: string;
+  tenantId: string;
+  fromUnitId: string;
+  toUnitId: string;
+  conversionFactor: number;
+  isActive: boolean;
+}
+
+export interface CurrencyItem {
+  currencyId: string;
+  tenantId: string;
+  currencyCode: string;
+  currencyName: string;
+  symbol: string;
+  decimalPlaces: number;
+  isActive: boolean;
+}
+
+export interface BrandItem {
+  brandId: string;
+  tenantId: string;
+  brandCode: string;
+  brandName: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface CreateBrandDto {
+  brandCode: string;
+  brandName: string;
+  description?: string;
+}
+
+export interface UpdateBrandDto {
+  brandName: string;
+  description?: string;
+}
+
+export interface PaymentTermItem {
+  paymentTermId: string;
+  tenantId: string;
+  termCode: string;
+  termName: string;
+  days: number;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface CreatePaymentTermDto {
+  termCode: string;
+  termName: string;
+  days: number;
+  description?: string;
+}
+
+export interface UpdatePaymentTermDto {
+  termName: string;
+  days: number;
+  description?: string;
+}
+
+export interface AddressTypeItem {
+  addressTypeId: string;
+  code: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface AddressItem {
+  addressId: string;
+  tenantId: string;
+  addressName: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  stateProvince?: string;
+  postalCode?: string;
+  countryId?: string;
+  isActive: boolean;
+}
+
+export interface CustomerAddressItem {
+  customerAddressId: string;
+  customerId: string;
+  addressId: string;
+  addressTypeId: string;
+  isDefault: boolean;
+  isActive: boolean;
+  address?: AddressItem;
+  addressTypeName?: string;
+}
+
+export interface SupplierAddressItem {
+  supplierAddressId: string;
+  supplierId: string;
+  addressId: string;
+  addressTypeId: string;
+  isDefault: boolean;
+  isActive: boolean;
+  address?: AddressItem;
+  addressTypeName?: string;
+}
+
+export type TaxApplicabilityType = 'Both' | 'Purchase' | 'Sales' | 1 | 2 | 3;
+
+export interface TaxCodeItem {
+  taxCodeId: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  rate: number;
+  applicability: number | string;
+  applicabilityName?: string;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateTaxCodeDto {
+  code: string;
+  name: string;
+  rate: number;
+  applicability: number;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  description?: string | null;
+}
+
+export interface UpdateTaxCodeDto {
+  name: string;
+  rate: number;
+  applicability: number;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  description?: string | null;
 }

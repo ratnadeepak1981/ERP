@@ -1,0 +1,371 @@
+<div class="categories-brands-page">
+  <app-page-header
+    title="Product Categories & Brands"
+    subtitle="Configure standard categorization, brand associations, and reporting classifications."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Contextual Message Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Confirmation Banner (NO POPUP) -->
+  @if (pendingAction()) {
+    <div class="action-confirm-bar">
+      <div class="confirm-text">
+        <i class="pi pi-question-circle"></i>
+        <span>
+          Are you sure you want to <strong>{{ pendingAction()!.type }}</strong> the {{ pendingAction()!.target }}
+          <strong>"{{ pendingAction()!.name }}"</strong>?
+        </span>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelAction()">Cancel</button>
+        <button
+          type="button"
+          class="p-button p-button-sm"
+          [class.p-button-danger]="pendingAction()!.type === 'deactivate'"
+          [class.p-button-primary]="pendingAction()!.type === 'reactivate'"
+          (click)="confirmAction()"
+        >
+          Confirm {{ pendingAction()!.type | titlecase }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Loading categories and brands..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+  } @else {
+    <div class="tabs-card erp-card">
+      <!-- Tabs switcher -->
+      <div class="tab-header-bar">
+        <div class="tab-pills">
+          <button
+            type="button"
+            class="tab-pill"
+            [class.active]="activeTab() === 'categories'"
+            (click)="activeTab.set('categories')"
+          >
+            <i class="pi pi-tag"></i>
+            <span>Product Categories</span>
+            <span class="count-badge">{{ categories().length }}</span>
+          </button>
+          <button
+            type="button"
+            class="tab-pill"
+            [class.active]="activeTab() === 'brands'"
+            (click)="activeTab.set('brands')"
+          >
+            <i class="pi pi-bookmark"></i>
+            <span>Brands</span>
+            <span class="count-badge">{{ brands().length }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Categories -->
+      @if (activeTab() === 'categories') {
+        <div class="tab-content">
+          <!-- Inline Category Form Panel (NO POPUP) -->
+          @if (showCategoryForm()) {
+            <div class="inline-form-card">
+              <div class="form-header">
+                <h4>{{ isEditingCategory() ? 'Edit Product Category' : 'New Product Category' }}</h4>
+                <button type="button" class="btn-close" (click)="cancelCategoryForm()">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Category Code <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. ELEC, RAW"
+                    [(ngModel)]="catCode"
+                    [disabled]="isEditingCategory()"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Category Name <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Electronics, Raw Materials"
+                    [(ngModel)]="catName"
+                  />
+                </div>
+                <div class="form-group full-width">
+                  <label>Description</label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="Optional details or scope..."
+                    [(ngModel)]="catDescription"
+                  />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelCategoryForm()">Cancel</button>
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-primary"
+                  [disabled]="categoryFormSaving() || !catName.trim() || (!isEditingCategory() && !catCode.trim())"
+                  (click)="saveCategory()"
+                >
+                  <i class="pi pi-check p-button-icon-left"></i>
+                  <span>{{ isEditingCategory() ? 'Update Category' : 'Save Category' }}</span>
+                </button>
+              </div>
+            </div>
+          }
+
+          <div class="table-controls-bar">
+            <div class="search-input-box">
+              <i class="pi pi-search search-icon"></i>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm search-field"
+                placeholder="Search category code or name..."
+                [ngModel]="searchTerm()"
+                (ngModelChange)="searchTerm.set($event)"
+              />
+            </div>
+            @if (!showCategoryForm()) {
+              <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateCategory()">
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span>New Category</span>
+              </button>
+            }
+          </div>
+
+          @if (filteredCategories().length === 0) {
+            <app-empty-state
+              title="No categories found"
+              description="No category records match your filter."
+              actionLabel="Create First Category"
+              actionIcon="pi pi-plus"
+              (action)="openCreateCategory()"
+            ></app-empty-state>
+          } @else {
+            <div class="data-table-wrapper">
+              <table class="enterprise-grid-table">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">Category Code</th>
+                    <th>Category Name</th>
+                    <th>Description</th>
+                    <th style="width: 110px;">Status</th>
+                    <th style="width: 160px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (cat of filteredCategories(); track cat.categoryId) {
+                    <tr>
+                      <td><code class="code-badge">{{ cat.categoryCode }}</code></td>
+                      <td><strong>{{ cat.categoryName }}</strong></td>
+                      <td>{{ cat.description || '—' }}</td>
+                      <td>
+                        <app-status-badge [status]="cat.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                      </td>
+                      <td style="text-align: right;">
+                        <div class="action-buttons-cell">
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text"
+                            (click)="openEditCategory(cat)"
+                            title="Edit Category"
+                          >
+                            <i class="pi pi-pencil"></i>
+                          </button>
+                          @if (cat.isActive) {
+                            <button
+                              type="button"
+                              class="p-button p-button-sm p-button-text p-button-danger"
+                              (click)="requestAction('deactivate', 'category', cat.categoryId, cat.categoryName)"
+                              title="Deactivate Category"
+                            >
+                              <i class="pi pi-ban"></i>
+                            </button>
+                          } @else {
+                            <button
+                              type="button"
+                              class="p-button p-button-sm p-button-text p-button-success"
+                              (click)="requestAction('reactivate', 'category', cat.categoryId, cat.categoryName)"
+                              title="Reactivate Category"
+                            >
+                              <i class="pi pi-refresh"></i>
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tab 2: Brands -->
+      @if (activeTab() === 'brands') {
+        <div class="tab-content">
+          <!-- Inline Brand Form Panel (NO POPUP) -->
+          @if (showBrandForm()) {
+            <div class="inline-form-card">
+              <div class="form-header">
+                <h4>{{ isEditingBrand() ? 'Edit Brand' : 'New Brand' }}</h4>
+                <button type="button" class="btn-close" (click)="cancelBrandForm()">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Brand Code <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. APEX, SONY"
+                    [(ngModel)]="brandCode"
+                    [disabled]="isEditingBrand()"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Brand Name <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Apex Industrial"
+                    [(ngModel)]="brandName"
+                  />
+                </div>
+                <div class="form-group full-width">
+                  <label>Description</label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="Optional manufacturer or brand notes..."
+                    [(ngModel)]="brandDescription"
+                  />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelBrandForm()">Cancel</button>
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-primary"
+                  [disabled]="brandFormSaving() || !brandName.trim() || (!isEditingBrand() && !brandCode.trim())"
+                  (click)="saveBrand()"
+                >
+                  <i class="pi pi-check p-button-icon-left"></i>
+                  <span>{{ isEditingBrand() ? 'Update Brand' : 'Save Brand' }}</span>
+                </button>
+              </div>
+            </div>
+          }
+
+          <div class="table-controls-bar">
+            <div class="search-input-box">
+              <i class="pi pi-search search-icon"></i>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm search-field"
+                placeholder="Search brand code or name..."
+                [ngModel]="searchTerm()"
+                (ngModelChange)="searchTerm.set($event)"
+              />
+            </div>
+            @if (!showBrandForm()) {
+              <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateBrand()">
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span>New Brand</span>
+              </button>
+            }
+          </div>
+
+          @if (filteredBrands().length === 0) {
+            <app-empty-state
+              title="No brands configured"
+              description="Register brands to associate with products and procurement catalog lines."
+              actionLabel="Create First Brand"
+              actionIcon="pi pi-plus"
+              (action)="openCreateBrand()"
+            ></app-empty-state>
+          } @else {
+            <div class="data-table-wrapper">
+              <table class="enterprise-grid-table">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">Brand Code</th>
+                    <th>Brand Name</th>
+                    <th>Description</th>
+                    <th style="width: 110px;">Status</th>
+                    <th style="width: 160px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (brand of filteredBrands(); track brand.brandId) {
+                    <tr>
+                      <td><code class="code-badge">{{ brand.brandCode }}</code></td>
+                      <td><strong>{{ brand.brandName }}</strong></td>
+                      <td>{{ brand.description || '—' }}</td>
+                      <td>
+                        <app-status-badge [status]="brand.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                      </td>
+                      <td style="text-align: right;">
+                        <div class="action-buttons-cell">
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text"
+                            (click)="openEditBrand(brand)"
+                            title="Edit Brand"
+                          >
+                            <i class="pi pi-pencil"></i>
+                          </button>
+                          @if (brand.isActive) {
+                            <button
+                              type="button"
+                              class="p-button p-button-sm p-button-text p-button-danger"
+                              (click)="requestAction('deactivate', 'brand', brand.brandId, brand.brandName)"
+                              title="Deactivate Brand"
+                            >
+                              <i class="pi pi-ban"></i>
+                            </button>
+                          } @else {
+                            <button
+                              type="button"
+                              class="p-button p-button-sm p-button-text p-button-success"
+                              (click)="requestAction('reactivate', 'brand', brand.brandId, brand.brandName)"
+                              title="Reactivate Brand"
+                            >
+                              <i class="pi pi-refresh"></i>
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

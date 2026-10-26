@@ -127,6 +127,207 @@
         ></app-reactive-form>
       </section>
 
+      <!-- Section 4: Multiple Delivery & Operational Destinations (NO POPUP) -->
+      @if (mode() !== 'create' && customerId()) {
+        <section class="erp-card form-section-card">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <span class="section-step-badge">4</span>
+              <div class="section-headings">
+                <h2 class="section-title">Operational Locations & Delivery Destinations</h2>
+                <span class="section-subtitle">
+                  Configure multiple shipping destinations, branch warehouses, and operational sites for this customer.
+                </span>
+              </div>
+            </div>
+            @if (!showAddressForm()) {
+              <button type="button" class="p-button p-button-sm p-button-outlined" (click)="openAddAddress()">
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span class="p-button-label">Add Address Destination</span>
+              </button>
+            }
+          </div>
+
+          <!-- Consequential Removal Confirmation Banner (Strictly NO POPUPS) -->
+          @if (pendingDeleteAddress()) {
+            <div class="address-confirm-bar">
+              <div class="confirm-info">
+                <i class="pi pi-question-circle"></i>
+                <span>
+                  Unlink address <strong>"{{ pendingDeleteAddress()?.address?.addressName || 'Selected Address' }}"</strong> from this customer?
+                  Existing sales orders will preserve their historical snapshot.
+                </span>
+              </div>
+              <div class="confirm-actions">
+                <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelRemoveAddress()">Cancel</button>
+                <button type="button" class="p-button p-button-sm p-button-danger" (click)="confirmRemoveAddress()">
+                  Confirm Unlink
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Inline Address Form Panel (Strictly NO POPUPS) -->
+          @if (showAddressForm()) {
+            <div class="inline-address-card">
+              <div class="inline-card-header">
+                <h3>New Delivery Destination / Site Address</h3>
+                <button type="button" class="btn-close" (click)="cancelAddAddress()">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="address-grid">
+                <div class="form-group">
+                  <label>Destination / Site Name <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Colombo Central Warehouse, Kandy Store"
+                    [(ngModel)]="addrName"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Address Purpose / Type <span class="required">*</span></label>
+                  <select class="custom-select" [(ngModel)]="addrTypeId">
+                    @for (t of addressTypes(); track t.addressTypeId) {
+                      <option [value]="t.addressTypeId">{{ t.name }} ({{ t.code }})</option>
+                    }
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Street Address Line 1 <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. 45 Logistics Boulevard"
+                    [(ngModel)]="addrLine1"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Address Line 2 (Optional)</label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Gate 3, Dock 12"
+                    [(ngModel)]="addrLine2"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>City / Municipal Region <span class="required">*</span></label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. Colombo"
+                    [(ngModel)]="addrCity"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Postal Code</label>
+                  <input
+                    type="text"
+                    class="p-inputtext p-inputtext-sm"
+                    placeholder="e.g. 00500"
+                    [(ngModel)]="addrPostalCode"
+                  />
+                </div>
+                <div class="form-group checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" [(ngModel)]="addrIsDefault" />
+                    <span>Set as Default Delivery Address for Sales Orders</span>
+                  </label>
+                </div>
+              </div>
+              <div class="address-form-actions">
+                <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelAddAddress()" [disabled]="addrSaving()">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-primary"
+                  (click)="saveNewAddress()"
+                  [disabled]="addrSaving() || !addrName.trim() || !addrLine1.trim() || !addrCity.trim()"
+                >
+                  @if (addrSaving()) {
+                    <i class="pi pi-spin pi-spinner"></i>
+                  } @else {
+                    <i class="pi pi-check"></i>
+                  }
+                  <span>Save & Link Address</span>
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Address Grid Table -->
+          @if (loadingAddresses()) {
+            <app-loading-state message="Loading customer addresses..."></app-loading-state>
+          } @else if (customerAddresses().length === 0) {
+            <div class="empty-addresses-notice">
+              <i class="pi pi-map-marker"></i>
+              <p>No operational addresses or delivery destinations configured yet. Add one above to enable destination selection on Sales Orders.</p>
+            </div>
+          } @else {
+            <div class="address-table-wrapper">
+              <table class="address-table">
+                <thead>
+                  <tr>
+                    <th>Site / Destination Name</th>
+                    <th style="width: 130px;">Purpose</th>
+                    <th>Full Street Address</th>
+                    <th style="width: 140px;">Default Status</th>
+                    <th style="width: 120px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (ca of customerAddresses(); track ca.customerAddressId) {
+                    <tr>
+                      <td>
+                        <strong>{{ ca.address?.addressName || 'Destination Site' }}</strong>
+                      </td>
+                      <td>
+                        <span class="type-pill">{{ ca.addressTypeName || 'Delivery' }}</span>
+                      </td>
+                      <td class="address-cell">
+                        <span>{{ ca.address?.addressLine1 }}</span>
+                        @if (ca.address?.addressLine2) {
+                          <span class="text-secondary">, {{ ca.address?.addressLine2 }}</span>
+                        }
+                        <span class="text-secondary"> — {{ ca.address?.city }} {{ ca.address?.postalCode }}</span>
+                      </td>
+                      <td>
+                        @if (ca.isDefault) {
+                          <span class="default-badge">
+                            <i class="pi pi-check-circle"></i> Default
+                          </span>
+                        } @else {
+                          <button
+                            type="button"
+                            class="btn-text-action"
+                            (click)="setAsDefault(ca)"
+                          >
+                            Set Default
+                          </button>
+                        }
+                      </td>
+                      <td style="text-align: right;">
+                        <button
+                          type="button"
+                          class="btn-icon-danger"
+                          title="Unlink Address"
+                          (click)="promptRemoveAddress(ca)"
+                        >
+                          <i class="pi pi-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+
       <div class="form-bottom-actions erp-card">
         <div class="footer-hint">
           <i class="pi pi-info-circle"></i>

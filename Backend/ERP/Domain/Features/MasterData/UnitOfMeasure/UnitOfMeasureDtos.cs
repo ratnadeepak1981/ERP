@@ -26,3 +26,13 @@ public class UpdateUnitOfMeasureConversionRequest
 {
     public decimal ConversionFactor { get; set; }
 }
+
+public class ConvertUnitOfMeasureResult
+{
+    public Guid FromUnitId { get; set; }
+    public Guid ToUnitId { get; set; }
+    public decimal OriginalQuantity { get; set; }
+    public decimal ConvertedQuantity { get; set; }
+    public decimal EffectiveFactor { get; set; }
+    public bool IsInverse { get; set; }
+}

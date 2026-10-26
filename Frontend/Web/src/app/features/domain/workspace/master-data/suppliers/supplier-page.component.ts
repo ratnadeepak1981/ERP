@@ -8,9 +8,9 @@ import {
   ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { AppPageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { AppReactiveFormComponent } from '../../../../../shared/components/forms/reactive-form.component';
@@ -20,7 +20,14 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
-import { SupplierItem, CreateSupplierDto } from '../../../../../core/models/scope.models';
+import {
+  SupplierItem,
+  CreateSupplierDto,
+  SupplierAddressItem,
+  AddressTypeItem,
+  AddressItem,
+  PaymentTermItem
+} from '../../../../../core/models/scope.models';
 
 export type SupplierPageMode = 'create' | 'edit' | 'view';
 
@@ -29,6 +36,7 @@ export type SupplierPageMode = 'create' | 'edit' | 'view';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     RouterModule,
     ButtonModule,
@@ -61,6 +69,27 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly serverErrors = signal<Record<string, string>>({});
   readonly message = signal<{ text: string; severity: 'success' | 'info' | 'warn' | 'danger' } | null>(null);
+
+  // Multiple Addresses State (Strictly NO POPUPS)
+  readonly supplierAddresses = signal<SupplierAddressItem[]>([]);
+  readonly addressTypes = signal<AddressTypeItem[]>([]);
+  readonly allAddresses = signal<AddressItem[]>([]);
+  readonly loadingAddresses = signal<boolean>(false);
+  readonly showAddressForm = signal<boolean>(false);
+  readonly addrSaving = signal<boolean>(false);
+  readonly pendingDeleteAddress = signal<SupplierAddressItem | null>(null);
+
+  // Address Inline Form fields
+  addrName = '';
+  addrLine1 = '';
+  addrLine2 = '';
+  addrCity = '';
+  addrPostalCode = '';
+  addrTypeId = '';
+  addrIsDefault = false;
+
+  // Payment Terms
+  readonly paymentTermsList = signal<PaymentTermItem[]>([]);
 
   // Reactive Form
   readonly supplierForm = new FormGroup({
@@ -203,6 +232,19 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
   // Form Fields - Section 3: Commercial Terms & Operational Status
   readonly termsFields = computed<FormFieldConfig[]>(() => {
     const isView = this.mode() === 'view';
+    const terms = this.paymentTermsList();
+
+    const termOptions = terms.length > 0
+      ? terms.map(t => ({ label: `${t.termName} (${t.days}d)`, value: t.termCode }))
+      : [
+          { label: 'Net 15 Days', value: 'Net 15' },
+          { label: 'Net 30 Days', value: 'Net 30' },
+          { label: 'Net 45 Days', value: 'Net 45' },
+          { label: 'Net 60 Days', value: 'Net 60' },
+          { label: 'Cash on Delivery (COD)', value: 'Cash on Delivery' },
+          { label: 'Due on Receipt', value: 'Due on Receipt' },
+          { label: 'Advance Payment', value: 'Advance Payment' }
+        ];
 
     return [
       {
@@ -211,15 +253,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
         type: 'select',
         required: true,
         placeholder: '-- Select Terms --',
-        options: [
-          { label: 'Net 15 Days', value: 'Net 15' },
-          { label: 'Net 30 Days', value: 'Net 30' },
-          { label: 'Net 45 Days', value: 'Net 45' },
-          { label: 'Net 60 Days', value: 'Net 60' },
-          { label: 'Cash on Delivery (COD)', value: 'Cash on Delivery' },
-          { label: 'Due on Receipt', value: 'Due on Receipt' },
-          { label: 'Advance Payment', value: 'Advance Payment' }
-        ],
+        options: termOptions,
         disabled: isView,
         colSpan: 1
       },
@@ -246,6 +280,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.detectRoute();
+    this.loadPaymentTerms();
 
     this.subs.add(
       this.route.paramMap.subscribe(() => {
@@ -258,18 +293,26 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
     this.subs.unsubscribe();
   }
 
+  private loadPaymentTerms(): void {
+    this.masterDataService.getPaymentTerms().subscribe({
+      next: terms => this.paymentTermsList.set(terms.filter(t => t.isActive)),
+      error: () => {}
+    });
+  }
+
   private detectRoute(): void {
-    const url = this.router.url;
     const id = this.route.snapshot.paramMap.get('id');
 
     if (id) {
       this.supplierId.set(id);
-      this.mode.set(url.includes('/edit') ? 'edit' : 'edit');
+      this.mode.set('edit');
       this.loadSupplier(id);
+      this.loadSupplierAddresses(id);
     } else {
       this.mode.set('create');
       this.supplierId.set(null);
       this.currentSupplier.set(null);
+      this.supplierAddresses.set([]);
       this.supplierForm.reset({
         supplierCode: '',
         supplierName: '',
@@ -308,6 +351,36 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadSupplierAddresses(supplierId: string): void {
+    this.loadingAddresses.set(true);
+    forkJoin({
+      linked: this.masterDataService.getSupplierAddresses(supplierId),
+      all: this.masterDataService.getAddresses(),
+      types: this.masterDataService.getAddressTypes()
+    }).subscribe({
+      next: ({ linked, all, types }) => {
+        this.allAddresses.set(all);
+        this.addressTypes.set(types);
+
+        const enriched = linked.map(link => {
+          const matchedAddr = all.find(a => a.addressId === link.addressId);
+          const matchedType = types.find(t => t.addressTypeId === link.addressTypeId);
+          return {
+            ...link,
+            address: matchedAddr,
+            addressTypeName: matchedType?.name || 'Address'
+          };
+        });
+
+        this.supplierAddresses.set(enriched);
+        this.loadingAddresses.set(false);
+      },
+      error: () => {
+        this.loadingAddresses.set(false);
+      }
+    });
+  }
+
   private populateForm(sup: SupplierItem): void {
     this.supplierForm.patchValue({
       supplierCode: sup.supplierCode,
@@ -325,6 +398,107 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
     if (this.mode() !== 'create') {
       this.supplierForm.get('supplierCode')?.disable();
     }
+  }
+
+  // --- Inline Address Management (NO POPUPS) ---
+  openAddAddress(): void {
+    this.addrName = '';
+    this.addrLine1 = '';
+    this.addrLine2 = '';
+    this.addrCity = this.currentSupplier()?.city || '';
+    this.addrPostalCode = '';
+    const officeType = this.addressTypes().find(t => t.code.toUpperCase() === 'OFFICE' || t.code.toUpperCase() === 'BILLING') || this.addressTypes()[0];
+    this.addrTypeId = officeType?.addressTypeId || '';
+    this.addrIsDefault = false;
+    this.showAddressForm.set(true);
+    this.pendingDeleteAddress.set(null);
+  }
+
+  cancelAddAddress(): void {
+    this.showAddressForm.set(false);
+  }
+
+  saveNewAddress(): void {
+    if (!this.addrName.trim() || !this.addrLine1.trim() || !this.addrCity.trim() || !this.addrTypeId) {
+      this.showMessage('Please provide Address Name, Line 1, City, and Address Type.', 'warn');
+      return;
+    }
+
+    const sId = this.supplierId();
+    if (!sId) return;
+
+    this.addrSaving.set(true);
+
+    this.masterDataService.createAddress({
+      addressName: this.addrName.trim(),
+      addressLine1: this.addrLine1.trim(),
+      addressLine2: this.addrLine2.trim() || undefined,
+      city: this.addrCity.trim(),
+      postalCode: this.addrPostalCode.trim() || undefined
+    }).subscribe({
+      next: createdAddr => {
+        this.masterDataService.linkSupplierAddress(sId, {
+          addressId: createdAddr.addressId,
+          addressTypeId: this.addrTypeId,
+          isDefault: this.addrIsDefault
+        }).subscribe({
+          next: () => {
+            this.addrSaving.set(false);
+            this.showAddressForm.set(false);
+            this.loadSupplierAddresses(sId);
+            this.showMessage(`Address "${createdAddr.addressName}" linked to supplier successfully.`, 'success');
+          },
+          error: err => {
+            this.addrSaving.set(false);
+            this.showMessage(err?.error?.message || 'Failed to link address to supplier.', 'danger');
+          }
+        });
+      },
+      error: err => {
+        this.addrSaving.set(false);
+        this.showMessage(err?.error?.message || 'Failed to create address.', 'danger');
+      }
+    });
+  }
+
+  setAsDefault(sa: SupplierAddressItem): void {
+    const sId = this.supplierId();
+    if (!sId) return;
+
+    this.masterDataService.setDefaultSupplierAddress(sId, sa.supplierAddressId).subscribe({
+      next: () => {
+        this.loadSupplierAddresses(sId);
+        this.showMessage('Default address updated successfully.', 'success');
+      },
+      error: err => {
+        this.showMessage(err?.error?.message || 'Failed to set default address.', 'danger');
+      }
+    });
+  }
+
+  promptRemoveAddress(sa: SupplierAddressItem): void {
+    this.pendingDeleteAddress.set(sa);
+  }
+
+  cancelRemoveAddress(): void {
+    this.pendingDeleteAddress.set(null);
+  }
+
+  confirmRemoveAddress(): void {
+    const target = this.pendingDeleteAddress();
+    const sId = this.supplierId();
+    if (!target || !sId) return;
+
+    this.masterDataService.removeSupplierAddress(sId, target.supplierAddressId).subscribe({
+      next: () => {
+        this.pendingDeleteAddress.set(null);
+        this.loadSupplierAddresses(sId);
+        this.showMessage('Address unlinked successfully.', 'success');
+      },
+      error: err => {
+        this.showMessage(err?.error?.message || 'Failed to unlink address.', 'danger');
+      }
+    });
   }
 
   saveSupplier(): void {
@@ -368,7 +542,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
       });
     } else {
       this.masterDataService.createSupplier(dto).subscribe({
-        next: created => {
+        next: () => {
           this.saving.set(false);
           this.showMessage(`Supplier '${val.supplierName}' registered successfully.`, 'success');
           setTimeout(() => {

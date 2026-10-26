@@ -1,9 +1,49 @@
 <div class="supplier-master-page">
   <app-page-header
-    title="Suppliers"
-    subtitle="Enterprise vendor profiles, purchasing contacts, terms, and fulfillment status."
+    title="Supplier Master"
+    subtitle="Configure supplier directory, payment terms, and active procurement status."
     [breadcrumbs]="breadcrumbs"
   ></app-page-header>
+
+  <!-- Contextual Message Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Confirmation Banner (NO POPUP) -->
+  @if (pendingAction()) {
+    <div class="action-confirm-bar">
+      <div class="confirm-text">
+        <i class="pi pi-question-circle"></i>
+        <span>
+          Are you sure you want to <strong>{{ pendingAction()!.type }}</strong> supplier
+          <strong>"{{ pendingAction()!.name }} ({{ pendingAction()!.code }})"</strong>?
+        </span>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelPendingAction()">Cancel</button>
+        <button
+          type="button"
+          class="p-button p-button-sm"
+          [class.p-button-danger]="pendingAction()!.type === 'deactivate'"
+          [class.p-button-primary]="pendingAction()!.type === 'reactivate'"
+          (click)="confirmPendingAction()"
+        >
+          Confirm {{ pendingAction()!.type | titlecase }}
+        </button>
+      </div>
+    </div>
+  }
 
   @if (loading()) {
     <app-loading-state message="Loading supplier records from server..."></app-loading-state>
@@ -11,7 +51,6 @@
     <app-error-state [message]="error()!" (retry)="loadSuppliers()"></app-error-state>
   } @else {
     <div class="supplier-table-card erp-card">
-      <!-- Search, Filters and Create Action Header -->
       <div class="table-controls-bar">
         <div class="search-and-filters">
           <div class="search-input-box">
@@ -19,7 +58,7 @@
             <input
               type="text"
               class="p-inputtext p-inputtext-sm search-field"
-              placeholder="Search code, supplier or contact..."
+              placeholder="Search code, supplier, or contact..."
               [ngModel]="searchTerm()"
               (ngModelChange)="searchTerm.set($event)"
             />
@@ -32,7 +71,7 @@
               [class.active]="statusFilter() === 'all'"
               (click)="statusFilter.set('all')"
             >
-              All Vendors
+              All Suppliers
             </button>
             <button
               type="button"
@@ -41,6 +80,14 @@
               (click)="statusFilter.set('active')"
             >
               Active Only
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'inactive'"
+              (click)="statusFilter.set('inactive')"
+            >
+              Inactive Only
             </button>
           </div>
         </div>
@@ -53,12 +100,11 @@
         </div>
       </div>
 
-      <!-- Suppliers Data Table -->
       @if (filteredSuppliers().length === 0) {
         <app-empty-state
           title="No suppliers found"
-          description="No vendor records match your query or none are registered yet."
-          actionLabel="Create First Supplier"
+          description="No supplier records match your query or none are registered yet."
+          actionLabel="Register First Supplier"
           actionIcon="pi pi-plus"
           (action)="openCreateDialog()"
         ></app-empty-state>
@@ -67,49 +113,62 @@
           <table class="enterprise-grid-table">
             <thead>
               <tr>
-                <th style="width: 140px;">Code</th>
+                <th style="width: 130px;">Code</th>
                 <th>Supplier Name</th>
-                <th>Contact</th>
-                <th>City</th>
-                <th style="width: 110px;">Status</th>
-                <th style="width: 120px; text-align: right;">Actions</th>
+                <th>Contact Name</th>
+                <th>Payment Terms</th>
+                <th style="width: 110px;">Lead Time</th>
+                <th style="width: 100px;">Status</th>
+                <th style="width: 130px; text-align: right;">Actions</th>
               </tr>
             </thead>
             <tbody>
-              @for (supplier of filteredSuppliers(); track supplier.supplierId) {
-                <tr>
-                  <td><code class="code-badge">{{ supplier.supplierCode }}</code></td>
+              @for (sup of filteredSuppliers(); track sup.supplierId) {
+                <tr [class.row-inactive]="!sup.isActive">
+                  <td><code class="code-badge">{{ sup.supplierCode }}</code></td>
                   <td>
                     <div class="supplier-cell">
-                      <strong>{{ supplier.supplierName }}</strong>
-                      @if (supplier.email) {
-                        <span class="supplier-subtext">{{ supplier.email }}</span>
+                      <strong>{{ sup.supplierName }}</strong>
+                      @if (sup.email) {
+                        <span class="supplier-subtext">{{ sup.email }}</span>
                       }
                     </div>
                   </td>
-                  <td>{{ supplier.contactName || '—' }}</td>
-                  <td>{{ supplier.city || '—' }}</td>
+                  <td>{{ sup.contactName || '—' }}</td>
+                  <td>{{ sup.paymentTerms || 'Net 30' }}</td>
+                  <td>{{ sup.leadTimeDays ? sup.leadTimeDays + ' days' : '—' }}</td>
                   <td>
-                    <app-status-badge [status]="supplier.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                    <app-status-badge [status]="sup.isActive ? 'Active' : 'Inactive'"></app-status-badge>
                   </td>
                   <td style="text-align: right;">
                     <div class="action-buttons-cell">
                       <button
                         type="button"
                         class="p-button p-button-sm p-button-text"
-                        (click)="openEditDialog(supplier)"
+                        (click)="openEditDialog(sup)"
                         title="Edit Supplier"
                       >
                         <i class="pi pi-pencil"></i>
                       </button>
-                      <button
-                        type="button"
-                        class="p-button p-button-sm p-button-text p-button-danger"
-                        (click)="onDeactivate(supplier)"
-                        title="Deactivate Supplier"
-                      >
-                        <i class="pi pi-trash"></i>
-                      </button>
+                      @if (sup.isActive) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text p-button-danger"
+                          (click)="promptDeactivate(sup)"
+                          title="Deactivate Supplier"
+                        >
+                          <i class="pi pi-ban"></i>
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text p-button-success"
+                          (click)="promptReactivate(sup)"
+                          title="Reactivate Supplier"
+                        >
+                          <i class="pi pi-replay"></i>
+                        </button>
+                      }
                     </div>
                   </td>
                 </tr>

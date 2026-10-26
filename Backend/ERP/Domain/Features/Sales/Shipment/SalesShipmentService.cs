@@ -207,7 +207,7 @@ public class SalesShipmentService : ISalesShipmentService
             request.CarrierName,
             request.TrackingNumber,
             request.RecipientName,
-            request.DeliveryAddress,
+            !string.IsNullOrWhiteSpace(request.DeliveryAddress) ? request.DeliveryAddress.Trim() : order.DeliveryAddressSnapshot,
             request.VehicleNumber,
             request.Notes);
 
@@ -316,7 +316,7 @@ public class SalesShipmentService : ISalesShipmentService
             request.CarrierName,
             request.TrackingNumber,
             request.RecipientName,
-            request.DeliveryAddress,
+            !string.IsNullOrWhiteSpace(request.DeliveryAddress) ? request.DeliveryAddress.Trim() : order.DeliveryAddressSnapshot,
             request.VehicleNumber,
             request.Notes);
 
@@ -1065,7 +1065,7 @@ public class SalesShipmentService : ISalesShipmentService
             request.CarrierName,
             request.TrackingNumber,
             request.RecipientName,
-            request.DeliveryAddress,
+            !string.IsNullOrWhiteSpace(request.DeliveryAddress) ? request.DeliveryAddress.Trim() : order.DeliveryAddressSnapshot,
             request.VehicleNumber,
             request.Notes);
 

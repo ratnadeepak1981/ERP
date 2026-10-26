@@ -11,6 +11,7 @@ public static class UnitOfMeasurePermissionSeed
         await SeedPermissionAsync(repository, "UOM.CREATE", "Create Unit of Measure", "UnitOfMeasure", "Allows creating units of measure.");
         await SeedPermissionAsync(repository, "UOM.EDIT", "Edit Unit of Measure", "UnitOfMeasure", "Allows editing units of measure.");
         await SeedPermissionAsync(repository, "UOM.DELETE", "Delete Unit of Measure", "UnitOfMeasure", "Allows deleting units of measure.");
+        await SeedPermissionAsync(repository, "UOM.CONVERT", "Convert Unit of Measure", "UnitOfMeasure", "Allows defining and managing unit of measure conversions.");
         await repository.SaveChangesAsync();
     }
 

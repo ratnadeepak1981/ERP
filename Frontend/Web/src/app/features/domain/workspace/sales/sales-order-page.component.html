@@ -125,6 +125,14 @@
           [serverErrors]="serverErrors()"
           [columns]="3"
         ></app-reactive-form>
+
+        @if (currentOrder()?.deliveryAddressSnapshot) {
+          <div class="delivery-snapshot-info">
+            <i class="pi pi-map-marker"></i>
+            <span class="snapshot-label">Delivery Destination (Preserved Snapshot):</span>
+            <span class="snapshot-value">{{ currentOrder()!.deliveryAddressSnapshot }}</span>
+          </div>
+        }
       </section>
 
       <!-- Section 3: Editable Line Items -->

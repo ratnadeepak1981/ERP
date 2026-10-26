@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.UnitOfMeasure;
+using Domain.Features.MasterData.TaxCode;
 using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,17 +16,23 @@ public class SalesOrderService : ISalesOrderService
     private readonly ICustomerRepository _customerRepository;
     private readonly IProductRepository _productRepository;
     private readonly IUnitOfMeasureRepository _uomRepository;
+    private readonly global::Domain.Features.MasterData.Address.IAddressRepository? _addressRepository;
+    private readonly ITaxCodeRepository? _taxCodeRepository;
 
     public SalesOrderService(
         ISalesOrderRepository repository,
         ICustomerRepository customerRepository,
         IProductRepository productRepository,
-        IUnitOfMeasureRepository uomRepository)
+        IUnitOfMeasureRepository uomRepository,
+        global::Domain.Features.MasterData.Address.IAddressRepository? addressRepository = null,
+        ITaxCodeRepository? taxCodeRepository = null)
     {
         _repository = repository;
         _customerRepository = customerRepository;
         _productRepository = productRepository;
         _uomRepository = uomRepository;
+        _addressRepository = addressRepository;
+        _taxCodeRepository = taxCodeRepository;
     }
 
     public async Task<List<SalesOrderDto>> GetOrdersAsync(
@@ -87,6 +94,38 @@ public class SalesOrderService : ISalesOrderService
             ? request.PaymentTerms.Trim()
             : customer.PaymentTerms;
 
+        Guid? deliveryAddressId = request.DeliveryAddressId;
+        string? deliverySnapshot = null;
+
+        if (deliveryAddressId.HasValue && _addressRepository != null)
+        {
+            var addr = await _addressRepository.GetAddressByIdAsync(tenantId, deliveryAddressId.Value);
+            if (addr != null)
+            {
+                deliverySnapshot = FormatAddressSnapshot(addr.AddressName, addr.AddressLine1, addr.AddressLine2, addr.City, addr.StateProvince, addr.PostalCode);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(deliverySnapshot))
+        {
+            var custAddresses = await _customerRepository.GetAddressesAsync(tenantId, customer.CustomerId);
+            var defaultAssoc = custAddresses.FirstOrDefault(a => a.IsDefault && a.IsActive) ?? custAddresses.FirstOrDefault(a => a.IsActive);
+            if (defaultAssoc != null && _addressRepository != null)
+            {
+                var addr = await _addressRepository.GetAddressByIdAsync(tenantId, defaultAssoc.AddressId);
+                if (addr != null)
+                {
+                    deliveryAddressId = addr.AddressId;
+                    deliverySnapshot = FormatAddressSnapshot(addr.AddressName, addr.AddressLine1, addr.AddressLine2, addr.City, addr.StateProvince, addr.PostalCode);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(deliverySnapshot) && !string.IsNullOrWhiteSpace(customer.AddressLine1))
+            {
+                deliverySnapshot = FormatAddressSnapshot(customer.CustomerName, customer.AddressLine1, customer.AddressLine2, customer.City, null, customer.PostalCode, customer.Country);
+            }
+        }
+
         var order = SalesOrder.Create(
             tenantId,
             companyId,
@@ -100,22 +139,27 @@ public class SalesOrderService : ISalesOrderService
             paymentTerms,
             request.Notes,
             actorUserId,
-            request.OpportunityId);
+            request.OpportunityId,
+            deliveryAddressId,
+            deliverySnapshot);
 
         if (request.Items != null && request.Items.Count > 0)
         {
             foreach (var itemReq in request.Items)
             {
                 var (product, uomId, unitPrice) = await ValidateAndResolveItemAsync(tenantId, itemReq);
+                decimal taxRate = await ResolveTaxRateAsync(tenantId, itemReq.TaxCodeId, itemReq.TaxRate, order.OrderDate);
 
                 order.AddItem(
                     product.ProductId,
                     itemReq.Quantity,
                     unitPrice,
                     itemReq.DiscountRate,
-                    itemReq.TaxRate,
+                    taxRate,
                     uomId,
-                    itemReq.Notes);
+                    itemReq.Notes,
+                    itemReq.TaxCodeId,
+                    itemReq.IsTaxInclusive);
             }
         }
 
@@ -158,15 +202,18 @@ public class SalesOrderService : ISalesOrderService
         }
 
         var (product, uomId, unitPrice) = await ValidateAndResolveItemAsync(tenantId, request);
+        decimal taxRate = await ResolveTaxRateAsync(tenantId, request.TaxCodeId, request.TaxRate, order.OrderDate);
 
         var addedItem = order.AddItem(
             product.ProductId,
             request.Quantity,
             unitPrice,
             request.DiscountRate,
-            request.TaxRate,
+            taxRate,
             uomId,
-            request.Notes);
+            request.Notes,
+            request.TaxCodeId,
+            request.IsTaxInclusive);
 
         await _repository.AddItemAsync(addedItem);
         await _repository.SaveChangesAsync();
@@ -338,6 +385,8 @@ public class SalesOrderService : ISalesOrderService
             Notes = order.Notes,
             CreatedByUserId = order.CreatedByUserId,
             OpportunityId = order.OpportunityId,
+            DeliveryAddressId = order.DeliveryAddressId,
+            DeliveryAddressSnapshot = order.DeliveryAddressSnapshot,
             IsActive = order.IsActive,
             Items = order.Items.Select(MapItemToDto).ToList()
         };
@@ -359,8 +408,49 @@ public class SalesOrderService : ISalesOrderService
             TaxAmount = item.TaxAmount,
             SubTotal = item.SubTotal,
             LineTotal = item.LineTotal,
+            TaxCodeId = item.TaxCodeId,
+            IsTaxInclusive = item.IsTaxInclusive,
             Notes = item.Notes,
             IsActive = item.IsActive
         };
+    }
+
+    private static string FormatAddressSnapshot(string? name, string? line1, string? line2, string? city, string? state, string? postalCode, string? country = null)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(name)) parts.Add(name.Trim());
+        if (!string.IsNullOrWhiteSpace(line1)) parts.Add(line1.Trim());
+        if (!string.IsNullOrWhiteSpace(line2)) parts.Add(line2.Trim());
+        if (!string.IsNullOrWhiteSpace(city)) parts.Add(city.Trim());
+        if (!string.IsNullOrWhiteSpace(state)) parts.Add(state.Trim());
+        if (!string.IsNullOrWhiteSpace(postalCode)) parts.Add(postalCode.Trim());
+        if (!string.IsNullOrWhiteSpace(country)) parts.Add(country.Trim());
+        return string.Join(", ", parts);
+    }
+    private async Task<decimal> ResolveTaxRateAsync(Guid tenantId, Guid? taxCodeId, decimal explicitTaxRate, DateTime orderDate)
+    {
+        if (taxCodeId.HasValue && _taxCodeRepository != null)
+        {
+            var taxCode = await _taxCodeRepository.GetTaxCodeByIdAsync(tenantId, taxCodeId.Value);
+            if (taxCode == null)
+            {
+                throw new InvalidOperationException($"Tax code '{taxCodeId.Value}' was not found or does not belong to this tenant.");
+            }
+            if (!taxCode.IsActive)
+            {
+                throw new InvalidOperationException($"Tax code '{taxCode.Code}' is inactive.");
+            }
+            if (!taxCode.AppliesTo(TaxApplicability.Sales))
+            {
+                throw new InvalidOperationException($"Tax code '{taxCode.Code}' cannot be applied to sales transactions.");
+            }
+            if (!taxCode.IsEffectiveAt(orderDate))
+            {
+                throw new InvalidOperationException($"Tax code '{taxCode.Code}' is not effective on {orderDate:yyyy-MM-dd}.");
+            }
+            return taxCode.Rate;
+        }
+
+        return explicitTaxRate;
     }
 }

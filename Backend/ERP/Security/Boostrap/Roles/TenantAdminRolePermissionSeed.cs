@@ -99,6 +99,27 @@ public static class TenantAdminRolePermissionSeed
             "UOM.CREATE",
             "UOM.EDIT",
             "UOM.DELETE",
+            "UOM.CONVERT",
+
+            "CURRENCY.VIEW",
+            "CURRENCY.CREATE",
+            "CURRENCY.EDIT",
+            "CURRENCY.DELETE",
+
+            "BRAND.VIEW",
+            "BRAND.CREATE",
+            "BRAND.EDIT",
+            "BRAND.DELETE",
+
+            "PAYMENT_TERM.VIEW",
+            "PAYMENT_TERM.CREATE",
+            "PAYMENT_TERM.EDIT",
+            "PAYMENT_TERM.DELETE",
+
+            "TAX_CODE.VIEW",
+            "TAX_CODE.CREATE",
+            "TAX_CODE.EDIT",
+            "TAX_CODE.DELETE",
 
             "WAREHOUSE.VIEW",
             "WAREHOUSE.CREATE",

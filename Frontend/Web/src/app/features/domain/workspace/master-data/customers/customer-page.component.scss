@@ -27,6 +27,12 @@
     border: 1px solid #a7f3d0;
   }
 
+  &.banner-warn {
+    background: #fef9c3;
+    color: #a16207;
+    border: 1px solid #fde047;
+  }
+
   &.banner-danger {
     background: #fef2f2;
     color: #991b1b;
@@ -67,6 +73,9 @@
   border-radius: var(--erp-radius-md);
 
   .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: var(--erp-space-4);
     padding-bottom: var(--erp-space-3);
     border-bottom: 1px solid var(--erp-border-light);
@@ -106,6 +115,222 @@
           display: block;
         }
       }
+    }
+  }
+}
+
+.address-confirm-bar {
+  padding: 12px 18px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: var(--erp-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: var(--erp-space-4);
+  flex-wrap: wrap;
+
+  .confirm-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #92400e;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+.inline-address-card {
+  background: var(--erp-bg-secondary);
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-md);
+  padding: 16px;
+  margin-bottom: var(--erp-space-4);
+
+  .inline-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+
+    h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--erp-text-primary);
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      color: var(--erp-text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      &:hover {
+        color: var(--erp-text-primary);
+      }
+    }
+  }
+
+  .address-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      &.checkbox-group {
+        grid-column: 1 / -1;
+        margin-top: 4px;
+      }
+
+      label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--erp-text-secondary);
+
+        .required {
+          color: #ef4444;
+        }
+      }
+
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--erp-text-primary);
+      }
+
+      .custom-select {
+        height: 34px;
+        border: 1px solid var(--erp-border);
+        border-radius: var(--erp-radius-sm);
+        padding: 0 10px;
+        background: var(--erp-bg-surface);
+        font-size: 13px;
+      }
+    }
+  }
+
+  .address-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--erp-border);
+  }
+}
+
+.empty-addresses-notice {
+  padding: 24px;
+  text-align: center;
+  color: var(--erp-text-secondary);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  i {
+    font-size: 24px;
+    color: var(--erp-text-muted);
+  }
+}
+
+.address-table-wrapper {
+  overflow-x: auto;
+}
+
+.address-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 10px 14px;
+    background: #f8fafc;
+    color: var(--erp-text-muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--erp-border);
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--erp-border-light, #f1f5f9);
+    color: var(--erp-text-primary);
+    vertical-align: middle;
+  }
+
+  tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .type-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .address-cell {
+    .text-secondary {
+      color: var(--erp-text-secondary);
+    }
+  }
+
+  .default-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #dcfce7;
+    color: #15803d;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .btn-text-action {
+    background: none;
+    border: none;
+    color: #0f6cbd;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    &:hover {
+      background: #eff6ff;
+    }
+  }
+
+  .btn-icon-danger {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    &:hover {
+      background: #fee2e2;
     }
   }
 }

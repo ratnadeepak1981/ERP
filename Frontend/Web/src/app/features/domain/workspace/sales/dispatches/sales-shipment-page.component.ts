@@ -287,6 +287,7 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
           customerName: order.customerName,
           method: FulfillmentMethod.Delivery,
           shipmentDate: new Date().toISOString().substring(0, 10),
+          deliveryAddress: order.deliveryAddressSnapshot || '',
           notes: `Created for Sales Order ${order.orderNumber}`
         });
 

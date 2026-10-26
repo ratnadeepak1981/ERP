@@ -85,7 +85,7 @@ public class SupplierController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("SUPPLIER.UPDATE")]
+    [RequirePermission("SUPPLIER.EDIT")]
     public async Task<IActionResult> UpdateSupplier(Guid id, [FromBody] UpdateSupplierRequest request)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
@@ -117,6 +117,26 @@ public class SupplierController : BaseApiController
         {
             await _supplierService.DeactivateSupplierAsync(tenantId.Value, id);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/reactivate")]
+    [RequirePermission("SUPPLIER.EDIT")]
+    public async Task<IActionResult> ReactivateSupplier(Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var supplier = await _supplierService.ReactivateSupplierAsync(tenantId.Value, id);
+            return SuccessResponse(supplier, "Supplier reactivated successfully.");
         }
         catch (Exception ex)
         {
