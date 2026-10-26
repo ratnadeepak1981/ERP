@@ -202,6 +202,14 @@ public class InventoryPostingService : IInventoryPostingService
 
             return txn;
         }
+        catch (Exception)
+        {
+            if (dbTransaction != null)
+            {
+                await dbTransaction.RollbackAsync();
+            }
+            throw;
+        }
     finally
     {
         if (dbTransaction != null)
@@ -419,6 +427,14 @@ public class InventoryPostingService : IInventoryPostingService
 
         return (outTxn, inTxn);
     }
+        catch (Exception)
+        {
+            if (dbTransaction != null)
+            {
+                await dbTransaction.RollbackAsync();
+            }
+            throw;
+        }
     finally
     {
         if (dbTransaction != null)
@@ -576,6 +592,14 @@ public class InventoryPostingService : IInventoryPostingService
             }
 
             return reversalTxn;
+        }
+        catch (Exception)
+        {
+            if (dbTransaction != null)
+            {
+                await dbTransaction.RollbackAsync();
+            }
+            throw;
         }
     finally
     {
