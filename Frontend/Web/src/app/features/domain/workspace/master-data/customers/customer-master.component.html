@@ -5,6 +5,46 @@
     [breadcrumbs]="breadcrumbs"
   ></app-page-header>
 
+  <!-- Contextual Message Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Confirmation Banner (NO POPUP) -->
+  @if (pendingAction()) {
+    <div class="action-confirm-bar">
+      <div class="confirm-text">
+        <i class="pi pi-question-circle"></i>
+        <span>
+          Are you sure you want to <strong>{{ pendingAction()!.type }}</strong> customer
+          <strong>"{{ pendingAction()!.name }} ({{ pendingAction()!.code }})"</strong>?
+        </span>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelPendingAction()">Cancel</button>
+        <button
+          type="button"
+          class="p-button p-button-sm"
+          [class.p-button-danger]="pendingAction()!.type === 'deactivate'"
+          [class.p-button-primary]="pendingAction()!.type === 'reactivate'"
+          (click)="confirmPendingAction()"
+        >
+          Confirm {{ pendingAction()!.type | titlecase }}
+        </button>
+      </div>
+    </div>
+  }
+
   @if (loading()) {
     <app-loading-state message="Loading customer records from server..."></app-loading-state>
   } @else if (error()) {
@@ -79,12 +119,12 @@
                 <th>City / Region</th>
                 <th>Payment Terms</th>
                 <th style="width: 100px;">Status</th>
-                <th style="width: 110px; text-align: right;">Actions</th>
+                <th style="width: 130px; text-align: right;">Actions</th>
               </tr>
             </thead>
             <tbody>
               @for (cust of filteredCustomers(); track cust.customerId) {
-                <tr>
+                <tr [class.row-inactive]="!cust.isActive">
                   <td><code class="code-badge">{{ cust.customerCode }}</code></td>
                   <td>
                     <div class="customer-cell">
@@ -110,14 +150,25 @@
                       >
                         <i class="pi pi-pencil"></i>
                       </button>
-                      <button
-                        type="button"
-                        class="p-button p-button-sm p-button-text p-button-danger"
-                        (click)="onDeactivate(cust)"
-                        title="Deactivate Customer"
-                      >
-                        <i class="pi pi-trash"></i>
-                      </button>
+                      @if (cust.isActive) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text p-button-danger"
+                          (click)="promptDeactivate(cust)"
+                          title="Deactivate Customer"
+                        >
+                          <i class="pi pi-ban"></i>
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text p-button-success"
+                          (click)="promptReactivate(cust)"
+                          title="Reactivate Customer"
+                        >
+                          <i class="pi pi-replay"></i>
+                        </button>
+                      }
                     </div>
                   </td>
                 </tr>

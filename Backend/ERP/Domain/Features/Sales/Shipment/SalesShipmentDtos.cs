@@ -180,3 +180,65 @@ public class SalesShipmentItemDto
 
     public string? Notes { get; set; }
 }
+
+public class SalesOrderDispatchAvailabilityDto
+{
+    public Guid SalesOrderId { get; set; }
+    public string OrderNumber { get; set; } = string.Empty;
+    public Guid? DefaultWarehouseId { get; set; }
+    public string? DefaultWarehouseName { get; set; }
+    public Guid? DefaultLocationId { get; set; }
+    public string? DefaultLocationCode { get; set; }
+    public string? DefaultLocationName { get; set; }
+    public Guid? SelectedWarehouseId { get; set; }
+    public string? SelectedWarehouseName { get; set; }
+    public Guid? SelectedLocationId { get; set; }
+    public string? SelectedLocationCode { get; set; }
+    public string? SelectedLocationName { get; set; }
+    public bool CanDefaultLocationFulfil { get; set; }
+    public bool CanFulfil { get; set; }
+    public bool HasShortages { get; set; }
+    public List<EligibleLocationDto> EligibleLocations { get; set; } = new();
+    public List<SalesOrderDispatchLineAvailabilityDto> Lines { get; set; } = new();
+}
+
+public class EligibleLocationDto
+{
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public string WarehouseCode { get; set; } = string.Empty;
+    public Guid LocationId { get; set; }
+    public string LocationCode { get; set; } = string.Empty;
+    public string LocationName { get; set; } = string.Empty;
+    public bool IsDefault { get; set; }
+}
+
+public class SalesOrderDispatchLineAvailabilityDto
+{
+    public Guid SalesOrderItemId { get; set; }
+    public Guid ProductId { get; set; }
+    public string ProductCode { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public decimal OrderedQuantity { get; set; }
+    public decimal AlreadyDispatchedQuantity { get; set; }
+    public decimal RemainingQuantity { get; set; }
+    public decimal AvailableQuantity { get; set; }
+    public decimal ShortageQuantity { get; set; }
+    public bool CanFulfil { get; set; }
+    public Guid? UnitOfMeasureId { get; set; }
+}
+
+public class DispatchOrderRequest
+{
+    public Guid WarehouseId { get; set; }
+    public Guid WarehouseLocationId { get; set; }
+    public string? ShipmentNumber { get; set; }
+    public FulfillmentMethod Method { get; set; } = FulfillmentMethod.Delivery;
+    public DateTime? ShipmentDate { get; set; }
+    public string? CarrierName { get; set; }
+    public string? TrackingNumber { get; set; }
+    public string? RecipientName { get; set; }
+    public string? DeliveryAddress { get; set; }
+    public string? VehicleNumber { get; set; }
+    public string? Notes { get; set; }
+}

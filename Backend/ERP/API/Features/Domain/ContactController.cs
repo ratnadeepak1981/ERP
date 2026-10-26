@@ -84,7 +84,7 @@ public class ContactController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("CONTACT.UPDATE")]
+    [RequirePermission("CONTACT.EDIT")]
     public async Task<IActionResult> UpdateContact(Guid id, [FromBody] UpdateContactRequest request)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();

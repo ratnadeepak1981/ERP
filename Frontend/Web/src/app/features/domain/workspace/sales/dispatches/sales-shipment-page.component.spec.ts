@@ -10,7 +10,12 @@ import { SalesOrderService } from '../../../../../core/services/sales-order.serv
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
-import { SalesShipmentDto, SalesShipmentStatus, FulfillmentMethod } from '../../../../../core/models/sales-shipment.models';
+import {
+  SalesShipmentDto,
+  SalesShipmentStatus,
+  FulfillmentMethod,
+  SalesOrderDispatchAvailabilityDto
+} from '../../../../../core/models/sales-shipment.models';
 import { SalesOrderDto, SalesOrderStatus } from '../../../../../core/models/sales-order.models';
 import { Company, Branch } from '../../../../../core/models/scope.models';
 
@@ -68,6 +73,68 @@ describe('SalesShipmentPageComponent', () => {
     ]
   };
 
+  const mockAvailabilitySufficient: SalesOrderDispatchAvailabilityDto = {
+    salesOrderId: 'so-1',
+    orderNumber: 'SO-2026-001',
+    defaultWarehouseId: 'wh-1',
+    defaultWarehouseName: 'Main Warehouse',
+    defaultLocationId: 'loc-1',
+    defaultLocationName: 'Default Bin A1',
+    canDefaultLocationFulfil: true,
+    hasAnyEligibleLocation: true,
+    eligibleLocations: [
+      {
+        warehouseId: 'wh-1',
+        warehouseName: 'Main Warehouse',
+        locationId: 'loc-1',
+        locationName: 'Default Bin A1',
+        isDefaultLocation: true,
+        canFulfilAllLines: true,
+        minAvailableQuantity: 10
+      }
+    ],
+    lines: [
+      {
+        salesOrderItemId: 'so-item-1',
+        productId: 'prod-1',
+        productCode: 'ITEM-001',
+        productName: 'Solar Panel 400W',
+        orderedQuantity: 5,
+        previouslyDispatchedQuantity: 0,
+        remainingDemand: 5,
+        availableQuantityAtDefault: 10,
+        shortageAtDefault: 0,
+        hasShortageAtDefault: false
+      }
+    ]
+  };
+
+  const mockAvailabilityShortage: SalesOrderDispatchAvailabilityDto = {
+    salesOrderId: 'so-1',
+    orderNumber: 'SO-2026-001',
+    defaultWarehouseId: 'wh-1',
+    defaultWarehouseName: 'Main Warehouse',
+    defaultLocationId: 'loc-1',
+    defaultLocationName: 'Default Bin A1',
+    canDefaultLocationFulfil: false,
+    hasAnyEligibleLocation: false,
+    eligibleLocations: [],
+    lines: [
+      {
+        salesOrderItemId: 'so-item-1',
+        productId: 'prod-1',
+        productCode: 'ITEM-001',
+        productName: 'Solar Panel 400W',
+        orderedQuantity: 5,
+        previouslyDispatchedQuantity: 0,
+        remainingDemand: 5,
+        availableQuantityAtDefault: 2,
+        shortageAtDefault: 3,
+        hasShortageAtDefault: true
+      }
+    ]
+  };
+
   const mockShipment: SalesShipmentDto = {
     id: 'ship-1',
     tenantId: 't1',
@@ -78,7 +145,7 @@ describe('SalesShipmentPageComponent', () => {
     customerId: 'cust-1',
     customerName: 'Acme Mega Corp',
     shipmentNumber: 'DSP-2026-001',
-    status: SalesShipmentStatus.Draft,
+    status: SalesShipmentStatus.Dispatched,
     method: FulfillmentMethod.Delivery,
     shipmentDate: '2026-10-22',
     items: [
@@ -113,7 +180,7 @@ describe('SalesShipmentPageComponent', () => {
           useValue: {
             snapshot: {
               paramMap: { get: () => null },
-              queryParamMap: { get: (key: string) => key === 'orderId' ? 'so-1' : null }
+              queryParamMap: { get: (key: string) => (key === 'orderId' ? 'so-1' : null) }
             }
           }
         }
@@ -130,26 +197,46 @@ describe('SalesShipmentPageComponent', () => {
     vi.spyOn(scopeService, 'selectedCompany').mockReturnValue(mockCompany);
     vi.spyOn(scopeService, 'selectedBranch').mockReturnValue(mockBranch);
     vi.spyOn(salesOrderService, 'getOrder').mockReturnValue(of(mockOrder));
-    vi.spyOn(shipmentService, 'createFromOrder').mockReturnValue(of(mockShipment));
+    vi.spyOn(shipmentService, 'getOrderDispatchAvailability').mockReturnValue(of(mockAvailabilitySufficient));
+    vi.spyOn(shipmentService, 'createAndDispatchFromOrder').mockReturnValue(of(mockShipment));
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
   });
 
-  it('should initialize draft from order query parameter with prefilled items', () => {
+  it('should initialize dispatch from order with default location and enable dispatch when sufficient', () => {
     fixture.detectChanges();
 
     expect(component.mode()).toBe('create');
     expect(component.sourceOrderId()).toBe('so-1');
-    expect(component.workingLines().length).toBe(1);
-    expect(component.workingLines()[0].productId).toBe('prod-1');
-    expect(component.workingLines()[0].orderedQuantity).toBe(5);
-    expect(component.isDraft()).toBe(true);
+    expect(component.availability()).toBeDefined();
+    expect(component.isScenarioA()).toBe(true);
+    expect(component.selectedLocationId()).toBe('loc-1');
+    expect(component.canDispatch()).toBe(true);
   });
 
-  it('should save draft without stock deduction and navigate to dispatch view', () => {
+  it('should disable dispatch and show shortage lines when no single location can fulfil', () => {
+    vi.spyOn(shipmentService, 'getOrderDispatchAvailability').mockReturnValue(of(mockAvailabilityShortage));
+
     fixture.detectChanges();
 
-    component.saveDraft();
-    expect(shipmentService.createFromOrder).toHaveBeenCalled();
+    expect(component.isScenarioC()).toBe(true);
+    expect(component.canDispatch()).toBe(false);
+    expect(component.displayedLines().length).toBe(1);
+    expect(component.displayedLines()[0].shortageQuantity).toBe(3);
+  });
+
+  it('should execute direct dispatch and navigate to dispatch view on success', () => {
+    fixture.detectChanges();
+
+    component.executeDirectDispatch();
+
+    expect(shipmentService.createAndDispatchFromOrder).toHaveBeenCalledWith(
+      mockCompany.id,
+      mockBranch.id,
+      'so-1',
+      expect.objectContaining({
+        warehouseLocationId: 'loc-1'
+      })
+    );
     expect(router.navigate).toHaveBeenCalledWith(['/app/sales/dispatches', 'ship-1']);
   });
 });

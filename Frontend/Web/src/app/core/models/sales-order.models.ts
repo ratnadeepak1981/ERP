@@ -68,6 +68,8 @@ export interface SalesOrderItemDto {
   taxRate?: number;
   taxAmount?: number;
   subTotal?: number;
+  taxCodeId?: string | null;
+  isTaxInclusive?: boolean;
   lineTotal: number;
   notes?: string | null;
   isActive?: boolean;
@@ -91,6 +93,8 @@ export interface SalesOrderDto {
   discountAmount?: number;
   taxAmount?: number;
   totalAmount: number;
+  deliveryAddressId?: string | null;
+  deliveryAddressSnapshot?: string | null;
   notes?: string | null;
   createdByUserId?: string | null;
   opportunityId?: string | null;
@@ -104,7 +108,9 @@ export interface CreateSalesOrderItemRequest {
   quantity: number;
   unitPrice?: number;
   discountRate?: number;
+  taxCodeId?: string | null;
   taxRate?: number;
+  isTaxInclusive?: boolean;
   notes?: string | null;
 }
 
@@ -116,6 +122,7 @@ export interface CreateSalesOrderRequest {
   deliveryDate?: string | null;
   currency?: string;
   paymentTerms?: string | null;
+  deliveryAddressId?: string | null;
   notes?: string | null;
   opportunityId?: string | null;
   items: CreateSalesOrderItemRequest[];

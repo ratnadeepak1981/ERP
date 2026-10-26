@@ -18,12 +18,26 @@ public interface ISalesShipmentService
         Guid? branchId,
         Guid shipmentId);
 
+    Task<SalesOrderDispatchAvailabilityDto> GetOrderDispatchAvailabilityAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        Guid? targetLocationId = null);
+
     Task<SalesShipmentDto> CreateFromOrderAsync(
         Guid tenantId,
         Guid companyId,
         Guid branchId,
         Guid salesOrderId,
         CreateShipmentFromOrderRequest request);
+
+    Task<SalesShipmentDto> CreateAndDispatchFromOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        DispatchOrderRequest request);
 
     Task<SalesShipmentDto> CreateManualDraftAsync(
         Guid tenantId,

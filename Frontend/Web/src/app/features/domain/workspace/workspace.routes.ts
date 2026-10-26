@@ -169,6 +169,32 @@ export const workspaceRoutes: Routes = [
         ]
       },
       {
+        path: 'uom',
+        loadComponent: () =>
+          import('./master-data/uom/uom-management.component').then(m => m.UomManagementComponent)
+      },
+      {
+        path: 'categories-brands',
+        loadComponent: () =>
+          import('./master-data/categories-brands/categories-brands.component').then(
+            m => m.CategoriesBrandsComponent
+          )
+      },
+      {
+        path: 'payment-terms',
+        loadComponent: () =>
+          import('./master-data/payment-terms/payment-terms.component').then(
+            m => m.PaymentTermsComponent
+          )
+      },
+      {
+        path: 'tax-codes',
+        loadComponent: () =>
+          import('./master-data/tax-codes/tax-codes.component').then(
+            m => m.TaxCodesComponent
+          )
+      },
+      {
         path: 'locations',
         redirectTo: 'warehouses',
         pathMatch: 'full'

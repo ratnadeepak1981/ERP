@@ -39,7 +39,7 @@ import {
 } from '../../../../core/models/purchase-order.models';
 import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
 import { LookupItem } from '../../../../shared/components/lookup-dropdown/lookup-item.model';
-import { Company, Branch, SupplierItem, ProductItem } from '../../../../core/models/scope.models';
+import { Company, Branch, SupplierItem, ProductItem, TaxCodeItem } from '../../../../core/models/scope.models';
 
 export type POPageMode = 'create' | 'view' | 'amend' | 'approval';
 
@@ -51,7 +51,14 @@ export interface EditablePOLine {
   unitOfMeasureId?: string | null;
   quantity: number;
   unitCost: number;
+  discountRate?: number;
+  discountAmount?: number;
+  taxCodeId?: string | null;
+  taxRate?: number;
+  taxAmount?: number;
+  subTotal?: number;
   lineTotal: number;
+  isTaxInclusive?: boolean;
 }
 
 @Component({
@@ -88,6 +95,16 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly route = inject(ActivatedRoute);
 
   private readonly subs = new Subscription();
+
+  readonly taxCodes = signal<TaxCodeItem[]>([]);
+  readonly taxCodeLookupItems = computed<LookupItem[]>(() => {
+    return this.taxCodes().map(tc => ({
+      id: tc.taxCodeId,
+      code: tc.code,
+      name: `${tc.code} (${tc.rate}%)`,
+      meta: { rate: tc.rate }
+    }));
+  });
 
   // Mode & Route State
   readonly mode = signal<POPageMode>('create');
@@ -382,7 +399,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         header: 'Unit Cost',
         sortable: true,
         align: 'right',
-        width: '130px',
+        width: '120px',
         type: 'currency',
         editable: !isReadOnly,
         editType: 'currency',
@@ -396,11 +413,59 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         ]
       },
       {
+        field: 'discountRate',
+        header: 'Disc %',
+        sortable: true,
+        align: 'right',
+        width: '90px',
+        editable: !isReadOnly,
+        editType: 'number',
+        validators: [
+          (val: any) => {
+            const num = Number(val);
+            if (isNaN(num)) return 'Must be a number';
+            if (num < 0 || num > 100) return '0 - 100%';
+            return null;
+          }
+        ]
+      },
+      {
+        field: 'taxCodeId',
+        header: 'Tax Code',
+        sortable: true,
+        width: '130px',
+        editable: !isReadOnly,
+        editType: 'lookup',
+        lookupOptions: this.taxCodeLookupItems(),
+        onLookupSelect: (item, row) => {
+          row.taxCodeId = String(item.id);
+          row.taxRate = Number(item.meta?.rate) || 0;
+          this.calculateRow(row);
+        }
+      },
+      {
+        field: 'taxRate',
+        header: 'Tax %',
+        sortable: true,
+        align: 'right',
+        width: '85px',
+        editable: false
+      },
+      {
+        field: 'isTaxInclusive',
+        header: 'Tax Incl.',
+        sortable: true,
+        align: 'center',
+        width: '95px',
+        type: 'boolean',
+        editable: !isReadOnly
+      },
+      {
         field: 'lineTotal',
         header: 'Line Total',
         sortable: true,
         align: 'right',
-        width: '140px',
+        width: '120px',
         type: 'currency',
         editable: false
       }
@@ -409,9 +474,39 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
   // Row Calculation Callback
   readonly calculateRow = (row: EditablePOLine): void => {
-    const qty = Number(row.quantity) || 0;
-    const cost = Number(row.unitCost) || 0;
-    row.lineTotal = Math.round(qty * cost * 100) / 100;
+    const qty = Math.round((Number(row.quantity) || 0) * 10000) / 10000;
+    const cost = Math.round((Number(row.unitCost) || 0) * 100) / 100;
+    const discRate = Math.round((Number(row.discountRate) || 0) * 100) / 100;
+    const taxRate = Math.round((Number(row.taxRate) || 0) * 100) / 100;
+    const isInclusive = !!row.isTaxInclusive;
+
+    const gross = Math.round(qty * cost * 100) / 100;
+    const discAmount = Math.round(gross * (discRate / 100) * 100) / 100;
+
+    let taxable: number;
+    let taxAmount: number;
+    let lineTotal: number;
+
+    if (isInclusive) {
+      const discountedGross = gross - discAmount;
+      taxable = Math.round((discountedGross / (1 + (taxRate / 100))) * 100) / 100;
+      taxAmount = Math.round((discountedGross - taxable) * 100) / 100;
+      lineTotal = discountedGross;
+    } else {
+      taxable = gross - discAmount;
+      taxAmount = Math.round((taxable * (taxRate / 100)) * 100) / 100;
+      lineTotal = Math.round((taxable + taxAmount) * 100) / 100;
+    }
+
+    row.quantity = qty;
+    row.unitCost = cost;
+    row.discountRate = discRate;
+    row.discountAmount = discAmount;
+    row.taxRate = taxRate;
+    row.subTotal = taxable;
+    row.taxAmount = taxAmount;
+    row.lineTotal = lineTotal;
+
     const current = this.workingLines();
     if (current.some(l => l.lineId === row.lineId)) {
       this.workingLines.set(current.map(l => (l.lineId === row.lineId ? { ...l, ...row } : l)));
@@ -431,22 +526,32 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       productName: '',
       quantity: 1,
       unitCost: 0,
-      lineTotal: 0
+      discountRate: 0,
+      discountAmount: 0,
+      taxCodeId: null,
+      taxRate: 0,
+      taxAmount: 0,
+      subTotal: 0,
+      lineTotal: 0,
+      isTaxInclusive: false
     };
   };
 
   // Reactive Totals
   readonly subtotalAmount = computed<number>(() => {
-    return this.workingLines().reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0);
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.subTotal ?? (item.quantity * item.unitCost)) || 0), 0) * 100) / 100;
+  });
+
+  readonly discountTotalAmount = computed<number>(() => {
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.discountAmount) || 0), 0) * 100) / 100;
   });
 
   readonly taxAmount = computed<number>(() => {
-    // 0% default or calculate standard 0
-    return 0;
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.taxAmount) || 0), 0) * 100) / 100;
   });
 
   readonly totalOrderAmount = computed<number>(() => {
-    return this.subtotalAmount() + this.taxAmount();
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0) * 100) / 100;
   });
 
   // Current Order Status Name & Severity
@@ -753,7 +858,14 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         unitOfMeasureId: item.unitOfMeasureId || null,
         quantity: item.quantity,
         unitCost: item.unitPrice,
-        lineTotal: item.lineTotal || item.quantity * item.unitPrice
+        discountRate: item.discountRate || 0,
+        discountAmount: item.discountAmount || 0,
+        taxCodeId: item.taxCodeId || null,
+        taxRate: item.taxRate || 0,
+        taxAmount: item.taxAmount || 0,
+        subTotal: item.subTotal || item.quantity * item.unitPrice,
+        lineTotal: item.lineTotal || item.quantity * item.unitPrice,
+        isTaxInclusive: item.isTaxInclusive || false
       }));
       this.workingLines.set(this.enrichLinesWithProductMaster(lines));
     } else {
@@ -765,6 +877,11 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   loadMasterData(): void {
     this.masterDataService.getSuppliers().subscribe({
       next: suppliers => this.suppliers.set(suppliers),
+      error: () => {}
+    });
+
+    this.masterDataService.getTaxCodes('Purchase', true).subscribe({
+      next: codes => this.taxCodes.set(codes),
       error: () => {}
     });
 
@@ -846,7 +963,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
             productId: line.productId,
             unitOfMeasureId: line.unitOfMeasureId || null,
             quantity: Number(line.quantity),
-            unitPrice: Number(line.unitCost)
+            unitPrice: Number(line.unitCost),
+            discountRate: Number(line.discountRate) || 0,
+            taxCodeId: line.taxCodeId || null,
+            isTaxInclusive: !!line.isTaxInclusive
           }).subscribe({
             next: () => addSequentially(idx + 1),
             error: err => {
@@ -884,7 +1004,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       productId: l.productId,
       unitOfMeasureId: l.unitOfMeasureId || null,
       quantity: Number(l.quantity),
-      unitPrice: Number(l.unitCost)
+      unitPrice: Number(l.unitCost),
+      discountRate: Number(l.discountRate) || 0,
+      taxCodeId: l.taxCodeId || null,
+      isTaxInclusive: !!l.isTaxInclusive
     }));
 
     const request: CreatePurchaseOrderRequest = {

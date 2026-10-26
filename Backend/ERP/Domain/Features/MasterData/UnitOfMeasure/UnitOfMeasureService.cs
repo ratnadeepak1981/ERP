@@ -67,6 +67,19 @@ public class UnitOfMeasureService : IUnitOfMeasureService
         await _repository.SaveChangesAsync();
     }
 
+    public async Task<UnitOfMeasure> ReactivateUnitAsync(Guid tenantId, Guid unitOfMeasureId)
+    {
+        var unit = await _repository.GetUnitByIdAsync(tenantId, unitOfMeasureId)
+            ?? throw new KeyNotFoundException("Unit of measure not found.");
+
+        if (unit.IsActive)
+            return unit;
+
+        unit.Activate();
+        await _repository.SaveChangesAsync();
+        return unit;
+    }
+
     public async Task<List<UnitOfMeasureConversion>> GetConversionsAsync(Guid tenantId)
     {
         return await _repository.GetConversionsAsync(tenantId);
@@ -123,5 +136,70 @@ public class UnitOfMeasureService : IUnitOfMeasureService
 
         conversion.Deactivate();
         await _repository.SaveChangesAsync();
+    }
+
+    public async Task<ConvertUnitOfMeasureResult> ConvertQuantityAsync(Guid tenantId, Guid fromUnitId, Guid toUnitId, decimal quantity)
+    {
+        var fromUnit = await _repository.GetUnitByIdAsync(tenantId, fromUnitId);
+        if (fromUnit == null || !fromUnit.IsActive)
+            throw new InvalidOperationException("Source unit of measure not found or is inactive.");
+
+        var toUnit = await _repository.GetUnitByIdAsync(tenantId, toUnitId);
+        if (toUnit == null || !toUnit.IsActive)
+            throw new InvalidOperationException("Target unit of measure not found or is inactive.");
+
+        if (fromUnitId == toUnitId)
+        {
+            return new ConvertUnitOfMeasureResult
+            {
+                FromUnitId = fromUnitId,
+                ToUnitId = toUnitId,
+                OriginalQuantity = quantity,
+                ConvertedQuantity = quantity,
+                EffectiveFactor = 1m,
+                IsInverse = false
+            };
+        }
+
+        // 1. Check direct conversion
+        var direct = await _repository.GetConversionAsync(tenantId, fromUnitId, toUnitId);
+        if (direct != null && direct.IsActive)
+        {
+            if (direct.ConversionFactor <= 0)
+                throw new InvalidOperationException("Conversion factor must be greater than zero.");
+
+            return new ConvertUnitOfMeasureResult
+            {
+                FromUnitId = fromUnitId,
+                ToUnitId = toUnitId,
+                OriginalQuantity = quantity,
+                ConvertedQuantity = Math.Round(quantity * direct.ConversionFactor, 6, MidpointRounding.AwayFromZero),
+                EffectiveFactor = direct.ConversionFactor,
+                IsInverse = false
+            };
+        }
+
+        // 2. Check inverse conversion
+        var inverse = await _repository.GetConversionAsync(tenantId, toUnitId, fromUnitId);
+        if (inverse != null && inverse.IsActive)
+        {
+            if (inverse.ConversionFactor <= 0)
+                throw new InvalidOperationException("Conversion factor must be greater than zero.");
+
+            decimal effectiveFactor = Math.Round(1m / inverse.ConversionFactor, 6, MidpointRounding.AwayFromZero);
+            decimal convertedQty = Math.Round(quantity / inverse.ConversionFactor, 6, MidpointRounding.AwayFromZero);
+
+            return new ConvertUnitOfMeasureResult
+            {
+                FromUnitId = fromUnitId,
+                ToUnitId = toUnitId,
+                OriginalQuantity = quantity,
+                ConvertedQuantity = convertedQty,
+                EffectiveFactor = effectiveFactor,
+                IsInverse = true
+            };
+        }
+
+        throw new InvalidOperationException($"No active unit conversion found between '{fromUnit.Code}' and '{toUnit.Code}' for this tenant.");
     }
 }

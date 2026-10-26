@@ -180,10 +180,8 @@ public class InventoryService : IInventoryService
             {
                 StockIssuePurpose.SalesDispatch => query.Where(t => t.MovementType == InventoryMovementType.ShipmentDispatch),
                 StockIssuePurpose.Manufacturing => query.Where(t => t.MovementType == InventoryMovementType.ProductionIssue),
-                StockIssuePurpose.InternalUse => query.Where(t => t.MovementType == InventoryMovementType.StockAdjustmentOut),
-                StockIssuePurpose.Other => query.Where(t => t.MovementType != InventoryMovementType.ShipmentDispatch &&
-                                                            t.MovementType != InventoryMovementType.ProductionIssue &&
-                                                            t.MovementType != InventoryMovementType.StockAdjustmentOut),
+                StockIssuePurpose.InternalUse => query.Where(t => t.MovementType == InventoryMovementType.StockAdjustmentOut && t.SourceDocumentType == SourceDocumentType.StockAdjustment),
+                StockIssuePurpose.Other => query.Where(t => t.MovementType == InventoryMovementType.StockAdjustmentOut && t.SourceDocumentType == SourceDocumentType.ManualPosting),
                 _ => query
             };
         }
@@ -226,7 +224,7 @@ public class InventoryService : IInventoryService
             warehouses.TryGetValue(t.WarehouseId, out var warehouse);
             locations.TryGetValue(t.WarehouseLocationId, out var location);
 
-            var issuePurpose = MapMovementTypeToPurpose(t.MovementType);
+            var issuePurpose = MapMovementTypeToPurpose(t.MovementType, t.SourceDocumentType);
 
             return new StockIssueDto
             {
@@ -270,7 +268,7 @@ public class InventoryService : IInventoryService
         var warehouse = await _context.Warehouses.AsNoTracking().FirstOrDefaultAsync(w => w.WarehouseId == tx.WarehouseId);
         var location = await _context.WarehouseLocations.AsNoTracking().FirstOrDefaultAsync(l => l.WarehouseLocationId == tx.WarehouseLocationId);
 
-        var purpose = MapMovementTypeToPurpose(tx.MovementType);
+        var purpose = MapMovementTypeToPurpose(tx.MovementType, tx.SourceDocumentType);
 
         return new StockIssueDto
         {
@@ -327,8 +325,6 @@ public class InventoryService : IInventoryService
             .FirstOrDefaultAsync(w => w.TenantId == tenantId && w.WarehouseId == request.WarehouseId && w.IsActive)
             ?? throw new KeyNotFoundException("Warehouse not found or is inactive.");
 
-        Guid issueBatchId = Guid.NewGuid();
-
         var movementType = request.Purpose switch
         {
             StockIssuePurpose.SalesDispatch => InventoryMovementType.ShipmentDispatch,
@@ -345,97 +341,199 @@ public class InventoryService : IInventoryService
             _ => SourceDocumentType.ManualPosting
         };
 
-        var results = new List<StockIssueDto>();
-        int sequence = 1;
+        Guid issueBatchId;
+        if (request.StockIssueId.HasValue && request.StockIssueId.Value != Guid.Empty)
+        {
+            issueBatchId = request.StockIssueId.Value;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.SourceDocumentReference))
+        {
+            if (Guid.TryParse(request.SourceDocumentReference.Trim(), out var parsedRef))
+            {
+                issueBatchId = parsedRef;
+            }
+            else
+            {
+                issueBatchId = DeriveDeterministicGuid(tenantId, sourceDocType.ToString(), request.SourceDocumentReference.Trim());
+            }
+        }
+        else
+        {
+            issueBatchId = Guid.NewGuid();
+        }
+
+        // Prevention of duplicate posting / repeated API requests
+        if (request.StockIssueId.HasValue || !string.IsNullOrWhiteSpace(request.SourceDocumentReference))
+        {
+            bool alreadyPosted = await _context.InventoryTransactions.AsNoTracking().AnyAsync(t =>
+                t.TenantId == tenantId &&
+                t.SourceDocumentType == sourceDocType &&
+                t.SourceDocumentId == issueBatchId);
+
+            if (alreadyPosted)
+            {
+                throw new InvalidOperationException($"Stock issue '{issueBatchId}' has already been posted.");
+            }
+        }
+
+        // Validate line inputs and collect entity metadata
+        var productIds = request.Lines.Select(l => l.ProductId).Distinct().ToList();
+        var locationIds = request.Lines.Select(l => l.WarehouseLocationId).Distinct().ToList();
+
+        var products = await _context.Products.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && productIds.Contains(p.ProductId) && p.IsActive)
+            .ToDictionaryAsync(p => p.ProductId);
+
+        var locations = await _context.WarehouseLocations.AsNoTracking()
+            .Where(l => l.TenantId == tenantId && locationIds.Contains(l.WarehouseLocationId) && l.IsActive)
+            .ToDictionaryAsync(l => l.WarehouseLocationId);
 
         foreach (var line in request.Lines)
         {
             if (line.Quantity <= 0)
-                throw new ArgumentException($"Issue quantity must be greater than zero for all lines.");
+                throw new ArgumentException("Issue quantity must be greater than zero for all lines.");
             if (line.ProductId == Guid.Empty)
                 throw new ArgumentException("Product is required for each line.");
             if (line.WarehouseLocationId == Guid.Empty)
                 throw new ArgumentException("Warehouse storage location is required for each line.");
 
-            var product = await _context.Products.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.ProductId == line.ProductId && p.IsActive)
-                ?? throw new KeyNotFoundException($"Product '{line.ProductId}' not found or is inactive.");
+            if (!products.TryGetValue(line.ProductId, out var product))
+                throw new KeyNotFoundException($"Product '{line.ProductId}' not found or is inactive.");
 
             if (!product.IsStockTracked)
                 throw new InvalidOperationException($"Product '{product.ProductCode}' is not a stock-tracked item.");
 
-            var location = await _context.WarehouseLocations.AsNoTracking()
-                .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.WarehouseLocationId == line.WarehouseLocationId && l.IsActive)
-                ?? throw new KeyNotFoundException($"Storage location '{line.WarehouseLocationId}' not found or is inactive.");
+            if (!locations.TryGetValue(line.WarehouseLocationId, out var location))
+                throw new KeyNotFoundException($"Storage location '{line.WarehouseLocationId}' not found or is inactive.");
 
             if (location.WarehouseId != request.WarehouseId)
                 throw new InvalidOperationException($"Location '{location.LocationCode}' does not belong to warehouse '{warehouse.WarehouseCode}'.");
-
-            // Validate available stock before posting
-            var balance = await _postingService.GetBalanceAsync(
-                tenantId,
-                line.WarehouseLocationId,
-                line.ProductId,
-                line.BatchNumber,
-                line.SerialNumber);
-
-            decimal available = balance?.QuantityAvailable ?? 0m;
-            if (line.Quantity > available)
-            {
-                throw new InvalidOperationException(
-                    $"Insufficient available stock for '{product.ProductCode} - {product.ProductName}' at location '{location.LocationCode}'. Available: {available}, Requested: {line.Quantity}");
-            }
-
-            var postRequest = new PostInventoryMovementRequest
-            {
-                MovementType = movementType,
-                SourceDocumentType = sourceDocType,
-                SourceDocumentId = issueBatchId,
-                SourceDocumentLineId = Guid.NewGuid(),
-                MovementSequence = sequence++,
-                ProductId = line.ProductId,
-                WarehouseId = request.WarehouseId,
-                WarehouseLocationId = line.WarehouseLocationId,
-                Quantity = line.Quantity,
-                BatchNumber = line.BatchNumber,
-                SerialNumber = line.SerialNumber,
-                TransactionDate = request.IssueDate ?? DateTime.UtcNow
-            };
-
-            var tx = await _postingService.PostMovementAsync(tenantId, postRequest);
-
-            results.Add(new StockIssueDto
-            {
-                StockIssueId = tx.InventoryTransactionId,
-                IssueNumber = tx.TransactionNumber,
-                IssueDate = tx.TransactionDate,
-                Purpose = request.Purpose,
-                PurposeName = GetPurposeName(request.Purpose),
-                MovementType = tx.MovementType.ToString(),
-                Status = StockIssueStatus.Posted,
-                StatusName = "Posted",
-                WarehouseId = warehouse.WarehouseId,
-                WarehouseCode = warehouse.WarehouseCode,
-                WarehouseName = warehouse.WarehouseName,
-                WarehouseLocationId = location.WarehouseLocationId,
-                LocationCode = location.LocationCode,
-                LocationName = location.LocationName,
-                ProductId = product.ProductId,
-                ProductCode = product.ProductCode,
-                ProductName = product.ProductName,
-                UnitOfMeasure = product.UnitOfMeasure,
-                Quantity = Math.Abs(tx.Quantity),
-                UnitCost = tx.UnitCost,
-                TotalCost = tx.TotalCost,
-                BatchNumber = tx.BatchNumber,
-                SerialNumber = tx.SerialNumber,
-                SourceDocumentReference = request.SourceDocumentReference,
-                Remarks = line.Remarks ?? request.Remarks,
-                CreatedAt = tx.CreatedAt
-            });
         }
 
-        return results;
+        // Validate stock availability aggregating requested quantities across all lines
+        var groupedDemands = request.Lines
+            .GroupBy(l => (
+                l.ProductId,
+                l.WarehouseLocationId,
+                BatchNumber: l.BatchNumber?.Trim() ?? string.Empty,
+                SerialNumber: l.SerialNumber?.Trim() ?? string.Empty))
+            .Select(g => new
+            {
+                g.Key.ProductId,
+                g.Key.WarehouseLocationId,
+                g.Key.BatchNumber,
+                g.Key.SerialNumber,
+                TotalQuantity = g.Sum(x => x.Quantity)
+            });
+
+        foreach (var demand in groupedDemands)
+        {
+            var balance = await _postingService.GetBalanceAsync(
+                tenantId,
+                demand.WarehouseLocationId,
+                demand.ProductId,
+                demand.BatchNumber,
+                demand.SerialNumber);
+
+            decimal available = balance?.QuantityAvailable ?? 0m;
+            if (demand.TotalQuantity > available)
+            {
+                var prod = products[demand.ProductId];
+                var loc = locations[demand.WarehouseLocationId];
+                throw new InvalidOperationException(
+                    $"Insufficient available stock for '{prod.ProductCode} - {prod.ProductName}' at location '{loc.LocationCode}'. Available: {available}, Requested: {demand.TotalQuantity}");
+            }
+        }
+
+        // Execute all line postings inside a single ambient database transaction
+        var executionStrategy = _context.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteAsync(async () =>
+        {
+            var existingTx = _context.Database.CurrentTransaction;
+            var dbTransaction = existingTx == null ? await _context.Database.BeginTransactionAsync() : null;
+            try
+            {
+                var results = new List<StockIssueDto>();
+                int sequence = 1;
+
+                foreach (var line in request.Lines)
+                {
+                    Guid lineId = line.StockIssueLineId ?? DeriveDeterministicGuid(tenantId, issueBatchId.ToString(), $"line_{sequence}");
+
+                    var postRequest = new PostInventoryMovementRequest
+                    {
+                        MovementType = movementType,
+                        SourceDocumentType = sourceDocType,
+                        SourceDocumentId = issueBatchId,
+                        SourceDocumentLineId = lineId,
+                        MovementSequence = sequence++,
+                        ProductId = line.ProductId,
+                        WarehouseId = request.WarehouseId,
+                        WarehouseLocationId = line.WarehouseLocationId,
+                        Quantity = line.Quantity,
+                        BatchNumber = line.BatchNumber,
+                        SerialNumber = line.SerialNumber,
+                        TransactionDate = request.IssueDate ?? DateTime.UtcNow
+                    };
+
+                    var tx = await _postingService.PostMovementAsync(tenantId, postRequest);
+                    var product = products[line.ProductId];
+                    var location = locations[line.WarehouseLocationId];
+
+                    results.Add(new StockIssueDto
+                    {
+                        StockIssueId = tx.InventoryTransactionId,
+                        IssueNumber = tx.TransactionNumber,
+                        IssueDate = tx.TransactionDate,
+                        Purpose = request.Purpose,
+                        PurposeName = GetPurposeName(request.Purpose),
+                        MovementType = tx.MovementType.ToString(),
+                        Status = StockIssueStatus.Posted,
+                        StatusName = "Posted",
+                        WarehouseId = warehouse.WarehouseId,
+                        WarehouseCode = warehouse.WarehouseCode,
+                        WarehouseName = warehouse.WarehouseName,
+                        WarehouseLocationId = location.WarehouseLocationId,
+                        LocationCode = location.LocationCode,
+                        LocationName = location.LocationName,
+                        ProductId = product.ProductId,
+                        ProductCode = product.ProductCode,
+                        ProductName = product.ProductName,
+                        UnitOfMeasure = product.UnitOfMeasure,
+                        Quantity = Math.Abs(tx.Quantity),
+                        UnitCost = tx.UnitCost,
+                        TotalCost = tx.TotalCost,
+                        BatchNumber = tx.BatchNumber,
+                        SerialNumber = tx.SerialNumber,
+                        SourceDocumentReference = request.SourceDocumentReference,
+                        Remarks = line.Remarks ?? request.Remarks,
+                        CreatedAt = tx.CreatedAt
+                    });
+                }
+
+                if (dbTransaction != null)
+                {
+                    await dbTransaction.CommitAsync();
+                }
+
+                return results;
+            }
+            catch
+            {
+                if (dbTransaction != null)
+                {
+                    await dbTransaction.RollbackAsync();
+                }
+                throw;
+            }
+            finally
+            {
+                if (dbTransaction != null)
+                {
+                    await dbTransaction.DisposeAsync();
+                }
+            }
+        });
     }
 
     public async Task<List<StockReceiptDto>> GetStockReceiptsAsync(Guid tenantId, Guid? warehouseId = null, StockReceiptReason? reason = null)
@@ -706,13 +804,22 @@ public class InventoryService : IInventoryService
         _ => reason.ToString()
     };
 
-    private static StockIssuePurpose MapMovementTypeToPurpose(InventoryMovementType type) => type switch
+    private static StockIssuePurpose MapMovementTypeToPurpose(InventoryMovementType type, SourceDocumentType? sourceDocType = null) => type switch
     {
         InventoryMovementType.ShipmentDispatch => StockIssuePurpose.SalesDispatch,
         InventoryMovementType.ProductionIssue => StockIssuePurpose.Manufacturing,
+        InventoryMovementType.StockAdjustmentOut when sourceDocType == SourceDocumentType.ManualPosting => StockIssuePurpose.Other,
         InventoryMovementType.StockAdjustmentOut => StockIssuePurpose.InternalUse,
         _ => StockIssuePurpose.Other
     };
+
+    private static Guid DeriveDeterministicGuid(Guid tenantId, string scope, string identifier)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var inputBytes = System.Text.Encoding.UTF8.GetBytes($"{tenantId:D}:{scope}:{identifier}");
+        var hash = sha256.ComputeHash(inputBytes);
+        return new Guid(hash.AsSpan(0, 16));
+    }
 
     private static StockReceiptReason MapMovementTypeToReceiptReason(InventoryMovementType type) => type switch
     {

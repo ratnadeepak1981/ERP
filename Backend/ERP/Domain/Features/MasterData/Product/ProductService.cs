@@ -210,4 +210,17 @@ public class ProductService : IProductService
         product.Deactivate();
         await _repository.SaveChangesAsync();
     }
+
+    public async Task<Product> ReactivateProductAsync(Guid tenantId, Guid productId)
+    {
+        var product = await _repository.GetByIdAsync(tenantId, productId)
+            ?? throw new KeyNotFoundException("Product not found.");
+
+        if (product.IsActive)
+            return product;
+
+        product.Activate();
+        await _repository.SaveChangesAsync();
+        return product;
+    }
 }

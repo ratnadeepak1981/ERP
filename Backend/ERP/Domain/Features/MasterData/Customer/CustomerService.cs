@@ -195,6 +195,19 @@ public class CustomerService : ICustomerService
         await _repository.SaveChangesAsync();
     }
 
+    public async Task<Customer> ReactivateCustomerAsync(Guid tenantId, Guid customerId)
+    {
+        var customer = await _repository.GetCustomerByIdAsync(tenantId, customerId)
+            ?? throw new KeyNotFoundException("Customer not found.");
+
+        if (customer.IsActive)
+            return customer;
+
+        customer.Activate();
+        await _repository.SaveChangesAsync();
+        return customer;
+    }
+
     public async Task<List<CustomerAddress>> GetAddressesAsync(Guid tenantId, Guid customerId)
     {
         return await _repository.GetAddressesAsync(tenantId, customerId);

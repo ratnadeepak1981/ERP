@@ -38,10 +38,19 @@ export class SupplierMasterComponent implements OnInit {
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
+  readonly message = signal<{ text: string; severity: 'success' | 'warn' | 'error' } | null>(null);
 
   readonly suppliers = signal<SupplierItem[]>([]);
   readonly searchTerm = signal<string>('');
   readonly statusFilter = signal<'all' | 'active' | 'inactive'>('all');
+
+  // Inline Confirmation Banner State (Strictly NO POPUPS)
+  readonly pendingAction = signal<{
+    type: 'deactivate' | 'reactivate';
+    id: string;
+    code: string;
+    name: string;
+  } | null>(null);
 
   readonly breadcrumbs = [
     { label: 'Workspace', routerLink: '/app/dashboard' },
@@ -96,11 +105,59 @@ export class SupplierMasterComponent implements OnInit {
     this.router.navigate(['/app/master-data/suppliers', supplier.supplierId]);
   }
 
-  onDeactivate(supplier: SupplierItem): void {
-    if (confirm(`Deactivate supplier ${supplier.supplierName} (${supplier.supplierCode})?`)) {
-      this.masterDataService.deactivateSupplier(supplier.supplierId).subscribe({
-        next: () => this.loadSuppliers(),
-        error: (err) => alert(err?.error?.message || 'Failed to deactivate supplier.')
+  promptDeactivate(supplier: SupplierItem): void {
+    this.pendingAction.set({
+      type: 'deactivate',
+      id: supplier.supplierId,
+      code: supplier.supplierCode,
+      name: supplier.supplierName
+    });
+    this.message.set(null);
+  }
+
+  promptReactivate(supplier: SupplierItem): void {
+    this.pendingAction.set({
+      type: 'reactivate',
+      id: supplier.supplierId,
+      code: supplier.supplierCode,
+      name: supplier.supplierName
+    });
+    this.message.set(null);
+  }
+
+  cancelPendingAction(): void {
+    this.pendingAction.set(null);
+  }
+
+  confirmPendingAction(): void {
+    const action = this.pendingAction();
+    if (!action) return;
+
+    if (action.type === 'deactivate') {
+      this.masterDataService.deactivateSupplier(action.id).subscribe({
+        next: () => {
+          this.suppliers.update(list =>
+            list.map(s => s.supplierId === action.id ? { ...s, isActive: false } : s)
+          );
+          this.pendingAction.set(null);
+          this.message.set({ text: `Supplier "${action.name}" deactivated successfully.`, severity: 'success' });
+        },
+        error: (err) => {
+          this.message.set({ text: err?.error?.message || 'Failed to deactivate supplier.', severity: 'error' });
+        }
+      });
+    } else {
+      this.masterDataService.reactivateSupplier(action.id).subscribe({
+        next: () => {
+          this.suppliers.update(list =>
+            list.map(s => s.supplierId === action.id ? { ...s, isActive: true } : s)
+          );
+          this.pendingAction.set(null);
+          this.message.set({ text: `Supplier "${action.name}" reactivated successfully.`, severity: 'success' });
+        },
+        error: (err) => {
+          this.message.set({ text: err?.error?.message || 'Failed to reactivate supplier.', severity: 'error' });
+        }
       });
     }
   }

@@ -103,7 +103,7 @@ public class ProductController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("PRODUCT.UPDATE")]
+    [RequirePermission("PRODUCT.EDIT")]
     public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] UpdateProductRequest request)
     {
         if (_currentUserContext.IsPlatformUser)
@@ -147,6 +147,28 @@ public class ProductController : BaseApiController
         {
             await _productService.DeactivateProductAsync(tenantId.Value, id);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/reactivate")]
+    [RequirePermission("PRODUCT.EDIT")]
+    public async Task<IActionResult> ReactivateProduct(Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser)
+            return Forbid();
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var product = await _productService.ReactivateProductAsync(tenantId.Value, id);
+            return SuccessResponse(product, "Product reactivated successfully.");
         }
         catch (Exception ex)
         {

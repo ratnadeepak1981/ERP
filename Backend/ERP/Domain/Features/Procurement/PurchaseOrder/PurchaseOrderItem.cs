@@ -18,10 +18,25 @@ public class PurchaseOrderItem
 
     public decimal UnitPrice { get; set; }
 
+    public decimal DiscountRate { get; set; } = 0;
+
+    public decimal DiscountAmount { get; set; } = 0;
+
+    public Guid? TaxCodeId { get; set; }
+
+    public decimal TaxRate { get; set; } = 0;
+
+    public decimal TaxAmount { get; set; } = 0;
+
+    public decimal SubTotal { get; set; }
+
     public decimal LineTotal { get; set; }
+
+    public bool IsTaxInclusive { get; set; } = false;
+
+    public string? Notes { get; set; }
 
     public bool IsActive { get; set; } = true;
 
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }
-

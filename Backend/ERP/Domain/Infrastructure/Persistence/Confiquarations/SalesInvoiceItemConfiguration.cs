@@ -32,8 +32,11 @@ public class SalesInvoiceItemConfiguration : IEntityTypeConfiguration<SalesInvoi
             .HasColumnType("decimal(18,4)")
             .IsRequired();
 
+        builder.Property(x => x.TaxCodeId)
+            .IsRequired(false);
+
         builder.Property(x => x.TaxRate)
-            .HasColumnType("decimal(5,2)")
+            .HasColumnType("decimal(18,4)")
             .IsRequired();
 
         builder.Property(x => x.TaxAmount)
@@ -46,6 +49,10 @@ public class SalesInvoiceItemConfiguration : IEntityTypeConfiguration<SalesInvoi
 
         builder.Property(x => x.LineTotal)
             .HasColumnType("decimal(18,4)")
+            .IsRequired();
+
+        builder.Property(x => x.IsTaxInclusive)
+            .HasDefaultValue(false)
             .IsRequired();
 
         builder.Property(x => x.Notes)

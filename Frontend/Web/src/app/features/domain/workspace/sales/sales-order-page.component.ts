@@ -12,11 +12,7 @@ import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } 
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
-import { TooltipModule } from 'primeng/tooltip';
-import { SharedModule } from 'primeng/api';
+import { ActionDialogComponent } from '../../../../shared/components/action-dialog/action-dialog.component';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppReactiveFormComponent } from '../../../../shared/components/forms/reactive-form.component';
 import { FormFieldConfig } from '../../../../shared/components/forms/form-field-config.model';
@@ -40,7 +36,7 @@ import {
 } from '../../../../core/models/sales-order.models';
 import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
 import { LookupItem } from '../../../../shared/components/lookup-dropdown/lookup-item.model';
-import { CustomerItem, ProductItem } from '../../../../core/models/scope.models';
+import { CustomerItem, ProductItem, CustomerAddressItem, TaxCodeItem } from '../../../../core/models/scope.models';
 
 export type SOPageMode = 'create' | 'view' | 'amend' | 'confirm';
 
@@ -54,10 +50,12 @@ export interface EditableSOLine {
   unitPrice: number;
   discountRate: number;
   discountAmount: number;
+  taxCodeId?: string | null;
   taxRate: number;
   taxAmount: number;
   subTotal: number;
   lineTotal: number;
+  isTaxInclusive?: boolean;
   notes?: string | null;
 }
 
@@ -69,11 +67,7 @@ export interface EditableSOLine {
     FormsModule,
     ReactiveFormsModule,
     RouterModule,
-    ButtonModule,
-    InputTextModule,
-    DialogModule,
-    SharedModule,
-    TooltipModule,
+    ActionDialogComponent,
     AppPageHeaderComponent,
     AppReactiveFormComponent,
     AppEditableDataTableComponent,
@@ -96,6 +90,16 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
 
   private readonly subs = new Subscription();
 
+  readonly taxCodes = signal<TaxCodeItem[]>([]);
+  readonly taxCodeLookupItems = computed<LookupItem[]>(() => {
+    return this.taxCodes().map(tc => ({
+      id: tc.taxCodeId,
+      code: tc.code,
+      name: `${tc.code} (${tc.rate}%)`,
+      meta: { rate: tc.rate }
+    }));
+  });
+
   // Mode & Route State
   readonly mode = signal<SOPageMode>('create');
   readonly orderId = signal<string | null>(null);
@@ -115,6 +119,7 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
   // Master Data
   readonly customers = signal<CustomerItem[]>([]);
   readonly products = signal<ProductItem[]>([]);
+  readonly customerAddresses = signal<CustomerAddressItem[]>([]);
 
   // Order Lines
   readonly workingLines = signal<EditableSOLine[]>([]);
@@ -136,6 +141,7 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
     deliveryDate: new FormControl<string>(''),
     currency: new FormControl<string>('USD', { nonNullable: true }),
     paymentTerms: new FormControl<string>('Net 30'),
+    deliveryAddressId: new FormControl<string | null>(null),
     notes: new FormControl<string>('')
   });
 
@@ -256,6 +262,16 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
   // Form Field Configurations
   readonly formFields = computed<FormFieldConfig[]>(() => {
     const isReadOnly = this.isReadOnlyMode();
+    const addressOptions = this.customerAddresses().map(ca => {
+      const addr = ca.address;
+      const label = addr ? `${addr.addressName} — ${addr.addressLine1}, ${addr.city}` : ca.addressId;
+      return { label: ca.isDefault ? `★ ${label} (Default)` : label, value: ca.addressId };
+    });
+    const currentOrderAddrId = this.currentOrder()?.deliveryAddressId;
+    if (currentOrderAddrId && !addressOptions.some(a => a.value === currentOrderAddrId)) {
+      const snap = this.currentOrder()?.deliveryAddressSnapshot;
+      addressOptions.unshift({ label: snap || currentOrderAddrId, value: currentOrderAddrId });
+    }
     const customerOptions = this.customers().map(c => ({
       label: `${c.customerName} (${c.customerCode})`,
       value: c.customerId
@@ -287,6 +303,15 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
         required: true,
         placeholder: '-- Select Customer --',
         options: customerOptions,
+        disabled: isReadOnly || this.mode() === 'amend',
+        colSpan: 1
+      },
+      {
+        name: 'deliveryAddressId',
+        label: 'Delivery Destination / Site',
+        type: 'select',
+        placeholder: addressOptions.length > 0 ? '-- Select Delivery Destination --' : '-- Default Customer Address --',
+        options: addressOptions,
         disabled: isReadOnly || this.mode() === 'amend',
         colSpan: 1
       },
@@ -429,28 +454,42 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
         ]
       },
       {
+        field: 'taxCodeId',
+        header: 'Tax Code',
+        sortable: true,
+        width: '130px',
+        editable: !isReadOnly,
+        editType: 'lookup',
+        lookupOptions: this.taxCodeLookupItems(),
+        onLookupSelect: (item, row) => {
+          row.taxCodeId = String(item.id);
+          row.taxRate = Number(item.meta?.rate) || 0;
+          this.calculateRow(row);
+        }
+      },
+      {
         field: 'taxRate',
         header: 'Tax %',
         sortable: true,
         align: 'right',
-        width: '100px',
-        editable: !isReadOnly,
-        editType: 'number',
-        validators: [
-          (val: any) => {
-            const num = Number(val);
-            if (isNaN(num)) return 'Must be a number';
-            if (num < 0) return 'Cannot be negative';
-            return null;
-          }
-        ]
+        width: '85px',
+        editable: false
+      },
+      {
+        field: 'isTaxInclusive',
+        header: 'Tax Incl.',
+        sortable: true,
+        align: 'center',
+        width: '95px',
+        type: 'boolean',
+        editable: !isReadOnly
       },
       {
         field: 'lineTotal',
         header: 'Line Total',
         sortable: true,
         align: 'right',
-        width: '140px',
+        width: '130px',
         type: 'currency',
         editable: false
       }
@@ -463,18 +502,31 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
     const price = Math.round((Number(row.unitPrice) || 0) * 100) / 100;
     const discRate = Math.round((Number(row.discountRate) || 0) * 100) / 100;
     const taxRate = Math.round((Number(row.taxRate) || 0) * 100) / 100;
+    const isInclusive = !!row.isTaxInclusive;
 
-    const subTotal = Math.round(qty * price * 100) / 100;
-    const discount = Math.round(subTotal * (discRate / 100) * 100) / 100;
-    const taxable = subTotal - discount;
-    const tax = Math.round(taxable * (taxRate / 100) * 100) / 100;
-    const lineTotal = Math.round((taxable + tax) * 100) / 100;
+    const gross = Math.round(qty * price * 100) / 100;
+    const discount = Math.round(gross * (discRate / 100) * 100) / 100;
+
+    let taxable: number;
+    let tax: number;
+    let lineTotal: number;
+
+    if (isInclusive) {
+      const discountedGross = gross - discount;
+      taxable = Math.round((discountedGross / (1 + (taxRate / 100))) * 100) / 100;
+      tax = Math.round((discountedGross - taxable) * 100) / 100;
+      lineTotal = discountedGross;
+    } else {
+      taxable = gross - discount;
+      tax = Math.round((taxable * (taxRate / 100)) * 100) / 100;
+      lineTotal = Math.round((taxable + tax) * 100) / 100;
+    }
 
     row.quantity = qty;
     row.unitPrice = price;
     row.discountRate = discRate;
     row.taxRate = taxRate;
-    row.subTotal = subTotal;
+    row.subTotal = taxable;
     row.discountAmount = discount;
     row.taxAmount = tax;
     row.lineTotal = lineTotal;
@@ -500,10 +552,12 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
       unitPrice: 0,
       discountRate: 0,
       discountAmount: 0,
+      taxCodeId: null,
       taxRate: 0,
       taxAmount: 0,
       subTotal: 0,
-      lineTotal: 0
+      lineTotal: 0,
+      isTaxInclusive: false
     };
   };
 
@@ -600,6 +654,16 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.detectRouteMode();
     this.loadMasterData();
+    this.subs.add(
+      this.headerForm.get('customerId')!.valueChanges.subscribe(cid => {
+        if (cid) {
+          this.loadCustomerAddressesForOrder(cid);
+        } else {
+          this.customerAddresses.set([]);
+          this.headerForm.get('deliveryAddressId')?.setValue(null);
+        }
+      })
+    );
 
     if (this.route.paramMap) {
       this.subs.add(this.route.paramMap.subscribe(() => this.detectRouteMode()));
@@ -660,14 +724,37 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
     return `SO-${year}-${rand}`;
   }
 
+  private loadCustomerAddressesForOrder(customerId: string): void {
+    forkJoin({
+      linked: this.masterDataService.getCustomerAddresses(customerId).pipe(catchError(() => of([]))),
+      all: this.masterDataService.getAddresses().pipe(catchError(() => of([])))
+    }).subscribe({
+      next: ({ linked, all }) => {
+        const list = (linked || []).map(l => ({
+          ...l,
+          address: (all || []).find(a => a.addressId === l.addressId)
+        }));
+        this.customerAddresses.set(list);
+        if (!this.headerForm.get('deliveryAddressId')?.value && list.length > 0) {
+          const def = list.find(l => l.isDefault) || list[0];
+          if (def) {
+            this.headerForm.get('deliveryAddressId')?.setValue(def.addressId);
+          }
+        }
+      }
+    });
+  }
+
   loadMasterData(): void {
     forkJoin({
       customers: this.masterDataService.getCustomers().pipe(catchError(() => of([] as CustomerItem[]))),
-      products: this.masterDataService.getProducts().pipe(catchError(() => of([] as ProductItem[])))
+      products: this.masterDataService.getProducts().pipe(catchError(() => of([] as ProductItem[]))),
+      taxCodes: this.masterDataService.getTaxCodes('Sales', true).pipe(catchError(() => of([] as TaxCodeItem[])))
     }).subscribe({
-      next: ({ customers, products }) => {
+      next: ({ customers, products, taxCodes }) => {
         this.customers.set(customers || []);
         this.products.set(products || []);
+        this.taxCodes.set(taxCodes || []);
         const current = this.workingLines();
         if (current.some(l => l.productId && (!l.productCode || !l.productName))) {
           this.workingLines.set(this.enrichLinesWithProductMaster(current));
@@ -728,6 +815,7 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
         }
 
         this.populateOrderData(order);
+        if (order.customerId) { this.loadCustomerAddressesForOrder(order.customerId); }
       },
       error: err => {
         this.loading.set(false);
@@ -749,6 +837,7 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
       deliveryDate: order.deliveryDate ? order.deliveryDate.substring(0, 10) : '',
       currency: order.currency || 'USD',
       paymentTerms: order.paymentTerms || 'Net 30',
+      deliveryAddressId: order.deliveryAddressId || null,
       notes: order.notes || ''
     });
 
@@ -763,10 +852,12 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
         unitPrice: item.unitPrice,
         discountRate: item.discountRate || 0,
         discountAmount: item.discountAmount || 0,
+        taxCodeId: item.taxCodeId || null,
         taxRate: item.taxRate || 0,
         taxAmount: item.taxAmount || 0,
         subTotal: item.subTotal || item.quantity * item.unitPrice,
         lineTotal: item.lineTotal,
+        isTaxInclusive: item.isTaxInclusive || false,
         notes: item.notes || null
       }));
       this.workingLines.set(this.enrichLinesWithProductMaster(lines));
@@ -843,7 +934,9 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
             quantity: Number(line.quantity),
             unitPrice: Number(line.unitPrice),
             discountRate: Number(line.discountRate) || 0,
+            taxCodeId: line.taxCodeId || null,
             taxRate: Number(line.taxRate) || 0,
+            isTaxInclusive: !!line.isTaxInclusive,
             notes: line.notes || null
           };
 
@@ -886,7 +979,9 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
       quantity: Number(l.quantity),
       unitPrice: Number(l.unitPrice),
       discountRate: Number(l.discountRate) || 0,
+      taxCodeId: l.taxCodeId || null,
       taxRate: Number(l.taxRate) || 0,
+      isTaxInclusive: !!l.isTaxInclusive,
       notes: l.notes || null
     }));
 
@@ -897,6 +992,7 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
       deliveryDate: formVal.deliveryDate ? new Date(formVal.deliveryDate).toISOString() : null,
       currency: formVal.currency || 'USD',
       paymentTerms: formVal.paymentTerms || null,
+      deliveryAddressId: formVal.deliveryAddressId || null,
       notes: formVal.notes || null,
       items
     };
@@ -1027,11 +1123,9 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
   navigateToDispatch(): void {
     const ord = this.currentOrder();
     if (!ord) return;
-    this.router.navigate(['/app/inventory/issue-stock/new'], {
+    this.router.navigate(['/app/sales/dispatches/new'], {
       queryParams: {
-        purpose: 'sales',
-        referenceNumber: ord.orderNumber,
-        salesOrderId: ord.id
+        orderId: ord.id
       }
     });
   }

@@ -16,8 +16,29 @@ public class PurchaseOrderConfiguration : IEntityTypeConfiguration<PurchaseOrder
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(x => x.SubTotal)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.DiscountAmount)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.TaxAmount)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
         builder.Property(x => x.TotalAmount)
-            .HasColumnType("decimal(18,2)");
+            .HasColumnType("decimal(18,2)")
+            .IsRequired();
+
+        builder.Property(x => x.Currency)
+            .IsRequired()
+            .HasMaxLength(10)
+            .HasDefaultValue("USD");
 
         builder.Property(x => x.Status)
             .IsRequired();

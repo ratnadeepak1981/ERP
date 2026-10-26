@@ -75,4 +75,17 @@ public class CategoryService : ICategoryService
         category.Deactivate();
         await _repository.SaveChangesAsync();
     }
+
+    public async Task<Category> ReactivateCategoryAsync(Guid tenantId, Guid categoryId)
+    {
+        var category = await _repository.GetByIdAsync(tenantId, categoryId)
+            ?? throw new KeyNotFoundException("Category not found.");
+
+        if (category.IsActive)
+            return category;
+
+        category.Activate();
+        await _repository.SaveChangesAsync();
+        return category;
+    }
 }

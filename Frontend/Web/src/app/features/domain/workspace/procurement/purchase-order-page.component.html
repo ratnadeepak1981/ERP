@@ -323,6 +323,12 @@
             <span class="summary-label">Items Subtotal:</span>
             <span class="summary-value">{{ subtotalAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
           </div>
+          @if (discountTotalAmount() > 0) {
+            <div class="summary-row">
+              <span class="summary-label">Total Discount:</span>
+              <span class="summary-value text-danger">-{{ discountTotalAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            </div>
+          }
           <div class="summary-row">
             <span class="summary-label">Estimated Tax:</span>
             <span class="summary-value">{{ taxAmount() | currency:'USD':'symbol':'1.2-2' }}</span>

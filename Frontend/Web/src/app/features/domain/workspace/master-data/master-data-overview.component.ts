@@ -65,6 +65,25 @@ export class MasterDataOverviewComponent {
       badgeSeverity: 'neutral',
       icon: 'pi pi-tag',
       description: 'Product classification, brand, category hierarchy and reporting groups.',
+      route: '/app/master-data/categories-brands',
+      available: true
+    },
+    {
+      title: 'Payment Terms',
+      badge: 'Commercial',
+      badgeSeverity: 'info',
+      icon: 'pi pi-credit-card',
+      description: 'Payment terms, credit conditions, and standard invoice due day calculations.',
+      route: '/app/master-data/payment-terms',
+      available: true
+    },
+    {
+      title: 'Tax Codes',
+      badge: 'Financial',
+      badgeSeverity: 'info',
+      icon: 'pi pi-percentage',
+      description: 'Tax codes, percentage rates, purchase and sales applicability, and validity periods.',
+      route: '/app/master-data/tax-codes',
       available: true
     },
     {
@@ -73,6 +92,7 @@ export class MasterDataOverviewComponent {
       badgeSeverity: 'neutral',
       icon: 'pi pi-sliders-v',
       description: 'Each, box, kg, litre, pack and controlled conversion rules.',
+      route: '/app/master-data/uom',
       available: true
     },
     {
