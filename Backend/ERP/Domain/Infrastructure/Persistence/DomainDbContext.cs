@@ -89,6 +89,18 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureConversion> UnitOfMeasureConversions
         => Set<Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureConversion>();
 
+    public DbSet<Domain.Features.MasterData.Currency.Currency> Currencies
+        => Set<Domain.Features.MasterData.Currency.Currency>();
+
+    public DbSet<Domain.Features.MasterData.Brand.Brand> Brands
+        => Set<Domain.Features.MasterData.Brand.Brand>();
+
+    public DbSet<Domain.Features.MasterData.PaymentTerm.PaymentTerm> PaymentTerms
+        => Set<Domain.Features.MasterData.PaymentTerm.PaymentTerm>();
+
+    public DbSet<Domain.Features.MasterData.TaxCode.TaxCode> TaxCodes
+        => Set<Domain.Features.MasterData.TaxCode.TaxCode>();
+
     public DbSet<LocationType> LocationTypes
         => Set<LocationType>();
 

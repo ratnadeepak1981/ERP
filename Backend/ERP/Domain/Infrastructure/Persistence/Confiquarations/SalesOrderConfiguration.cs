@@ -66,6 +66,13 @@ public class SalesOrderConfiguration : IEntityTypeConfiguration<SalesOrder>
         builder.Property(x => x.OpportunityId)
             .IsRequired(false);
 
+        builder.Property(x => x.DeliveryAddressId)
+            .IsRequired(false);
+
+        builder.Property(x => x.DeliveryAddressSnapshot)
+            .HasMaxLength(500)
+            .IsRequired(false);
+
         builder.Property(x => x.IsActive)
             .IsRequired();
 

@@ -29,7 +29,11 @@ public class SalesInvoiceItem : Auditable
 
     public decimal Subtotal { get; set; }
 
+    public Guid? TaxCodeId { get; set; }
+
     public decimal LineTotal { get; set; }
+
+    public bool IsTaxInclusive { get; set; } = false;
 
     public Guid? UnitOfMeasureId { get; set; }
 
@@ -49,7 +53,9 @@ public class SalesInvoiceItem : Auditable
         Guid? salesOrderItemId = null,
         Guid? salesShipmentItemId = null,
         Guid? unitOfMeasureId = null,
-        string? notes = null)
+        string? notes = null,
+        Guid? taxCodeId = null,
+        bool isTaxInclusive = false)
     {
         if (quantity <= 0)
             throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
@@ -59,22 +65,31 @@ public class SalesInvoiceItem : Auditable
 
         decimal roundedQty = Math.Round(quantity, 4, MidpointRounding.AwayFromZero);
         decimal roundedPrice = Math.Round(unitPrice, 4, MidpointRounding.AwayFromZero);
-        decimal subtotal = Math.Round(roundedQty * roundedPrice, 4, MidpointRounding.AwayFromZero);
 
-        decimal discountAmt = 0;
-        if (discountRate > 0)
+        decimal subtotal;
+        decimal discountAmt;
+        decimal taxable;
+        decimal taxAmt;
+        decimal lineTotal;
+
+        if (isTaxInclusive)
         {
-            discountAmt = Math.Round(subtotal * (discountRate / 100m), 4, MidpointRounding.AwayFromZero);
+            decimal gross = Math.Round(roundedQty * roundedPrice, 4, MidpointRounding.AwayFromZero);
+            discountAmt = discountRate > 0 ? Math.Round(gross * (discountRate / 100m), 4, MidpointRounding.AwayFromZero) : 0;
+            decimal discountedGross = gross - discountAmt;
+            taxable = taxRate > 0 ? Math.Round(discountedGross / (1m + (taxRate / 100m)), 4, MidpointRounding.AwayFromZero) : discountedGross;
+            taxAmt = discountedGross - taxable;
+            subtotal = gross;
+            lineTotal = discountedGross;
         }
-
-        decimal taxable = subtotal - discountAmt;
-        decimal taxAmt = 0;
-        if (taxRate > 0)
+        else
         {
-            taxAmt = Math.Round(taxable * (taxRate / 100m), 4, MidpointRounding.AwayFromZero);
+            subtotal = Math.Round(roundedQty * roundedPrice, 4, MidpointRounding.AwayFromZero);
+            discountAmt = discountRate > 0 ? Math.Round(subtotal * (discountRate / 100m), 4, MidpointRounding.AwayFromZero) : 0;
+            taxable = subtotal - discountAmt;
+            taxAmt = taxRate > 0 ? Math.Round(taxable * (taxRate / 100m), 4, MidpointRounding.AwayFromZero) : 0;
+            lineTotal = taxable + taxAmt;
         }
-
-        decimal lineTotal = taxable + taxAmt;
 
         return new SalesInvoiceItem
         {
@@ -87,10 +102,12 @@ public class SalesInvoiceItem : Auditable
             UnitPrice = roundedPrice,
             DiscountRate = discountRate,
             DiscountAmount = discountAmt,
+            TaxCodeId = taxCodeId,
             TaxRate = taxRate,
             TaxAmount = taxAmt,
             Subtotal = subtotal,
             LineTotal = lineTotal,
+            IsTaxInclusive = isTaxInclusive,
             UnitOfMeasureId = unitOfMeasureId,
             Notes = notes?.Trim(),
             IsActive = true
@@ -101,27 +118,24 @@ public class SalesInvoiceItem : Auditable
     {
         decimal roundedQty = Math.Round(Quantity, 4, MidpointRounding.AwayFromZero);
         decimal roundedPrice = Math.Round(UnitPrice, 4, MidpointRounding.AwayFromZero);
-        Subtotal = Math.Round(roundedQty * roundedPrice, 4, MidpointRounding.AwayFromZero);
 
-        if (DiscountRate > 0)
+        if (IsTaxInclusive)
         {
-            DiscountAmount = Math.Round(Subtotal * (DiscountRate / 100m), 4, MidpointRounding.AwayFromZero);
+            decimal gross = Math.Round(roundedQty * roundedPrice, 4, MidpointRounding.AwayFromZero);
+            DiscountAmount = DiscountRate > 0 ? Math.Round(gross * (DiscountRate / 100m), 4, MidpointRounding.AwayFromZero) : 0;
+            decimal discountedGross = gross - DiscountAmount;
+            decimal taxable = TaxRate > 0 ? Math.Round(discountedGross / (1m + (TaxRate / 100m)), 4, MidpointRounding.AwayFromZero) : discountedGross;
+            TaxAmount = discountedGross - taxable;
+            Subtotal = gross;
+            LineTotal = discountedGross;
         }
         else
         {
-            DiscountAmount = 0;
+            Subtotal = Math.Round(roundedQty * roundedPrice, 4, MidpointRounding.AwayFromZero);
+            DiscountAmount = DiscountRate > 0 ? Math.Round(Subtotal * (DiscountRate / 100m), 4, MidpointRounding.AwayFromZero) : 0;
+            decimal taxable = Subtotal - DiscountAmount;
+            TaxAmount = TaxRate > 0 ? Math.Round(taxable * (TaxRate / 100m), 4, MidpointRounding.AwayFromZero) : 0;
+            LineTotal = taxable + TaxAmount;
         }
-
-        decimal taxable = Subtotal - DiscountAmount;
-        if (TaxRate > 0)
-        {
-            TaxAmount = Math.Round(taxable * (TaxRate / 100m), 4, MidpointRounding.AwayFromZero);
-        }
-        else
-        {
-            TaxAmount = 0;
-        }
-
-        LineTotal = taxable + TaxAmount;
     }
 }

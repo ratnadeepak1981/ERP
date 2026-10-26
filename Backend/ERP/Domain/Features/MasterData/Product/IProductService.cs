@@ -20,4 +20,8 @@ public interface IProductService
     Task DeactivateProductAsync(
         Guid tenantId,
         Guid productId);
+
+    Task<Product> ReactivateProductAsync(
+        Guid tenantId,
+        Guid productId);
 }

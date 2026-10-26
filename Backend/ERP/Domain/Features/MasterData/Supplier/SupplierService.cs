@@ -194,6 +194,19 @@ public class SupplierService : ISupplierService
         await _repository.SaveChangesAsync();
     }
 
+    public async Task<Supplier> ReactivateSupplierAsync(Guid tenantId, Guid supplierId)
+    {
+        var supplier = await _repository.GetSupplierByIdAsync(tenantId, supplierId)
+            ?? throw new KeyNotFoundException("Supplier not found.");
+
+        if (supplier.IsActive)
+            return supplier;
+
+        supplier.Activate();
+        await _repository.SaveChangesAsync();
+        return supplier;
+    }
+
     public async Task<List<SupplierAddress>> GetAddressesAsync(Guid tenantId, Guid supplierId)
     {
         return await _repository.GetAddressesAsync(tenantId, supplierId);

@@ -12,6 +12,10 @@ public static class DomainPermissionSeeder
         await CompanyBranchPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.CategoryPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.UnitOfMeasurePermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.CurrencyPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.BrandPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.PaymentTermPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.TaxCodePermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.WarehousePermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.LocationPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.AddressPermissionSeed.SeedAsync(repository);

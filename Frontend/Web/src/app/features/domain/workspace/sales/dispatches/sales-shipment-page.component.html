@@ -2,39 +2,40 @@
   <!-- Page Header -->
   <app-page-header
     [title]="mode() === 'create' ? 'Create Dispatch Note' : 'Dispatch Note ' + (headerForm.get('shipmentNumber')?.value || '')"
-    subtitle="Goods delivery note, line allocation, fulfillment tracking, and inventory issue"
+    subtitle="Goods delivery note, issue location stock verification, and inventory movement"
     [breadcrumbs]="breadcrumbs()"
   >
     <div actions class="page-header-actions">
-      <p-button
-        label="Back to Dispatches"
-        icon="pi pi-arrow-left"
-        [outlined]="true"
-        size="small"
-        severity="secondary"
-        (onClick)="navigateBack()"
-      ></p-button>
+      <button
+        type="button"
+        class="erp-button erp-button-secondary"
+        (click)="navigateBack()"
+      >
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to Dispatches</span>
+      </button>
 
       @if (shipmentId()) {
-        <p-button
-          icon="pi pi-refresh"
-          [outlined]="true"
-          size="small"
-          severity="secondary"
-          [loading]="loading()"
-          (onClick)="loadShipment(shipmentId()!)"
+        <button
+          type="button"
+          class="erp-button erp-button-secondary"
+          [disabled]="loading()"
+          (click)="loadShipment(shipmentId()!)"
           title="Reload dispatch details"
-        ></p-button>
+        >
+          <i class="pi pi-refresh" [class.pi-spin]="loading()"></i>
+        </button>
       }
 
       @if (isDelivered() && currentShipment()?.invoiceId) {
-        <p-button
-          label="View Sales Invoice"
-          icon="pi pi-file-invoice"
-          size="small"
-          severity="info"
-          (onClick)="navigateToInvoice()"
-        ></p-button>
+        <button
+          type="button"
+          class="erp-button erp-button-info"
+          (click)="navigateToInvoice()"
+        >
+          <i class="pi pi-file-invoice"></i>
+          <span>View Sales Invoice</span>
+        </button>
       }
     </div>
   </app-page-header>
@@ -70,7 +71,7 @@
     </div>
   } @else if (loading()) {
     <div class="erp-card state-card">
-      <app-loading-state message="Loading dispatch note details..."></app-loading-state>
+      <app-loading-state message="Loading dispatch note details and evaluating stock availability..."></app-loading-state>
     </div>
   } @else if (error()) {
     <div class="erp-card state-card">
@@ -78,7 +79,201 @@
     </div>
   } @else {
     <div class="shipment-form-container">
-      <!-- Section 1: Header / Document Information -->
+      <!-- Section: Inherited Scope Context (Read-only, matches Procurement) -->
+      <section class="erp-card scope-context-section">
+        <div class="scope-context-item">
+          <span class="scope-meta-label"><i class="pi pi-shield"></i> Tenant:</span>
+          <span class="scope-meta-val">{{ scopeService.activeTenantName() }}</span>
+        </div>
+        <div class="scope-divider">&bull;</div>
+        <div class="scope-context-item">
+          <span class="scope-meta-label"><i class="pi pi-building"></i> Operating Company:</span>
+          <span class="scope-meta-val">{{ scopeService.selectedCompany()?.name || 'Default Company' }}</span>
+        </div>
+        <div class="scope-divider">&bull;</div>
+        <div class="scope-context-item">
+          <span class="scope-meta-label"><i class="pi pi-map-pin"></i> Dispatch Branch:</span>
+          <span class="scope-meta-val">{{ scopeService.selectedBranch()?.name || 'Default Branch' }}</span>
+        </div>
+      </section>
+
+      <!-- Section: Stock Availability & Issue Location Workflow (Round 1) -->
+      @if (mode() === 'create' && sourceOrderId() && availability()) {
+        <section class="erp-card location-availability-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h3 class="section-title">Stock Availability & Issue Location</h3>
+            </div>
+            @if (revalidatingStock()) {
+              <span class="revalidating-badge">
+                <i class="pi pi-spin pi-spinner"></i> Checking live stock...
+              </span>
+            }
+          </div>
+
+          <!-- Scenario A: Default Location Can Fulfil -->
+          @if (availability()!.canDefaultLocationFulfil) {
+            <div class="location-banner location-banner-success">
+              <div class="banner-icon-wrap">
+                <i class="pi pi-check-circle banner-icon"></i>
+              </div>
+              <div class="banner-content">
+                <div class="banner-title">Default Issue Location Can Fulfil Order</div>
+                <div class="banner-desc">
+                  All remaining items on Sales Order <strong>{{ availability()!.orderNumber }}</strong> can be fulfilled from the configured default location:
+                </div>
+                <div class="selected-location-pill">
+                  <i class="pi pi-map-marker"></i>
+                  <span>{{ availability()!.defaultWarehouseName }} &mdash; {{ availability()!.defaultLocationCode }} ({{ availability()!.defaultLocationName }})</span>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Scenario B: Default Insufficient, Alternative Single Location Available -->
+          @else if (!availability()!.canDefaultLocationFulfil && availability()!.eligibleLocations.length > 0) {
+            <div class="location-banner location-banner-warning">
+              <div class="banner-icon-wrap">
+                <i class="pi pi-exclamation-triangle banner-icon"></i>
+              </div>
+              <div class="banner-content">
+                <div class="banner-title">Default Location Has Insufficient Stock</div>
+                <div class="banner-desc">
+                  The default issue location ({{ availability()!.defaultWarehouseName }} / {{ availability()!.defaultLocationName }}) cannot fulfil all remaining quantities.
+                  Please select an eligible alternative location within your authorized scope:
+                </div>
+
+                <div class="alternative-selector-wrap">
+                  <label for="altLocationSelect" class="selector-label">Alternative Issue Location:</label>
+                  <select
+                    id="altLocationSelect"
+                    class="p-inputtext p-inputtext-sm location-dropdown"
+                    [ngModel]="selectedLocationId()"
+                    (ngModelChange)="onSelectLocation($event)"
+                    [disabled]="actionInProgress() || revalidatingStock()"
+                  >
+                    @for (loc of availability()!.eligibleLocations; track loc.locationId) {
+                      <option [value]="loc.locationId">
+                        {{ loc.warehouseName }} &mdash; {{ loc.locationCode }} ({{ loc.locationName }})
+                      </option>
+                    }
+                  </select>
+                </div>
+
+                @if (availability()!.canFulfil) {
+                  <div class="selected-alt-confirmed">
+                    <i class="pi pi-check"></i>
+                    <span>Selected location has sufficient stock for all remaining lines. Ready to dispatch.</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Scenario C: No Single Location Can Fulfil -->
+          @else {
+            <div class="location-banner location-banner-danger">
+              <div class="banner-icon-wrap">
+                <i class="pi pi-times-circle banner-icon"></i>
+              </div>
+              <div class="banner-content">
+                <div class="banner-title">Insufficient Stock &mdash; Dispatch Disabled</div>
+                <div class="banner-desc">
+                  No single location in your authorized company/branch scope has sufficient stock to fulfill the remaining quantities for Sales Order <strong>{{ availability()!.orderNumber }}</strong>.
+                  Dispatch cannot proceed until stock is replenished. Multi-location split allocation is not supported in this release.
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Line Items & Shortage Table -->
+          <div class="line-items-container">
+            <div class="line-items-header">
+              <div class="header-left">
+                <span class="table-subtitle">Sales Order Demand vs Location Availability</span>
+                <span class="item-count-badge">
+                  {{ shortageCount() > 0 ? shortageCount() + ' Shortage ' + (shortageCount() === 1 ? 'Line' : 'Lines') : 'All Lines Fulfilled' }}
+                </span>
+              </div>
+
+              <div class="header-right">
+                <div class="filter-pills-group" role="group" aria-label="Toggle lines view">
+                  <button
+                    type="button"
+                    class="filter-pill"
+                    [class.active]="!showAllLines()"
+                    (click)="showAllLines.set(false)"
+                  >
+                    <i class="pi pi-exclamation-circle"></i>
+                    Shortages Only ({{ shortageCount() }})
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-pill"
+                    [class.active]="showAllLines()"
+                    (click)="showAllLines.set(true)"
+                  >
+                    <i class="pi pi-list"></i>
+                    All Lines ({{ totalLineCount() }})
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-scroll-wrapper">
+              <table class="erp-data-table">
+                <thead>
+                  <tr>
+                    <th style="width: 48px;">#</th>
+                    <th style="min-width: 200px;">Product</th>
+                    <th style="width: 110px; text-align: right;">Ordered</th>
+                    <th style="width: 120px; text-align: right;">Already Dispatched</th>
+                    <th style="width: 120px; text-align: right;">Remaining Demand</th>
+                    <th style="width: 130px; text-align: right;">Available at Location</th>
+                    <th style="width: 120px; text-align: right;">Shortage</th>
+                    <th style="width: 120px; text-align: center;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (line of displayedLines(); track line.salesOrderItemId; let idx = $index) {
+                    <tr [class.shortage-row]="line.shortageQuantity > 0">
+                      <td class="col-idx">{{ idx + 1 }}</td>
+                      <td class="col-product">
+                        <span class="prod-code">{{ line.productCode }}</span>
+                        <span class="prod-name">{{ line.productName }}</span>
+                      </td>
+                      <td class="col-num">{{ line.orderedQuantity | number:'1.2-4' }}</td>
+                      <td class="col-num">{{ line.alreadyDispatchedQuantity | number:'1.2-4' }}</td>
+                      <td class="col-num" style="font-weight: 600;">{{ line.remainingQuantity | number:'1.2-4' }}</td>
+                      <td class="col-num">{{ line.availableQuantity | number:'1.2-4' }}</td>
+                      <td class="col-num">
+                        @if (line.shortageQuantity > 0) {
+                          <span class="shortage-pill">-{{ line.shortageQuantity | number:'1.2-4' }}</span>
+                        } @else {
+                          <span class="zero-shortage">0</span>
+                        }
+                      </td>
+                      <td style="text-align: center;">
+                        @if (line.canFulfil) {
+                          <span class="status-pill status-pill-success">
+                            <i class="pi pi-check"></i> Fulfilled
+                          </span>
+                        } @else {
+                          <span class="status-pill status-pill-danger">
+                            <i class="pi pi-exclamation-triangle"></i> Shortage
+                          </span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- Section: Dispatch Document Information (Form) -->
       <section class="erp-card section-card">
         <div class="section-header">
           <div class="section-title-wrap">
@@ -98,8 +293,7 @@
             <input
               id="shipmentNumber"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="shipmentNumber"
               [disabled]="mode() !== 'create'"
             />
@@ -110,8 +304,7 @@
             <input
               id="orderNumber"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="orderNumber"
             />
           </div>
@@ -121,8 +314,7 @@
             <input
               id="customerName"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="customerName"
             />
           </div>
@@ -145,8 +337,7 @@
             <input
               id="shipmentDate"
               type="date"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="shipmentDate"
             />
           </div>
@@ -156,10 +347,9 @@
             <input
               id="carrierName"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="carrierName"
-              placeholder="e.g. DHL, FedEx, In-house fleet..."
+              placeholder="DHL, FedEx, In-house fleet..."
             />
           </div>
 
@@ -168,8 +358,7 @@
             <input
               id="trackingNumber"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="trackingNumber"
               placeholder="Waybill or tracking reference..."
             />
@@ -180,10 +369,9 @@
             <input
               id="vehicleNumber"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="vehicleNumber"
-              placeholder="Truck/van registration..."
+              placeholder="Vehicle plate / registration..."
             />
           </div>
 
@@ -192,8 +380,7 @@
             <input
               id="recipientName"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="recipientName"
               placeholder="Contact receiving goods..."
             />
@@ -204,8 +391,7 @@
             <input
               id="deliveryAddress"
               type="text"
-              pInputText
-              class="p-inputtext-sm"
+              class="p-inputtext p-inputtext-sm"
               formControlName="deliveryAddress"
               placeholder="Customer delivery site address..."
             />
@@ -218,176 +404,118 @@
               class="p-inputtext p-inputtext-sm full-width"
               rows="2"
               formControlName="notes"
-              placeholder="Special handling, fragile, delivery instructions..."
+              placeholder="Special handling, delivery instructions..."
             ></textarea>
           </div>
         </form>
       </section>
 
-      <!-- Section 2: Line Items & Allocation -->
-      <section class="erp-card section-card">
-        <div class="section-header">
-          <div class="section-title-wrap">
-            <h3 class="section-title">Dispatch Items & Warehouse Allocation</h3>
+      <!-- Section: Saved Shipment Line Items (View / Edit Mode) -->
+      @if (mode() !== 'create' && workingLines().length > 0) {
+        <section class="erp-card section-card">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h3 class="section-title">Dispatched Items & Warehouse Allocation</h3>
+            </div>
+            <span class="lines-count-badge">{{ workingLines().length }} items</span>
           </div>
-          <span class="lines-count-badge">{{ workingLines().length }} items</span>
-        </div>
 
-        <div class="items-table-wrapper">
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th style="width: 50px;">#</th>
-                <th style="min-width: 180px;">Product</th>
-                <th style="width: 100px; text-align: right;">Ordered</th>
-                <th style="width: 130px; text-align: right;">To Dispatch</th>
-                <th style="min-width: 160px;">Warehouse</th>
-                <th style="min-width: 160px;">Location</th>
-                <th style="min-width: 120px;">Batch #</th>
-                <th style="min-width: 120px;">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (line of workingLines(); track line.lineId; let idx = $index) {
+          <div class="table-scroll-wrapper">
+            <table class="erp-data-table">
+              <thead>
                 <tr>
-                  <td class="col-idx">{{ idx + 1 }}</td>
-                  <td class="col-product">
-                    <span class="product-code">{{ line.productCode }}</span>
-                    <span class="product-name">{{ line.productName }}</span>
-                  </td>
-                  <td class="col-ordered" style="text-align: right;">
-                    {{ line.orderedQuantity | number:'1.2-4' }}
-                  </td>
-                  <td class="col-qty" style="text-align: right;">
-                    @if (isDraft()) {
-                      <input
-                        type="number"
-                        min="0.0001"
-                        [max]="line.orderedQuantity"
-                        step="1"
-                        class="p-inputtext p-inputtext-sm qty-input"
-                        [ngModel]="line.quantityDispatched"
-                        (ngModelChange)="updateLineQuantity(idx, $event)"
-                        [disabled]="actionInProgress()"
-                      />
-                    } @else {
-                      <span class="qty-readonly">{{ line.quantityDispatched | number:'1.2-4' }}</span>
-                    }
-                  </td>
-                  <td class="col-wh">
-                    @if (isDraft()) {
-                      <select
-                        class="p-inputtext p-inputtext-sm full-width"
-                        [ngModel]="line.warehouseId"
-                        (ngModelChange)="updateLineWarehouse(idx, $event)"
-                        [disabled]="actionInProgress()"
-                      >
-                        <option value="">Select Warehouse</option>
-                        @for (wh of warehouses(); track wh.warehouseId) {
-                          <option [value]="wh.warehouseId">{{ wh.warehouseName }}</option>
-                        }
-                      </select>
-                    } @else {
-                      <span>{{ line.warehouseId }}</span>
-                    }
-                  </td>
-                  <td class="col-loc">
-                    @if (isDraft()) {
-                      <select
-                        class="p-inputtext p-inputtext-sm full-width"
-                        [ngModel]="line.warehouseLocationId"
-                        (ngModelChange)="updateLineLocation(idx, $event)"
-                        [disabled]="actionInProgress()"
-                      >
-                        <option value="">Select Location</option>
-                        @for (loc of locations(); track loc.locationId) {
-                          @if (!line.warehouseId || loc.warehouseId === line.warehouseId) {
-                            <option [value]="loc.locationId">{{ loc.locationCode }} ({{ loc.locationName }})</option>
-                          }
-                        }
-                      </select>
-                    } @else {
-                      <span>{{ line.warehouseLocationId }}</span>
-                    }
-                  </td>
-                  <td class="col-batch">
-                    @if (isDraft()) {
-                      <input
-                        type="text"
-                        class="p-inputtext p-inputtext-sm full-width"
-                        [(ngModel)]="line.batchNumber"
-                        placeholder="Optional"
-                        [disabled]="actionInProgress()"
-                      />
-                    } @else {
-                      <span>{{ line.batchNumber || '-' }}</span>
-                    }
-                  </td>
-                  <td class="col-notes">
-                    @if (isDraft()) {
-                      <input
-                        type="text"
-                        class="p-inputtext p-inputtext-sm full-width"
-                        [(ngModel)]="line.notes"
-                        placeholder="Optional"
-                        [disabled]="actionInProgress()"
-                      />
-                    } @else {
-                      <span>{{ line.notes || '-' }}</span>
-                    }
-                  </td>
+                  <th style="width: 50px;">#</th>
+                  <th style="min-width: 180px;">Product</th>
+                  <th style="width: 140px; text-align: right;">Dispatched Quantity</th>
+                  <th style="min-width: 140px;">Warehouse</th>
+                  <th style="min-width: 140px;">Location</th>
+                  <th style="min-width: 120px;">Batch #</th>
+                  <th style="min-width: 120px;">Notes</th>
                 </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody>
+                @for (line of workingLines(); track line.lineId; let idx = $index) {
+                  <tr>
+                    <td class="col-idx">{{ idx + 1 }}</td>
+                    <td class="col-product">
+                      <span class="prod-code">{{ line.productCode }}</span>
+                      <span class="prod-name">{{ line.productName }}</span>
+                    </td>
+                    <td class="col-num" style="font-weight: 600;">{{ line.quantityDispatched | number:'1.2-4' }}</td>
+                    <td>{{ line.warehouseId }}</td>
+                    <td>{{ line.warehouseLocationId }}</td>
+                    <td>{{ line.batchNumber || '-' }}</td>
+                    <td>{{ line.notes || '-' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
 
-      <!-- Section 3: Bottom Action Toolbar -->
+      <!-- Bottom Action Toolbar -->
       <section class="erp-card action-bar-card">
         <div class="action-bar-content">
           <div class="action-info">
-            @if (isDraft()) {
+            @if (mode() === 'create' && availability()) {
+              @if (availability()!.canFulfil) {
+                <i class="pi pi-check-circle success-icon"></i>
+                <span>Ready to dispatch. Inventory will be posted and deducted upon confirmation.</span>
+              } @else {
+                <i class="pi pi-exclamation-triangle warn-icon"></i>
+                <span>Dispatch is disabled due to stock shortages at the selected issue location.</span>
+              }
+            } @else if (isDispatched()) {
               <i class="pi pi-info-circle info-icon"></i>
-              <span>Draft mode: Stock is <strong>NOT deducted</strong> until you click "Deliver & Issue Stock".</span>
+              <span>Dispatched: Goods are issued from warehouse inventory. Ready for delivery handover.</span>
             } @else if (isDelivered()) {
               <i class="pi pi-check-circle success-icon"></i>
-              <span>Delivered: Warehouse inventory movement has been successfully posted.</span>
+              <span>Delivered: Goods handed over and Sales Invoice generated.</span>
             }
           </div>
 
           <div class="action-buttons">
-            @if (isDraft()) {
-              @if (mode() === 'view') {
-                <p-button
-                  label="Edit Draft"
-                  icon="pi pi-pencil"
-                  size="small"
-                  [outlined]="true"
-                  (onClick)="mode.set('edit'); headerForm.enable();"
-                ></p-button>
-              }
+            <button
+              type="button"
+              class="erp-button erp-button-secondary"
+              (click)="navigateBack()"
+              [disabled]="actionInProgress()"
+            >
+              <i class="pi pi-times"></i>
+              <span>Cancel</span>
+            </button>
 
-              <p-button
-                label="Save Draft"
-                icon="pi pi-save"
-                size="small"
-                severity="secondary"
-                [loading]="actionInProgress()"
-                (onClick)="saveDraft()"
-              ></p-button>
+            <!-- Mode Create (Round 1: One Single Dispatch Action) -->
+            @if (mode() === 'create' && sourceOrderId()) {
+              <button
+                type="button"
+                class="erp-button erp-button-success"
+                [disabled]="!canDispatch()"
+                (click)="executeDirectDispatch()"
+                title="Verify stock, deduct inventory, and issue dispatch note"
+              >
+                @if (actionInProgress()) {
+                  <i class="pi pi-spin pi-spinner"></i>
+                  <span>Posting Dispatch...</span>
+                } @else {
+                  <i class="pi pi-send"></i>
+                  <span>Confirm & Dispatch</span>
+                }
+              </button>
+            }
 
-              @if (shipmentId() && canDeliver()) {
-                <p-button
-                  label="Deliver & Issue Stock"
-                  icon="pi pi-check-circle"
-                  size="small"
-                  severity="success"
-                  [loading]="actionInProgress()"
-                  (onClick)="deliverShipment()"
-                  title="Deliver goods, deduct inventory, and auto-generate Sales Invoice"
-                ></p-button>
-              }
+            <!-- View / Edit mode actions -->
+            @if (mode() === 'view' && isDraft() && canDeliver()) {
+              <button
+                type="button"
+                class="erp-button erp-button-success"
+                [disabled]="actionInProgress()"
+                (click)="deliverShipment()"
+              >
+                <i class="pi pi-check-circle"></i>
+                <span>Deliver & Issue Stock</span>
+              </button>
             }
           </div>
         </div>

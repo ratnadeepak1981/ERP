@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.Supplier;
 using Domain.Features.MasterData.UnitOfMeasure;
+using Domain.Features.MasterData.TaxCode;
 using Domain.Features.Procurement.Approval;
 using ERP.Domain.Features.MasterData.Supplier;
 
@@ -17,6 +18,7 @@ public class PurchaseOrderService : IPurchaseOrderService
     private readonly ISupplierProductPriceService _supplierPriceService;
     private readonly IUnitOfMeasureRepository _uomRepository;
     private readonly IApprovalWorkflowService _approvalService;
+    private readonly ITaxCodeRepository? _taxCodeRepository;
 
     public PurchaseOrderService(
         IPurchaseOrderRepository repository,
@@ -24,7 +26,8 @@ public class PurchaseOrderService : IPurchaseOrderService
         ISupplierRepository supplierRepository,
         ISupplierProductPriceService supplierPriceService,
         IUnitOfMeasureRepository uomRepository,
-        IApprovalWorkflowService approvalService)
+        IApprovalWorkflowService approvalService,
+        ITaxCodeRepository? taxCodeRepository = null)
     {
         _repository = repository;
         _productRepository = productRepository;
@@ -32,6 +35,7 @@ public class PurchaseOrderService : IPurchaseOrderService
         _supplierPriceService = supplierPriceService;
         _uomRepository = uomRepository;
         _approvalService = approvalService;
+        _taxCodeRepository = taxCodeRepository;
     }
 
     public async Task<List<PurchaseOrder>> GetOrdersAsync(
@@ -172,7 +176,17 @@ public class PurchaseOrderService : IPurchaseOrderService
                     throw new ArgumentException("UnitPrice must be specified.");
                 }
 
-                order.AddItem(itemReq.ProductId, itemReq.Quantity, unitPrice, uomId);
+                decimal taxRate = await ResolveTaxRateAsync(tenantId, itemReq.TaxCodeId, itemReq.TaxRate, order.OrderDate);
+                order.AddItem(
+                    itemReq.ProductId,
+                    itemReq.Quantity,
+                    unitPrice,
+                    uomId,
+                    itemReq.DiscountRate,
+                    itemReq.TaxCodeId,
+                    taxRate,
+                    itemReq.IsTaxInclusive,
+                    itemReq.Notes);
             }
         }
 
@@ -263,7 +277,17 @@ public class PurchaseOrderService : IPurchaseOrderService
             throw new ArgumentException("UnitPrice must be specified.");
         }
 
-        order.AddItem(request.ProductId, request.Quantity, unitPrice, uomId);
+        decimal taxRate = await ResolveTaxRateAsync(tenantId, request.TaxCodeId, request.TaxRate, order.OrderDate);
+        order.AddItem(
+            request.ProductId,
+            request.Quantity,
+            unitPrice,
+            uomId,
+            request.DiscountRate,
+            request.TaxCodeId,
+            taxRate,
+            request.IsTaxInclusive,
+            request.Notes);
 
         await _repository.SaveChangesAsync();
 
@@ -411,5 +435,31 @@ public class PurchaseOrderService : IPurchaseOrderService
             tenantId,
             "PurchaseOrder",
             order.Id);
+    }
+    private async Task<decimal> ResolveTaxRateAsync(Guid tenantId, Guid? taxCodeId, decimal explicitTaxRate, DateTime orderDate)
+    {
+        if (taxCodeId.HasValue && _taxCodeRepository != null)
+        {
+            var taxCode = await _taxCodeRepository.GetTaxCodeByIdAsync(tenantId, taxCodeId.Value);
+            if (taxCode == null)
+            {
+                throw new InvalidOperationException($"Tax code '{taxCodeId.Value}' was not found or does not belong to this tenant.");
+            }
+            if (!taxCode.IsActive)
+            {
+                throw new InvalidOperationException($"Tax code '{taxCode.Code}' is inactive.");
+            }
+            if (!taxCode.AppliesTo(TaxApplicability.Purchase))
+            {
+                throw new InvalidOperationException($"Tax code '{taxCode.Code}' cannot be applied to purchase transactions.");
+            }
+            if (!taxCode.IsEffectiveAt(orderDate))
+            {
+                throw new InvalidOperationException($"Tax code '{taxCode.Code}' is not effective on {orderDate:yyyy-MM-dd}.");
+            }
+            return taxCode.Rate;
+        }
+
+        return explicitTaxRate;
     }
 }

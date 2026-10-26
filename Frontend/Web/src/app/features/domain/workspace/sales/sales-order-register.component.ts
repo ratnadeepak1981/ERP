@@ -4,11 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
-import { TooltipModule } from 'primeng/tooltip';
-import { SharedModule } from 'primeng/api';
+
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppDataTableComponent } from '../../../../shared/components/data-table/data-table.component';
 import { AppLoadingStateComponent } from '../../../../shared/components/loading-state/loading-state.component';
@@ -37,11 +33,7 @@ export type SOStatusFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'fulf
   imports: [
     CommonModule,
     FormsModule,
-    ButtonModule,
-    InputTextModule,
-    DialogModule,
-    SharedModule,
-    TooltipModule,
+
     AppPageHeaderComponent,
     AppDataTableComponent,
     AppLoadingStateComponent,

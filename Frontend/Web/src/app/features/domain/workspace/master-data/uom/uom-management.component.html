@@ -1,0 +1,390 @@
+<div class="uom-management-page">
+  <app-page-header
+    title="Units of Measure & Conversions"
+    subtitle="Manage measurement units, standard conversion factors, and bi-directional calculation rules."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading units of measure and conversion factors..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+  } @else {
+    <!-- Tab Navigation -->
+    <div class="uom-tabs-card erp-card">
+      <div class="tab-header-bar">
+        <div class="tab-pills">
+          <button
+            type="button"
+            class="tab-pill"
+            [class.active]="activeTab() === 'units'"
+            (click)="activeTab.set('units')"
+          >
+            <i class="pi pi-sliders-v"></i>
+            <span>Units of Measure</span>
+            <span class="count-badge">{{ units().length }}</span>
+          </button>
+          <button
+            type="button"
+            class="tab-pill"
+            [class.active]="activeTab() === 'conversions'"
+            (click)="activeTab.set('conversions')"
+          >
+            <i class="pi pi-sync"></i>
+            <span>Unit Conversions</span>
+            <span class="count-badge">{{ conversions().length }}</span>
+          </button>
+          <button
+            type="button"
+            class="tab-pill"
+            [class.active]="activeTab() === 'calculator'"
+            (click)="activeTab.set('calculator')"
+          >
+            <i class="pi pi-calculator"></i>
+            <span>Conversion Calculator</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Units of Measure -->
+      @if (activeTab() === 'units') {
+        <div class="tab-content">
+          <div class="table-controls-bar">
+            <div class="search-and-filters">
+              <div class="search-input-box">
+                <i class="pi pi-search search-icon"></i>
+                <input
+                  type="text"
+                  class="p-inputtext p-inputtext-sm search-field"
+                  placeholder="Search code or unit name..."
+                  [ngModel]="searchTerm()"
+                  (ngModelChange)="searchTerm.set($event)"
+                />
+              </div>
+            </div>
+
+            <div class="action-buttons">
+              <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateUnitModal()">
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span class="p-button-label">New Unit</span>
+              </button>
+            </div>
+          </div>
+
+          @if (filteredUnits().length === 0) {
+            <app-empty-state
+              title="No units found"
+              description="No unit of measure records match your query."
+              actionLabel="Create First Unit"
+              actionIcon="pi pi-plus"
+              (action)="openCreateUnitModal()"
+            ></app-empty-state>
+          } @else {
+            <div class="data-table-wrapper">
+              <table class="enterprise-grid-table">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">Unit Code</th>
+                    <th>Unit Name</th>
+                    <th>Description</th>
+                    <th style="width: 110px;">Status</th>
+                    <th style="width: 120px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (unit of filteredUnits(); track unit.unitOfMeasureId) {
+                    <tr>
+                      <td><code class="code-badge">{{ unit.code }}</code></td>
+                      <td><strong>{{ unit.name }}</strong></td>
+                      <td>{{ unit.description || '—' }}</td>
+                      <td>
+                        <app-status-badge [status]="unit.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                      </td>
+                      <td style="text-align: right;">
+                        <div class="action-buttons-cell">
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text"
+                            (click)="openEditUnitModal(unit)"
+                            title="Edit Unit"
+                          >
+                            <i class="pi pi-pencil"></i>
+                          </button>
+                          @if (unit.isActive) {
+                            <button
+                              type="button"
+                              class="p-button p-button-sm p-button-text p-button-danger"
+                              (click)="deactivateUnit(unit)"
+                              title="Deactivate Unit"
+                            >
+                              <i class="pi pi-trash"></i>
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tab 2: Conversions -->
+      @if (activeTab() === 'conversions') {
+        <div class="tab-content">
+          <div class="table-controls-bar">
+            <div class="section-hint">
+              <span>Standard conversion factors between registered units. The engine automatically supports reverse/inverse calculations.</span>
+            </div>
+            <div class="action-buttons">
+              <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateConversionModal()">
+                <i class="pi pi-plus p-button-icon-left"></i>
+                <span class="p-button-label">New Conversion Factor</span>
+              </button>
+            </div>
+          </div>
+
+          @if (conversions().length === 0) {
+            <app-empty-state
+              title="No conversions configured"
+              description="Configure unit conversion factors to enable automatic quantity conversions across purchasing and sales."
+              actionLabel="Add Conversion"
+              actionIcon="pi pi-plus"
+              (action)="openCreateConversionModal()"
+            ></app-empty-state>
+          } @else {
+            <div class="data-table-wrapper">
+              <table class="enterprise-grid-table">
+                <thead>
+                  <tr>
+                    <th>From Unit</th>
+                    <th style="width: 50px; text-align: center;"></th>
+                    <th>To Unit</th>
+                    <th style="width: 160px;">Direct Factor</th>
+                    <th style="width: 160px;">Inverse Rate</th>
+                    <th style="width: 110px;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (conv of conversions(); track conv.conversionId) {
+                    <tr>
+                      <td>
+                        <div class="unit-code-box">
+                          <code class="code-badge">{{ getUnitCode(conv.fromUnitId) }}</code>
+                          <span class="unit-name-sub">{{ getUnitName(conv.fromUnitId) }}</span>
+                        </div>
+                      </td>
+                      <td style="text-align: center; color: var(--erp-text-muted);">
+                        <i class="pi pi-arrow-right"></i>
+                      </td>
+                      <td>
+                        <div class="unit-code-box">
+                          <code class="code-badge">{{ getUnitCode(conv.toUnitId) }}</code>
+                          <span class="unit-name-sub">{{ getUnitName(conv.toUnitId) }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <strong>1 {{ getUnitCode(conv.fromUnitId) }}</strong> = {{ conv.conversionFactor }} {{ getUnitCode(conv.toUnitId) }}
+                      </td>
+                      <td class="text-secondary">
+                        1 {{ getUnitCode(conv.toUnitId) }} &approx; {{ (1 / conv.conversionFactor).toFixed(4) }} {{ getUnitCode(conv.fromUnitId) }}
+                      </td>
+                      <td>
+                        <app-status-badge [status]="conv.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tab 3: Conversion Calculator -->
+      @if (activeTab() === 'calculator') {
+        <div class="tab-content">
+          <div class="calculator-panel">
+            <div class="calculator-intro">
+              <h4>Interactive UOM Conversion Tester</h4>
+              <p>Test bi-directional conversions between any configured units of measure using the live backend conversion engine.</p>
+            </div>
+
+            <div class="calc-form-row">
+              <div class="form-group">
+                <label>Quantity</label>
+                <input
+                  type="number"
+                  class="p-inputtext p-inputtext-sm"
+                  [(ngModel)]="calcQuantity"
+                  step="any"
+                  min="0"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>From Unit</label>
+                <select class="p-inputtext p-inputtext-sm select-field" [(ngModel)]="calcFromUnitId">
+                  <option value="" disabled>Select source unit...</option>
+                  @for (u of units(); track u.unitOfMeasureId) {
+                    <option [value]="u.unitOfMeasureId">{{ u.name }} ({{ u.code }})</option>
+                  }
+                </select>
+              </div>
+
+              <div class="form-group-arrow">
+                <i class="pi pi-arrow-right"></i>
+              </div>
+
+              <div class="form-group">
+                <label>To Unit</label>
+                <select class="p-inputtext p-inputtext-sm select-field" [(ngModel)]="calcToUnitId">
+                  <option value="" disabled>Select target unit...</option>
+                  @for (u of units(); track u.unitOfMeasureId) {
+                    <option [value]="u.unitOfMeasureId">{{ u.name }} ({{ u.code }})</option>
+                  }
+                </select>
+              </div>
+
+              <div class="form-group-btn">
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-primary"
+                  [disabled]="!calcFromUnitId || !calcToUnitId || calcQuantity <= 0"
+                  (click)="calculateConversion()"
+                >
+                  <i class="pi pi-bolt p-button-icon-left"></i>
+                  <span class="p-button-label">Convert</span>
+                </button>
+              </div>
+            </div>
+
+            @if (calcResult()) {
+              <div class="calc-result-box">
+                <div class="result-highlight">
+                  <span class="result-label">Converted Quantity:</span>
+                  <span class="result-value">{{ calcResult()!.convertedQuantity }} {{ getUnitCode(calcToUnitId) }}</span>
+                </div>
+                <div class="result-details">
+                  <span>Effective Factor: <strong>{{ calcResult()!.effectiveFactor }}</strong></span>
+                  @if (calcResult()!.isInverse) {
+                    <span class="inverse-pill">Inverse Applied (1 / factor)</span>
+                  } @else {
+                    <span class="direct-pill">Direct Factor Applied</span>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (calcError()) {
+              <div class="calc-error-box">
+                <i class="pi pi-exclamation-circle"></i>
+                <span>{{ calcError() }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Unit Modal -->
+  @if (showUnitModal()) {
+    <div class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>{{ isEditingUnit() ? 'Edit Unit of Measure' : 'New Unit of Measure' }}</h3>
+          <button type="button" class="btn-close" (click)="closeUnitModal()">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-field">
+            <label>Unit Code <span class="required">*</span></label>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm"
+              placeholder="e.g. PCS, KG, BOX"
+              [(ngModel)]="unitCode"
+              [disabled]="isEditingUnit()"
+            />
+          </div>
+          <div class="form-field">
+            <label>Unit Name <span class="required">*</span></label>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm"
+              placeholder="e.g. Pieces, Kilograms, Box of 10"
+              [(ngModel)]="unitName"
+            />
+          </div>
+          <div class="form-field">
+            <label>Description</label>
+            <textarea
+              class="p-inputtext p-inputtext-sm"
+              rows="3"
+              placeholder="Optional notes or specification..."
+              [(ngModel)]="unitDescription"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="p-button p-button-sm p-button-secondary" (click)="closeUnitModal()">Cancel</button>
+          <button type="button" class="p-button p-button-sm p-button-primary" (click)="saveUnit()">Save Unit</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Conversion Modal -->
+  @if (showConversionModal()) {
+    <div class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Define Unit Conversion Factor</h3>
+          <button type="button" class="btn-close" (click)="closeConversionModal()">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-field">
+            <label>From Unit <span class="required">*</span></label>
+            <select class="p-inputtext p-inputtext-sm select-field" [(ngModel)]="convFromUnitId">
+              @for (u of units(); track u.unitOfMeasureId) {
+                <option [value]="u.unitOfMeasureId">{{ u.name }} ({{ u.code }})</option>
+              }
+            </select>
+          </div>
+          <div class="form-field">
+            <label>To Unit <span class="required">*</span></label>
+            <select class="p-inputtext p-inputtext-sm select-field" [(ngModel)]="convToUnitId">
+              @for (u of units(); track u.unitOfMeasureId) {
+                <option [value]="u.unitOfMeasureId">{{ u.name }} ({{ u.code }})</option>
+              }
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Conversion Factor <span class="required">*</span></label>
+            <input
+              type="number"
+              class="p-inputtext p-inputtext-sm"
+              placeholder="e.g. 10 (1 From = 10 To)"
+              [(ngModel)]="convFactor"
+              step="any"
+              min="0.0001"
+            />
+            <small class="field-hint">
+              1 {{ getUnitCode(convFromUnitId) }} = {{ convFactor || 1 }} {{ getUnitCode(convToUnitId) }}
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="p-button p-button-sm p-button-secondary" (click)="closeConversionModal()">Cancel</button>
+          <button type="button" class="p-button p-button-sm p-button-primary" (click)="saveConversion()">Save Conversion</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -162,7 +162,9 @@ public class SalesInvoiceService : ISalesInvoiceService
                 salesOrderItemId: sItem.SalesOrderItemId,
                 salesShipmentItemId: sItem.Id,
                 unitOfMeasureId: sItem.UnitOfMeasureId ?? orderItem?.UnitOfMeasureId,
-                notes: sItem.Notes);
+                notes: sItem.Notes,
+                taxCodeId: orderItem?.TaxCodeId,
+                isTaxInclusive: orderItem?.IsTaxInclusive ?? false);
 
             invoice.AddItem(invItem);
         }

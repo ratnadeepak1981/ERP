@@ -15,7 +15,11 @@ public class CreateSalesOrderItemRequest
 
     public decimal DiscountRate { get; set; } = 0;
 
+    public Guid? TaxCodeId { get; set; }
+
     public decimal TaxRate { get; set; } = 0;
+
+    public bool IsTaxInclusive { get; set; } = false;
 
     public string? Notes { get; set; }
 }
@@ -39,6 +43,8 @@ public class CreateSalesOrderRequest
     public string? Notes { get; set; }
 
     public Guid? OpportunityId { get; set; }
+
+    public Guid? DeliveryAddressId { get; set; }
 
     public List<CreateSalesOrderItemRequest> Items { get; set; } = new();
 }
@@ -72,7 +78,11 @@ public class SalesOrderItemDto
 
     public decimal SubTotal { get; set; }
 
+    public Guid? TaxCodeId { get; set; }
+
     public decimal LineTotal { get; set; }
+
+    public bool IsTaxInclusive { get; set; }
 
     public string? Notes { get; set; }
 
@@ -118,6 +128,10 @@ public class SalesOrderDto
     public Guid? CreatedByUserId { get; set; }
 
     public Guid? OpportunityId { get; set; }
+
+    public Guid? DeliveryAddressId { get; set; }
+
+    public string? DeliveryAddressSnapshot { get; set; }
 
     public bool IsActive { get; set; }
 
