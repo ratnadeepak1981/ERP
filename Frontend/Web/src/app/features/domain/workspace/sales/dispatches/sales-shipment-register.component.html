@@ -6,15 +6,15 @@
     [breadcrumbs]="breadcrumbs"
   >
     <div actions class="page-header-actions">
-      <p-button
-        icon="pi pi-refresh"
-        [outlined]="true"
-        size="small"
-        severity="secondary"
-        [loading]="loading()"
-        (onClick)="loadData()"
+      <button
+        type="button"
+        class="erp-button erp-button-secondary"
+        [disabled]="loading()"
+        (click)="loadData()"
         title="Refresh dispatches"
-      ></p-button>
+      >
+        <i class="pi pi-refresh" [class.pi-spin]="loading()"></i>
+      </button>
     </div>
   </app-page-header>
 
@@ -130,12 +130,15 @@
   }
 
   <!-- Deliver Confirmation Dialog -->
-  <p-dialog
+  <app-action-dialog
     [(visible)]="deliverDialogVisible"
-    [modal]="true"
-    header="Deliver Shipment & Post Stock Issue"
-    [style]="{ width: '480px', maxWidth: '95vw' }"
-    [closable]="!actionInProgress()"
+    title="Deliver Shipment & Post Stock Issue"
+    confirmLabel="Deliver & Issue Stock"
+    confirmIcon="pi pi-check-circle"
+    confirmSeverity="success"
+    [loading]="actionInProgress()"
+    (onConfirm)="executeDelivery()"
+    (onCancel)="closeDeliverDialog()"
   >
     <div class="deliver-dialog-content">
       <p class="dialog-notice">
@@ -157,8 +160,7 @@
         <input
           id="recipientInput"
           type="text"
-          pInputText
-          class="p-inputtext-sm full-width"
+          class="erp-input full-width"
           [ngModel]="deliverRecipientName()"
           (ngModelChange)="deliverRecipientName.set($event)"
           placeholder="Customer or recipient representative..."
@@ -170,7 +172,7 @@
         <label for="deliverNotesInput">Delivery Notes (Optional)</label>
         <textarea
           id="deliverNotesInput"
-          class="p-inputtext p-inputtext-sm full-width"
+          class="erp-input full-width"
           rows="2"
           [ngModel]="deliverNotes()"
           (ngModelChange)="deliverNotes.set($event)"
@@ -179,25 +181,5 @@
         ></textarea>
       </div>
     </div>
-
-    <ng-template pTemplate="footer">
-      <p-button
-        label="Cancel"
-        [outlined]="true"
-        size="small"
-        severity="secondary"
-        [disabled]="actionInProgress()"
-        (onClick)="closeDeliverDialog()"
-      ></p-button>
-
-      <p-button
-        label="Deliver & Issue Stock"
-        icon="pi pi-check-circle"
-        size="small"
-        severity="success"
-        [loading]="actionInProgress()"
-        (onClick)="executeDelivery()"
-      ></p-button>
-    </ng-template>
-  </p-dialog>
+  </app-action-dialog>
 </div>

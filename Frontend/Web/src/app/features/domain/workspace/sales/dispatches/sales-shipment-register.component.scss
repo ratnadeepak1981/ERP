@@ -218,3 +218,60 @@
     }
   }
 }
+
+
+/* Buttons (Matching Procurement and Fluent tokens) */
+.erp-button {
+  font-family: var(--erp-font-sans, 'Segoe UI', sans-serif);
+  border-radius: var(--erp-radius-sm, 4px);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &.erp-button-secondary {
+    background-color: var(--erp-bg-secondary, #f1f5f9);
+    border-color: var(--erp-border, #cbd5e1);
+    color: var(--erp-text-secondary, #475569);
+
+    &:hover:not(:disabled) {
+      background-color: var(--erp-bg-hover, #e2e8f0);
+      color: var(--erp-text-main, #0f172a);
+    }
+  }
+}
+
+.erp-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--erp-radius-sm, 4px);
+  border: 1px solid var(--erp-border, #cbd5e1);
+  font-size: 13px;
+  background-color: #ffffff;
+  color: var(--erp-text-main, #0f172a);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease-in-out;
+
+  &:focus {
+    border-color: var(--erp-primary, #0f6cbd);
+    box-shadow: 0 0 0 1px var(--erp-primary, #0f6cbd);
+  }
+
+  &:disabled {
+    background-color: var(--erp-bg-muted, #f8fafc);
+    color: var(--erp-text-muted, #94a3b8);
+    cursor: not-allowed;
+  }
+}

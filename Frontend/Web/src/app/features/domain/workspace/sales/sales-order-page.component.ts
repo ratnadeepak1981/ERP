@@ -12,11 +12,7 @@ import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } 
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
-import { TooltipModule } from 'primeng/tooltip';
-import { SharedModule } from 'primeng/api';
+import { ActionDialogComponent } from '../../../../shared/components/action-dialog/action-dialog.component';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppReactiveFormComponent } from '../../../../shared/components/forms/reactive-form.component';
 import { FormFieldConfig } from '../../../../shared/components/forms/form-field-config.model';
@@ -69,11 +65,7 @@ export interface EditableSOLine {
     FormsModule,
     ReactiveFormsModule,
     RouterModule,
-    ButtonModule,
-    InputTextModule,
-    DialogModule,
-    SharedModule,
-    TooltipModule,
+    ActionDialogComponent,
     AppPageHeaderComponent,
     AppReactiveFormComponent,
     AppEditableDataTableComponent,
@@ -1027,11 +1019,9 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
   navigateToDispatch(): void {
     const ord = this.currentOrder();
     if (!ord) return;
-    this.router.navigate(['/app/inventory/issue-stock/new'], {
+    this.router.navigate(['/app/sales/dispatches/new'], {
       queryParams: {
-        purpose: 'sales',
-        referenceNumber: ord.orderNumber,
-        salesOrderId: ord.id
+        orderId: ord.id
       }
     });
   }
