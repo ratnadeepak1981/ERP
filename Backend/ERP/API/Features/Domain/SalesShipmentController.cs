@@ -160,19 +160,21 @@ public class SalesShipmentController : BaseApiController
         Guid companyId,
         Guid branchId,
         Guid salesOrderId,
-        [FromQuery] Guid? locationId = null)
+        [FromQuery] Guid? locationId = null,
+        [FromQuery] Guid? targetLocationId = null)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         try
         {
+            var effectiveLocationId = locationId ?? targetLocationId;
             var availability = await _shipmentService.GetOrderDispatchAvailabilityAsync(
                 authResult.TenantId,
                 companyId,
                 branchId,
                 salesOrderId,
-                locationId);
+                effectiveLocationId);
 
             return SuccessResponse(availability);
         }

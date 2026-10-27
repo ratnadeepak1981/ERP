@@ -126,11 +126,19 @@ public static class TenantAdminRolePermissionSeed
             "WAREHOUSE.EDIT",
             "WAREHOUSE.DELETE",
             "WAREHOUSE.SOFT_DELETE",
+            "WAREHOUSE.ACTIVATE",
+            "WAREHOUSE.DEACTIVATE",
 
             "LOCATION.VIEW",
             "LOCATION.CREATE",
             "LOCATION.EDIT",
             "LOCATION.DELETE",
+            "LOCATION.ACTIVATE",
+            "LOCATION.DEACTIVATE",
+
+            "BATCH.VIEW",
+            "BATCH.CREATE",
+            "BATCH.EDIT",
 
             "ADDRESS.VIEW",
             "ADDRESS.CREATE",

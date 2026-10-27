@@ -10,5 +10,6 @@ public interface IInventoryPostingService
     Task<(InventoryTransaction Outflow, InventoryTransaction Inflow)> PostTransferAsync(Guid tenantId, PostTransferMovementRequest request);
     Task<InventoryTransaction> PostReversalAsync(Guid tenantId, PostReversalRequest request);
     Task<InventoryBalance?> GetBalanceAsync(Guid tenantId, Guid locationId, Guid productId, string? batchNumber = null, string? serialNumber = null);
+    Task<decimal> GetTotalAvailableStockAsync(Guid tenantId, Guid locationId, Guid productId, bool isBatchTracked, DateTime? asOfDate = null);
     Task<List<InventoryBalance>> GetProductBalancesAsync(Guid tenantId, Guid productId);
 }

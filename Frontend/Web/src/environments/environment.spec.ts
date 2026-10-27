@@ -1,23 +1,66 @@
 import { describe, it, expect } from 'vitest';
 import { environment as devEnvironment } from './environment';
 import { environment as prodEnvironment } from './environment.prod';
+import { validateEnvironmentConfig } from './environment.validator';
 import { buildApiUrl } from '../app/core/utils/api-url.util';
 
 describe('Angular Environment Configuration', () => {
   describe('Environment file properties', () => {
-    it('should have development environment configured with production=false and apiBaseUrl=/api', () => {
+    it('should have development environment configured with production=false, apiBaseUrl=/api, and default HTTPS apiUrl', () => {
       expect(devEnvironment.production).toBe(false);
       expect(devEnvironment.apiBaseUrl).toBe('/api');
+      expect(devEnvironment.apiUrl).toBe('https://localhost:7202/api');
+      expect(devEnvironment.allowHttpDevFallback).toBe(false);
+      expect(devEnvironment.httpFallbackUrl).toBe('http://localhost:5182/api');
     });
 
-    it('should have production environment configured with production=true and apiBaseUrl=/api', () => {
+    it('should have production environment configured with production=true, apiBaseUrl=/api, and HTTPS placeholder', () => {
       expect(prodEnvironment.production).toBe(true);
       expect(prodEnvironment.apiBaseUrl).toBe('/api');
+      expect(prodEnvironment.apiUrl).toBe('https://YOUR-PRODUCTION-DOMAIN/api');
+      expect(prodEnvironment.apiUrl.startsWith('https://')).toBe(true);
     });
 
     it('should align apiBaseUrl with dev proxy.conf.json route context', () => {
       // proxy.conf.json proxies "/api" to http://localhost:5182
       expect(devEnvironment.apiBaseUrl.startsWith('/api')).toBe(true);
+    });
+  });
+
+  describe('Protocol Security and Validation (validateEnvironmentConfig)', () => {
+    it('should accept valid development configuration with HTTPS default', () => {
+      expect(() => validateEnvironmentConfig(devEnvironment)).not.toThrow();
+    });
+
+    it('should accept valid production configuration with HTTPS URL', () => {
+      expect(() => validateEnvironmentConfig(prodEnvironment)).not.toThrow();
+    });
+
+    it('should throw when production apiUrl uses insecure HTTP protocol', () => {
+      expect(() => {
+        validateEnvironmentConfig({
+          production: true,
+          apiUrl: 'http://api.production.com/api'
+        });
+      }).toThrow('Insecure HTTP protocol is strictly prohibited in production.');
+    });
+
+    it('should throw when production attempts to enable HTTP dev fallback', () => {
+      expect(() => {
+        validateEnvironmentConfig({
+          production: true,
+          apiUrl: 'https://api.production.com/api',
+          allowHttpDevFallback: true
+        });
+      }).toThrow('HTTP fallback is strictly prohibited in production.');
+    });
+
+    it('should throw when production environment is missing an apiUrl', () => {
+      expect(() => {
+        validateEnvironmentConfig({
+          production: true
+        });
+      }).toThrow('Production environment must specify an apiUrl.');
     });
   });
 
@@ -65,6 +108,10 @@ describe('Angular Environment Configuration', () => {
 
     it('should construct correct existing endpoints for AuthService', () => {
       expect(buildApiUrl('/Security/login')).toBe('/api/Security/login');
+      expect(buildApiUrl('/Security/refresh')).toBe('/api/Security/refresh');
+      expect(buildApiUrl('/Security/logout')).toBe('/api/Security/logout');
+      expect(buildApiUrl('/Security/logout-all')).toBe('/api/Security/logout-all');
+      expect(buildApiUrl('/Security/sessions')).toBe('/api/Security/sessions');
       expect(buildApiUrl('/Security/status')).toBe('/api/Security/status');
       expect(buildApiUrl('/Security/protected-test')).toBe('/api/Security/protected-test');
       expect(buildApiUrl('/Security/platform-admin-test')).toBe('/api/Security/platform-admin-test');
@@ -75,6 +122,7 @@ describe('Angular Environment Configuration', () => {
       expect(buildApiUrl('/SubscriptionPlan', prodEnvironment.apiBaseUrl)).toBe('/api/SubscriptionPlan');
       expect(buildApiUrl('/Tenant/tenant-registration-test', prodEnvironment.apiBaseUrl)).toBe('/api/Tenant/tenant-registration-test');
       expect(buildApiUrl('/Security/login', prodEnvironment.apiBaseUrl)).toBe('/api/Security/login');
+      expect(buildApiUrl('/Security/refresh', prodEnvironment.apiBaseUrl)).toBe('/api/Security/refresh');
     });
   });
 });

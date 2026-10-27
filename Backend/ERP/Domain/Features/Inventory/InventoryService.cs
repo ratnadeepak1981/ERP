@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Domain.Features.MasterData.Product;
 using Domain.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,11 +12,16 @@ public class InventoryService : IInventoryService
 {
     private readonly DomainDbContext _context;
     private readonly IInventoryPostingService _postingService;
+    private readonly IInventoryRepository _inventoryRepository;
 
-    public InventoryService(DomainDbContext context, IInventoryPostingService postingService)
+    public InventoryService(
+        DomainDbContext context,
+        IInventoryPostingService postingService,
+        IInventoryRepository? inventoryRepository = null)
     {
         _context = context;
         _postingService = postingService;
+        _inventoryRepository = inventoryRepository ?? new InventoryRepository(context);
     }
 
     public async Task<InventorySummaryDto> GetSummaryAsync(Guid tenantId)
@@ -408,7 +414,17 @@ public class InventoryService : IInventoryService
 
             if (location.WarehouseId != request.WarehouseId)
                 throw new InvalidOperationException($"Location '{location.LocationCode}' does not belong to warehouse '{warehouse.WarehouseCode}'.");
+
+            if (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial)
+            {
+                if (string.IsNullOrWhiteSpace(line.BatchNumber))
+                {
+                    throw new InvalidOperationException($"Batch number is required for batch-tracked product '{product.ProductCode}'.");
+                }
+            }
         }
+
+        var issueDate = (request.IssueDate ?? DateTime.UtcNow).Date;
 
         // Validate stock availability aggregating requested quantities across all lines
         var groupedDemands = request.Lines
@@ -428,6 +444,17 @@ public class InventoryService : IInventoryService
 
         foreach (var demand in groupedDemands)
         {
+            if (!string.IsNullOrEmpty(demand.BatchNumber))
+            {
+                var batch = await _inventoryRepository.GetBatchAsync(tenantId, demand.ProductId, demand.BatchNumber);
+                if (batch != null && batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < issueDate)
+                {
+                    var prod = products[demand.ProductId];
+                    throw new InvalidOperationException(
+                        $"Batch '{demand.BatchNumber}' for product '{prod.ProductCode}' expired on {batch.ExpiryDate.Value:yyyy-MM-dd} and cannot be issued.");
+                }
+            }
+
             var balance = await _postingService.GetBalanceAsync(
                 tenantId,
                 demand.WarehouseLocationId,

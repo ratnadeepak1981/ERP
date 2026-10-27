@@ -23,6 +23,8 @@ public class CreateGoodsReceiptNoteLineRequest
 
     public string? SerialNumber { get; set; }
 
+    public DateTime? ManufacturingDate { get; set; }
+
     public DateTime? ExpiryDate { get; set; }
 
     public bool IsQuarantine { get; set; }
@@ -81,6 +83,8 @@ public class GoodsReceiptNoteLineDto
     public string? BatchNumber { get; set; }
 
     public string? SerialNumber { get; set; }
+
+    public DateTime? ManufacturingDate { get; set; }
 
     public DateTime? ExpiryDate { get; set; }
 

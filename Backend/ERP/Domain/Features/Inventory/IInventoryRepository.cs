@@ -30,6 +30,25 @@ public interface IInventoryRepository
 
     Task AddBalanceAsync(InventoryBalance balance);
 
+    Task<ERP.Domain.Features.Inventory.Batch.ProductBatch?> GetBatchAsync(Guid tenantId, Guid productId, string batchNumber);
+    Task<ERP.Domain.Features.Inventory.Batch.ProductBatch?> GetBatchByNumberAsync(Guid tenantId, string batchNumber);
+    Task<List<ERP.Domain.Features.Inventory.Batch.ProductBatch>> GetBatchesByProductAsync(Guid tenantId, Guid productId);
+    Task AddBatchAsync(ERP.Domain.Features.Inventory.Batch.ProductBatch batch);
+
+    Task<List<ERP.Domain.Features.Inventory.Batch.EligibleBatchDto>> GetEligibleBatchesAsync(
+        Guid tenantId,
+        Guid productId,
+        Guid? warehouseId = null,
+        Guid? locationId = null,
+        DateTime? asOfDate = null);
+
+    Task<decimal> GetTotalAvailableStockAsync(
+        Guid tenantId,
+        Guid locationId,
+        Guid productId,
+        bool isBatchTracked,
+        DateTime? asOfDate = null);
+
     Task AcquireValuationLockAsync(Guid tenantId, Guid productId, Guid warehouseId, int timeoutMilliseconds = 15000);
     Task AcquireTransferValuationLocksAsync(Guid tenantId, Guid productId, Guid sourceWarehouseId, Guid destinationWarehouseId, int timeoutMilliseconds = 15000);
 

@@ -19,5 +19,9 @@ namespace Security.Interfaces
             TimeSpan? lifetime = null);
 
         string GenerateRefreshToken();
+
+        string HashToken(string token);
+
+        int GetAccessTokenLifetimeMinutes();
     }
 }

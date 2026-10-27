@@ -11,12 +11,14 @@ public interface IWarehouseService
     Task<Warehouse> CreateWarehouseAsync(Guid tenantId, CreateWarehouseRequest request);
     Task<Warehouse> UpdateWarehouseAsync(Guid tenantId, Guid warehouseId, UpdateWarehouseRequest request);
     Task DeactivateWarehouseAsync(Guid tenantId, Guid warehouseId);
+    Task<Warehouse> ActivateWarehouseAsync(Guid tenantId, Guid warehouseId);
 
     Task<List<WarehouseZone>> GetZonesAsync(Guid tenantId, Guid warehouseId);
     Task<WarehouseZone?> GetZoneAsync(Guid tenantId, Guid zoneId);
     Task<WarehouseZone> CreateZoneAsync(Guid tenantId, Guid warehouseId, CreateWarehouseZoneRequest request);
     Task<WarehouseZone> UpdateZoneAsync(Guid tenantId, Guid zoneId, UpdateWarehouseZoneRequest request, Guid? warehouseId = null);
     Task DeactivateZoneAsync(Guid tenantId, Guid zoneId, Guid? warehouseId = null);
+    Task<WarehouseZone> ActivateZoneAsync(Guid tenantId, Guid zoneId, Guid? warehouseId = null);
 
     Task<List<WarehouseLocation>> GetLocationsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null);
     Task<List<WarehouseLocationDetailDto>> GetLocationsWithDetailsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null);
@@ -24,6 +26,7 @@ public interface IWarehouseService
     Task<WarehouseLocation> CreateLocationAsync(Guid tenantId, Guid warehouseId, Guid? zoneId, CreateWarehouseLocationRequest request);
     Task<WarehouseLocation> UpdateLocationAsync(Guid tenantId, Guid locationId, UpdateWarehouseLocationRequest request);
     Task DeactivateLocationAsync(Guid tenantId, Guid locationId);
+    Task<WarehouseLocation> ActivateLocationAsync(Guid tenantId, Guid locationId);
 
     Task<List<LocationType>> GetLocationTypesAsync(Guid tenantId);
     Task<LocationType> CreateLocationTypeAsync(Guid tenantId, CreateLocationTypeRequest request);
