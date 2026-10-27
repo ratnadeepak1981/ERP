@@ -1,4 +1,7 @@
-﻿namespace Security.Application.DTOs;
+using System;
+using System.Collections.Generic;
+
+namespace Security.Application.DTOs;
 
 public class LoginResponse
 {
@@ -25,4 +28,10 @@ public class LoginResponse
     public string Audience { get; set; } = "ERP";
 
     public string Token { get; set; } = string.Empty;
+
+    public DateTime? AccessTokenExpiresAt { get; set; }
+
+    public string? RefreshToken { get; set; }
+
+    public Guid? SessionId { get; set; }
 }
