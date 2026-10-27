@@ -131,6 +131,9 @@ public class DomainDbContext : DbContext
     public DbSet<ERP.Domain.Features.Inventory.InventoryBalance> InventoryBalances
         => Set<ERP.Domain.Features.Inventory.InventoryBalance>();
 
+    public DbSet<ERP.Domain.Features.Inventory.Batch.ProductBatch> ProductBatches
+        => Set<ERP.Domain.Features.Inventory.Batch.ProductBatch>();
+
     public DbSet<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote> GoodsReceiptNotes
         => Set<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote>();
 

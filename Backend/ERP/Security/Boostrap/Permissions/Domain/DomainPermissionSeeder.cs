@@ -25,5 +25,6 @@ public static class DomainPermissionSeeder
         await Security.Bootstrap.Permissions.Domain.CrmPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.SalesOrderPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.SalesShipmentPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.BatchPermissionSeed.SeedAsync(repository);
     }
 }

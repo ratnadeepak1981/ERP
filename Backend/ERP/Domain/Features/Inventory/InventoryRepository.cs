@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Domain.Infrastructure.Persistence;
+using ERP.Domain.Features.Inventory.Batch;
+using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Domain.Features.Inventory;
@@ -86,6 +88,165 @@ public class InventoryRepository : IInventoryRepository
     public async Task AddBalanceAsync(InventoryBalance balance)
     {
         await _context.Set<InventoryBalance>().AddAsync(balance);
+    }
+
+    public async Task<ERP.Domain.Features.Inventory.Batch.ProductBatch?> GetBatchAsync(Guid tenantId, Guid productId, string batchNumber)
+    {
+        string normBatch = batchNumber?.Trim() ?? string.Empty;
+        return await _context.Set<ERP.Domain.Features.Inventory.Batch.ProductBatch>()
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.ProductId == productId && x.BatchNumber == normBatch);
+    }
+
+    public async Task<ERP.Domain.Features.Inventory.Batch.ProductBatch?> GetBatchByNumberAsync(Guid tenantId, string batchNumber)
+    {
+        string normBatch = batchNumber?.Trim() ?? string.Empty;
+        return await _context.Set<ERP.Domain.Features.Inventory.Batch.ProductBatch>()
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.BatchNumber == normBatch);
+    }
+
+    public async Task<List<ERP.Domain.Features.Inventory.Batch.ProductBatch>> GetBatchesByProductAsync(Guid tenantId, Guid productId)
+    {
+        return await _context.Set<ERP.Domain.Features.Inventory.Batch.ProductBatch>()
+            .Where(x => x.TenantId == tenantId && x.ProductId == productId)
+            .OrderBy(x => x.BatchNumber)
+            .ToListAsync();
+    }
+
+    public async Task AddBatchAsync(ERP.Domain.Features.Inventory.Batch.ProductBatch batch)
+    {
+        await _context.Set<ERP.Domain.Features.Inventory.Batch.ProductBatch>().AddAsync(batch);
+    }
+
+    public async Task<List<EligibleBatchDto>> GetEligibleBatchesAsync(
+        Guid tenantId,
+        Guid productId,
+        Guid? warehouseId = null,
+        Guid? locationId = null,
+        DateTime? asOfDate = null)
+    {
+        var date = (asOfDate ?? DateTime.UtcNow).Date;
+
+        var balancesQuery = _context.Set<InventoryBalance>()
+            .AsNoTracking()
+            .Where(b => b.TenantId == tenantId
+                        && b.ProductId == productId
+                        && b.BatchNumber != string.Empty
+                        && (b.QuantityOnHand - b.QuantityAllocated - b.QuantityQuarantine) > 0);
+
+        if (warehouseId.HasValue && warehouseId.Value != Guid.Empty)
+        {
+            balancesQuery = balancesQuery.Where(b => b.WarehouseId == warehouseId.Value);
+        }
+
+        if (locationId.HasValue && locationId.Value != Guid.Empty)
+        {
+            balancesQuery = balancesQuery.Where(b => b.WarehouseLocationId == locationId.Value);
+        }
+
+        var balances = await balancesQuery.ToListAsync();
+        if (balances.Count == 0)
+        {
+            return new List<EligibleBatchDto>();
+        }
+
+        var locationIds = balances.Select(b => b.WarehouseLocationId).Distinct().ToList();
+        var locations = await _context.WarehouseLocations
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId && locationIds.Contains(l.WarehouseLocationId) && l.IsActive)
+            .ToListAsync();
+
+        var locationTypeIds = locations.Where(l => l.LocationTypeId.HasValue).Select(l => l.LocationTypeId!.Value).Distinct().ToList();
+        var locationTypes = locationTypeIds.Count > 0
+            ? await _context.LocationTypes
+                .AsNoTracking()
+                .Where(lt => locationTypeIds.Contains(lt.LocationTypeId))
+                .ToDictionaryAsync(lt => lt.LocationTypeId)
+            : new Dictionary<Guid, LocationType>();
+
+        var activePickableLocations = locations
+            .Where(l => !l.LocationTypeId.HasValue || (locationTypes.TryGetValue(l.LocationTypeId.Value, out var lt) && lt.CanPick && lt.IsActive))
+            .ToDictionary(l => l.WarehouseLocationId);
+
+        var warehouseIds = balances.Select(b => b.WarehouseId).Distinct().ToList();
+        var warehouses = await _context.Warehouses
+            .AsNoTracking()
+            .Where(w => w.TenantId == tenantId && warehouseIds.Contains(w.WarehouseId) && w.IsActive)
+            .ToDictionaryAsync(w => w.WarehouseId);
+
+        var product = await _context.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.ProductId == productId);
+
+        var batchNumbers = balances.Select(b => b.BatchNumber).Distinct().ToList();
+        var batches = await _context.ProductBatches
+            .AsNoTracking()
+            .Where(pb => pb.TenantId == tenantId && pb.ProductId == productId && batchNumbers.Contains(pb.BatchNumber) && pb.IsActive)
+            .ToDictionaryAsync(pb => pb.BatchNumber);
+
+        var result = new List<EligibleBatchDto>();
+
+        foreach (var b in balances)
+        {
+            if (!activePickableLocations.TryGetValue(b.WarehouseLocationId, out var loc))
+                continue;
+
+            if (!warehouses.TryGetValue(b.WarehouseId, out var wh))
+                continue;
+
+            if (!batches.TryGetValue(b.BatchNumber, out var pb))
+                continue;
+
+            // Exclude expired batches
+            if (pb.ExpiryDate.HasValue && pb.ExpiryDate.Value.Date < date)
+                continue;
+
+            decimal available = b.QuantityOnHand - b.QuantityAllocated - b.QuantityQuarantine;
+            if (available <= 0)
+                continue;
+
+            result.Add(new EligibleBatchDto
+            {
+                ProductId = productId,
+                ProductCode = product?.ProductCode ?? string.Empty,
+                ProductName = product?.ProductName ?? string.Empty,
+                BatchNumber = b.BatchNumber,
+                WarehouseId = wh.WarehouseId,
+                WarehouseCode = wh.WarehouseCode,
+                WarehouseName = wh.WarehouseName,
+                WarehouseLocationId = loc.WarehouseLocationId,
+                LocationCode = loc.LocationCode,
+                LocationName = loc.LocationName,
+                QuantityOnHand = b.QuantityOnHand,
+                QuantityAvailable = available,
+                ManufacturingDate = pb.ManufacturingDate,
+                ExpiryDate = pb.ExpiryDate
+            });
+        }
+
+        // FEFO ordering: earliest expiry first (dated batches before undated), then manufacturing date, then batch number
+        return result
+            .OrderBy(x => x.ExpiryDate == null ? 1 : 0)
+            .ThenBy(x => x.ExpiryDate)
+            .ThenBy(x => x.ManufacturingDate)
+            .ThenBy(x => x.BatchNumber)
+            .ToList();
+    }
+
+    public async Task<decimal> GetTotalAvailableStockAsync(
+        Guid tenantId,
+        Guid locationId,
+        Guid productId,
+        bool isBatchTracked,
+        DateTime? asOfDate = null)
+    {
+        if (!isBatchTracked)
+        {
+            var bal = await GetBalanceAsync(tenantId, locationId, productId, string.Empty, string.Empty);
+            return bal?.QuantityAvailable ?? 0m;
+        }
+
+        var eligible = await GetEligibleBatchesAsync(tenantId, productId, null, locationId, asOfDate);
+        return eligible.Sum(x => x.QuantityAvailable);
     }
 
     public async Task AcquireValuationLockAsync(Guid tenantId, Guid productId, Guid warehouseId, int timeoutMilliseconds = 15000)

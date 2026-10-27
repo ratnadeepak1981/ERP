@@ -2,8 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Domain.Features.Inventory.Putaway;
 using Domain.Features.MasterData.Address;
+using Domain.Features.Procurement.GoodsReceiptNote;
+using Domain.Features.Sales.Shipment;
 using Domain.Infrastructure.Persistence;
+using ERP.Domain.Features.Inventory;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Domain.Features.MasterData.Warehouse;
@@ -135,6 +139,8 @@ public class WarehouseService : IWarehouseService
 
     public async Task DeactivateWarehouseAsync(Guid tenantId, Guid warehouseId)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
         var warehouse = await _repository.GetWarehouseByIdAsync(tenantId, warehouseId)
             ?? throw new KeyNotFoundException("Warehouse not found.");
 
@@ -154,8 +160,37 @@ public class WarehouseService : IWarehouseService
             throw new InvalidOperationException("Cannot deactivate a warehouse that currently has active storage locations.");
         }
 
+        await ValidateWarehouseDeactivationSafetyAsync(tenantId, warehouse);
+
         warehouse.Deactivate();
         await _repository.SaveChangesAsync();
+        await transaction.CommitAsync();
+    }
+
+    public async Task<Warehouse> ActivateWarehouseAsync(Guid tenantId, Guid warehouseId)
+    {
+        var warehouse = await _context.Warehouses
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseId == warehouseId)
+            ?? throw new KeyNotFoundException("Warehouse not found.");
+
+        if (warehouse.IsActive)
+            return warehouse;
+
+        if (warehouse.CompanyId.HasValue)
+        {
+            if (!await _repository.CompanyBelongsToTenantAsync(tenantId, warehouse.CompanyId.Value))
+                throw new InvalidOperationException("Cannot activate warehouse because its assigned company is inactive or not found.");
+
+            if (warehouse.BranchId.HasValue)
+            {
+                if (!await _repository.BranchBelongsToCompanyAndTenantAsync(tenantId, warehouse.CompanyId.Value, warehouse.BranchId.Value))
+                    throw new InvalidOperationException("Cannot activate warehouse because its assigned branch is inactive or not found.");
+            }
+        }
+
+        warehouse.Activate();
+        await _repository.SaveChangesAsync();
+        return warehouse;
     }
 
     public async Task<List<WarehouseZone>> GetZonesAsync(Guid tenantId, Guid warehouseId)
@@ -172,8 +207,12 @@ public class WarehouseService : IWarehouseService
     {
         if (request == null) throw new ArgumentNullException(nameof(request));
 
-        var warehouse = await _repository.GetWarehouseByIdAsync(tenantId, warehouseId)
+        var warehouse = await _context.Warehouses
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseId == warehouseId)
             ?? throw new KeyNotFoundException("Warehouse not found.");
+
+        if (!warehouse.IsActive)
+            throw new InvalidOperationException($"Cannot create a zone in inactive warehouse '{warehouse.WarehouseCode}'.");
 
         if (string.IsNullOrWhiteSpace(request.ZoneCode))
             throw new ArgumentException("Zone code is required.", nameof(request.ZoneCode));
@@ -217,6 +256,8 @@ public class WarehouseService : IWarehouseService
 
     public async Task DeactivateZoneAsync(Guid tenantId, Guid zoneId, Guid? warehouseId = null)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
         var zone = await _repository.GetZoneByIdAsync(tenantId, zoneId)
             ?? throw new KeyNotFoundException("Warehouse zone not found.");
 
@@ -231,8 +272,33 @@ public class WarehouseService : IWarehouseService
             throw new InvalidOperationException("Cannot deactivate a warehouse zone that has active storage locations assigned to it.");
         }
 
+        await ValidateZoneDeactivationSafetyAsync(tenantId, zone);
+
         zone.Deactivate();
         await _repository.SaveChangesAsync();
+        await transaction.CommitAsync();
+    }
+
+    public async Task<WarehouseZone> ActivateZoneAsync(Guid tenantId, Guid zoneId, Guid? warehouseId = null)
+    {
+        var zone = await _context.WarehouseZones
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseZoneId == zoneId)
+            ?? throw new KeyNotFoundException("Warehouse zone not found.");
+
+        if (warehouseId.HasValue && zone.WarehouseId != warehouseId.Value)
+            throw new InvalidOperationException("The specified zone does not belong to the given warehouse.");
+
+        if (zone.IsActive)
+            return zone;
+
+        var warehouse = await _context.Warehouses
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseId == zone.WarehouseId);
+        if (warehouse == null || !warehouse.IsActive)
+            throw new InvalidOperationException("Cannot activate a warehouse zone when its owning warehouse is inactive.");
+
+        zone.Activate();
+        await _repository.SaveChangesAsync();
+        return zone;
     }
 
     public async Task<List<WarehouseLocation>> GetLocationsAsync(Guid tenantId, Guid warehouseId, Guid? zoneId = null)
@@ -324,18 +390,26 @@ public class WarehouseService : IWarehouseService
     {
         if (request == null) throw new ArgumentNullException(nameof(request));
 
-        var warehouse = await _repository.GetWarehouseByIdAsync(tenantId, warehouseId)
+        var warehouse = await _context.Warehouses
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseId == warehouseId)
             ?? throw new KeyNotFoundException("Warehouse not found.");
+
+        if (!warehouse.IsActive)
+            throw new InvalidOperationException($"Cannot create a location in inactive warehouse '{warehouse.WarehouseCode}'.");
 
         var effectiveZoneId = zoneId ?? request.WarehouseZoneId;
 
         if (effectiveZoneId.HasValue)
         {
-            var zone = await _repository.GetZoneByIdAsync(tenantId, effectiveZoneId.Value)
+            var zone = await _context.WarehouseZones
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseZoneId == effectiveZoneId.Value)
                 ?? throw new KeyNotFoundException("Warehouse zone not found.");
 
             if (zone.WarehouseId != warehouseId)
                 throw new InvalidOperationException("Specified zone does not belong to this warehouse.");
+
+            if (!zone.IsActive)
+                throw new InvalidOperationException($"Cannot create a location in inactive zone '{zone.ZoneCode}'.");
         }
 
         if (string.IsNullOrWhiteSpace(request.LocationCode))
@@ -399,6 +473,10 @@ public class WarehouseService : IWarehouseService
 
         var location = await _repository.GetLocationByIdAsync(tenantId, locationId)
             ?? throw new KeyNotFoundException("Warehouse location not found.");
+
+        var warehouse = await _repository.GetWarehouseByIdAsync(tenantId, location.WarehouseId);
+        if (warehouse != null && !warehouse.IsActive)
+            throw new InvalidOperationException($"Cannot modify location in inactive warehouse '{warehouse.WarehouseCode}'.");
 
         if (string.IsNullOrWhiteSpace(request.LocationName))
             throw new ArgumentException("Location name is required.", nameof(request.LocationName));
@@ -469,6 +547,8 @@ public class WarehouseService : IWarehouseService
 
     public async Task DeactivateLocationAsync(Guid tenantId, Guid locationId)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
         var location = await _repository.GetLocationByIdAsync(tenantId, locationId)
             ?? throw new KeyNotFoundException("Warehouse location not found.");
 
@@ -481,8 +561,53 @@ public class WarehouseService : IWarehouseService
             throw new InvalidOperationException("Cannot deactivate a location that currently has active child locations.");
         }
 
+        await ValidateLocationDeactivationSafetyAsync(tenantId, location);
+
         location.Deactivate();
         await _repository.SaveChangesAsync();
+        await transaction.CommitAsync();
+    }
+
+    public async Task<WarehouseLocation> ActivateLocationAsync(Guid tenantId, Guid locationId)
+    {
+        var location = await _context.WarehouseLocations
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseLocationId == locationId)
+            ?? throw new KeyNotFoundException("Warehouse location not found.");
+
+        if (location.IsActive)
+            return location;
+
+        var warehouse = await _context.Warehouses
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseId == location.WarehouseId);
+        if (warehouse == null || !warehouse.IsActive)
+            throw new InvalidOperationException("Cannot activate a location when its owning warehouse is inactive.");
+
+        if (location.WarehouseZoneId.HasValue)
+        {
+            var zone = await _context.WarehouseZones
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseZoneId == location.WarehouseZoneId.Value);
+            if (zone == null || !zone.IsActive)
+                throw new InvalidOperationException("Cannot activate a location when its assigned zone is inactive.");
+        }
+
+        if (location.ParentLocationId.HasValue)
+        {
+            var parent = await _context.WarehouseLocations
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseLocationId == location.ParentLocationId.Value);
+            if (parent == null || !parent.IsActive)
+                throw new InvalidOperationException("Cannot activate a location when its parent location is inactive.");
+        }
+
+        if (location.LocationTypeId.HasValue)
+        {
+            var locType = await _repository.GetLocationTypeByIdAsync(tenantId, location.LocationTypeId.Value);
+            if (locType != null && !locType.IsActive)
+                throw new InvalidOperationException("Cannot activate a location when its location type is inactive.");
+        }
+
+        location.Activate();
+        await _repository.SaveChangesAsync();
+        return location;
     }
 
     public async Task<List<LocationType>> GetLocationTypesAsync(Guid tenantId)
@@ -690,6 +815,248 @@ public class WarehouseService : IWarehouseService
         if ((childCode == "FLOOR" || childCode == "STAGING") && (pCode == "SHELF" || pCode == "BIN"))
         {
             throw new InvalidOperationException($"A {childCode.ToLowerInvariant()} location cannot be placed under a {pCode.ToLowerInvariant()} ('{parentCode}').");
+        }
+    }
+
+    private async Task<List<Guid>> GetSubtreeLocationIdsAsync(Guid tenantId, Guid warehouseId, Guid rootLocationId)
+    {
+        var allLocations = await _repository.GetLocationsAsync(tenantId, warehouseId);
+        var result = new List<Guid> { rootLocationId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootLocationId);
+
+        while (queue.Count > 0)
+        {
+            var currentId = queue.Dequeue();
+            var children = allLocations.Where(l => l.ParentLocationId == currentId).Select(l => l.WarehouseLocationId);
+            foreach (var childId in children)
+            {
+                if (!result.Contains(childId))
+                {
+                    result.Add(childId);
+                    queue.Enqueue(childId);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private async Task ValidateLocationDeactivationSafetyAsync(Guid tenantId, WarehouseLocation location)
+    {
+        var subtreeLocationIds = await GetSubtreeLocationIdsAsync(tenantId, location.WarehouseId, location.WarehouseLocationId);
+
+        // 1. Check stock balances across subtree locations
+        var balances = await _context.InventoryBalances
+            .Where(b => b.TenantId == tenantId && subtreeLocationIds.Contains(b.WarehouseLocationId) && (b.QuantityOnHand > 0 || b.QuantityAllocated > 0))
+            .ToListAsync();
+
+        decimal totalOnHand = balances.Sum(b => b.QuantityOnHand);
+        decimal totalAllocated = balances.Sum(b => b.QuantityAllocated);
+
+        if (totalOnHand > 0)
+        {
+            throw new InvalidOperationException($"Cannot deactivate location '{location.LocationCode}' because on-hand stock ({totalOnHand}) remains in the location scope.");
+        }
+
+        if (totalAllocated > 0)
+        {
+            throw new InvalidOperationException($"Cannot deactivate location '{location.LocationCode}' because allocated stock ({totalAllocated}) remains in the location scope.");
+        }
+
+        // 2. Check pending draft Goods Receipt Notes
+        var draftGrnNumber = await _context.GoodsReceiptNoteLines
+            .Where(l => subtreeLocationIds.Contains(l.WarehouseLocationId))
+            .Join(_context.GoodsReceiptNotes.Where(g => g.TenantId == tenantId && g.Status == GoodsReceiptNoteStatus.Draft),
+                  l => l.GoodsReceiptNoteId,
+                  g => g.GoodsReceiptNoteId,
+                  (l, g) => g.GrnNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftGrnNumber != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate location '{location.LocationCode}' because pending draft Goods Receipt Note '{draftGrnNumber}' references it.");
+        }
+
+        // 3. Check pending draft Putaway orders
+        var draftPutawaySource = await _context.PutawayLines
+            .Where(l => subtreeLocationIds.Contains(l.SourceWarehouseLocationId))
+            .Join(_context.Putaways.Where(p => p.TenantId == tenantId && p.Status == PutawayStatus.Draft),
+                  l => l.PutawayId,
+                  p => p.PutawayId,
+                  (l, p) => p.PutawayNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftPutawaySource != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate location '{location.LocationCode}' because pending draft Putaway '{draftPutawaySource}' references it as source.");
+        }
+
+        var draftPutawayDest = await _context.PutawayLineAllocations
+            .Where(a => subtreeLocationIds.Contains(a.DestinationWarehouseLocationId))
+            .Join(_context.PutawayLines,
+                  a => a.PutawayLineId,
+                  l => l.PutawayLineId,
+                  (a, l) => l.PutawayId)
+            .Join(_context.Putaways.Where(p => p.TenantId == tenantId && p.Status == PutawayStatus.Draft),
+                  putawayId => putawayId,
+                  p => p.PutawayId,
+                  (putawayId, p) => p.PutawayNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftPutawayDest != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate location '{location.LocationCode}' because pending draft Putaway '{draftPutawayDest}' references it as destination.");
+        }
+
+        // 4. Check pending draft Sales Shipments
+        var draftShipmentNumber = await _context.SalesShipmentItems
+            .Where(i => i.IsActive && subtreeLocationIds.Contains(i.WarehouseLocationId))
+            .Join(_context.SalesShipments.Where(s => s.TenantId == tenantId && s.Status == SalesShipmentStatus.Draft),
+                  i => i.SalesShipmentId,
+                  s => s.Id,
+                  (i, s) => s.ShipmentNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftShipmentNumber != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate location '{location.LocationCode}' because pending draft Sales Shipment '{draftShipmentNumber}' references it.");
+        }
+    }
+
+    private async Task ValidateZoneDeactivationSafetyAsync(Guid tenantId, WarehouseZone zone)
+    {
+        var zoneLocationIds = await _context.WarehouseLocations
+            .Where(l => l.TenantId == tenantId && l.WarehouseZoneId == zone.WarehouseZoneId)
+            .Select(l => l.WarehouseLocationId)
+            .ToListAsync();
+
+        if (zoneLocationIds.Count == 0) return;
+
+        var balances = await _context.InventoryBalances
+            .Where(b => b.TenantId == tenantId && zoneLocationIds.Contains(b.WarehouseLocationId) && (b.QuantityOnHand > 0 || b.QuantityAllocated > 0))
+            .ToListAsync();
+
+        decimal totalOnHand = balances.Sum(b => b.QuantityOnHand);
+        decimal totalAllocated = balances.Sum(b => b.QuantityAllocated);
+
+        if (totalOnHand > 0)
+        {
+            throw new InvalidOperationException($"Cannot deactivate zone '{zone.ZoneCode}' because on-hand stock ({totalOnHand}) remains in locations assigned to this zone.");
+        }
+
+        if (totalAllocated > 0)
+        {
+            throw new InvalidOperationException($"Cannot deactivate zone '{zone.ZoneCode}' because allocated stock ({totalAllocated}) remains in locations assigned to this zone.");
+        }
+
+        var draftGrnNumber = await _context.GoodsReceiptNoteLines
+            .Where(l => zoneLocationIds.Contains(l.WarehouseLocationId))
+            .Join(_context.GoodsReceiptNotes.Where(g => g.TenantId == tenantId && g.Status == GoodsReceiptNoteStatus.Draft),
+                  l => l.GoodsReceiptNoteId,
+                  g => g.GoodsReceiptNoteId,
+                  (l, g) => g.GrnNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftGrnNumber != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate zone '{zone.ZoneCode}' because pending draft Goods Receipt Note '{draftGrnNumber}' references location(s) in this zone.");
+        }
+
+        var draftPutawaySource = await _context.PutawayLines
+            .Where(l => zoneLocationIds.Contains(l.SourceWarehouseLocationId))
+            .Join(_context.Putaways.Where(p => p.TenantId == tenantId && p.Status == PutawayStatus.Draft),
+                  l => l.PutawayId,
+                  p => p.PutawayId,
+                  (l, p) => p.PutawayNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftPutawaySource != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate zone '{zone.ZoneCode}' because pending draft Putaway '{draftPutawaySource}' references location(s) in this zone as source.");
+        }
+
+        var draftPutawayDest = await _context.PutawayLineAllocations
+            .Where(a => zoneLocationIds.Contains(a.DestinationWarehouseLocationId))
+            .Join(_context.PutawayLines,
+                  a => a.PutawayLineId,
+                  l => l.PutawayLineId,
+                  (a, l) => l.PutawayId)
+            .Join(_context.Putaways.Where(p => p.TenantId == tenantId && p.Status == PutawayStatus.Draft),
+                  putawayId => putawayId,
+                  p => p.PutawayId,
+                  (putawayId, p) => p.PutawayNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftPutawayDest != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate zone '{zone.ZoneCode}' because pending draft Putaway '{draftPutawayDest}' references location(s) in this zone as destination.");
+        }
+
+        var draftShipmentNumber = await _context.SalesShipmentItems
+            .Where(i => i.IsActive && zoneLocationIds.Contains(i.WarehouseLocationId))
+            .Join(_context.SalesShipments.Where(s => s.TenantId == tenantId && s.Status == SalesShipmentStatus.Draft),
+                  i => i.SalesShipmentId,
+                  s => s.Id,
+                  (i, s) => s.ShipmentNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftShipmentNumber != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate zone '{zone.ZoneCode}' because pending draft Sales Shipment '{draftShipmentNumber}' references location(s) in this zone.");
+        }
+    }
+
+    private async Task ValidateWarehouseDeactivationSafetyAsync(Guid tenantId, Warehouse warehouse)
+    {
+        var warehouseBalances = await _context.InventoryBalances
+            .Where(b => b.TenantId == tenantId && b.WarehouseId == warehouse.WarehouseId && (b.QuantityOnHand > 0 || b.QuantityAllocated > 0))
+            .ToListAsync();
+
+        decimal totalOnHand = warehouseBalances.Sum(b => b.QuantityOnHand);
+        decimal totalAllocated = warehouseBalances.Sum(b => b.QuantityAllocated);
+
+        if (totalOnHand > 0)
+        {
+            throw new InvalidOperationException($"Cannot deactivate warehouse '{warehouse.WarehouseCode}' because on-hand stock ({totalOnHand}) remains in the warehouse.");
+        }
+
+        if (totalAllocated > 0)
+        {
+            throw new InvalidOperationException($"Cannot deactivate warehouse '{warehouse.WarehouseCode}' because allocated stock ({totalAllocated}) remains in the warehouse.");
+        }
+
+        var draftGrnNumber = await _context.GoodsReceiptNoteLines
+            .Where(l => l.WarehouseId == warehouse.WarehouseId)
+            .Join(_context.GoodsReceiptNotes.Where(g => g.TenantId == tenantId && g.Status == GoodsReceiptNoteStatus.Draft),
+                  l => l.GoodsReceiptNoteId,
+                  g => g.GoodsReceiptNoteId,
+                  (l, g) => g.GrnNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftGrnNumber != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate warehouse '{warehouse.WarehouseCode}' because pending draft Goods Receipt Note '{draftGrnNumber}' references this warehouse.");
+        }
+
+        var draftPutawayNumber = await _context.Putaways
+            .Where(p => p.TenantId == tenantId && p.WarehouseId == warehouse.WarehouseId && p.Status == PutawayStatus.Draft)
+            .Select(p => p.PutawayNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftPutawayNumber != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate warehouse '{warehouse.WarehouseCode}' because pending draft Putaway '{draftPutawayNumber}' exists for this warehouse.");
+        }
+
+        var draftShipmentNumber = await _context.SalesShipments
+            .Where(s => s.TenantId == tenantId && s.WarehouseId == warehouse.WarehouseId && s.Status == SalesShipmentStatus.Draft)
+            .Select(s => s.ShipmentNumber)
+            .FirstOrDefaultAsync();
+
+        if (draftShipmentNumber != null)
+        {
+            throw new InvalidOperationException($"Cannot deactivate warehouse '{warehouse.WarehouseCode}' because pending draft Sales Shipment '{draftShipmentNumber}' exists for this warehouse.");
         }
     }
 }

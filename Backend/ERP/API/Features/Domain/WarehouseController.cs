@@ -104,7 +104,8 @@ public class WarehouseController : BaseApiController
     }
 
     [HttpDelete("{id:guid}")]
-    [RequirePermission("WAREHOUSE.DELETE")]
+    [HttpPost("{id:guid}/deactivate")]
+    [RequirePermission("WAREHOUSE.DEACTIVATE,WAREHOUSE.DELETE")]
     public async Task<IActionResult> DeactivateWarehouse(Guid id)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
@@ -116,6 +117,26 @@ public class WarehouseController : BaseApiController
         {
             await _warehouseService.DeactivateWarehouseAsync(tenantId.Value, id);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/activate")]
+    [RequirePermission("WAREHOUSE.ACTIVATE,WAREHOUSE.EDIT,WAREHOUSE.UPDATE")]
+    public async Task<IActionResult> ActivateWarehouse(Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var warehouse = await _warehouseService.ActivateWarehouseAsync(tenantId.Value, id);
+            return SuccessResponse(warehouse, "Warehouse activated successfully.");
         }
         catch (Exception ex)
         {
@@ -198,7 +219,9 @@ public class WarehouseController : BaseApiController
 
     [HttpDelete("{id:guid}/zones/{zoneId:guid}")]
     [HttpDelete("zones/{zoneId:guid}")]
-    [RequirePermission("WAREHOUSE.DELETE,WAREHOUSE.MANAGE_ZONES")]
+    [HttpPost("{id:guid}/zones/{zoneId:guid}/deactivate")]
+    [HttpPost("zones/{zoneId:guid}/deactivate")]
+    [RequirePermission("WAREHOUSE.DEACTIVATE,WAREHOUSE.DELETE,WAREHOUSE.MANAGE_ZONES")]
     public async Task<IActionResult> DeactivateZone(Guid? id, Guid zoneId)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
@@ -210,6 +233,27 @@ public class WarehouseController : BaseApiController
         {
             await _warehouseService.DeactivateZoneAsync(tenantId.Value, zoneId, id);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/zones/{zoneId:guid}/activate")]
+    [HttpPost("zones/{zoneId:guid}/activate")]
+    [RequirePermission("WAREHOUSE.ACTIVATE,WAREHOUSE.EDIT,WAREHOUSE.MANAGE_ZONES")]
+    public async Task<IActionResult> ActivateZone(Guid? id, Guid zoneId)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var zone = await _warehouseService.ActivateZoneAsync(tenantId.Value, zoneId, id);
+            return SuccessResponse(zone, "Warehouse zone activated successfully.");
         }
         catch (Exception ex)
         {
@@ -318,8 +362,11 @@ public class WarehouseController : BaseApiController
     }
 
     [HttpDelete("locations/{locationId:guid}")]
-    [RequirePermission("LOCATION.DELETE")]
-    public async Task<IActionResult> DeactivateLocation(Guid locationId)
+    [HttpDelete("{id:guid}/locations/{locationId:guid}")]
+    [HttpPost("locations/{locationId:guid}/deactivate")]
+    [HttpPost("{id:guid}/locations/{locationId:guid}/deactivate")]
+    [RequirePermission("LOCATION.DEACTIVATE,LOCATION.DELETE")]
+    public async Task<IActionResult> DeactivateLocation(Guid locationId, Guid? id = null)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
         var tenantId = _currentUserContext.TenantId;
@@ -328,8 +375,39 @@ public class WarehouseController : BaseApiController
 
         try
         {
+            if (id.HasValue)
+            {
+                var loc = await _warehouseService.GetLocationAsync(tenantId.Value, locationId);
+                if (loc != null && loc.WarehouseId != id.Value)
+                    return ConflictResponse("The specified location does not belong to the given warehouse.");
+            }
+
             await _warehouseService.DeactivateLocationAsync(tenantId.Value, locationId);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("locations/{locationId:guid}/activate")]
+    [HttpPost("{id:guid}/locations/{locationId:guid}/activate")]
+    [RequirePermission("LOCATION.ACTIVATE,LOCATION.EDIT,LOCATION.UPDATE")]
+    public async Task<IActionResult> ActivateLocation(Guid locationId, Guid? id = null)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var location = await _warehouseService.ActivateLocationAsync(tenantId.Value, locationId);
+            if (id.HasValue && location.WarehouseId != id.Value)
+                return ConflictResponse("The specified location does not belong to the given warehouse.");
+
+            return SuccessResponse(location, "Warehouse location activated successfully.");
         }
         catch (Exception ex)
         {

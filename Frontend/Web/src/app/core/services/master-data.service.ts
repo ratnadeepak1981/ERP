@@ -470,6 +470,12 @@ export class MasterDataService {
     return this.http.delete<void>(buildApiUrl(`/warehouses/${id}`));
   }
 
+  activateWarehouse(id: string): Observable<WarehouseItem> {
+    return this.http
+      .post<ApiResponse<WarehouseItem>>(buildApiUrl(`/warehouses/${id}/activate`), {})
+      .pipe(map(res => res.data));
+  }
+
   // --- Warehouse Zones ---
   getWarehouseZones(warehouseId: string): Observable<WarehouseZoneItem[]> {
     return this.http
@@ -505,6 +511,12 @@ export class MasterDataService {
 
   deactivateWarehouseZone(warehouseId: string, zoneId: string): Observable<void> {
     return this.http.delete<void>(buildApiUrl(`/warehouses/${warehouseId}/zones/${zoneId}`));
+  }
+
+  activateWarehouseZone(warehouseId: string, zoneId: string): Observable<WarehouseZoneItem> {
+    return this.http
+      .post<ApiResponse<WarehouseZoneItem>>(buildApiUrl(`/warehouses/${warehouseId}/zones/${zoneId}/activate`), {})
+      .pipe(map(res => res.data));
   }
 
   // --- Warehouse Locations ---
@@ -557,6 +569,15 @@ export class MasterDataService {
 
   deactivateWarehouseLocation(locationId: string): Observable<void> {
     return this.http.delete<void>(buildApiUrl(`/warehouses/locations/${locationId}`));
+  }
+
+  activateWarehouseLocation(locationId: string, warehouseId?: string | null): Observable<WarehouseLocationItem> {
+    const url = warehouseId
+      ? `/warehouses/${warehouseId}/locations/${locationId}/activate`
+      : `/warehouses/locations/${locationId}/activate`;
+    return this.http
+      .post<ApiResponse<WarehouseLocationItem>>(buildApiUrl(url), {})
+      .pipe(map(res => res.data));
   }
 
   // --- Location Types ---

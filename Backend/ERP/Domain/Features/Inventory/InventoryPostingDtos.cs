@@ -20,6 +20,7 @@ public class PostInventoryMovementRequest
 
     public string? BatchNumber { get; set; }
     public string? SerialNumber { get; set; }
+    public DateTime? ManufacturingDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public DateTime? TransactionDate { get; set; }
 
@@ -49,6 +50,7 @@ public class PostTransferMovementRequest
 
     public string? BatchNumber { get; set; }
     public string? SerialNumber { get; set; }
+    public DateTime? ManufacturingDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public DateTime? TransactionDate { get; set; }
 
