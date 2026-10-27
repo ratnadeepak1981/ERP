@@ -27,7 +27,10 @@ public class DomainDbContext : DbContext
         => Set<Branch>();
 
     public DbSet<Product> Products
-        => Set<Product>();
+        => Set<Product>();
+
+    public DbSet<ProductWarehouseSetting> ProductWarehouseSettings
+        => Set<ProductWarehouseSetting>();
 
     public DbSet<Category> Categories
         => Set<Category>();

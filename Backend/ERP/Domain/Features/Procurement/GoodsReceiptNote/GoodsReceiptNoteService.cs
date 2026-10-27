@@ -433,6 +433,21 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                 int sequence = 1;
                 foreach (var line in grn.Lines)
                 {
+                    // Decrement on-order balance for received quantity in the corresponding warehouse
+                    var onOrderBalance = await _context.InventoryBalances
+                        .FirstOrDefaultAsync(b => b.TenantId == tenantId
+                                               && b.WarehouseId == line.WarehouseId
+                                               && b.ProductId == line.ProductId
+                                               && b.QuantityOnOrder > 0);
+
+                    if (onOrderBalance != null)
+                    {
+                        decimal decrement = Math.Min(onOrderBalance.QuantityOnOrder, line.QuantityReceived);
+                        if (decrement > 0)
+                        {
+                            onOrderBalance.ApplyOnOrderChange(-decrement);
+                        }
+                    }
                     var postReq = new PostInventoryMovementRequest
                     {
                         MovementType = InventoryMovementType.GoodsReceipt,
