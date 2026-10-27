@@ -1,3 +1,4 @@
+using ERP.Domain.Features.Inventory.Planning;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ namespace API.Features.Domain;
 public class InventoryController : BaseApiController
 {
     private readonly IInventoryService _inventoryService;
+    private readonly IInventoryPlanningService _planningService;
     private readonly ICurrentUserContext _currentUserContext;
 
     private static readonly SortMapping<StockIssueDto> _stockIssueSortMapping = new SortMapping<StockIssueDto>()
@@ -38,9 +40,11 @@ public class InventoryController : BaseApiController
 
     public InventoryController(
         IInventoryService inventoryService,
+        IInventoryPlanningService planningService,
         ICurrentUserContext currentUserContext)
     {
         _inventoryService = inventoryService;
+        _planningService = planningService;
         _currentUserContext = currentUserContext;
     }
 
@@ -241,6 +245,42 @@ public class InventoryController : BaseApiController
         {
             var results = await _inventoryService.CreateStockReceiptAsync(tenantId.Value, request);
             return SuccessResponse(results, "Stock received successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("replenishment-suggestions")]
+    [RequirePermission("INVENTORY.VIEW")]
+    public async Task<IActionResult> GetReplenishmentSuggestions(
+        [FromQuery] Guid? warehouseId = null,
+        [FromQuery] Guid? categoryId = null)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        try
+        {
+            var suggestions = await _planningService.GetReplenishmentSuggestionsAsync(
+                tenantId.Value,
+                warehouseId,
+                categoryId);
+
+            return SuccessResponse(suggestions);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFoundResponse(ex.Message);
         }
         catch (Exception ex)
         {
