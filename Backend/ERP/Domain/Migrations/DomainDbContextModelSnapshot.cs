@@ -861,6 +861,15 @@ namespace Domain.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MaxStockQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("MinStockQuantity")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -886,6 +895,9 @@ namespace Domain.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ReorderQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("SafetyStockQuantity")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("SellingPrice")
@@ -929,6 +941,72 @@ namespace Domain.Migrations
                     b.HasIndex("TenantId", "UnitOfMeasureId");
 
                     b.ToTable("Products", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Product.ProductWarehouseSetting", b =>
+                {
+                    b.Property<Guid>("ProductWarehouseSettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MaxStockQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("MinStockQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("ReorderLevel")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ReorderQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal?>("SafetyStockQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ProductWarehouseSettingId");
+
+                    b.HasIndex("TenantId", "ProductId");
+
+                    b.HasIndex("TenantId", "WarehouseId");
+
+                    b.HasIndex("TenantId", "ProductId", "WarehouseId")
+                        .IsUnique();
+
+                    b.ToTable("ProductWarehouseSettings", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Features.MasterData.Supplier.SupplierProductPrice", b =>
@@ -3769,6 +3847,23 @@ namespace Domain.Migrations
                         .HasForeignKey("TenantId", "UnitOfMeasureId")
                         .HasPrincipalKey("TenantId", "UnitOfMeasureId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Product.ProductWarehouseSetting", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Product.Product", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProductId")
+                        .HasPrincipalKey("TenantId", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "WarehouseId")
+                        .HasPrincipalKey("TenantId", "WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Domain.Features.MasterData.Supplier.SupplierProductPrice", b =>

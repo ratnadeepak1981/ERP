@@ -44,6 +44,21 @@ public class ProductConfiguration
         builder.Property(x => x.ReorderQuantity)
             .HasColumnType("decimal(18,2)");
 
+        builder.Property(x => x.MinStockQuantity)
+            .HasColumnType("decimal(18,2)")
+            .IsRequired(false);
+
+        builder.Property(x => x.MaxStockQuantity)
+            .HasColumnType("decimal(18,2)")
+            .IsRequired(false);
+
+        builder.Property(x => x.SafetyStockQuantity)
+            .HasColumnType("decimal(18,2)")
+            .IsRequired(false);
+
+        builder.Property(x => x.LeadTimeDays)
+            .IsRequired(false);
+
         builder.Property(x => x.IsManufacturable)
             .IsRequired();
 
