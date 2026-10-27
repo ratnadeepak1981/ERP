@@ -12,6 +12,7 @@ using SaaS.Application.Services;
 using SaaS.Services;
 using Security.Infrastructure.Services;
 using Security.Interfaces;
+using Security.Options;
 using Security.Services;
 
 namespace API.Configuration;
@@ -24,6 +25,15 @@ public static class ServiceRegistration
     {
         services.AddAIInfrastructure(configuration);
 
+        services.AddOptions<AuthenticationOptions>()
+            .Bind(configuration.GetSection(AuthenticationOptions.SectionName))
+            .Validate(options =>
+            {
+                options.Validate();
+                return true;
+            }, "Authentication configuration is invalid.")
+            .ValidateOnStart();
+
         services.AddScoped<IDomainDatabaseConfiguration, DomainDatabaseConfiguration>();
 
         services.AddScoped<SaaSService>();
@@ -33,6 +43,7 @@ public static class ServiceRegistration
         services.AddSingleton<RsaPrivateKeyLoader>();
 
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<ISessionService, SessionService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
@@ -77,6 +88,7 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Domain.Features.Inventory.InventoryService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Batch.IBatchService, ERP.Domain.Features.Inventory.Batch.BatchService>();
         services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayService, Domain.Features.Inventory.Putaway.PutawayService>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteService>();
 

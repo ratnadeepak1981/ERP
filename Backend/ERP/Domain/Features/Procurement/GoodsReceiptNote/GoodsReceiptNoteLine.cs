@@ -29,6 +29,8 @@ public class GoodsReceiptNoteLine : Auditable
 
     public string? SerialNumber { get; set; }
 
+    public DateTime? ManufacturingDate { get; set; }
+
     public DateTime? ExpiryDate { get; set; }
 
     public bool IsQuarantine { get; set; }
@@ -48,7 +50,8 @@ public class GoodsReceiptNoteLine : Auditable
         string? serialNumber = null,
         DateTime? expiryDate = null,
         bool isQuarantine = false,
-        string? remarks = null)
+        string? remarks = null,
+        DateTime? manufacturingDate = null)
     {
         if (quantityReceived <= 0)
             throw new ArgumentException("Quantity received must be greater than zero.", nameof(quantityReceived));
@@ -74,6 +77,7 @@ public class GoodsReceiptNoteLine : Auditable
             UnitOfMeasureId = unitOfMeasureId,
             BatchNumber = batchNumber?.Trim(),
             SerialNumber = serialNumber?.Trim(),
+            ManufacturingDate = manufacturingDate,
             ExpiryDate = expiryDate,
             IsQuarantine = isQuarantine,
             Remarks = remarks?.Trim()

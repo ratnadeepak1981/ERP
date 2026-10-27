@@ -1309,6 +1309,9 @@ namespace Domain.Migrations
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<DateTime?>("ManufacturingDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -2516,6 +2519,60 @@ namespace Domain.Migrations
                         .IsUnique();
 
                     b.ToTable("Opportunities", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.Inventory.Batch.ProductBatch", b =>
+                {
+                    b.Property<Guid>("ProductBatchId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BatchNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ManufacturingDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ProductBatchId");
+
+                    b.HasIndex("TenantId", "BatchNumber");
+
+                    b.HasIndex("TenantId", "ProductId", "BatchNumber")
+                        .IsUnique();
+
+                    b.ToTable("ProductBatches", (string)null);
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.Inventory.InventoryBalance", b =>
@@ -4095,6 +4152,16 @@ namespace Domain.Migrations
                         .HasForeignKey("TenantId", "LeadId")
                         .HasPrincipalKey("TenantId", "LeadId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.Inventory.Batch.ProductBatch", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Product.Product", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProductId")
+                        .HasPrincipalKey("TenantId", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.Inventory.InventoryBalance", b =>

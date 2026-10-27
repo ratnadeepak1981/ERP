@@ -94,6 +94,11 @@ public class InventoryPostingService : IInventoryPostingService
             string normBatch = request.BatchNumber?.Trim() ?? string.Empty;
             string normSerial = request.SerialNumber?.Trim() ?? string.Empty;
 
+            decimal signedQuantity = GetSignedQuantity(request.MovementType, request.Quantity);
+
+            // Authoritative Batch/Lot validation and synchronization
+            await ValidateAndSynchronizeBatchAsync(tenantId, product, normBatch, request, signedQuantity > 0);
+
             // Fetch or create balance
             var balance = await _inventoryRepository.GetBalanceAsync(
                 tenantId,
@@ -117,10 +122,20 @@ public class InventoryPostingService : IInventoryPostingService
             // Apply Balance Changes
             // Inflow: Positive quantity
             // Outflow: Negative quantity
-            decimal signedQuantity = GetSignedQuantity(request.MovementType, request.Quantity);
 
             if (signedQuantity < 0)
             {
+                // Outflow: Ensure location allows picking (not quarantine / quality hold with picking disabled)
+                if (location.LocationTypeId.HasValue)
+                {
+                    var locType = await _warehouseRepository.GetLocationTypeByIdAsync(tenantId, location.LocationTypeId.Value);
+                    if (locType != null && !locType.CanPick)
+                    {
+                        throw new InvalidOperationException(
+                            $"Location '{location.LocationCode}' does not allow picking for stock outflow (type '{locType.Name}' has picking disabled).");
+                    }
+                }
+
                 // Outflow: Ensure sufficient available stock
                 decimal requestedOutflow = Math.Abs(signedQuantity);
                 if (requestedOutflow > balance.QuantityAvailable)
@@ -280,6 +295,9 @@ public class InventoryPostingService : IInventoryPostingService
 
             string normBatch = request.BatchNumber?.Trim() ?? string.Empty;
             string normSerial = request.SerialNumber?.Trim() ?? string.Empty;
+
+            // Authoritative Batch/Lot validation for transfer
+            await ValidateTransferBatchAsync(tenantId, product, normBatch, request);
 
             // Source balance
             var srcBalance = await _inventoryRepository.GetBalanceAsync(
@@ -625,6 +643,21 @@ public class InventoryPostingService : IInventoryPostingService
             serialNumber ?? string.Empty);
     }
 
+    public async Task<decimal> GetTotalAvailableStockAsync(
+        Guid tenantId,
+        Guid locationId,
+        Guid productId,
+        bool isBatchTracked,
+        DateTime? asOfDate = null)
+    {
+        return await _inventoryRepository.GetTotalAvailableStockAsync(
+            tenantId,
+            locationId,
+            productId,
+            isBatchTracked,
+            asOfDate);
+    }
+
     public async Task<List<InventoryBalance>> GetProductBalancesAsync(Guid tenantId, Guid productId)
     {
         return await _inventoryRepository.GetBalancesByProductAsync(tenantId, productId);
@@ -686,6 +719,160 @@ public class InventoryPostingService : IInventoryPostingService
                 if (Math.Abs(quantity) != 1.0m)
                     throw new InvalidOperationException($"Serial-tracked items must have quantity of 1 (or -1). Specified: {quantity}.");
                 break;
+        }
+    }
+
+    private async Task ValidateAndSynchronizeBatchAsync(
+        Guid tenantId,
+        Product product,
+        string normBatch,
+        PostInventoryMovementRequest request,
+        bool isInflow)
+    {
+        if (product.TrackingMode != TrackingMode.Batch && product.TrackingMode != TrackingMode.BatchAndSerial)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(normBatch))
+        {
+            throw new InvalidOperationException($"BatchNumber is required for batch-tracked product '{product.ProductCode}'.");
+        }
+
+        // 1. Cross-product mismatch check: ensure this batchNumber is not associated with another product in this tenant
+        var batchInTenant = await _inventoryRepository.GetBatchByNumberAsync(tenantId, normBatch);
+        if (batchInTenant != null && batchInTenant.ProductId != product.ProductId)
+        {
+            throw new InvalidOperationException(
+                $"Batch '{normBatch}' is already associated with another product in this tenant. A batch number cannot be reused for a different product.");
+        }
+
+        // 2. Product-specific batch check
+        var productBatch = await _inventoryRepository.GetBatchAsync(tenantId, product.ProductId, normBatch);
+
+        if (productBatch != null)
+        {
+            // Conflicting dates check
+            if (request.ExpiryDate.HasValue && productBatch.ExpiryDate.HasValue &&
+                request.ExpiryDate.Value.Date != productBatch.ExpiryDate.Value.Date)
+            {
+                throw new InvalidOperationException(
+                    $"Conflicting expiry date for existing batch '{normBatch}'. Registered: {productBatch.ExpiryDate.Value:yyyy-MM-dd}, Provided: {request.ExpiryDate.Value:yyyy-MM-dd}. Existing batch dates cannot be altered.");
+            }
+
+            if (request.ManufacturingDate.HasValue && productBatch.ManufacturingDate.HasValue &&
+                request.ManufacturingDate.Value.Date != productBatch.ManufacturingDate.Value.Date)
+            {
+                throw new InvalidOperationException(
+                    $"Conflicting manufacturing date for existing batch '{normBatch}'. Registered: {productBatch.ManufacturingDate.Value:yyyy-MM-dd}, Provided: {request.ManufacturingDate.Value:yyyy-MM-dd}. Existing batch dates cannot be altered.");
+            }
+
+            // Backfill missing dates from incoming information if not previously established
+            if (!productBatch.ExpiryDate.HasValue && request.ExpiryDate.HasValue)
+            {
+                productBatch.UpdateDates(productBatch.ManufacturingDate ?? request.ManufacturingDate, request.ExpiryDate);
+            }
+            if (!productBatch.ManufacturingDate.HasValue && request.ManufacturingDate.HasValue)
+            {
+                productBatch.UpdateDates(request.ManufacturingDate, productBatch.ExpiryDate ?? request.ExpiryDate);
+            }
+
+            // If request did not supply dates, inherit from authoritative registered batch
+            if (!request.ExpiryDate.HasValue && productBatch.ExpiryDate.HasValue)
+            {
+                request.ExpiryDate = productBatch.ExpiryDate;
+            }
+            if (!request.ManufacturingDate.HasValue && productBatch.ManufacturingDate.HasValue)
+            {
+                request.ManufacturingDate = productBatch.ManufacturingDate;
+            }
+
+            // If outflow, strictly ensure batch is not expired
+            if (!isInflow && productBatch.ExpiryDate.HasValue)
+            {
+                var txDate = (request.TransactionDate ?? DateTime.UtcNow).Date;
+                if (productBatch.ExpiryDate.Value.Date < txDate)
+                {
+                    throw new InvalidOperationException(
+                        $"Batch '{normBatch}' for product '{product.ProductCode}' expired on {productBatch.ExpiryDate.Value:yyyy-MM-dd} and cannot be issued or dispatched.");
+                }
+            }
+        }
+        else
+        {
+            // Batch does not yet exist
+            if (isInflow)
+            {
+                // Register authoritative batch on inflow
+                var newBatch = ERP.Domain.Features.Inventory.Batch.ProductBatch.Create(
+                    tenantId,
+                    product.ProductId,
+                    normBatch,
+                    request.ManufacturingDate,
+                    request.ExpiryDate);
+
+                await _inventoryRepository.AddBatchAsync(newBatch);
+            }
+            else
+            {
+                // Outflow cannot issue from an unestablished batch
+                throw new InvalidOperationException(
+                    $"Batch '{normBatch}' does not exist for product '{product.ProductCode}'. Stock cannot be issued from an unestablished batch.");
+            }
+        }
+    }
+
+    private async Task ValidateTransferBatchAsync(
+        Guid tenantId,
+        Product product,
+        string normBatch,
+        PostTransferMovementRequest request)
+    {
+        if (product.TrackingMode != TrackingMode.Batch && product.TrackingMode != TrackingMode.BatchAndSerial)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(normBatch))
+        {
+            throw new InvalidOperationException($"BatchNumber is required for batch-tracked product '{product.ProductCode}'.");
+        }
+
+        var batchInTenant = await _inventoryRepository.GetBatchByNumberAsync(tenantId, normBatch);
+        if (batchInTenant != null && batchInTenant.ProductId != product.ProductId)
+        {
+            throw new InvalidOperationException(
+                $"Batch '{normBatch}' is already associated with another product in this tenant. A batch number cannot be reused for a different product.");
+        }
+
+        var productBatch = await _inventoryRepository.GetBatchAsync(tenantId, product.ProductId, normBatch);
+        if (productBatch == null)
+        {
+            throw new InvalidOperationException(
+                $"Batch '{normBatch}' does not exist for product '{product.ProductCode}'. Stock cannot be transferred from an unestablished batch.");
+        }
+
+        if (request.ExpiryDate.HasValue && productBatch.ExpiryDate.HasValue &&
+            request.ExpiryDate.Value.Date != productBatch.ExpiryDate.Value.Date)
+        {
+            throw new InvalidOperationException(
+                $"Conflicting expiry date for existing batch '{normBatch}'. Registered: {productBatch.ExpiryDate.Value:yyyy-MM-dd}, Provided: {request.ExpiryDate.Value:yyyy-MM-dd}. Existing batch dates cannot be altered.");
+        }
+
+        if (request.ManufacturingDate.HasValue && productBatch.ManufacturingDate.HasValue &&
+            request.ManufacturingDate.Value.Date != productBatch.ManufacturingDate.Value.Date)
+        {
+            throw new InvalidOperationException(
+                $"Conflicting manufacturing date for existing batch '{normBatch}'. Registered: {productBatch.ManufacturingDate.Value:yyyy-MM-dd}, Provided: {request.ManufacturingDate.Value:yyyy-MM-dd}. Existing batch dates cannot be altered.");
+        }
+
+        if (!request.ExpiryDate.HasValue && productBatch.ExpiryDate.HasValue)
+        {
+            request.ExpiryDate = productBatch.ExpiryDate;
+        }
+        if (!request.ManufacturingDate.HasValue && productBatch.ManufacturingDate.HasValue)
+        {
+            request.ManufacturingDate = productBatch.ManufacturingDate;
         }
     }
 

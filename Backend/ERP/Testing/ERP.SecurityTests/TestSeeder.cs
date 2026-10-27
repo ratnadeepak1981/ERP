@@ -10,6 +10,7 @@ using SaaS.Core.Models;
 using SaaS.Infrastructure.Persistence;
 using Security.Core.Models;
 using Security.Infrastructure.Persistence;
+using Security.Services;
 
 namespace ERP.SecurityTests;
 
@@ -286,6 +287,7 @@ public static class TestSeeder
         string email,
         Role? role = null)
     {
+        var passwordHash = new PasswordService().HashPassword("Password@123");
         var user = db.Users.FirstOrDefault(x => x.Id == userId);
         if (user == null)
         {
@@ -295,10 +297,15 @@ public static class TestSeeder
                 TenantId = tenantId,
                 Username = username,
                 Email = email,
-                PasswordHash = "hashed_123",
+                PasswordHash = passwordHash,
                 IsActive = true
             };
             db.Users.Add(user);
+            db.SaveChanges();
+        }
+        else if (user.PasswordHash != passwordHash)
+        {
+            user.PasswordHash = passwordHash;
             db.SaveChanges();
         }
 

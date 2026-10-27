@@ -222,7 +222,8 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                 lineReq.SerialNumber,
                 lineReq.ExpiryDate,
                 lineReq.IsQuarantine,
-                lineReq.Remarks);
+                lineReq.Remarks,
+                lineReq.ManufacturingDate);
 
             grn.AddLine(line);
         }
@@ -308,7 +309,8 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                     lineReq.SerialNumber,
                     lineReq.ExpiryDate,
                     lineReq.IsQuarantine,
-                    lineReq.Remarks);
+                    lineReq.Remarks,
+                    lineReq.ManufacturingDate);
 
                 grn.Lines.Add(line);
                 _context.GoodsReceiptNoteLines.Add(line);
@@ -446,6 +448,7 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                         UnitOfMeasureId = line.UnitOfMeasureId,
                         BatchNumber = line.BatchNumber,
                         SerialNumber = line.SerialNumber,
+                        ManufacturingDate = line.ManufacturingDate,
                         ExpiryDate = line.ExpiryDate,
                         TransactionDate = grn.ReceiptDate,
                         IsQuarantine = line.IsQuarantine
@@ -492,6 +495,7 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                 UnitOfMeasureId = l.UnitOfMeasureId,
                 BatchNumber = l.BatchNumber,
                 SerialNumber = l.SerialNumber,
+                ManufacturingDate = l.ManufacturingDate,
                 ExpiryDate = l.ExpiryDate,
                 IsQuarantine = l.IsQuarantine,
                 Remarks = l.Remarks

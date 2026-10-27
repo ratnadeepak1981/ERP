@@ -1,3 +1,5 @@
+using System;
+using System.Threading.Tasks;
 using SaaS.Application.Interfaces;
 using Security.Application.DTOs;
 using Security.Core.Models;
@@ -11,6 +13,7 @@ public class UserService : IUserService
     private readonly ICurrentUserContext _currentUserContext;
     private readonly PasswordService _passwordService;
     private readonly ITokenService _tokenService;
+    private readonly ISessionService? _sessionService;
     private readonly ISubscriptionUsageService? _subscriptionUsageService;
 
     public UserService(
@@ -19,11 +22,23 @@ public class UserService : IUserService
         PasswordService passwordService,
         ITokenService tokenService,
         ISubscriptionUsageService? subscriptionUsageService = null)
+        : this(repository, currentUserContext, passwordService, tokenService, null, subscriptionUsageService)
+    {
+    }
+
+    public UserService(
+        IUserRepository repository,
+        ICurrentUserContext currentUserContext,
+        PasswordService passwordService,
+        ITokenService tokenService,
+        ISessionService? sessionService,
+        ISubscriptionUsageService? subscriptionUsageService = null)
     {
         _repository = repository;
         _currentUserContext = currentUserContext;
         _passwordService = passwordService;
         _tokenService = tokenService;
+        _sessionService = sessionService;
         _subscriptionUsageService = subscriptionUsageService;
     }
 
@@ -153,6 +168,25 @@ public class UserService : IUserService
                 roles,
                 permissions);
 
+        int lifetimeMinutes = _tokenService.GetAccessTokenLifetimeMinutes();
+        var now = DateTime.UtcNow;
+
+        string? rawRefreshToken = null;
+        Guid? sessionId = null;
+
+        if (_sessionService != null)
+        {
+            var (session, refreshToken) = await _sessionService.CreateSessionAsync(
+                user.Id,
+                user.TenantId,
+                request.DeviceName,
+                null,
+                null);
+
+            sessionId = session.Id;
+            rawRefreshToken = refreshToken;
+        }
+
         return new LoginResponse
         {
             Status = "PASS",
@@ -166,7 +200,10 @@ public class UserService : IUserService
             Algorithm = "RS256",
             Issuer = "CSharpAuthServer",
             Audience = "ERP",
-            Token = token
+            Token = token,
+            AccessTokenExpiresAt = now.AddMinutes(lifetimeMinutes),
+            RefreshToken = rawRefreshToken,
+            SessionId = sessionId
         };
     }
 }
