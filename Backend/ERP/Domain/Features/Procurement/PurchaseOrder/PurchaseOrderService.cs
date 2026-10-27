@@ -1,3 +1,7 @@
+using System.Linq;
+using Domain.Infrastructure.Persistence;
+using ERP.Domain.Features.MasterData.Warehouse;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -19,6 +23,7 @@ public class PurchaseOrderService : IPurchaseOrderService
     private readonly IUnitOfMeasureRepository _uomRepository;
     private readonly IApprovalWorkflowService _approvalService;
     private readonly ITaxCodeRepository? _taxCodeRepository;
+    private readonly DomainDbContext? _context;
 
     public PurchaseOrderService(
         IPurchaseOrderRepository repository,
@@ -27,7 +32,8 @@ public class PurchaseOrderService : IPurchaseOrderService
         ISupplierProductPriceService supplierPriceService,
         IUnitOfMeasureRepository uomRepository,
         IApprovalWorkflowService approvalService,
-        ITaxCodeRepository? taxCodeRepository = null)
+        ITaxCodeRepository? taxCodeRepository = null,
+        DomainDbContext? context = null)
     {
         _repository = repository;
         _productRepository = productRepository;
@@ -36,6 +42,7 @@ public class PurchaseOrderService : IPurchaseOrderService
         _uomRepository = uomRepository;
         _approvalService = approvalService;
         _taxCodeRepository = taxCodeRepository;
+        _context = context;
     }
 
     public async Task<List<PurchaseOrder>> GetOrdersAsync(
@@ -186,7 +193,8 @@ public class PurchaseOrderService : IPurchaseOrderService
                     itemReq.TaxCodeId,
                     taxRate,
                     itemReq.IsTaxInclusive,
-                    itemReq.Notes);
+                    itemReq.Notes);
+
             }
         }
 
@@ -287,7 +295,8 @@ public class PurchaseOrderService : IPurchaseOrderService
             request.TaxCodeId,
             taxRate,
             request.IsTaxInclusive,
-            request.Notes);
+            request.Notes);
+
 
         await _repository.SaveChangesAsync();
 
@@ -324,6 +333,7 @@ public class PurchaseOrderService : IPurchaseOrderService
         {
             // Simple Approval disabled: automatically approve
             order.AutoApprove();
+            await ApplyPurchaseOrderOnOrderDeltaAsync(order, isApproval: true);
             await _repository.SaveChangesAsync();
 
             await _approvalService.RecordAutoApprovalAsync(
@@ -363,6 +373,7 @@ public class PurchaseOrderService : IPurchaseOrderService
             remarks);
 
         order.Approve();
+        await ApplyPurchaseOrderOnOrderDeltaAsync(order, isApproval: true);
         await _repository.SaveChangesAsync();
 
         return order;
@@ -406,6 +417,11 @@ public class PurchaseOrderService : IPurchaseOrderService
     {
         var order = await _repository.GetByIdAsync(tenantId, companyId, branchId, orderId)
             ?? throw new KeyNotFoundException("Purchase order not found in authorized scope.");
+
+        if (order.Status == PurchaseOrderStatus.Approved)
+        {
+            await ApplyPurchaseOrderOnOrderDeltaAsync(order, isApproval: false);
+        }
 
         order.Cancel();
         await _repository.SaveChangesAsync();
@@ -461,5 +477,68 @@ public class PurchaseOrderService : IPurchaseOrderService
         }
 
         return explicitTaxRate;
+    }
+
+    private async Task ApplyPurchaseOrderOnOrderDeltaAsync(PurchaseOrder order, bool isApproval)
+    {
+        if (_context == null) return;
+
+        var activeItems = order.Items.Where(i => i.IsActive && (i.Quantity - i.ReceivedQuantity) > 0).ToList();
+        if (activeItems.Count == 0) return;
+
+        var warehouses = await _context.Warehouses
+            .Where(w => w.TenantId == order.TenantId && w.BranchId == order.BranchId && w.IsActive)
+            .ToListAsync();
+
+        var targetWarehouse = warehouses.FirstOrDefault();
+        if (targetWarehouse == null)
+        {
+            targetWarehouse = await _context.Warehouses
+                .FirstOrDefaultAsync(w => w.TenantId == order.TenantId && w.CompanyId == order.CompanyId && w.IsActive);
+        }
+
+        if (targetWarehouse == null) return;
+
+        var locations = await _context.WarehouseLocations
+            .Where(l => l.TenantId == order.TenantId && l.WarehouseId == targetWarehouse.WarehouseId && l.IsActive)
+            .ToListAsync();
+
+        var targetLocation = locations.FirstOrDefault();
+        if (targetLocation == null) return;
+
+        foreach (var item in activeItems)
+        {
+            decimal delta = item.Quantity - item.ReceivedQuantity;
+            if (delta <= 0) continue;
+
+            var balance = await _context.InventoryBalances
+                .FirstOrDefaultAsync(b => b.TenantId == order.TenantId
+                                       && b.WarehouseId == targetWarehouse.WarehouseId
+                                       && b.WarehouseLocationId == targetLocation.WarehouseLocationId
+                                       && b.ProductId == item.ProductId
+                                       && b.BatchNumber == string.Empty
+                                       && b.SerialNumber == string.Empty);
+
+            if (balance == null && isApproval)
+            {
+                balance = ERP.Domain.Features.Inventory.InventoryBalance.Create(
+                    order.TenantId,
+                    targetWarehouse.WarehouseId,
+                    targetLocation.WarehouseLocationId,
+                    item.ProductId,
+                    batchNumber: null,
+                    serialNumber: null);
+                _context.InventoryBalances.Add(balance);
+            }
+
+            if (balance != null)
+            {
+                decimal appliedDelta = isApproval ? delta : -Math.Min(balance.QuantityOnOrder, delta);
+                if (appliedDelta != 0)
+                {
+                    balance.ApplyOnOrderChange(appliedDelta);
+                }
+            }
+        }
     }
 }

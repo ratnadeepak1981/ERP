@@ -114,7 +114,11 @@ public class ProductService : IProductService
             request.IsStockTracked,
             request.ProductType,
             request.TrackingMode,
-            resolvedUomId);
+            resolvedUomId,
+            request.MinStockQuantity,
+            request.MaxStockQuantity,
+            request.SafetyStockQuantity,
+            request.LeadTimeDays);
 
         if (_subscriptionUsageService != null)
         {
@@ -196,7 +200,11 @@ public class ProductService : IProductService
             request.IsStockTracked,
             request.ProductType,
             request.TrackingMode,
-            resolvedUomId);
+            resolvedUomId,
+            request.MinStockQuantity,
+            request.MaxStockQuantity,
+            request.SafetyStockQuantity,
+            request.LeadTimeDays);
 
         await _repository.SaveChangesAsync();
         return product;
