@@ -400,6 +400,7 @@ public class InventoryPostingEngineTests : IClassFixture<TestSecurityFixture>
         }));
 
         // Supplying batch succeeds
+        string batchNo = $"BATCH-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
         var batchTxn = await postingService.PostMovementAsync(tenantId, new PostInventoryMovementRequest
         {
             MovementType = InventoryMovementType.GoodsReceipt,
@@ -409,9 +410,9 @@ public class InventoryPostingEngineTests : IClassFixture<TestSecurityFixture>
             WarehouseId = warehouse.WarehouseId,
             WarehouseLocationId = location.WarehouseLocationId,
             Quantity = 10m,
-            BatchNumber = "BATCH-2026-A"
+            BatchNumber = batchNo
         });
-        Assert.Equal("BATCH-2026-A", batchTxn.BatchNumber);
+        Assert.Equal(batchNo, batchTxn.BatchNumber);
 
         // 2. Serial-tracked product requires serial and Qty of 1
         var serialProduct = await CreateTestProductAsync(db, tenantId, TrackingMode.Serial);

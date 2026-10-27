@@ -21,6 +21,7 @@ public class SalesShipmentService : ISalesShipmentService
     private readonly IProductRepository _productRepository;
     private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryPostingService _postingService;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly DomainDbContext _context;
     private readonly ISubscriptionUsageService? _subscriptionUsageService;
     private readonly IServiceProvider? _serviceProvider;
@@ -32,6 +33,7 @@ public class SalesShipmentService : ISalesShipmentService
         IWarehouseRepository warehouseRepository,
         IInventoryPostingService postingService,
         DomainDbContext context,
+        IInventoryRepository? inventoryRepository = null,
         ISubscriptionUsageService? subscriptionUsageService = null,
         IServiceProvider? serviceProvider = null)
     {
@@ -41,6 +43,7 @@ public class SalesShipmentService : ISalesShipmentService
         _warehouseRepository = warehouseRepository;
         _postingService = postingService;
         _context = context;
+        _inventoryRepository = inventoryRepository ?? new InventoryRepository(context);
         _subscriptionUsageService = subscriptionUsageService;
         _serviceProvider = serviceProvider;
     }
@@ -187,8 +190,9 @@ public class SalesShipmentService : ISalesShipmentService
                 ?? throw new InvalidOperationException("No active warehouse found for tenant. Please provide warehouse and location.");
 
             var locations = await _warehouseRepository.GetLocationsAsync(tenantId, wh.WarehouseId);
-            var loc = locations.FirstOrDefault(l => l.IsActive)
-                ?? throw new InvalidOperationException($"No active location found in warehouse '{wh.WarehouseCode}'.");
+            var locTypes = (await _warehouseRepository.GetLocationTypesAsync(tenantId)).ToDictionary(t => t.LocationTypeId);
+            var loc = locations.FirstOrDefault(l => l.IsActive && (!l.LocationTypeId.HasValue || (locTypes.TryGetValue(l.LocationTypeId.Value, out var lt) && lt.CanPick)))
+                ?? throw new InvalidOperationException($"No active pickable location found in warehouse '{wh.WarehouseCode}'.");
 
             defaultWarehouseId = wh.WarehouseId;
             defaultLocationId = loc.WarehouseLocationId;
@@ -573,23 +577,62 @@ public class SalesShipmentService : ISalesShipmentService
                 .GroupBy(i => i.SalesOrderItemId)
                 .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
 
-            // Validate zero over-shipment tolerance
-            foreach (var item in activeShipmentItems)
-            {
-                var orderItem = order.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId && i.IsActive)
-                    ?? throw new InvalidOperationException($"Order line '{item.SalesOrderItemId}' not found on order.");
+            // Validate zero over-shipment tolerance aggregating across all shipment items for each order item
+            var groupedByOrderLine = activeShipmentItems
+                .GroupBy(i => i.SalesOrderItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
 
-                committedDispatchedQty.TryGetValue(item.SalesOrderItemId, out decimal alreadyDispatched);
+            foreach (var kvp in groupedByOrderLine)
+            {
+                var orderItem = order.Items.FirstOrDefault(i => i.Id == kvp.Key && i.IsActive)
+                    ?? throw new InvalidOperationException($"Order line '{kvp.Key}' not found on order.");
+
+                committedDispatchedQty.TryGetValue(kvp.Key, out decimal alreadyDispatched);
                 decimal maxAllowable = orderItem.Quantity - alreadyDispatched;
 
-                if (item.QuantityDispatched > maxAllowable)
+                if (kvp.Value > maxAllowable)
                 {
                     throw new InvalidOperationException(
-                        $"Over-shipment rejected for product '{item.ProductId}'. Ordered: {orderItem.Quantity}, Already Dispatched: {alreadyDispatched}, Attempted in this shipment: {item.QuantityDispatched}. Over-shipment tolerance is 0%.");
+                        $"Over-shipment rejected for product '{orderItem.ProductId}'. Ordered: {orderItem.Quantity}, Already Dispatched: {alreadyDispatched}, Attempted in this shipment: {kvp.Value}. Over-shipment tolerance is 0%.");
                 }
             }
 
-            // 4. Mark status
+            // 4. Validate all active items' warehouse and location picking capability and batch eligibility
+            var dispatchDate = (targetStatus == SalesShipmentStatus.Delivered ? deliveredAt : shipment.DispatchedAt) ?? DateTime.UtcNow;
+            foreach (var item in activeShipmentItems)
+            {
+                await ValidateWarehouseAndLocationAsync(tenantId, item.WarehouseId, item.WarehouseLocationId);
+
+                var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId)
+                    ?? throw new InvalidOperationException($"Product '{item.ProductId}' not found.");
+
+                if (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial)
+                {
+                    if (string.IsNullOrWhiteSpace(item.BatchNumber))
+                    {
+                        throw new InvalidOperationException($"Batch number is required for batch-tracked product '{product.ProductCode}'.");
+                    }
+
+                    string normBatch = item.BatchNumber.Trim();
+                    var batch = await _inventoryRepository.GetBatchAsync(tenantId, product.ProductId, normBatch);
+                    if (batch == null)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' does not exist for product '{product.ProductCode}'.");
+                    }
+
+                    if (!batch.IsActive)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' is inactive and cannot be dispatched.");
+                    }
+
+                    if (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < dispatchDate.Date)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' for product '{product.ProductCode}' expired on {batch.ExpiryDate.Value:yyyy-MM-dd} and cannot be dispatched.");
+                    }
+                }
+            }
+
+            // 5. Mark status
             if (targetStatus == SalesShipmentStatus.Delivered)
             {
                 shipment.MarkDelivered(deliveredAt, recipientName);
@@ -599,7 +642,7 @@ public class SalesShipmentService : ISalesShipmentService
                 shipment.MarkDispatched();
             }
 
-            // 5. Post Inventory ledger movement for stock-tracked products
+            // 6. Post Inventory ledger movement for stock-tracked products
             int sequence = 1;
             foreach (var item in activeShipmentItems)
             {
@@ -629,7 +672,7 @@ public class SalesShipmentService : ISalesShipmentService
                 }
             }
 
-            // 6. Recalculate Sales Order fulfillment status across all lines
+            // 7. Recalculate Sales Order fulfillment status across all lines
             // Physical lines: fulfilled when total dispatched >= ordered quantity
             // Service lines: not subject to physical dispatch (pending separate completion)
             bool allPhysicalFulfilled = true;
@@ -703,6 +746,15 @@ public class SalesShipmentService : ISalesShipmentService
 
         if (location.WarehouseId != warehouseId)
             throw new InvalidOperationException("Location does not belong to the specified warehouse.");
+
+        if (location.LocationTypeId.HasValue)
+        {
+            var locType = await _warehouseRepository.GetLocationTypeByIdAsync(tenantId, location.LocationTypeId.Value);
+            if (locType != null && !locType.CanPick)
+            {
+                throw new InvalidOperationException($"Location '{location.LocationCode}' does not allow picking for dispatch (type '{locType.Name}' has picking disabled).");
+            }
+        }
     }
 
     private static SalesShipmentDto MapToDto(SalesShipment shipment, string orderNumber)
@@ -822,11 +874,13 @@ public class SalesShipmentService : ISalesShipmentService
             .ThenByDescending(w => w.CompanyId == order.CompanyId)
             .ThenByDescending(w => w.CreatedAt)
             .ToList();
+
+        var locTypes = (await _warehouseRepository.GetLocationTypesAsync(tenantId)).ToDictionary(t => t.LocationTypeId);
         var allActiveLocations = new List<(WarehouseLocation Loc, Warehouse Wh)>();
         foreach (var wh in activeWarehouses)
         {
             var locs = await _warehouseRepository.GetLocationsAsync(tenantId, wh.WarehouseId);
-            foreach (var loc in locs.Where(l => l.IsActive).OrderBy(l => l.CreatedAt))
+            foreach (var loc in locs.Where(l => l.IsActive && (!l.LocationTypeId.HasValue || (locTypes.TryGetValue(l.LocationTypeId.Value, out var lt) && lt.CanPick))).OrderBy(l => l.CreatedAt))
             {
                 allActiveLocations.Add((loc, wh));
             }
@@ -840,6 +894,12 @@ public class SalesShipmentService : ISalesShipmentService
             selectedLocTuple = allActiveLocations.FirstOrDefault(t => t.Loc.WarehouseLocationId == targetLocationId.Value);
             if (selectedLocTuple.Loc == null)
             {
+                var targetLoc = await _warehouseRepository.GetLocationByIdAsync(tenantId, targetLocationId.Value);
+                if (targetLoc != null && targetLoc.LocationTypeId.HasValue && locTypes.TryGetValue(targetLoc.LocationTypeId.Value, out var targetLt) && !targetLt.CanPick)
+                {
+                    throw new InvalidOperationException($"Specified target location '{targetLoc.LocationCode}' does not allow picking for dispatch.");
+                }
+
                 throw new InvalidOperationException("Specified target location not found or is inactive.");
             }
         }
@@ -858,8 +918,8 @@ public class SalesShipmentService : ISalesShipmentService
             {
                 if (product.IsStockTracked)
                 {
-                    var bal = await _postingService.GetBalanceAsync(tenantId, selectedLocTuple.Loc.WarehouseLocationId, product.ProductId);
-                    available = bal?.QuantityAvailable ?? 0m;
+                    bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+                    available = await _postingService.GetTotalAvailableStockAsync(tenantId, selectedLocTuple.Loc.WarehouseLocationId, product.ProductId, isBatch);
                 }
                 else
                 {
@@ -900,8 +960,8 @@ public class SalesShipmentService : ISalesShipmentService
                 decimal avail = 0m;
                 if (product.IsStockTracked)
                 {
-                    var bal = await _postingService.GetBalanceAsync(tenantId, loc.WarehouseLocationId, product.ProductId);
-                    avail = bal?.QuantityAvailable ?? 0m;
+                    bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+                    avail = await _postingService.GetTotalAvailableStockAsync(tenantId, loc.WarehouseLocationId, product.ProductId, isBatch);
                 }
                 else
                 {
@@ -1028,16 +1088,23 @@ public class SalesShipmentService : ISalesShipmentService
         }
 
         // 3. Authoritative stock revalidation at the specified location for all unfulfilled lines
+        var dateAsOf = request.ShipmentDate ?? DateTime.UtcNow;
         foreach (var (item, product, remaining) in unfulfilledLines)
         {
             if (product.IsStockTracked)
             {
-                var balance = await _postingService.GetBalanceAsync(tenantId, request.WarehouseLocationId, product.ProductId);
-                decimal available = balance?.QuantityAvailable ?? 0m;
+                bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+                decimal available = await _postingService.GetTotalAvailableStockAsync(
+                    tenantId,
+                    request.WarehouseLocationId,
+                    product.ProductId,
+                    isBatch,
+                    dateAsOf);
+
                 if (available < remaining)
                 {
                     throw new InvalidOperationException(
-                        $"Insufficient stock at location for product '{product.ProductCode}'. Required: {remaining}, Available: {available}.");
+                        $"Insufficient eligible stock at location for product '{product.ProductCode}'. Required: {remaining}, Available: {available}.");
                 }
             }
         }
@@ -1071,17 +1138,56 @@ public class SalesShipmentService : ISalesShipmentService
 
         foreach (var (item, product, remaining) in unfulfilledLines)
         {
-            var shipmentItem = SalesShipmentItem.Create(
-                shipment.Id,
-                item.Id,
-                product.ProductId,
-                request.WarehouseId,
-                request.WarehouseLocationId,
-                remaining,
-                item.UnitOfMeasureId,
-                notes: request.Notes);
+            bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+            if (isBatch)
+            {
+                var eligibleBatches = await _inventoryRepository.GetEligibleBatchesAsync(
+                    tenantId,
+                    product.ProductId,
+                    request.WarehouseId,
+                    request.WarehouseLocationId,
+                    dateAsOf);
 
-            shipment.AddItem(shipmentItem);
+                decimal needed = remaining;
+                foreach (var b in eligibleBatches)
+                {
+                    if (needed <= 0) break;
+                    decimal take = Math.Min(needed, b.QuantityAvailable);
+                    var shipmentItem = SalesShipmentItem.Create(
+                        shipment.Id,
+                        item.Id,
+                        product.ProductId,
+                        request.WarehouseId,
+                        request.WarehouseLocationId,
+                        take,
+                        item.UnitOfMeasureId,
+                        batchNumber: b.BatchNumber,
+                        notes: request.Notes);
+
+                    shipment.AddItem(shipmentItem);
+                    needed -= take;
+                }
+
+                if (needed > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Insufficient eligible batch stock at location for product '{product.ProductCode}'. Required: {remaining}, Shortage: {needed}.");
+                }
+            }
+            else
+            {
+                var shipmentItem = SalesShipmentItem.Create(
+                    shipment.Id,
+                    item.Id,
+                    product.ProductId,
+                    request.WarehouseId,
+                    request.WarehouseLocationId,
+                    remaining,
+                    item.UnitOfMeasureId,
+                    notes: request.Notes);
+
+                shipment.AddItem(shipmentItem);
+            }
         }
 
         shipment.MarkDispatched();
@@ -1108,6 +1214,8 @@ public class SalesShipmentService : ISalesShipmentService
                     WarehouseLocationId = item.WarehouseLocationId,
                     Quantity = item.QuantityDispatched,
                     UnitOfMeasureId = item.UnitOfMeasureId,
+                    BatchNumber = item.BatchNumber,
+                    SerialNumber = item.SerialNumber,
                     TransactionDate = shipment.DispatchedAt ?? DateTime.UtcNow
                 };
 

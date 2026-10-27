@@ -16,6 +16,7 @@ using SaaS.Application.Interfaces;
 using Security.Interfaces;
 using Security.Services;
 using SecurityLoginRequest = Security.Application.DTOs.LoginRequest;
+using SecurityRefreshTokenRequest = Security.Application.DTOs.RefreshTokenRequest;
 
 namespace API.Features.Security;
 
@@ -27,19 +28,28 @@ public class SecurityController : BaseApiController
     private readonly ITokenService _tokenService;
     private readonly RsaPrivateKeyLoader _keyLoader;
     private readonly IUserService _userService;
+    private readonly ISessionService _sessionService;
+    private readonly ICurrentUserContext _currentUserContext;
     private readonly IWebHostEnvironment _env;
+
+    private const string RefreshTokenCookieName = "apex_erp_refresh_token";
+    private const string CookiePath = "/api";
 
     public SecurityController(
         SecurityService securityService,
         ITokenService tokenService,
         RsaPrivateKeyLoader keyLoader,
         IUserService userService,
+        ISessionService sessionService,
+        ICurrentUserContext currentUserContext,
         IWebHostEnvironment env)
     {
         _securityService = securityService;
         _tokenService = tokenService;
         _keyLoader = keyLoader;
         _userService = userService;
+        _sessionService = sessionService;
+        _currentUserContext = currentUserContext;
         _env = env;
     }
 
@@ -64,6 +74,11 @@ public class SecurityController : BaseApiController
             }
 
             var result = await _userService.LoginAsync(request);
+            if (!string.IsNullOrWhiteSpace(result.RefreshToken))
+            {
+                SetRefreshTokenCookie(result.RefreshToken, result.AccessTokenExpiresAt?.AddDays(7));
+            }
+
             return SuccessResponse(result, "Login successful.");
         }
         catch (ArgumentException ex)
@@ -78,6 +93,247 @@ public class SecurityController : BaseApiController
         {
             return HandleDomainException(ex);
         }
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] SecurityRefreshTokenRequest? request)
+    {
+        try
+        {
+            var (rawRefreshToken, isCookieTransport) = ExtractRefreshToken(request);
+
+            if (string.IsNullOrWhiteSpace(rawRefreshToken))
+            {
+                return UnauthorizedResponse("Refresh token is required.");
+            }
+
+            if (isCookieTransport && !ValidateCsrfOrigin())
+            {
+                return ForbiddenResponse("Potential cross-site request forgery detected on cookie refresh.");
+            }
+
+            string? ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            string? userAgent = Request.Headers.UserAgent.ToString();
+
+            var result = await _sessionService.RefreshTokenAsync(
+                rawRefreshToken,
+                ipAddress,
+                userAgent,
+                HttpContext.RequestAborted);
+
+            if (!result.Succeeded)
+            {
+                if (isCookieTransport)
+                {
+                    ClearRefreshTokenCookie();
+                }
+                return UnauthorizedResponse(result.ErrorMessage ?? "Invalid refresh token.");
+            }
+
+            if (isCookieTransport && !string.IsNullOrWhiteSpace(result.NewRefreshToken))
+            {
+                SetRefreshTokenCookie(
+                    result.NewRefreshToken,
+                    result.RefreshTokenExpiresAt.HasValue
+                        ? new DateTimeOffset(result.RefreshTokenExpiresAt.Value)
+                        : DateTimeOffset.UtcNow.AddDays(7));
+            }
+
+            return SuccessResponse(new
+            {
+                accessToken = result.AccessToken,
+                token = result.AccessToken,
+                accessTokenExpiresAt = result.AccessTokenExpiresAt,
+                refreshToken = isCookieTransport ? null : result.NewRefreshToken,
+                refreshTokenExpiresAt = result.RefreshTokenExpiresAt,
+                userId = result.UserId,
+                username = result.Username,
+                email = result.Email,
+                tenantId = result.TenantId,
+                roles = result.Roles,
+                permissions = result.Permissions,
+                sessionId = result.SessionId
+            }, "Token refreshed successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] SecurityRefreshTokenRequest? request)
+    {
+        try
+        {
+            var (rawRefreshToken, isCookieTransport) = ExtractRefreshToken(request);
+
+            if (!string.IsNullOrWhiteSpace(rawRefreshToken))
+            {
+                await _sessionService.RevokeSessionByTokenAsync(
+                    rawRefreshToken,
+                    "UserLogout",
+                    HttpContext.RequestAborted);
+            }
+
+            if (isCookieTransport || Request.Cookies.ContainsKey(RefreshTokenCookieName))
+            {
+                ClearRefreshTokenCookie();
+            }
+
+            return SuccessResponse("Logout successful.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("logout-all")]
+    [Authorize]
+    public async Task<IActionResult> LogoutAll()
+    {
+        try
+        {
+            Guid currentUserId = _currentUserContext.UserId;
+
+            await _sessionService.RevokeAllSessionsForUserAsync(
+                currentUserId,
+                "LogoutAll",
+                HttpContext.RequestAborted);
+
+            ClearRefreshTokenCookie();
+            return SuccessResponse("All user sessions revoked successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("sessions")]
+    [Authorize]
+    public async Task<IActionResult> GetActiveSessions()
+    {
+        try
+        {
+            Guid currentUserId = _currentUserContext.UserId;
+
+            var sessions = await _sessionService.GetActiveSessionsForUserAsync(
+                currentUserId,
+                null,
+                HttpContext.RequestAborted);
+
+            return SuccessResponse(sessions);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpDelete("sessions/{sessionId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> RevokeSession(Guid sessionId)
+    {
+        try
+        {
+            Guid currentUserId = _currentUserContext.UserId;
+            bool isPlatformAdmin = User.IsInRole("Platform Admin") || User.IsInRole("Security Manager");
+
+            bool revoked = await _sessionService.RevokeSessionByIdAsync(
+                sessionId,
+                currentUserId,
+                isPlatformAdmin,
+                "AdminRevocation",
+                HttpContext.RequestAborted);
+
+            if (!revoked)
+            {
+                return NotFoundResponse("Session not found.");
+            }
+
+            return SuccessResponse("Session revoked successfully.");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return ForbiddenResponse(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    private void SetRefreshTokenCookie(string token, DateTimeOffset? expiresAt)
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = Request.IsHttps || !_env.IsDevelopment(),
+            SameSite = SameSiteMode.Strict,
+            Path = CookiePath,
+            Expires = expiresAt ?? DateTimeOffset.UtcNow.AddDays(7)
+        };
+
+        Response.Cookies.Append(RefreshTokenCookieName, token, cookieOptions);
+    }
+
+    private void ClearRefreshTokenCookie()
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = Request.IsHttps || !_env.IsDevelopment(),
+            SameSite = SameSiteMode.Strict,
+            Path = CookiePath,
+            Expires = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+
+        Response.Cookies.Delete(RefreshTokenCookieName, cookieOptions);
+    }
+
+    private (string? Token, bool IsCookieTransport) ExtractRefreshToken(SecurityRefreshTokenRequest? request)
+    {
+        if (!string.IsNullOrWhiteSpace(request?.RefreshToken))
+        {
+            return (request.RefreshToken, false);
+        }
+
+        if (Request.Cookies.TryGetValue(RefreshTokenCookieName, out var cookieToken) &&
+            !string.IsNullOrWhiteSpace(cookieToken))
+        {
+            return (cookieToken, true);
+        }
+
+        return (null, false);
+    }
+
+    private bool ValidateCsrfOrigin()
+    {
+        string? origin = Request.Headers.Origin.FirstOrDefault() ?? Request.Headers.Referer.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(origin) && Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        {
+            bool isAllowed = false;
+            if (_env.IsDevelopment() && (uri.Host == "localhost" || uri.Host == "127.0.0.1"))
+            {
+                isAllowed = true;
+            }
+            else if (string.Equals(uri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                isAllowed = true;
+            }
+
+            if (!isAllowed)
+            {
+                return false;
+            }
+        }
+
+        bool hasCustomHeader = Request.Headers.ContainsKey("X-Requested-With") || Request.Headers.ContainsKey("X-Apex-Origin");
+        bool hasOrigin = !string.IsNullOrWhiteSpace(origin);
+
+        return hasCustomHeader || hasOrigin;
     }
 
     [HttpGet("status")]

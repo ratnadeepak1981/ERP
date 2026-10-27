@@ -4,6 +4,10 @@ export interface LoginRequest {
   tenantCode?: string;
 }
 
+export interface RefreshTokenRequest {
+  refreshToken?: string;
+}
+
 export interface LoginResponse {
   status: string;
   message: string;
@@ -13,10 +17,15 @@ export interface LoginResponse {
   tenantId?: string | null;
   roles: string[];
   permissions: string[];
-  algorithm: string;
-  issuer: string;
-  audience: string;
+  algorithm?: string;
+  issuer?: string;
+  audience?: string;
   token: string;
+  accessToken?: string;
+  accessTokenExpiresAt?: string;
+  refreshToken?: string;
+  refreshTokenExpiresAt?: string;
+  sessionId?: string;
 }
 
 export interface UserSession {
@@ -27,6 +36,23 @@ export interface UserSession {
   roles: string[];
   permissions: string[];
   token: string;
+  accessTokenExpiresAt?: string;
+  sessionId?: string;
+}
+
+export interface SessionInfo {
+  id: string;
+  userId: string;
+  username?: string;
+  tenantId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  deviceInfo?: string | null;
+  createdAt: string;
+  lastActivityAt: string;
+  absoluteExpiresAt: string;
+  isRevoked: boolean;
+  isCurrent: boolean;
 }
 
 export interface ApiResponse<T = any> {
