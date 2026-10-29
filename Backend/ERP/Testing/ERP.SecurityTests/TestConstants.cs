@@ -37,6 +37,14 @@ public static class TestConstants
     public static readonly Guid CustomerAlphaId = Guid.Parse("77777777-7777-7777-7777-777777777777");
     public static readonly Guid CustomerBetaId = Guid.Parse("88888888-8888-8888-8888-888888888888");
 
+    // Suppliers
+    public static readonly Guid SupplierAlphaId = Guid.Parse("7a7a7a7a-7a7a-7a7a-7a7a-7a7a7a7a7a7a");
+    public static readonly Guid SupplierBetaId = Guid.Parse("8b8b8b8b-8b8b-8b8b-8b8b-8b8b8b8b8b8b");
+
+    // Warehouses
+    public static readonly Guid WarehouseAlphaMainId = Guid.Parse("9a9a9a9a-9a9a-9a9a-9a9a-9a9a9a9a9a9a");
+    public static readonly Guid WarehouseBetaMainId = Guid.Parse("9b9b9b9b-9b9b-9b9b-9b9b-9b9b9b9b9b9b");
+
     // Users
     public static readonly Guid PlatformAdminId = Guid.Parse("99999999-9999-9999-9999-999999999999");
     public static readonly Guid TenantAdminAlphaId = Guid.Parse("10101010-1010-1010-1010-101010101010");

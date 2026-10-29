@@ -24,6 +24,7 @@ public class PurchaseOrderService : IPurchaseOrderService
     private readonly IApprovalWorkflowService _approvalService;
     private readonly ITaxCodeRepository? _taxCodeRepository;
     private readonly DomainDbContext? _context;
+    private readonly IUnitOfMeasureService? _uomService;
 
     public PurchaseOrderService(
         IPurchaseOrderRepository repository,
@@ -33,7 +34,8 @@ public class PurchaseOrderService : IPurchaseOrderService
         IUnitOfMeasureRepository uomRepository,
         IApprovalWorkflowService approvalService,
         ITaxCodeRepository? taxCodeRepository = null,
-        DomainDbContext? context = null)
+        DomainDbContext? context = null,
+        IUnitOfMeasureService? uomService = null)
     {
         _repository = repository;
         _productRepository = productRepository;
@@ -43,6 +45,7 @@ public class PurchaseOrderService : IPurchaseOrderService
         _approvalService = approvalService;
         _taxCodeRepository = taxCodeRepository;
         _context = context;
+        _uomService = uomService;
     }
 
     public async Task<List<PurchaseOrder>> GetOrdersAsync(
@@ -508,8 +511,26 @@ public class PurchaseOrderService : IPurchaseOrderService
 
         foreach (var item in activeItems)
         {
+            var product = await _productRepository.GetByIdAsync(order.TenantId, item.ProductId);
+            if (product == null || !product.IsStockTracked) continue;
+
             decimal delta = item.Quantity - item.ReceivedQuantity;
             if (delta <= 0) continue;
+
+            decimal baseDelta = delta;
+            if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+            {
+                if (_uomService != null)
+                {
+                    var converted = await _uomService.ConvertQuantityAsync(
+                        order.TenantId,
+                        item.UnitOfMeasureId.Value,
+                        product.UnitOfMeasureId.Value,
+                        delta
+                    );
+                    baseDelta = converted.ConvertedQuantity;
+                }
+            }
 
             var balance = await _context.InventoryBalances
                 .FirstOrDefaultAsync(b => b.TenantId == order.TenantId
@@ -533,7 +554,7 @@ public class PurchaseOrderService : IPurchaseOrderService
 
             if (balance != null)
             {
-                decimal appliedDelta = isApproval ? delta : -Math.Min(balance.QuantityOnOrder, delta);
+                decimal appliedDelta = isApproval ? baseDelta : -Math.Min(balance.QuantityOnOrder, baseDelta);
                 if (appliedDelta != 0)
                 {
                     balance.ApplyOnOrderChange(appliedDelta);
