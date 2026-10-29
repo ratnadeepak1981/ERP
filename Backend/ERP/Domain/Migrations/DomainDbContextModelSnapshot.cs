@@ -943,6 +943,80 @@ namespace Domain.Migrations
                     b.ToTable("Products", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Features.MasterData.Product.ProductIdentifier", b =>
+                {
+                    b.Property<Guid>("ProductIdentifierId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("IdentifierType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifierValue")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Symbology")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UnitOfMeasureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ProductIdentifierId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("UnitOfMeasureId");
+
+                    b.HasIndex("TenantId", "IdentifierValue")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
+                    b.HasIndex("TenantId", "ProductId")
+                        .IsUnique()
+                        .HasFilter("[IsPrimary] = 1 AND [IsActive] = 1 AND [UnitOfMeasureId] IS NULL");
+
+                    b.HasIndex("TenantId", "ProductId", "UnitOfMeasureId")
+                        .IsUnique()
+                        .HasFilter("[IsPrimary] = 1 AND [IsActive] = 1 AND [UnitOfMeasureId] IS NOT NULL");
+
+                    b.ToTable("ProductIdentifiers", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Product.ProductWarehouseSetting", b =>
                 {
                     b.Property<Guid>("ProductWarehouseSettingId")
@@ -3406,6 +3480,76 @@ namespace Domain.Migrations
                     b.ToTable("SupplierContacts", (string)null);
                 });
 
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.LocationIdentifier", b =>
+                {
+                    b.Property<Guid>("LocationIdentifierId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("IdentifierType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentifierValue")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Symbology")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("LocationIdentifierId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("WarehouseLocationId");
+
+                    b.HasIndex("TenantId", "IdentifierValue")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
+                    b.HasIndex("TenantId", "WarehouseLocationId")
+                        .IsUnique()
+                        .HasFilter("[IsPrimary] = 1 AND [IsActive] = 1");
+
+                    b.ToTable("LocationIdentifiers", (string)null);
+                });
+
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.LocationType", b =>
                 {
                     b.Property<Guid>("LocationTypeId")
@@ -3846,6 +3990,20 @@ namespace Domain.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "UnitOfMeasureId")
                         .HasPrincipalKey("TenantId", "UnitOfMeasureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Product.ProductIdentifier", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Product.Product", null)
+                        .WithMany("Identifiers")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", null)
+                        .WithMany()
+                        .HasForeignKey("UnitOfMeasureId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -4451,6 +4609,21 @@ namespace Domain.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.LocationIdentifier", b =>
+                {
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", null)
+                        .WithMany("Identifiers")
+                        .HasForeignKey("WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.Warehouse", b =>
                 {
                     b.HasOne("Domain.Features.MasterData.Branch.Branch", null)
@@ -4534,6 +4707,11 @@ namespace Domain.Migrations
                     b.Navigation("Allocations");
                 });
 
+            modelBuilder.Entity("Domain.Features.MasterData.Product.Product", b =>
+                {
+                    b.Navigation("Identifiers");
+                });
+
             modelBuilder.Entity("Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote", b =>
                 {
                     b.Navigation("Lines");
@@ -4562,6 +4740,11 @@ namespace Domain.Migrations
             modelBuilder.Entity("Domain.Features.Sales.Shipment.SalesShipment", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", b =>
+                {
+                    b.Navigation("Identifiers");
                 });
 #pragma warning restore 612, 618
         }

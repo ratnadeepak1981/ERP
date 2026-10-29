@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
+using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.Procurement.PurchaseOrder;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.Inventory;
@@ -21,6 +22,7 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
     private readonly IInventoryPostingService _postingService;
     private readonly ISubscriptionUsageService _subscriptionUsageService;
     private readonly DomainDbContext _context;
+    private readonly IUnitOfMeasureService? _uomService;
 
     public GoodsReceiptNoteService(
         IGoodsReceiptNoteRepository grnRepository,
@@ -29,7 +31,8 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
         IWarehouseRepository warehouseRepository,
         IInventoryPostingService postingService,
         ISubscriptionUsageService subscriptionUsageService,
-        DomainDbContext context)
+        DomainDbContext context,
+        IUnitOfMeasureService? uomService = null)
     {
         _grnRepository = grnRepository;
         _poRepository = poRepository;
@@ -38,6 +41,7 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
         _postingService = postingService;
         _subscriptionUsageService = subscriptionUsageService;
         _context = context;
+        _uomService = uomService;
     }
 
     public async Task<List<GoodsReceiptNoteDto>> GetGrnsAsync(Guid tenantId, Guid companyId, Guid branchId)
@@ -395,15 +399,37 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                     throw new InvalidOperationException($"Cannot receive against PO in status '{po.Status}'. Only Approved POs can be received.");
                 }
 
-                // Group received quantities by PO Item to validate zero over-receipt tolerance
-                var grnQtyByPoItem = grn.Lines
-                    .GroupBy(l => l.PurchaseOrderItemId)
-                    .ToDictionary(g => g.Key, g => g.Sum(l => l.QuantityReceived));
+                // Group received quantities by PO Item to validate zero over-receipt tolerance.
+                // If GRN line has a different UOM than the PO item, convert received qty to the PO item's UOM.
+                var grnQtyByPoItem = new Dictionary<Guid, decimal>();
+                foreach (var line in grn.Lines)
+                {
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == line.PurchaseOrderItemId && i.IsActive)
+                        ?? throw new InvalidOperationException($"PO item '{line.PurchaseOrderItemId}' not found or inactive.");
+
+                    decimal qtyInPoUom = line.QuantityReceived;
+                    if (line.UnitOfMeasureId.HasValue && poItem.UnitOfMeasureId.HasValue && line.UnitOfMeasureId.Value != poItem.UnitOfMeasureId.Value)
+                    {
+                        if (_uomService == null)
+                            throw new InvalidOperationException("Unit of Measure service is required for UOM conversions.");
+
+                        var converted = await _uomService.ConvertQuantityAsync(
+                            tenantId,
+                            line.UnitOfMeasureId.Value,
+                            poItem.UnitOfMeasureId.Value,
+                            line.QuantityReceived
+                        );
+                        qtyInPoUom = converted.ConvertedQuantity;
+                    }
+
+                    if (!grnQtyByPoItem.ContainsKey(line.PurchaseOrderItemId))
+                        grnQtyByPoItem[line.PurchaseOrderItemId] = 0;
+                    grnQtyByPoItem[line.PurchaseOrderItemId] += qtyInPoUom;
+                }
 
                 foreach (var (poItemId, receivedInThisGrn) in grnQtyByPoItem)
                 {
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == poItemId && i.IsActive)
-                        ?? throw new InvalidOperationException($"PO item '{poItemId}' not found or inactive.");
+                    var poItem = po.Items.First(i => i.Id == poItemId && i.IsActive);
 
                     decimal maxAllowable = poItem.Quantity - poItem.ReceivedQuantity;
                     if (receivedInThisGrn > maxAllowable)
@@ -429,10 +455,49 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                 // Mark GRN as Confirmed
                 grn.MarkConfirmed();
 
-                // Post Inventory ledger for each line using existing IInventoryPostingService
+                // Post Inventory ledger for each stock-tracked line using existing IInventoryPostingService
+                var productIds = grn.Lines.Select(l => l.ProductId).Distinct().ToList();
+                var products = await _context.Products
+                    .Where(p => p.TenantId == tenantId && productIds.Contains(p.ProductId))
+                    .ToDictionaryAsync(p => p.ProductId);
+
                 int sequence = 1;
                 foreach (var line in grn.Lines)
                 {
+                    if (!products.TryGetValue(line.ProductId, out var product))
+                    {
+                        product = await _productRepository.GetByIdAsync(tenantId, line.ProductId)
+                            ?? throw new KeyNotFoundException($"Product '{line.ProductId}' not found.");
+                    }
+
+                    // Non-stock and service lines do NOT create inventory movements or track inventory balances
+                    if (!product.IsStockTracked)
+                    {
+                        continue;
+                    }
+
+                    decimal baseQuantity = line.QuantityReceived;
+                    Guid? targetUomId = product.UnitOfMeasureId ?? line.UnitOfMeasureId;
+
+                    if (line.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && line.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                    {
+                        if (_uomService == null)
+                            throw new InvalidOperationException("Unit of Measure service is required for UOM conversions.");
+
+                        var converted = await _uomService.ConvertQuantityAsync(
+                            tenantId,
+                            line.UnitOfMeasureId.Value,
+                            product.UnitOfMeasureId.Value,
+                            line.QuantityReceived
+                        );
+                        baseQuantity = converted.ConvertedQuantity;
+                    }
+
+                    // Compute effective base unit cost preserving total line valuation
+                    decimal effectiveUnitCost = baseQuantity > 0
+                        ? Math.Round(line.LineTotal / baseQuantity, 4, MidpointRounding.AwayFromZero)
+                        : line.UnitCost;
+
                     // Decrement on-order balance for received quantity in the corresponding warehouse
                     var onOrderBalance = await _context.InventoryBalances
                         .FirstOrDefaultAsync(b => b.TenantId == tenantId
@@ -442,12 +507,13 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
 
                     if (onOrderBalance != null)
                     {
-                        decimal decrement = Math.Min(onOrderBalance.QuantityOnOrder, line.QuantityReceived);
+                        decimal decrement = Math.Min(onOrderBalance.QuantityOnOrder, baseQuantity);
                         if (decrement > 0)
                         {
                             onOrderBalance.ApplyOnOrderChange(-decrement);
                         }
                     }
+
                     var postReq = new PostInventoryMovementRequest
                     {
                         MovementType = InventoryMovementType.GoodsReceipt,
@@ -458,9 +524,9 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                         ProductId = line.ProductId,
                         WarehouseId = line.WarehouseId,
                         WarehouseLocationId = line.WarehouseLocationId,
-                        Quantity = line.QuantityReceived,
-                        UnitCost = line.UnitCost,
-                        UnitOfMeasureId = line.UnitOfMeasureId,
+                        Quantity = baseQuantity,
+                        UnitCost = effectiveUnitCost,
+                        UnitOfMeasureId = targetUomId,
                         BatchNumber = line.BatchNumber,
                         SerialNumber = line.SerialNumber,
                         ManufacturingDate = line.ManufacturingDate,

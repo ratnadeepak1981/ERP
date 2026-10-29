@@ -27,9 +27,12 @@ public class DomainDbContext : DbContext
         => Set<Branch>();
 
     public DbSet<Product> Products
-        => Set<Product>();
-
-    public DbSet<ProductWarehouseSetting> ProductWarehouseSettings
+        => Set<Product>();
+
+    public DbSet<ProductIdentifier> ProductIdentifiers
+        => Set<ProductIdentifier>();
+
+    public DbSet<ProductWarehouseSetting> ProductWarehouseSettings
         => Set<ProductWarehouseSetting>();
 
     public DbSet<Category> Categories
@@ -49,6 +52,9 @@ public class DomainDbContext : DbContext
 
     public DbSet<WarehouseLocation> WarehouseLocations
         => Set<WarehouseLocation>();
+
+    public DbSet<LocationIdentifier> LocationIdentifiers
+        => Set<LocationIdentifier>();
 
     public DbSet<Domain.Features.MasterData.Country.Country> Countries
         => Set<Domain.Features.MasterData.Country.Country>();
