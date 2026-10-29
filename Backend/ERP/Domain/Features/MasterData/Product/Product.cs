@@ -60,6 +60,8 @@ public class Product : Auditable, ITenantScopedEntity
 
     public bool IsActive { get; private set; }
 
+    public ICollection<ProductIdentifier> Identifiers { get; private set; } = new List<ProductIdentifier>();
+
     public static Product Create(
         Guid tenantId,
         string productCode,
@@ -88,6 +90,7 @@ public class Product : Auditable, ITenantScopedEntity
         int? leadTimeDays = null)
     {
         ValidatePlanningSettings(reorderLevel, reorderQuantity, minStockQuantity, maxStockQuantity, safetyStockQuantity, leadTimeDays);
+        ValidateCapabilitiesAndTracking(productCode, productType, isStockTracked, trackingMode);
 
         return new Product
         {
@@ -145,6 +148,7 @@ public class Product : Auditable, ITenantScopedEntity
         int? leadTimeDays = null)
     {
         ValidatePlanningSettings(reorderLevel, reorderQuantity, minStockQuantity, maxStockQuantity, safetyStockQuantity, leadTimeDays);
+        ValidateCapabilitiesAndTracking(ProductCode, productType, isStockTracked, trackingMode);
 
         ProductName = productName;
         CategoryId = categoryId;
@@ -248,6 +252,22 @@ public class Product : Auditable, ITenantScopedEntity
 
         if (safetyStockQuantity.HasValue && minStockQuantity.HasValue && safetyStockQuantity.Value > minStockQuantity.Value)
             throw new InvalidOperationException("Safety stock quantity cannot be greater than minimum stock quantity.");
+    }
+
+    private static void ValidateCapabilitiesAndTracking(
+        string productCode,
+        ProductType productType,
+        bool isStockTracked,
+        TrackingMode trackingMode)
+    {
+        if (productType == ProductType.Service && isStockTracked)
+            throw new InvalidOperationException($"Service product '{productCode}' cannot be configured as a stock-tracked item.");
+
+        if (productType == ProductType.NonStockItem && isStockTracked)
+            throw new InvalidOperationException($"Non-stock product '{productCode}' cannot be configured as a stock-tracked item.");
+
+        if (!isStockTracked && trackingMode != TrackingMode.None)
+            throw new InvalidOperationException($"Product '{productCode}' cannot have tracking mode '{trackingMode}' because it is not configured as a stock-tracked item.");
     }
 
     public void SetUnitOfMeasure(Guid? unitOfMeasureId, string unitOfMeasureCode)
