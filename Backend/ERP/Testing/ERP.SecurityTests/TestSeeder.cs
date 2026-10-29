@@ -1,11 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Domain.Features.MasterData.Branch;
+using Domain.Features.MasterData.Brand;
 using Domain.Features.MasterData.Company;
+using Domain.Features.MasterData.Currency;
+using Domain.Features.MasterData.PaymentTerm;
 using Domain.Features.MasterData.Product;
+using Domain.Features.MasterData.TaxCode;
+using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.MasterData.Category;
 using ERP.Domain.Features.MasterData.Customer;
+using ERP.Domain.Features.MasterData.Supplier;
+using ERP.Domain.Features.MasterData.Warehouse;
 using SaaS.Core.Models;
 using SaaS.Infrastructure.Persistence;
 using Security.Core.Models;
@@ -104,7 +112,7 @@ public static class TestSeeder
 
     private static void SeedDomain(DomainDbContext db)
     {
-        // Companies
+        // 1. Companies
         if (!db.Companies.Any(x => x.Id == TestConstants.CompanyAId))
         {
             db.Companies.Add(new Company
@@ -143,7 +151,7 @@ public static class TestSeeder
 
         db.SaveChanges();
 
-        // Branches
+        // 2. Branches
         var branches = new[]
         {
             new Branch { Id = TestConstants.BranchA1Id, CompanyId = TestConstants.CompanyAId, Name = "Branch A1", Code = "BR_A1", IsActive = true },
@@ -163,48 +171,304 @@ public static class TestSeeder
 
         db.SaveChanges();
 
-        // Categories & Products
+        // 3. Currencies (LKR, USD, EUR, GBP, INR)
+        var tenants = new[] { TestConstants.TenantAlphaId, TestConstants.TenantBetaId };
+        var currenciesToSeed = new (string Code, string Name, string Symbol, int Decimals)[]
+        {
+            ("LKR", "Sri Lankan Rupee", "Rs", 2),
+            ("USD", "US Dollar", "$", 2),
+            ("EUR", "Euro", "€", 2),
+            ("GBP", "British Pound", "£", 2),
+            ("INR", "Indian Rupee", "₹", 2)
+        };
+
+        foreach (var tId in tenants)
+        {
+            foreach (var c in currenciesToSeed)
+            {
+                if (!db.Currencies.Any(x => x.TenantId == tId && x.CurrencyCode == c.Code))
+                {
+                    db.Currencies.Add(Currency.Create(tId, c.Code, c.Name, c.Symbol, c.Decimals));
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 4. Units of Measure (21 standard units)
+        var standardUoms = new (string Code, string Name, string Description)[]
+        {
+            ("PCS", "Pieces", "Individual count unit"),
+            ("EA", "Each", "Each individual item"),
+            ("BOX", "Box", "Packaging box"),
+            ("PACK", "Pack", "Standard bundle or pack"),
+            ("CARTON", "Carton", "Shipping carton"),
+            ("BOTTLE", "Bottle", "Bottled container"),
+            ("CAN", "Can", "Canister or metal can"),
+            ("KG", "Kilogram", "Metric mass unit"),
+            ("G", "Gram", "Metric mass sub-unit"),
+            ("MTR", "Meter", "Metric linear length unit"),
+            ("CM", "Centimeter", "Metric linear length sub-unit"),
+            ("MM", "Millimeter", "Metric linear precision sub-unit"),
+            ("LTR", "Liter", "Metric volume unit"),
+            ("ML", "Milliliter", "Metric volume sub-unit"),
+            ("HRS", "Hours", "Service duration unit"),
+            ("DAY", "Day", "Daily service or rental unit"),
+            ("JOB", "Job", "Discrete project or task unit"),
+            ("PAIR", "Pair", "Two matched units"),
+            ("ROLL", "Roll", "Coiled material unit"),
+            ("BAG", "Bag", "Bag or sack packaging"),
+            ("SET", "Set", "Multi-piece assembly or set")
+        };
+
+        foreach (var tId in tenants)
+        {
+            foreach (var u in standardUoms)
+            {
+                if (!db.UnitsOfMeasure.Any(x => x.TenantId == tId && x.Code == u.Code))
+                {
+                    db.UnitsOfMeasure.Add(UnitOfMeasure.Create(tId, u.Code, u.Name, u.Description));
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 5. UOM Conversions
+        var conversionRules = new (string FromCode, string ToCode, decimal Factor)[]
+        {
+            ("BOX", "PCS", 10m),
+            ("PACK", "PCS", 6m),
+            ("CARTON", "BOX", 12m),
+            ("KG", "G", 1000m),
+            ("MTR", "CM", 100m),
+            ("CM", "MM", 10m),
+            ("LTR", "ML", 1000m),
+            ("PAIR", "PCS", 2m)
+        };
+
+        foreach (var tId in tenants)
+        {
+            var uomLookup = db.UnitsOfMeasure
+                .Where(x => x.TenantId == tId)
+                .ToDictionary(x => x.Code, x => x.UnitOfMeasureId);
+
+            foreach (var cr in conversionRules)
+            {
+                if (uomLookup.TryGetValue(cr.FromCode, out var fromId) &&
+                    uomLookup.TryGetValue(cr.ToCode, out var toId))
+                {
+                    if (!db.UnitOfMeasureConversions.Any(x => x.TenantId == tId && x.FromUnitId == fromId && x.ToUnitId == toId))
+                    {
+                        db.UnitOfMeasureConversions.Add(UnitOfMeasureConversion.Create(tId, fromId, toId, cr.Factor));
+                    }
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 6. Categories (Backwards compatible + 10 industry profiles)
         if (!db.Categories.Any(x => x.CategoryId == TestConstants.CategoryAlphaId))
         {
             db.Categories.Add(Category.Create(TestConstants.TenantAlphaId, "CAT_ALPHA", "Category Alpha", null, TestConstants.CategoryAlphaId));
-            db.SaveChanges();
-        }
-
-        if (!db.Products.Any(x => x.ProductId == TestConstants.ProductAlphaId))
-        {
-            db.Products.Add(Product.Create(
-                TestConstants.TenantAlphaId,
-                "PROD_ALPHA",
-                "Product Alpha",
-                TestConstants.CategoryAlphaId,
-                "PCS",
-                null,
-                ValuationMethod.FIFO,
-                0, 0, 0, 0, false, true, true,
-                TestConstants.ProductAlphaId));
         }
 
         if (!db.Categories.Any(x => x.CategoryId == TestConstants.CategoryBetaId))
         {
             db.Categories.Add(Category.Create(TestConstants.TenantBetaId, "CAT_BETA", "Category Beta", null, TestConstants.CategoryBetaId));
+        }
+
+        var industryCategories = new (string Code, string Name, string Description)[]
+        {
+            ("GROCERY", "Groceries & FMCG", "Retail profile category"),
+            ("HOUSEHOLD", "Household Goods", "Retail & wholesale goods"),
+            ("PACKAGING", "Packaging Materials", "Wholesale & distribution category"),
+            ("IMPORTED_GOODS", "Imported General Merchandise", "Import & export category"),
+            ("HARDWARE", "Hardware & Building Materials", "Hardware & tools profile category"),
+            ("SERVICES", "Maintenance & Services", "Services profile category"),
+            ("RAW_MATERIALS", "Raw Materials", "Manufacturing profile category"),
+            ("MEDICINES", "Pharmaceuticals & Healthcare", "Pharmacy profile category"),
+            ("APPAREL", "Apparel & Safety PPE", "Apparel & safety profile category"),
+            ("GENERAL_TRADING", "General Trading Items", "General trading profile category"),
+            ("ELECTRONICS", "Electronics & Components", "Electronics industry profile category")
+        };
+
+        foreach (var tId in tenants)
+        {
+            foreach (var c in industryCategories)
+            {
+                if (!db.Categories.Any(x => x.TenantId == tId && x.CategoryCode == c.Code))
+                {
+                    db.Categories.Add(Category.Create(tId, c.Code, c.Name, c.Description));
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 7. Brands
+        var standardBrands = new (string Code, string Name, string Description)[]
+        {
+            ("ROYALHARVEST", "Royal Harvest", "Premium agricultural and food brand"),
+            ("LUMENPRO", "LumenPro", "Industrial lighting and electrical brand"),
+            ("MOTIONPRO", "MotionPro", "Automotive and mechanical parts brand"),
+            ("TECHNOVA", "TechNova", "Electronics and computing hardware brand"),
+            ("BUILDWELL", "BuildWell", "Construction and structural materials brand"),
+            ("SAFEGRIP", "SafeGrip", "PPE and industrial safety gear brand"),
+            ("MEDICAREX", "MedicareX", "Pharmaceutical and medical supplies brand"),
+            ("OFFICEWISE", "OfficeWise", "Stationery and general office supplies brand")
+        };
+
+        foreach (var tId in tenants)
+        {
+            foreach (var b in standardBrands)
+            {
+                if (!db.Brands.Any(x => x.TenantId == tId && x.BrandCode == b.Code))
+                {
+                    db.Brands.Add(Brand.Create(tId, b.Code, b.Name, b.Description));
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 8. Payment Terms
+        var standardPaymentTerms = new (string Code, string Name, int Days, string Description)[]
+        {
+            ("COD", "Cash on Delivery", 0, "Immediate payment upon delivery"),
+            ("NET7", "Net 7 Days", 7, "Payment due within 7 calendar days"),
+            ("NET15", "Net 15 Days", 15, "Payment due within 15 calendar days"),
+            ("NET30", "Net 30 Days", 30, "Payment due within 30 calendar days"),
+            ("NET45", "Net 45 Days", 45, "Payment due within 45 calendar days"),
+            ("NET60", "Net 60 Days", 60, "Payment due within 60 calendar days")
+        };
+
+        foreach (var tId in tenants)
+        {
+            foreach (var pt in standardPaymentTerms)
+            {
+                if (!db.PaymentTerms.Any(x => x.TenantId == tId && x.TermCode == pt.Code))
+                {
+                    db.PaymentTerms.Add(PaymentTerm.Create(tId, pt.Code, pt.Name, pt.Days, pt.Description));
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 9. Tax Codes
+        var standardTaxCodes = new (string Code, string Name, decimal Rate, TaxApplicability Applicability, string Description)[]
+        {
+            ("TAX-STD", "Standard VAT 18%", 18m, TaxApplicability.Both, "Standard national value added tax rate"),
+            ("TAX-RED", "Reduced Rate 8%", 8m, TaxApplicability.Both, "Reduced concessionary tax rate"),
+            ("TAX-ZERO", "Zero Rated 0%", 0m, TaxApplicability.Both, "Zero rated export or essential goods"),
+            ("TAX-EXEMPT", "Exempt 0%", 0m, TaxApplicability.Both, "Exempt items outside tax scope")
+        };
+
+        foreach (var tId in tenants)
+        {
+            foreach (var tc in standardTaxCodes)
+            {
+                if (!db.TaxCodes.Any(x => x.TenantId == tId && x.Code == tc.Code))
+                {
+                    db.TaxCodes.Add(TaxCode.Create(tId, tc.Code, tc.Name, tc.Rate, tc.Applicability, description: tc.Description));
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 10. Warehouses & Locations
+        if (!db.Warehouses.Any(x => x.WarehouseId == TestConstants.WarehouseAlphaMainId))
+        {
+            db.Warehouses.Add(Warehouse.Create(
+                TestConstants.TenantAlphaId,
+                "WH_MAIN",
+                "Main Warehouse Alpha",
+                "Central distribution warehouse for Tenant Alpha",
+                companyId: TestConstants.CompanyAId,
+                branchId: TestConstants.BranchA1Id,
+                warehouseId: TestConstants.WarehouseAlphaMainId));
             db.SaveChanges();
         }
 
-        if (!db.Products.Any(x => x.ProductId == TestConstants.ProductBetaId))
+        var whAlpha = db.Warehouses.First(x => x.WarehouseId == TestConstants.WarehouseAlphaMainId);
+        var alphaLocations = new (string Code, string Name)[]
         {
-            db.Products.Add(Product.Create(
-                TestConstants.TenantBetaId,
-                "PROD_BETA",
-                "Product Beta",
-                TestConstants.CategoryBetaId,
-                "PCS",
-                null,
-                ValuationMethod.FIFO,
-                0, 0, 0, 0, false, true, true,
-                TestConstants.ProductBetaId));
+            ("LOC_RCV", "Receiving Dock"),
+            ("LOC_BIN1", "Storage Bin A-01"),
+            ("LOC_BIN2", "Storage Bin A-02"),
+            ("LOC_DISP", "Dispatch Area")
+        };
+
+        foreach (var loc in alphaLocations)
+        {
+            if (!db.WarehouseLocations.Any(x => x.TenantId == whAlpha.TenantId && x.WarehouseId == whAlpha.WarehouseId && x.LocationCode == loc.Code))
+            {
+                db.WarehouseLocations.Add(WarehouseLocation.Create(
+                    whAlpha.TenantId,
+                    whAlpha.WarehouseId,
+                    null,
+                    loc.Code,
+                    loc.Name));
+            }
         }
 
-        // Customers
+        if (!db.Warehouses.Any(x => x.WarehouseId == TestConstants.WarehouseBetaMainId))
+        {
+            db.Warehouses.Add(Warehouse.Create(
+                TestConstants.TenantBetaId,
+                "WH_BETA",
+                "Main Warehouse Beta",
+                "Central warehouse for Tenant Beta",
+                companyId: TestConstants.CompanyCId,
+                branchId: TestConstants.BranchC1Id,
+                warehouseId: TestConstants.WarehouseBetaMainId));
+            db.SaveChanges();
+        }
+
+        var whBeta = db.Warehouses.First(x => x.WarehouseId == TestConstants.WarehouseBetaMainId);
+        var betaLocations = new (string Code, string Name)[]
+        {
+            ("LOC_RCV_B", "Receiving Dock Beta"),
+            ("LOC_BIN1_B", "Storage Bin B-01")
+        };
+
+        foreach (var loc in betaLocations)
+        {
+            if (!db.WarehouseLocations.Any(x => x.TenantId == whBeta.TenantId && x.WarehouseId == whBeta.WarehouseId && x.LocationCode == loc.Code))
+            {
+                db.WarehouseLocations.Add(WarehouseLocation.Create(
+                    whBeta.TenantId,
+                    whBeta.WarehouseId,
+                    null,
+                    loc.Code,
+                    loc.Name));
+            }
+        }
+        db.SaveChanges();
+
+        // 11. Suppliers
+        if (!db.Suppliers.Any(x => x.SupplierId == TestConstants.SupplierAlphaId))
+        {
+            db.Suppliers.Add(Supplier.Create(
+                TestConstants.TenantAlphaId,
+                "SUPP_ALPHA",
+                "Apex Supplies Alpha",
+                contactPerson: "Alpha Rep",
+                email: "supp_a@tenant.local",
+                paymentTerms: "NET30",
+                supplierId: TestConstants.SupplierAlphaId));
+        }
+
+        if (!db.Suppliers.Any(x => x.SupplierId == TestConstants.SupplierBetaId))
+        {
+            db.Suppliers.Add(Supplier.Create(
+                TestConstants.TenantBetaId,
+                "SUPP_BETA",
+                "Apex Supplies Beta",
+                contactPerson: "Beta Rep",
+                email: "supp_b@tenant.local",
+                paymentTerms: "NET30",
+                supplierId: TestConstants.SupplierBetaId));
+        }
+        db.SaveChanges();
+
+        // 12. Customers
         if (!db.Customers.Any(x => x.CustomerId == TestConstants.CustomerAlphaId))
         {
             db.Customers.Add(Customer.Create(
@@ -222,7 +486,233 @@ public static class TestSeeder
                 "Customer Beta",
                 customerId: TestConstants.CustomerBetaId));
         }
+        db.SaveChanges();
 
+        // 13. Products & Base UOM Alignment
+        var uomPcsAlpha = db.UnitsOfMeasure.FirstOrDefault(x => x.TenantId == TestConstants.TenantAlphaId && x.Code == "PCS");
+        var uomPcsBeta = db.UnitsOfMeasure.FirstOrDefault(x => x.TenantId == TestConstants.TenantBetaId && x.Code == "PCS");
+
+        // PROD_ALPHA
+        var existingProdAlpha = db.Products.FirstOrDefault(x => x.ProductId == TestConstants.ProductAlphaId);
+        if (existingProdAlpha == null)
+        {
+            db.Products.Add(Product.Create(
+                TestConstants.TenantAlphaId,
+                "PROD_ALPHA",
+                "Product Alpha",
+                TestConstants.CategoryAlphaId,
+                "PCS",
+                null,
+                ValuationMethod.FIFO,
+                standardCost: 10m,
+                sellingPrice: 20m,
+                reorderLevel: 10m,
+                reorderQuantity: 50m,
+                isManufacturable: false,
+                isPurchasable: true,
+                isSellable: true,
+                productId: TestConstants.ProductAlphaId,
+                unitOfMeasureId: uomPcsAlpha?.UnitOfMeasureId));
+        }
+        else if (existingProdAlpha.UnitOfMeasureId == null && uomPcsAlpha != null)
+        {
+            existingProdAlpha.Update(
+                existingProdAlpha.ProductName,
+                existingProdAlpha.CategoryId,
+                existingProdAlpha.UnitOfMeasure,
+                existingProdAlpha.Description,
+                existingProdAlpha.ValuationMethod,
+                existingProdAlpha.StandardCost,
+                existingProdAlpha.SellingPrice,
+                existingProdAlpha.ReorderLevel,
+                existingProdAlpha.ReorderQuantity,
+                existingProdAlpha.IsManufacturable,
+                existingProdAlpha.IsPurchasable,
+                existingProdAlpha.IsSellable,
+                existingProdAlpha.CanConsumeInProduction,
+                existingProdAlpha.CanConsumeInMaintenance,
+                existingProdAlpha.IsStockTracked,
+                existingProdAlpha.ProductType,
+                existingProdAlpha.TrackingMode,
+                uomPcsAlpha.UnitOfMeasureId,
+                existingProdAlpha.MinStockQuantity,
+                existingProdAlpha.MaxStockQuantity,
+                existingProdAlpha.SafetyStockQuantity,
+                existingProdAlpha.LeadTimeDays);
+        }
+
+        // PROD_BETA
+        var existingProdBeta = db.Products.FirstOrDefault(x => x.ProductId == TestConstants.ProductBetaId);
+        if (existingProdBeta == null)
+        {
+            db.Products.Add(Product.Create(
+                TestConstants.TenantBetaId,
+                "PROD_BETA",
+                "Product Beta",
+                TestConstants.CategoryBetaId,
+                "PCS",
+                null,
+                ValuationMethod.FIFO,
+                standardCost: 15m,
+                sellingPrice: 30m,
+                reorderLevel: 5m,
+                reorderQuantity: 25m,
+                isManufacturable: false,
+                isPurchasable: true,
+                isSellable: true,
+                productId: TestConstants.ProductBetaId,
+                unitOfMeasureId: uomPcsBeta?.UnitOfMeasureId));
+        }
+        else if (existingProdBeta.UnitOfMeasureId == null && uomPcsBeta != null)
+        {
+            existingProdBeta.Update(
+                existingProdBeta.ProductName,
+                existingProdBeta.CategoryId,
+                existingProdBeta.UnitOfMeasure,
+                existingProdBeta.Description,
+                existingProdBeta.ValuationMethod,
+                existingProdBeta.StandardCost,
+                existingProdBeta.SellingPrice,
+                existingProdBeta.ReorderLevel,
+                existingProdBeta.ReorderQuantity,
+                existingProdBeta.IsManufacturable,
+                existingProdBeta.IsPurchasable,
+                existingProdBeta.IsSellable,
+                existingProdBeta.CanConsumeInProduction,
+                existingProdBeta.CanConsumeInMaintenance,
+                existingProdBeta.IsStockTracked,
+                existingProdBeta.ProductType,
+                existingProdBeta.TrackingMode,
+                uomPcsBeta.UnitOfMeasureId,
+                existingProdBeta.MinStockQuantity,
+                existingProdBeta.MaxStockQuantity,
+                existingProdBeta.SafetyStockQuantity,
+                existingProdBeta.LeadTimeDays);
+        }
+        db.SaveChanges();
+
+        // 14. Representative Industry Demo Products for Tenant Alpha
+        var alphaUomLookup = db.UnitsOfMeasure
+            .Where(x => x.TenantId == TestConstants.TenantAlphaId)
+            .ToDictionary(x => x.Code, x => x.UnitOfMeasureId);
+        var alphaCatLookup = db.Categories
+            .Where(x => x.TenantId == TestConstants.TenantAlphaId)
+            .ToDictionary(x => x.CategoryCode, x => x.CategoryId);
+
+        var demoProducts = new[]
+        {
+            new {
+                Code = "GROC_RICE_01", Name = "Basmati Rice 5kg", Cat = "GROCERY", Uom = "BAG",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.None,
+                Cost = 12m, Price = 18m, CanProduce = false
+            },
+            new {
+                Code = "PKG_BOX_01", Name = "Corrugated Box Large", Cat = "PACKAGING", Uom = "BOX",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.None,
+                Cost = 2.5m, Price = 4.5m, CanProduce = false
+            },
+            new {
+                Code = "IMP_SPICE_01", Name = "Ceylon Cinnamon Sticks", Cat = "IMPORTED_GOODS", Uom = "KG",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.None,
+                Cost = 15m, Price = 25m, CanProduce = false
+            },
+            new {
+                Code = "HDW_HAMMER_01", Name = "Claw Hammer Steel 16oz", Cat = "HARDWARE", Uom = "PCS",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.None,
+                Cost = 8m, Price = 14m, CanProduce = false
+            },
+            new {
+                Code = "SRV_MAINT_01", Name = "Equipment Annual Maintenance", Cat = "SERVICES", Uom = "HRS",
+                Type = ProductType.Service, Tracked = false, Mode = TrackingMode.None,
+                Cost = 50m, Price = 85m, CanProduce = false
+            },
+            new {
+                Code = "RAW_STEEL_01", Name = "Cold Rolled Steel Sheet", Cat = "RAW_MATERIALS", Uom = "KG",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.None,
+                Cost = 30m, Price = 45m, CanProduce = true
+            },
+            new {
+                Code = "MED_PARA_01", Name = "Paracetamol 500mg 100s", Cat = "MEDICINES", Uom = "PACK",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.Batch,
+                Cost = 4m, Price = 7.5m, CanProduce = false
+            },
+            new {
+                Code = "PPE_GLOVE_01", Name = "Nitrile Safety Gloves", Cat = "APPAREL", Uom = "PAIR",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.None,
+                Cost = 1.2m, Price = 2.5m, CanProduce = false
+            },
+            new {
+                Code = "GEN_PEN_01", Name = "Ballpoint Pen Blue", Cat = "GENERAL_TRADING", Uom = "PCS",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.None,
+                Cost = 0.4m, Price = 0.9m, CanProduce = false
+            },
+            new {
+                Code = "ELEC_SENSOR_01", Name = "Micro Temp Sensor I2C", Cat = "ELECTRONICS", Uom = "PCS",
+                Type = ProductType.StockItem, Tracked = true, Mode = TrackingMode.Serial,
+                Cost = 6.5m, Price = 12m, CanProduce = false
+            }
+        };
+
+        foreach (var dp in demoProducts)
+        {
+            if (!db.Products.Any(x => x.TenantId == TestConstants.TenantAlphaId && x.ProductCode == dp.Code))
+            {
+                if (alphaCatLookup.TryGetValue(dp.Cat, out var catId) &&
+                    alphaUomLookup.TryGetValue(dp.Uom, out var uomId))
+                {
+                    db.Products.Add(Product.Create(
+                        TestConstants.TenantAlphaId,
+                        dp.Code,
+                        dp.Name,
+                        catId,
+                        unitOfMeasure: dp.Uom,
+                        standardCost: dp.Cost,
+                        sellingPrice: dp.Price,
+                        reorderLevel: 10m,
+                        reorderQuantity: 50m,
+                        isManufacturable: false,
+                        isPurchasable: true,
+                        isSellable: true,
+                        canConsumeInProduction: dp.CanProduce,
+                        isStockTracked: dp.Tracked,
+                        productType: dp.Type,
+                        trackingMode: dp.Mode,
+                        unitOfMeasureId: uomId));
+                }
+            }
+        }
+        db.SaveChanges();
+
+        // 15. Product Warehouse Settings & Supplier Product Prices
+        var prodAlpha = db.Products.FirstOrDefault(x => x.ProductId == TestConstants.ProductAlphaId);
+        if (prodAlpha != null)
+        {
+            if (!db.ProductWarehouseSettings.Any(x => x.TenantId == TestConstants.TenantAlphaId && x.ProductId == prodAlpha.ProductId && x.WarehouseId == whAlpha.WarehouseId))
+            {
+                db.ProductWarehouseSettings.Add(ProductWarehouseSetting.Create(
+                    TestConstants.TenantAlphaId,
+                    prodAlpha.ProductId,
+                    whAlpha.WarehouseId,
+                    reorderLevel: 10m,
+                    reorderQuantity: 50m,
+                    minStockQuantity: 5m,
+                    maxStockQuantity: 200m,
+                    safetyStockQuantity: 5m,
+                    leadTimeDays: 7));
+            }
+
+            if (!db.SupplierProductPrices.Any(x => x.TenantId == TestConstants.TenantAlphaId && x.SupplierId == TestConstants.SupplierAlphaId && x.ProductId == prodAlpha.ProductId))
+            {
+                db.SupplierProductPrices.Add(global::Domain.Features.MasterData.Supplier.SupplierProductPrice.Create(
+                    TestConstants.TenantAlphaId,
+                    TestConstants.SupplierAlphaId,
+                    prodAlpha.ProductId,
+                    unitPrice: 25m,
+                    effectiveFrom: DateTime.UtcNow.AddMonths(-1),
+                    currency: "USD",
+                    unitOfMeasureId: prodAlpha.UnitOfMeasureId));
+            }
+        }
         db.SaveChanges();
     }
 

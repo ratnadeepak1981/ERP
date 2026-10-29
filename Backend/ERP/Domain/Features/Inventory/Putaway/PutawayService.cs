@@ -74,14 +74,24 @@ public class PutawayService : IPutawayService
 
         foreach (var grn in confirmedGrns)
         {
+            var productIds = grn.Lines.Select(l => l.ProductId).Distinct().ToList();
+            var stockTrackedProductIds = (await _context.Products
+                .Where(p => p.TenantId == tenantId && productIds.Contains(p.ProductId) && p.IsStockTracked)
+                .Select(p => p.ProductId)
+                .ToListAsync())
+                .ToHashSet();
+
+            var eligibleLines = grn.Lines.Where(l => stockTrackedProductIds.Contains(l.ProductId)).ToList();
+            if (!eligibleLines.Any()) continue;
+
             var putawayQuantities = await _putawayRepository.GetCompletedPutawayQuantitiesByReceiptLineAsync(tenantId, grn.GoodsReceiptNoteId);
-            decimal totalReceived = grn.Lines.Sum(l => l.QuantityReceived);
-            decimal totalPutaway = grn.Lines.Sum(l => putawayQuantities.GetValueOrDefault(l.GoodsReceiptNoteLineId, 0m));
+            decimal totalReceived = eligibleLines.Sum(l => l.QuantityReceived);
+            decimal totalPutaway = eligibleLines.Sum(l => putawayQuantities.GetValueOrDefault(l.GoodsReceiptNoteLineId, 0m));
             decimal outstanding = Math.Max(0m, totalReceived - totalPutaway);
 
             if (outstanding > 0m)
             {
-                var firstLine = grn.Lines.FirstOrDefault();
+                var firstLine = eligibleLines.FirstOrDefault();
                 var wh = firstLine != null ? await _context.Warehouses.FindAsync(firstLine.WarehouseId) : null;
 
                 results.Add(new EligibleSourceReceiptDto
@@ -94,7 +104,7 @@ public class PutawayService : IPutawayService
                     WarehouseId = firstLine?.WarehouseId ?? Guid.Empty,
                     WarehouseCode = wh?.WarehouseCode ?? "MAIN",
                     WarehouseName = wh?.WarehouseName ?? "Main Warehouse",
-                    TotalLines = grn.Lines.Count,
+                    TotalLines = eligibleLines.Count,
                     TotalQuantity = totalReceived,
                     OutstandingQuantity = outstanding
                 });
@@ -182,10 +192,12 @@ public class PutawayService : IPutawayService
 
             foreach (var grnLine in grn.Lines)
             {
+                var product = await _context.Products.FindAsync(grnLine.ProductId);
+                if (product != null && !product.IsStockTracked) continue;
+
                 decimal alreadyPut = putawayQuantities.GetValueOrDefault(grnLine.GoodsReceiptNoteLineId, 0m);
                 decimal outstanding = Math.Max(0m, grnLine.QuantityReceived - alreadyPut);
 
-                var product = await _context.Products.FindAsync(grnLine.ProductId);
                 var location = await _context.WarehouseLocations.FindAsync(grnLine.WarehouseLocationId);
                 var uom = grnLine.UnitOfMeasureId.HasValue ? await _context.UnitsOfMeasure.FindAsync(grnLine.UnitOfMeasureId.Value) : null;
 
