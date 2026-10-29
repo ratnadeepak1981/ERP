@@ -1,7 +1,10 @@
-﻿using Domain.Features.MasterData.Company;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Domain.Features.MasterData.Company;
 using Domain.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-
 
 namespace Domain.Features.MasterData.Company;
 
@@ -17,6 +20,7 @@ public class CompanyRepository : ICompanyRepository
     public async Task<List<Company>> GetByTenantAsync(Guid tenantId)
     {
         return await _context.Companies
+            .Include(x => x.BaseCurrency)
             .Where(x => x.TenantId == tenantId)
             .ToListAsync();
     }
@@ -24,6 +28,7 @@ public class CompanyRepository : ICompanyRepository
     public async Task<Company?> GetByIdAsync(Guid tenantId, Guid id)
     {
         return await _context.Companies
+            .Include(x => x.BaseCurrency)
             .FirstOrDefaultAsync(x =>
                 x.Id == id &&
                 x.TenantId == tenantId);
@@ -38,5 +43,10 @@ public class CompanyRepository : ICompanyRepository
     {
         _context.Companies.Update(company);
         return Task.CompletedTask;
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
     }
 }

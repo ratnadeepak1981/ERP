@@ -4,6 +4,8 @@ export interface Company {
   name: string;
   code: string;
   isActive: boolean;
+  baseCurrencyId?: string;
+  baseCurrencyCode?: string;
   currency?: string;
 }
 

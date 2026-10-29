@@ -60,7 +60,7 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
                 ["ConnectionStrings:SecurityDatabase"] = TestConstants.SecurityDbTest,
                 ["ConnectionStrings:DomainDatabase"] = TestConstants.DomainDbTest,
                 ["ConnectionStrings:AIDatabase"] = TestConstants.AIDbTest,
-                ["Migrations:TargetPlatformMigration"] = "20261010064836_AddProcurementApprovalSettings"
+                ["Migrations:TargetPlatformMigration"] = "20261029052257_AddSpecialUomConversionSetting"
             };
 
             config.AddInMemoryCollection(testSettings);
@@ -96,9 +96,9 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
             var securityDb = sp.GetRequiredService<SecurityDbContext>();
             var domainDb = sp.GetRequiredService<DomainDbContext>();
 
-            var migrator = Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetInfrastructure(platformDb)
-                .GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
-            migrator?.Migrate("20261010064836_AddProcurementApprovalSettings");
+
+
+            platformDb.Database.Migrate();
             securityDb.Database.Migrate();
             domainDb.Database.Migrate();
 

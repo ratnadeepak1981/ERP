@@ -30,9 +30,9 @@ public class ProductService : IProductService
     {
     }
 
-    public async Task<List<Product>> GetProductsAsync(Guid tenantId)
+    public async Task<List<Product>> GetProductsAsync(Guid tenantId, Guid? brandId = null)
     {
-        return await _repository.GetByTenantAsync(tenantId);
+        return await _repository.GetByTenantAsync(tenantId, brandId);
     }
 
     public async Task<Product?> GetProductAsync(Guid tenantId, Guid productId)
@@ -62,6 +62,13 @@ public class ProductService : IProductService
         // Category tenant isolation check
         if (!await _repository.CategoryExistsAsync(tenantId, request.CategoryId))
             throw new InvalidOperationException("Category not found or does not belong to the current tenant.");
+
+        // Brand tenant isolation and active status check (optional)
+        if (request.BrandId.HasValue)
+        {
+            if (!await _repository.BrandExistsAsync(tenantId, request.BrandId.Value))
+                throw new InvalidOperationException("Brand not found, is inactive, or does not belong to the current tenant.");
+        }
 
         // UOM resolution and validation
         Guid? resolvedUomId = null;
@@ -118,7 +125,8 @@ public class ProductService : IProductService
             request.MinStockQuantity,
             request.MaxStockQuantity,
             request.SafetyStockQuantity,
-            request.LeadTimeDays);
+            request.LeadTimeDays,
+            request.BrandId);
 
         if (_subscriptionUsageService != null)
         {
@@ -156,6 +164,13 @@ public class ProductService : IProductService
 
         if (!await _repository.CategoryExistsAsync(tenantId, request.CategoryId))
             throw new InvalidOperationException("Category not found or does not belong to the current tenant.");
+
+        // Brand tenant isolation and active status check (optional)
+        if (request.BrandId.HasValue)
+        {
+            if (!await _repository.BrandExistsAsync(tenantId, request.BrandId.Value))
+                throw new InvalidOperationException("Brand not found, is inactive, or does not belong to the current tenant.");
+        }
 
         Guid? resolvedUomId = null;
         string resolvedUomCode = string.IsNullOrWhiteSpace(request.UnitOfMeasure) ? "PCS" : request.UnitOfMeasure.Trim();
@@ -204,7 +219,8 @@ public class ProductService : IProductService
             request.MinStockQuantity,
             request.MaxStockQuantity,
             request.SafetyStockQuantity,
-            request.LeadTimeDays);
+            request.LeadTimeDays,
+            request.BrandId);
 
         await _repository.SaveChangesAsync();
         return product;

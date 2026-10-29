@@ -20,6 +20,8 @@ public class TenantConfiguration : Auditable
 
     public int ProcurementApprovalMode { get; private set; } = 1; // 1 = Simple, 2 = Advanced
 
+    public bool SpecialUomConversionEnabled { get; private set; } = false;
+
     private TenantConfiguration()
     {
     }
@@ -36,8 +38,14 @@ public class TenantConfiguration : Auditable
             WarehouseZoneEnabled = true,
             WarehouseBinEnabled = true,
             ProcurementApprovalRequired = true,
-            ProcurementApprovalMode = 1
+            ProcurementApprovalMode = 1,
+            SpecialUomConversionEnabled = false
         };
+    }
+
+    public void UpdateSpecialUomConversion(bool enabled)
+    {
+        SpecialUomConversionEnabled = enabled;
     }
 
     public void UpdateProcurementApproval(bool approvalRequired, int approvalMode)

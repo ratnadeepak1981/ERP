@@ -413,11 +413,14 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                         if (_uomService == null)
                             throw new InvalidOperationException("Unit of Measure service is required for UOM conversions.");
 
-                        var converted = await _uomService.ConvertQuantityAsync(
+                        var converted = await _uomService.ConvertProductQuantityAsync(
                             tenantId,
+                            line.ProductId,
                             line.UnitOfMeasureId.Value,
                             poItem.UnitOfMeasureId.Value,
-                            line.QuantityReceived
+                            line.QuantityReceived,
+                            ConversionContext.Purchase,
+                            companyId: companyId
                         );
                         qtyInPoUom = converted.ConvertedQuantity;
                     }
@@ -484,11 +487,14 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                         if (_uomService == null)
                             throw new InvalidOperationException("Unit of Measure service is required for UOM conversions.");
 
-                        var converted = await _uomService.ConvertQuantityAsync(
+                        var converted = await _uomService.ConvertProductQuantityAsync(
                             tenantId,
+                            line.ProductId,
                             line.UnitOfMeasureId.Value,
                             product.UnitOfMeasureId.Value,
-                            line.QuantityReceived
+                            line.QuantityReceived,
+                            ConversionContext.Purchase,
+                            companyId: companyId
                         );
                         baseQuantity = converted.ConvertedQuantity;
                     }

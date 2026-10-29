@@ -32,6 +32,9 @@ public class DomainDbContext : DbContext
     public DbSet<ProductIdentifier> ProductIdentifiers
         => Set<ProductIdentifier>();
 
+    public DbSet<ProductPackaging> ProductPackagings
+        => Set<ProductPackaging>();
+
     public DbSet<ProductWarehouseSetting> ProductWarehouseSettings
         => Set<ProductWarehouseSetting>();
 

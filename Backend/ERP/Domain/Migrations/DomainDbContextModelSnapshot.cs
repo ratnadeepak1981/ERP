@@ -464,6 +464,9 @@ namespace Domain.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -475,10 +478,17 @@ namespace Domain.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("SpecialUomConversionEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BaseCurrencyId");
 
                     b.HasIndex("TenantId", "Id")
                         .IsUnique();
@@ -821,6 +831,9 @@ namespace Domain.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("BrandId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("CanConsumeInMaintenance")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -927,6 +940,8 @@ namespace Domain.Migrations
 
                     b.HasKey("ProductId");
 
+                    b.HasIndex("TenantId", "BrandId");
+
                     b.HasIndex("TenantId", "CategoryId");
 
                     b.HasIndex("TenantId", "ProductCode")
@@ -1015,6 +1030,82 @@ namespace Domain.Migrations
                         .HasFilter("[IsPrimary] = 1 AND [IsActive] = 1 AND [UnitOfMeasureId] IS NOT NULL");
 
                     b.ToTable("ProductIdentifiers", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Product.ProductPackaging", b =>
+                {
+                    b.Property<Guid>("ProductPackagingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("BaseQuantity")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<Guid?>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PackagingCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PackagingName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("PackagingUomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("PurchaseAllowed")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<bool>("SalesAllowed")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ProductPackagingId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("PackagingUomId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("TenantId", "CompanyId");
+
+                    b.HasIndex("TenantId", "PackagingCode")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ProductId", "PackagingUomId");
+
+                    b.ToTable("ProductPackagings", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Features.MasterData.Product.ProductWarehouseSetting", b =>
@@ -3078,6 +3169,9 @@ namespace Domain.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ParentCategoryId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -3091,6 +3185,8 @@ namespace Domain.Migrations
 
                     b.HasIndex("TenantId", "CategoryName")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "ParentCategoryId");
 
                     b.ToTable("Categories", (string)null);
                 });
@@ -3954,6 +4050,17 @@ namespace Domain.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Domain.Features.MasterData.Company.Company", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", "BaseCurrency")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "BaseCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BaseCurrency");
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Company.CompanyAddress", b =>
                 {
                     b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
@@ -3979,6 +4086,12 @@ namespace Domain.Migrations
 
             modelBuilder.Entity("Domain.Features.MasterData.Product.Product", b =>
                 {
+                    b.HasOne("Domain.Features.MasterData.Brand.Brand", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "BrandId")
+                        .HasPrincipalKey("TenantId", "BrandId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ERP.Domain.Features.MasterData.Category.Category", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "CategoryId")
@@ -4005,6 +4118,26 @@ namespace Domain.Migrations
                         .WithMany()
                         .HasForeignKey("UnitOfMeasureId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Domain.Features.MasterData.Product.ProductPackaging", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Company.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", null)
+                        .WithMany()
+                        .HasForeignKey("PackagingUomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Product.Product", null)
+                        .WithMany("Packagings")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Domain.Features.MasterData.Product.ProductWarehouseSetting", b =>
@@ -4517,6 +4650,17 @@ namespace Domain.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Category.Category", b =>
+                {
+                    b.HasOne("ERP.Domain.Features.MasterData.Category.Category", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("TenantId", "ParentCategoryId")
+                        .HasPrincipalKey("TenantId", "CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Parent");
+                });
+
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Customer.CustomerAddress", b =>
                 {
                     b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
@@ -4710,6 +4854,8 @@ namespace Domain.Migrations
             modelBuilder.Entity("Domain.Features.MasterData.Product.Product", b =>
                 {
                     b.Navigation("Identifiers");
+
+                    b.Navigation("Packagings");
                 });
 
             modelBuilder.Entity("Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote", b =>
@@ -4740,6 +4886,11 @@ namespace Domain.Migrations
             modelBuilder.Entity("Domain.Features.Sales.Shipment.SalesShipment", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.MasterData.Category.Category", b =>
+                {
+                    b.Navigation("Children");
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", b =>

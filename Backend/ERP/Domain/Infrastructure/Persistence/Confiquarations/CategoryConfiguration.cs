@@ -50,5 +50,12 @@ public class CategoryConfiguration
             x.CategoryId
         })
         .IsUnique();
+
+        // Self-referencing foreign key for hierarchical categories
+        builder.HasOne(x => x.Parent)
+            .WithMany(x => x.Children)
+            .HasForeignKey(x => new { x.TenantId, x.ParentCategoryId })
+            .HasPrincipalKey(x => new { x.TenantId, x.CategoryId })
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

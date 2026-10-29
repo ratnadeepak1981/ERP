@@ -974,6 +974,11 @@ namespace SaaS.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("SpecialUomConversionEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 

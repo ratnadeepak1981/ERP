@@ -17,6 +17,13 @@ public class Category : Auditable, ITenantScopedEntity
 
     public bool IsActive { get; private set; }
 
+    // Nullable parent category for hierarchical tree (Option A)
+    public Guid? ParentCategoryId { get; private set; }
+
+    // Navigation properties for EF Core self‑reference
+    public Category? Parent { get; private set; }
+    public ICollection<Category> Children { get; private set; } = new List<Category>();
+
     public static Category Create(
         Guid tenantId,
         string categoryCode,
@@ -49,6 +56,11 @@ public class Category : Auditable, ITenantScopedEntity
     public void Activate()
     {
         IsActive = true;
+    }
+
+    public void SetParent(Guid? parentId)
+    {
+        ParentCategoryId = parentId;
     }
 
     private Category()
