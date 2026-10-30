@@ -12,4 +12,6 @@ public interface ICategoryRepository
     Task<bool> ExistsByNameAsync(Guid tenantId, string categoryName);
     Task AddAsync(Category category);
     Task SaveChangesAsync();
+    Task<IReadOnlyDictionary<Guid, Guid?>> GetParentMapAsync(Guid tenantId);
 }
+

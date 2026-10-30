@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.UnitOfMeasure;
-using SaaS.Application.Interfaces;
+
 
 namespace Domain.Features.MasterData.Product;
 
@@ -11,24 +11,16 @@ public class ProductService : IProductService
 {
     private readonly IProductRepository _repository;
     private readonly IUnitOfMeasureRepository _uomRepository;
-    private readonly ISubscriptionUsageService? _subscriptionUsageService;
+
 
     public ProductService(
         IProductRepository repository,
-        IUnitOfMeasureRepository? uomRepository,
-        ISubscriptionUsageService? subscriptionUsageService = null)
+        IUnitOfMeasureRepository? uomRepository)
     {
         _repository = repository;
         _uomRepository = uomRepository!;
-        _subscriptionUsageService = subscriptionUsageService;
     }
 
-    public ProductService(
-        IProductRepository repository,
-        ISubscriptionUsageService? subscriptionUsageService)
-        : this(repository, null, subscriptionUsageService)
-    {
-    }
 
     public async Task<List<Product>> GetProductsAsync(Guid tenantId, Guid? brandId = null)
     {
@@ -128,19 +120,6 @@ public class ProductService : IProductService
             request.LeadTimeDays,
             request.BrandId);
 
-        if (_subscriptionUsageService != null)
-        {
-            return await _subscriptionUsageService.ExecuteWithUsageLimitAsync(
-                tenantId,
-                "MASTER_DATA",
-                1m,
-                async () =>
-                {
-                    await _repository.AddAsync(product);
-                    await _repository.SaveChangesAsync();
-                    return product;
-                });
-        }
 
         await _repository.AddAsync(product);
         await _repository.SaveChangesAsync();

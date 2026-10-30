@@ -10,7 +10,7 @@ using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
-using SaaS.Application.Interfaces;
+
 
 namespace Domain.Features.Sales.Shipment;
 
@@ -23,7 +23,6 @@ public class SalesShipmentService : ISalesShipmentService
     private readonly IInventoryPostingService _postingService;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly DomainDbContext _context;
-    private readonly ISubscriptionUsageService? _subscriptionUsageService;
     private readonly IServiceProvider? _serviceProvider;
     private readonly Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService? _uomService;
 
@@ -35,7 +34,6 @@ public class SalesShipmentService : ISalesShipmentService
         IInventoryPostingService postingService,
         DomainDbContext context,
         IInventoryRepository? inventoryRepository = null,
-        ISubscriptionUsageService? subscriptionUsageService = null,
         IServiceProvider? serviceProvider = null,
         Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService? uomService = null)
     {
@@ -46,7 +44,6 @@ public class SalesShipmentService : ISalesShipmentService
         _postingService = postingService;
         _context = context;
         _inventoryRepository = inventoryRepository ?? new InventoryRepository(context);
-        _subscriptionUsageService = subscriptionUsageService;
         _serviceProvider = serviceProvider;
         _uomService = uomService;
     }
@@ -720,15 +717,6 @@ public class SalesShipmentService : ISalesShipmentService
 
             return MapToDto(shipment, order.OrderNumber);
         };
-
-        if (_subscriptionUsageService != null)
-        {
-            return await _subscriptionUsageService.ExecuteWithUsageLimitAsync(
-                tenantId,
-                "TRANSACTIONS",
-                1,
-                executionAction);
-        }
 
         return await executionAction();
     }

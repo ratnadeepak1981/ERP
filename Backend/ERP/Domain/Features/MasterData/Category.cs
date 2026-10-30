@@ -20,8 +20,10 @@ public class Category : Auditable, ITenantScopedEntity
     // Nullable parent category for hierarchical tree (Option A)
     public Guid? ParentCategoryId { get; private set; }
 
-    // Navigation properties for EF Core self‑reference
+    // Navigation properties for EF Core self-reference
+    [System.Text.Json.Serialization.JsonIgnore]
     public Category? Parent { get; private set; }
+    [System.Text.Json.Serialization.JsonIgnore]
     public ICollection<Category> Children { get; private set; } = new List<Category>();
 
     public static Category Create(
