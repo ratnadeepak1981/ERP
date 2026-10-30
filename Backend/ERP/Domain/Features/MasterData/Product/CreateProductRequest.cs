@@ -47,4 +47,6 @@ public class CreateProductRequest
     public TrackingMode TrackingMode { get; set; } = TrackingMode.None;
 
     public Guid? UnitOfMeasureId { get; set; }
+
+    public Guid? BrandId { get; set; }
 }

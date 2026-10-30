@@ -39,6 +39,8 @@ public class Product : Auditable, ITenantScopedEntity
 
     public Guid? UnitOfMeasureId { get; private set; }
 
+    public Guid? BrandId { get; private set; }
+
     // Inventory / costing
     public ValuationMethod ValuationMethod { get; private set; }
 
@@ -61,6 +63,8 @@ public class Product : Auditable, ITenantScopedEntity
     public bool IsActive { get; private set; }
 
     public ICollection<ProductIdentifier> Identifiers { get; private set; } = new List<ProductIdentifier>();
+
+    public ICollection<ProductPackaging> Packagings { get; private set; } = new List<ProductPackaging>();
 
     public static Product Create(
         Guid tenantId,
@@ -87,7 +91,8 @@ public class Product : Auditable, ITenantScopedEntity
         decimal? minStockQuantity = null,
         decimal? maxStockQuantity = null,
         decimal? safetyStockQuantity = null,
-        int? leadTimeDays = null)
+        int? leadTimeDays = null,
+        Guid? brandId = null)
     {
         ValidatePlanningSettings(reorderLevel, reorderQuantity, minStockQuantity, maxStockQuantity, safetyStockQuantity, leadTimeDays);
         ValidateCapabilitiesAndTracking(productCode, productType, isStockTracked, trackingMode);
@@ -119,6 +124,7 @@ public class Product : Auditable, ITenantScopedEntity
             ProductType = productType,
             TrackingMode = trackingMode,
             UnitOfMeasureId = unitOfMeasureId,
+            BrandId = brandId,
             IsActive = true
         };
     }
@@ -145,7 +151,8 @@ public class Product : Auditable, ITenantScopedEntity
         decimal? minStockQuantity = null,
         decimal? maxStockQuantity = null,
         decimal? safetyStockQuantity = null,
-        int? leadTimeDays = null)
+        int? leadTimeDays = null,
+        Guid? brandId = null)
     {
         ValidatePlanningSettings(reorderLevel, reorderQuantity, minStockQuantity, maxStockQuantity, safetyStockQuantity, leadTimeDays);
         ValidateCapabilitiesAndTracking(ProductCode, productType, isStockTracked, trackingMode);
@@ -172,6 +179,7 @@ public class Product : Auditable, ITenantScopedEntity
         ProductType = productType;
         TrackingMode = trackingMode;
         UnitOfMeasureId = unitOfMeasureId;
+        BrandId = brandId;
     }
 
     public void UpdatePlanningSettings(

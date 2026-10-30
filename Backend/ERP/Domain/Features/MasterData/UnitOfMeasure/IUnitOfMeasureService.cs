@@ -18,4 +18,13 @@ public interface IUnitOfMeasureService
     Task<UnitOfMeasureConversion> UpdateConversionAsync(Guid tenantId, Guid conversionId, UpdateUnitOfMeasureConversionRequest request);
     Task DeactivateConversionAsync(Guid tenantId, Guid conversionId);
     Task<ConvertUnitOfMeasureResult> ConvertQuantityAsync(Guid tenantId, Guid fromUnitId, Guid toUnitId, decimal quantity);
+    Task<ConvertUnitOfMeasureResult> ConvertProductQuantityAsync(
+        Guid tenantId,
+        Guid productId,
+        Guid fromUnitId,
+        Guid toUnitId,
+        decimal quantity,
+        ConversionContext context = ConversionContext.General,
+        Guid? productPackagingId = null,
+        Guid? companyId = null);
 }

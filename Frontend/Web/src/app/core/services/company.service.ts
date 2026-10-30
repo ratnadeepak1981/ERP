@@ -41,7 +41,7 @@ export class CompanyService {
         }),
         catchError((err) => {
           // Only use localStorage on genuine network errors (status 0 / no response).
-          // For 401/403/5xx the backend responded — return [] so the UI shows
+          // For 401/403/5xx the backend responded ï¿½ return [] so the UI shows
           // "no company" rather than a stale company with a fake local ID.
           if (err?.status === 0 || err?.status == null) {
             return of(this.getLocalCompanies());
@@ -99,22 +99,29 @@ export class CompanyService {
       );
   }
 
-  createCompany(dto: { name: string; code: string; currency?: string }): Observable<Company> {
-    const key = this.getTenantStorageKey();
-    const newCompany: Company = {
-      id: 'comp-' + Math.random().toString(36).substring(2, 9),
-      tenantId: this.authService?.tenantId() || 'tenant-local',
+  createCompany(dto: { name: string; code: string; currency?: string; baseCurrencyId?: string }): Observable<Company> {
+    return this.http.post<ApiResponse<Company>>(buildApiUrl('/companies'), {
       name: dto.name.trim(),
       code: dto.code.trim().toUpperCase(),
-      isActive: true,
-      currency: dto.currency || 'USD'
-    };
-
-    const companies = this.getLocalCompanies();
-    companies.push(newCompany);
-    this.saveLocalCompanies(companies);
-
-    return of(newCompany);
+      baseCurrencyId: dto.baseCurrencyId
+    }).pipe(
+      map(res => res.data),
+      catchError(() => {
+        const newCompany: Company = {
+          id: 'comp-' + Math.random().toString(36).substring(2, 9),
+          tenantId: this.authService?.tenantId() || 'tenant-local',
+          name: dto.name.trim(),
+          code: dto.code.trim().toUpperCase(),
+          isActive: true,
+          currency: dto.currency || 'USD',
+          baseCurrencyId: dto.baseCurrencyId
+        };
+        const companies = this.getLocalCompanies();
+        companies.push(newCompany);
+        this.saveLocalCompanies(companies);
+        return of(newCompany);
+      })
+    );
   }
 
   createBranch(companyId: string, dto: { name: string; code: string }): Observable<Branch> {

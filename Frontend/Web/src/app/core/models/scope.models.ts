@@ -4,6 +4,8 @@ export interface Company {
   name: string;
   code: string;
   isActive: boolean;
+  baseCurrencyId?: string;
+  baseCurrencyCode?: string;
   currency?: string;
 }
 
@@ -31,6 +33,37 @@ export interface CategoryItem {
   description?: string;
   parentCategoryId?: string | null;
   isActive: boolean;
+}
+
+export interface CategoryTreeNode extends CategoryItem {
+  level?: number;
+  hasChildren?: boolean;
+}
+
+export interface CategoryNodeState {
+  expanded: boolean;
+  children: CategoryTreeNode[];
+  childrenLoading: boolean;
+  childrenLoaded: boolean;
+  hasMoreChildren: boolean;
+  childrenPage: number;
+  childrenError?: string | null;
+  showProducts: boolean;
+  products: ProductItem[];
+  productsLoading: boolean;
+  productsLoaded: boolean;
+  hasMoreProducts: boolean;
+  productsPage: number;
+  productsError?: string | null;
+  error?: string | null;
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
 }
 
 export interface UnitOfMeasureItem {
@@ -164,6 +197,26 @@ export interface UpdateWarehouseLocationDto {
   parentLocationId?: string | null;
 }
 
+export enum ProductType {
+  StockItem = 1,
+  NonStockItem = 2,
+  Service = 3
+}
+
+export enum TrackingMode {
+  None = 0,
+  Batch = 1,
+  Serial = 2,
+  BatchAndSerial = 3
+}
+
+export enum ValuationMethod {
+  FIFO = 1,
+  WeightedAverage = 2,
+  StandardCost = 3,
+  LIFO = 4
+}
+
 export interface ProductItem {
   productId: string;
   tenantId: string;
@@ -171,6 +224,8 @@ export interface ProductItem {
   productName: string;
   categoryId: string;
   categoryName?: string;
+  brandId?: string | null;
+  brandName?: string | null;
   description?: string;
   unitOfMeasure: string;
   unitOfMeasureId?: string | null;
@@ -187,6 +242,10 @@ export interface ProductItem {
   sellingPrice: number;
   reorderLevel: number;
   reorderQuantity: number;
+  minStockQuantity?: number | null;
+  maxStockQuantity?: number | null;
+  safetyStockQuantity?: number | null;
+  leadTimeDays?: number | null;
   isActive: boolean;
   createdAt?: string;
 }
@@ -195,12 +254,18 @@ export interface CreateProductDto {
   productCode: string;
   productName: string;
   categoryId: string;
+  brandId?: string | null;
   description?: string;
   unitOfMeasure: string;
+  unitOfMeasureId?: string | null;
   standardCost: number;
   sellingPrice: number;
   reorderLevel: number;
   reorderQuantity: number;
+  minStockQuantity?: number | null;
+  maxStockQuantity?: number | null;
+  safetyStockQuantity?: number | null;
+  leadTimeDays?: number | null;
   isManufacturable: boolean;
   isPurchasable: boolean;
   isSellable: boolean;
@@ -209,11 +274,36 @@ export interface CreateProductDto {
   isStockTracked: boolean;
   productType?: number;
   trackingMode?: number;
-  unitOfMeasureId?: string | null;
+  valuationMethod?: number;
 }
 
 export interface UpdateProductDto extends CreateProductDto {
   isActive?: boolean;
+}
+
+export interface ProductPackagingItem {
+  productPackagingId: string;
+  tenantId: string;
+  companyId?: string | null;
+  productId: string;
+  packagingCode: string;
+  packagingName: string;
+  packagingUomId: string;
+  packagingUomCode?: string;
+  baseQuantity: number;
+  purchaseAllowed: boolean;
+  salesAllowed: boolean;
+  isActive: boolean;
+}
+
+export interface CreateProductPackagingDto {
+  packagingCode: string;
+  packagingName: string;
+  packagingUomId: string;
+  baseQuantity: number;
+  purchaseAllowed?: boolean;
+  salesAllowed?: boolean;
+  companyId?: string | null;
 }
 
 export interface SupplierItem {

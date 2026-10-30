@@ -217,7 +217,11 @@ public static class TestSeeder
             ("PAIR", "Pair", "Two matched units"),
             ("ROLL", "Roll", "Coiled material unit"),
             ("BAG", "Bag", "Bag or sack packaging"),
-            ("SET", "Set", "Multi-piece assembly or set")
+            ("SET", "Set", "Multi-piece assembly or set"),
+            ("DOZEN", "Dozen", "Twelve individual pieces"),
+            ("PALLET", "Pallet", "Standard shipping pallet"),
+            ("TABLET", "Tablet", "Pharmaceutical tablet dosage unit"),
+            ("CAPSULE", "Capsule", "Pharmaceutical capsule dosage unit")
         };
 
         foreach (var tId in tenants)
@@ -242,7 +246,8 @@ public static class TestSeeder
             ("MTR", "CM", 100m),
             ("CM", "MM", 10m),
             ("LTR", "ML", 1000m),
-            ("PAIR", "PCS", 2m)
+            ("PAIR", "PCS", 2m),
+            ("DOZEN", "PCS", 12m)
         };
 
         foreach (var tId in tenants)

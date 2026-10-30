@@ -1,4 +1,8 @@
-﻿namespace Domain.Features.MasterData.Company;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace Domain.Features.MasterData.Company;
 
 public interface ICompanyRepository
 {
@@ -9,4 +13,6 @@ public interface ICompanyRepository
     Task AddAsync(Company company);
 
     Task UpdateAsync(Company company);
+
+    Task SaveChangesAsync();
 }

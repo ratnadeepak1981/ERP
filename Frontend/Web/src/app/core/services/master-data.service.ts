@@ -1,17 +1,21 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, of, tap } from 'rxjs';
 import { buildApiUrl } from '../utils/api-url.util';
 import { ApiResponse } from '../models/auth.models';
 import {
   ProductItem,
   CreateProductDto,
   UpdateProductDto,
+  ProductPackagingItem,
   SupplierItem,
   CreateSupplierDto,
   CustomerItem,
   CreateCustomerDto,
   CategoryItem,
+  CategoryTreeNode,
+  CategoryNodeState,
+  PagedResult,
   UnitOfMeasureItem,
   UnitOfMeasureConversionItem,
   CurrencyItem,
@@ -68,17 +72,31 @@ export class MasterDataService {
   createProduct(dto: CreateProductDto): Observable<ProductItem> {
     return this.http
       .post<ApiResponse<ProductItem>>(buildApiUrl('/products'), dto)
-      .pipe(map(res => res.data));
+      .pipe(
+        map(res => res.data),
+        tap(() => (this.cachedAllProducts = null))
+      );
   }
 
   updateProduct(id: string, dto: UpdateProductDto): Observable<ProductItem> {
     return this.http
       .put<ApiResponse<ProductItem>>(buildApiUrl(`/products/${id}`), dto)
-      .pipe(map(res => res.data));
+      .pipe(
+        map(res => res.data),
+        tap(() => (this.cachedAllProducts = null))
+      );
   }
 
   deactivateProduct(id: string): Observable<void> {
-    return this.http.delete<void>(buildApiUrl(`/products/${id}`));
+    return this.http.delete<void>(buildApiUrl(`/products/${id}`)).pipe(
+      tap(() => (this.cachedAllProducts = null))
+    );
+  }
+
+  getProductPackagings(productId: string): Observable<ProductPackagingItem[]> {
+    return this.http
+      .get<ApiResponse<ProductPackagingItem[]>>(buildApiUrl(`/products/${productId}/packagings`))
+      .pipe(map(res => res?.data ?? []));
   }
 
   // --- Suppliers ---
@@ -182,26 +200,143 @@ export class MasterDataService {
       .pipe(map(res => res?.data ?? null));
   }
 
-  createCategory(dto: { categoryCode: string; categoryName: string; description?: string }): Observable<CategoryItem> {
+  createCategory(dto: { categoryCode: string; categoryName: string; description?: string; parentCategoryId?: string | null }): Observable<CategoryItem> {
     return this.http
       .post<ApiResponse<CategoryItem>>(buildApiUrl('/categories'), dto)
-      .pipe(map(res => res.data));
+      .pipe(
+        map(res => res.data),
+        tap(() => this.cachedAllCategories = null)
+      );
   }
 
-  updateCategory(id: string, dto: { categoryName: string; description?: string }): Observable<CategoryItem> {
+  updateCategory(id: string, dto: { categoryName: string; description?: string; parentCategoryId?: string | null }): Observable<CategoryItem> {
     return this.http
       .put<ApiResponse<CategoryItem>>(buildApiUrl(`/categories/${id}`), dto)
-      .pipe(map(res => res.data));
+      .pipe(
+        map(res => res.data),
+        tap(() => this.cachedAllCategories = null)
+      );
   }
 
   deactivateCategory(id: string): Observable<void> {
-    return this.http.delete<void>(buildApiUrl(`/categories/${id}`));
+    return this.http.delete<void>(buildApiUrl(`/categories/${id}`)).pipe(
+      tap(() => this.cachedAllCategories = null)
+    );
   }
 
   reactivateCategory(id: string): Observable<CategoryItem> {
     return this.http
       .post<ApiResponse<CategoryItem>>(buildApiUrl(`/categories/${id}/reactivate`), null)
-      .pipe(map(res => res.data));
+      .pipe(
+        map(res => res.data),
+        tap(() => this.cachedAllCategories = null)
+      );
+  }
+
+  // --- Category Hierarchy & Lazy Loading ---
+  private cachedAllCategories: CategoryItem[] | null = null;
+  private cachedAllProducts: ProductItem[] | null = null;
+
+  clearHierarchyCache(): void {
+    this.cachedAllCategories = null;
+    this.cachedAllProducts = null;
+  }
+
+  getRootCategories(page: number = 1, pageSize: number = 20): Observable<PagedResult<CategoryTreeNode>> {
+    const fetch$ = this.cachedAllCategories
+      ? of(this.cachedAllCategories)
+      : this.getCategories().pipe(tap(cats => (this.cachedAllCategories = cats)));
+
+    return fetch$.pipe(
+      map(allCategories => {
+        const parentIdsWithChildren = new Set(
+          allCategories
+            .filter(c => !!c.parentCategoryId)
+            .map(c => c.parentCategoryId!)
+        );
+
+        const roots: CategoryTreeNode[] = allCategories
+          .filter(c => !c.parentCategoryId)
+          .map(c => ({
+            ...c,
+            level: 0,
+            hasChildren: parentIdsWithChildren.has(c.categoryId)
+          }));
+
+        const totalCount = roots.length;
+        const startIndex = (page - 1) * pageSize;
+        const items = roots.slice(startIndex, startIndex + pageSize);
+        const hasMore = startIndex + items.length < totalCount;
+
+        return {
+          items,
+          totalCount,
+          page,
+          pageSize,
+          hasMore
+        };
+      })
+    );
+  }
+
+  getCategoryChildren(categoryId: string, page: number = 1, pageSize: number = 20): Observable<PagedResult<CategoryTreeNode>> {
+    const fetch$ = this.cachedAllCategories
+      ? of(this.cachedAllCategories)
+      : this.getCategories().pipe(tap(cats => (this.cachedAllCategories = cats)));
+
+    return fetch$.pipe(
+      map(allCategories => {
+        const parentIdsWithChildren = new Set(
+          allCategories
+            .filter(c => !!c.parentCategoryId)
+            .map(c => c.parentCategoryId!)
+        );
+
+        const children: CategoryTreeNode[] = allCategories
+          .filter(c => c.parentCategoryId === categoryId)
+          .map(c => ({
+            ...c,
+            hasChildren: parentIdsWithChildren.has(c.categoryId)
+          }));
+
+        const totalCount = children.length;
+        const startIndex = (page - 1) * pageSize;
+        const items = children.slice(startIndex, startIndex + pageSize);
+        const hasMore = startIndex + items.length < totalCount;
+
+        return {
+          items,
+          totalCount,
+          page,
+          pageSize,
+          hasMore
+        };
+      })
+    );
+  }
+
+  getCategoryProducts(categoryId: string, page: number = 1, pageSize: number = 20): Observable<PagedResult<ProductItem>> {
+    const fetch$ = this.cachedAllProducts
+      ? of(this.cachedAllProducts)
+      : this.getProducts().pipe(tap(prods => (this.cachedAllProducts = prods)));
+
+    return fetch$.pipe(
+      map(allProducts => {
+        const categoryProducts = allProducts.filter(p => p.categoryId === categoryId);
+        const totalCount = categoryProducts.length;
+        const startIndex = (page - 1) * pageSize;
+        const items = categoryProducts.slice(startIndex, startIndex + pageSize);
+        const hasMore = startIndex + items.length < totalCount;
+
+        return {
+          items,
+          totalCount,
+          page,
+          pageSize,
+          hasMore
+        };
+      })
+    );
   }
 
   // --- Brands ---

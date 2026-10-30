@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SaaS\SaaS.csproj" />
+
   </ItemGroup>
 
 </Project>
