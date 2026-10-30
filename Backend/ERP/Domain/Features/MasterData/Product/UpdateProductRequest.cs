@@ -27,4 +27,5 @@ public class UpdateProductRequest
     public ProductType ProductType { get; set; } = ProductType.StockItem;
     public TrackingMode TrackingMode { get; set; } = TrackingMode.None;
     public Guid? UnitOfMeasureId { get; set; }
+    public Guid? BrandId { get; set; }
 }

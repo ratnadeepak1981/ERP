@@ -9,7 +9,7 @@ using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
-using SaaS.Application.Interfaces;
+
 
 namespace Domain.Features.Procurement.GoodsReceiptNote;
 
@@ -20,7 +20,7 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
     private readonly IProductRepository _productRepository;
     private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryPostingService _postingService;
-    private readonly ISubscriptionUsageService _subscriptionUsageService;
+
     private readonly DomainDbContext _context;
     private readonly IUnitOfMeasureService? _uomService;
 
@@ -30,7 +30,6 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
         IProductRepository productRepository,
         IWarehouseRepository warehouseRepository,
         IInventoryPostingService postingService,
-        ISubscriptionUsageService subscriptionUsageService,
         DomainDbContext context,
         IUnitOfMeasureService? uomService = null)
     {
@@ -39,7 +38,6 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
         _productRepository = productRepository;
         _warehouseRepository = warehouseRepository;
         _postingService = postingService;
-        _subscriptionUsageService = subscriptionUsageService;
         _context = context;
         _uomService = uomService;
     }
@@ -366,15 +364,8 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
             throw new InvalidOperationException("Cancelled GRN cannot be confirmed.");
         }
 
-        // 2. Wrap confirmation execution inside Subscription Usage limit ("TRANSACTIONS" increment = 1)
-        return await _subscriptionUsageService.ExecuteWithUsageLimitAsync(
-            tenantId,
-            "TRANSACTIONS",
-            1,
-            async () =>
-            {
-                // Open Domain Transaction
-                await using var domainTx = await _context.Database.BeginTransactionAsync();
+        // Open Domain Transaction
+        await using var domainTx = await _context.Database.BeginTransactionAsync();
 
                 // Re-fetch GRN with row version tracking and lock
                 var grn = await _grnRepository.GetByIdAsync(tenantId, companyId, branchId, grnId)
@@ -413,11 +404,14 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                         if (_uomService == null)
                             throw new InvalidOperationException("Unit of Measure service is required for UOM conversions.");
 
-                        var converted = await _uomService.ConvertQuantityAsync(
+                        var converted = await _uomService.ConvertProductQuantityAsync(
                             tenantId,
+                            line.ProductId,
                             line.UnitOfMeasureId.Value,
                             poItem.UnitOfMeasureId.Value,
-                            line.QuantityReceived
+                            line.QuantityReceived,
+                            ConversionContext.Purchase,
+                            companyId: companyId
                         );
                         qtyInPoUom = converted.ConvertedQuantity;
                     }
@@ -484,11 +478,14 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                         if (_uomService == null)
                             throw new InvalidOperationException("Unit of Measure service is required for UOM conversions.");
 
-                        var converted = await _uomService.ConvertQuantityAsync(
+                        var converted = await _uomService.ConvertProductQuantityAsync(
                             tenantId,
+                            line.ProductId,
                             line.UnitOfMeasureId.Value,
                             product.UnitOfMeasureId.Value,
-                            line.QuantityReceived
+                            line.QuantityReceived,
+                            ConversionContext.Purchase,
+                            companyId: companyId
                         );
                         baseQuantity = converted.ConvertedQuantity;
                     }
@@ -501,9 +498,9 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                     // Decrement on-order balance for received quantity in the corresponding warehouse
                     var onOrderBalance = await _context.InventoryBalances
                         .FirstOrDefaultAsync(b => b.TenantId == tenantId
-                                               && b.WarehouseId == line.WarehouseId
-                                               && b.ProductId == line.ProductId
-                                               && b.QuantityOnOrder > 0);
+                                                   && b.WarehouseId == line.WarehouseId
+                                                   && b.ProductId == line.ProductId
+                                                   && b.QuantityOnOrder > 0);
 
                     if (onOrderBalance != null)
                     {
@@ -543,8 +540,8 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
                 await domainTx.CommitAsync();
 
                 return MapToDto(grn);
-            });
     }
+
 
     private static GoodsReceiptNoteDto MapToDto(GoodsReceiptNote grn)
     {

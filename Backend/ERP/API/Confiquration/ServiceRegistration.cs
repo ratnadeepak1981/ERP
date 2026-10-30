@@ -70,6 +70,7 @@ public static class ServiceRegistration
         services.AddScoped<IUserScopeService, UserScopeService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<Domain.Features.MasterData.Product.IProductPackagingService, Domain.Features.MasterData.Product.ProductPackagingService>();
         services.AddScoped<Domain.Features.MasterData.Product.IProductIdentifierService, Domain.Features.MasterData.Product.ProductIdentifierService>();
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderService>();
@@ -85,6 +86,7 @@ public static class ServiceRegistration
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.ILocationIdentifierService, ERP.Domain.Features.MasterData.Warehouse.LocationIdentifierService>();
         services.AddScoped<Domain.Features.MasterData.Address.IAddressService, Domain.Features.MasterData.Address.AddressService>();
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceService, Domain.Features.MasterData.Supplier.SupplierProductPriceService>();
+        services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.ISpecialUomConversionSettingsProvider, API.Services.SpecialUomConversionSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, Domain.Features.Procurement.Approval.ApprovalWorkflowService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionService>();

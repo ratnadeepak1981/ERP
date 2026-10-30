@@ -46,6 +46,15 @@ public class CategoryRepository : ICategoryRepository
         await _context.Categories.AddAsync(category);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, Guid?>> GetParentMapAsync(Guid tenantId)
+    {
+        var list = await _context.Categories
+            .Where(c => c.TenantId == tenantId)
+            .Select(c => new { c.CategoryId, c.ParentCategoryId })
+            .ToListAsync();
+        return list.ToDictionary(x => x.CategoryId, x => x.ParentCategoryId);
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

@@ -522,11 +522,14 @@ public class PurchaseOrderService : IPurchaseOrderService
             {
                 if (_uomService != null)
                 {
-                    var converted = await _uomService.ConvertQuantityAsync(
+                    var converted = await _uomService.ConvertProductQuantityAsync(
                         order.TenantId,
+                        item.ProductId,
                         item.UnitOfMeasureId.Value,
                         product.UnitOfMeasureId.Value,
-                        delta
+                        delta,
+                        ConversionContext.Purchase,
+                        companyId: order.CompanyId
                     );
                     baseDelta = converted.ConvertedQuantity;
                 }

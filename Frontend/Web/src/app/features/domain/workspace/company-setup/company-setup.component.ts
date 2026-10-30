@@ -118,7 +118,7 @@ export class CompanySetupComponent implements OnInit {
     return this.companies().map(c => ({
       ...c,
       status: c.isActive ? 'Active' : 'Inactive',
-      currency: c.currency || 'USD',
+      currency: c.baseCurrencyCode || c.currency || 'USD',
       branchCount: branchCountStr
     }));
   });

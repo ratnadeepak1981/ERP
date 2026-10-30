@@ -37,6 +37,7 @@ public static class RepositoryRegistration
         // Domain
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IProductPackagingRepository, ProductPackagingRepository>();
         services.AddScoped<IBranchRepository, BranchRepository>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderRepository, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderRepository>();
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryRepository, ERP.Domain.Features.MasterData.Category.CategoryRepository>();

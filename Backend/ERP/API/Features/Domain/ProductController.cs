@@ -20,6 +20,7 @@ public class ProductController : BaseApiController
             .Add("productCode", p => p.ProductCode, isDefault: true)
             .Add("productName", p => p.ProductName)
             .Add("unitOfMeasure", p => p.UnitOfMeasure)
+            .Add("brandId", p => (object?)p.BrandId ?? Guid.Empty)
             .Add("createdAt", p => p.CreatedAt)
             .SetSecondary(p => p.ProductId);
 
@@ -36,7 +37,8 @@ public class ProductController : BaseApiController
         [FromQuery] int? page = null,
         [FromQuery] int? pageSize = null,
         [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDirection = null)
+        [FromQuery] string? sortDirection = null,
+        [FromQuery] Guid? brandId = null)
     {
         if (_currentUserContext.IsPlatformUser)
         {
@@ -49,7 +51,7 @@ public class ProductController : BaseApiController
             return UnauthorizedResponse("Tenant identity is missing or invalid.");
         }
 
-        var products = await _productService.GetProductsAsync(tenantId.Value);
+        var products = await _productService.GetProductsAsync(tenantId.Value, brandId);
         return PaginateAndSort(products, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 

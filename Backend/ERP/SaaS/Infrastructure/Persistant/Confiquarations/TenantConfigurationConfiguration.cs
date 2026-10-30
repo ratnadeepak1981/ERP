@@ -35,6 +35,10 @@ public class TenantConfigurationConfiguration
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(x => x.SpecialUomConversionEnabled)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(x => x.ProcurementApprovalMode)
             .IsRequired()
             .HasDefaultValue(1);
