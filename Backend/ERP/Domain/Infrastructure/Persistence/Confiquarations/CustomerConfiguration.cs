@@ -54,8 +54,23 @@ public class CustomerConfiguration
         builder.Property(x => x.PaymentTerms)
             .HasMaxLength(100);
 
+        builder.Property(x => x.CurrencyId)
+            .IsRequired(false);
+
         builder.Property(x => x.IsActive)
             .IsRequired();
+
+        builder.HasOne(x => x.Currency)
+            .WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.CurrencyId })
+            .HasPrincipalKey(x => new { x.TenantId, x.CurrencyId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.CurrencyId
+        });
 
         // Tenant + CustomerCode must be unique
         builder.HasIndex(x => new

@@ -1,6 +1,7 @@
 using ERP.Domain.Common;
 using ERP.Domain.Common.Scope;
 using System;
+using Domain.Features.MasterData.Currency;
 
 namespace ERP.Domain.Features.MasterData.Supplier;
 
@@ -27,6 +28,13 @@ public class Supplier : Auditable, ITenantScopedEntity
     public string? CreditTerms { get; private set; }
     public string? PaymentTerms { get; private set; }
 
+    public Guid? CurrencyId { get; private set; }
+    public Currency? Currency { get; private set; }
+
+    public string? CurrencyCode => Currency?.CurrencyCode;
+
+    public Guid? DefaultPurchasePriceCardId { get; private set; }
+
     public bool IsActive { get; private set; }
 
     public static Supplier Create(
@@ -44,7 +52,8 @@ public class Supplier : Auditable, ITenantScopedEntity
         string? taxNumber = null,
         string? creditTerms = null,
         string? paymentTerms = null,
-        Guid? supplierId = null)
+        Guid? supplierId = null,
+        Guid? currencyId = null)
     {
         return new Supplier
         {
@@ -63,6 +72,7 @@ public class Supplier : Auditable, ITenantScopedEntity
             TaxNumber = taxNumber,
             CreditTerms = creditTerms,
             PaymentTerms = paymentTerms,
+            CurrencyId = currencyId,
             IsActive = true
         };
     }
@@ -79,7 +89,8 @@ public class Supplier : Auditable, ITenantScopedEntity
         string? country,
         string? taxNumber,
         string? creditTerms,
-        string? paymentTerms)
+        string? paymentTerms,
+        Guid? currencyId = null)
     {
         SupplierName = supplierName;
         ContactPerson = contactPerson;
@@ -93,6 +104,12 @@ public class Supplier : Auditable, ITenantScopedEntity
         TaxNumber = taxNumber;
         CreditTerms = creditTerms;
         PaymentTerms = paymentTerms;
+        CurrencyId = currencyId;
+    }
+
+    public void SetDefaultCurrency(Guid? currencyId)
+    {
+        CurrencyId = currencyId;
     }
 
     public void SyncPrimaryContact(string? contactPerson, string? email, string? phone)

@@ -82,6 +82,8 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.MasterData.TaxCode.ITaxCodeService, Domain.Features.MasterData.TaxCode.TaxCodeService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Customer.ICustomerService, ERP.Domain.Features.MasterData.Customer.CustomerService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Supplier.ISupplierService, ERP.Domain.Features.MasterData.Supplier.SupplierService>();
+        services.AddScoped<Domain.Features.MasterData.PriceCard.IPriceCardService, Domain.Features.MasterData.PriceCard.PriceCardService>();
+        services.AddScoped<Domain.Features.MasterData.PriceCard.IPricingResolutionService, Domain.Features.MasterData.PriceCard.PricingResolutionService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseService, ERP.Domain.Features.MasterData.Warehouse.WarehouseService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.ILocationIdentifierService, ERP.Domain.Features.MasterData.Warehouse.LocationIdentifierService>();
         services.AddScoped<Domain.Features.MasterData.Address.IAddressService, Domain.Features.MasterData.Address.AddressService>();

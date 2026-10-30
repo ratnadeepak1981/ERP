@@ -155,6 +155,14 @@ public static class TenantAdminRolePermissionSeed
             "SUPPLIER_PRICE.EDIT",
             "SUPPLIER_PRICE.DELETE",
 
+            "PRICE_CARD.VIEW",
+            "PRICE_CARD.CREATE",
+            "PRICE_CARD.EDIT",
+            "PRICE_CARD.MANAGE",
+            "PRICE_CARD.OVERRIDE",
+            "SUPPLIER.PRICE_CARD.ASSIGN",
+            "CUSTOMER.PRICE_CARD.ASSIGN",
+
             "COUNTRY.VIEW",
 
             "CRM.LEAD.VIEW",

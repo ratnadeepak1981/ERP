@@ -195,6 +195,49 @@ export const workspaceRoutes: Routes = [
           )
       },
       {
+        path: 'currencies',
+        loadComponent: () =>
+          import('./master-data/currencies/currency-master.component').then(
+            m => m.CurrencyMasterComponent
+          )
+      },
+      {
+        path: 'price-cards',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-master.component').then(
+                m => m.PriceCardMasterComponent
+              )
+          },
+          {
+            path: 'new',
+            data: { mode: 'create' },
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-page.component').then(
+                m => m.PriceCardPageComponent
+              )
+          },
+          {
+            path: ':id/edit',
+            data: { mode: 'edit' },
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-page.component').then(
+                m => m.PriceCardPageComponent
+              )
+          },
+          {
+            path: ':id',
+            data: { mode: 'view' },
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-page.component').then(
+                m => m.PriceCardPageComponent
+              )
+          }
+        ]
+      },
+      {
         path: 'locations',
         redirectTo: 'warehouses',
         pathMatch: 'full'
