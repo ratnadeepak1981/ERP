@@ -2,6 +2,7 @@ using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+
 namespace ERP.Infrastructure.Persistence.Configurations.MasterData;
 
 public class CustomerConfiguration
@@ -60,11 +61,18 @@ public class CustomerConfiguration
         builder.Property(x => x.IsActive)
             .IsRequired();
 
-        builder.HasOne(x => x.Currency)
-            .WithMany()
-            .HasForeignKey(x => new { x.TenantId, x.CurrencyId })
-            .HasPrincipalKey(x => new { x.TenantId, x.CurrencyId })
-            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.Currency);
+
+           // .HasForeignKey(x => new { x.TenantId, x.CurrencyId })
+            //.HasPrincipalKey(x => new { x.TenantId, x.CurrencyId });
+
+
+
+
+
+
+
+
 
         builder.HasIndex(x => new
         {
