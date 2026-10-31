@@ -85,7 +85,7 @@ public class CustomerController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("CUSTOMER.UPDATE")]
+    [RequirePermission("CUSTOMER.EDIT")]
     public async Task<IActionResult> UpdateCustomer(Guid id, [FromBody] UpdateCustomerRequest request)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
@@ -117,6 +117,26 @@ public class CustomerController : BaseApiController
         {
             await _customerService.DeactivateCustomerAsync(tenantId.Value, id);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/reactivate")]
+    [RequirePermission("CUSTOMER.EDIT")]
+    public async Task<IActionResult> ReactivateCustomer(Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var customer = await _customerService.ReactivateCustomerAsync(tenantId.Value, id);
+            return SuccessResponse(customer, "Customer reactivated successfully.");
         }
         catch (Exception ex)
         {

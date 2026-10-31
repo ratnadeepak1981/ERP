@@ -1,5 +1,6 @@
-﻿namespace Security.Core.Models;
+namespace Security.Core.Models;
 using Security.Core.Common;
+
 public class User : Auditable
 {
     public Guid Id { get; set; }
@@ -16,7 +17,9 @@ public class User : Auditable
 
     public bool IsActive { get; set; } = true;
 
-   
     public ICollection<UserRole> UserRoles { get; set; }
         = new List<UserRole>();
+
+    public ICollection<UserSession> UserSessions { get; set; }
+        = new List<UserSession>();
 }

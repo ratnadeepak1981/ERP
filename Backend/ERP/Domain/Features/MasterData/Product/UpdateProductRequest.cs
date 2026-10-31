@@ -14,6 +14,10 @@ public class UpdateProductRequest
     public decimal SellingPrice { get; set; }
     public decimal ReorderLevel { get; set; }
     public decimal ReorderQuantity { get; set; }
+    public decimal? MinStockQuantity { get; set; }
+    public decimal? MaxStockQuantity { get; set; }
+    public decimal? SafetyStockQuantity { get; set; }
+    public int? LeadTimeDays { get; set; }
     public bool IsManufacturable { get; set; }
     public bool IsPurchasable { get; set; } = true;
     public bool IsSellable { get; set; } = true;
@@ -23,4 +27,5 @@ public class UpdateProductRequest
     public ProductType ProductType { get; set; } = ProductType.StockItem;
     public TrackingMode TrackingMode { get; set; } = TrackingMode.None;
     public Guid? UnitOfMeasureId { get; set; }
+    public Guid? BrandId { get; set; }
 }

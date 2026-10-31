@@ -1,0 +1,236 @@
+<div class="user-scope-register-page">
+  <app-page-header
+    title="User Operating Scopes"
+    subtitle="Govern user jurisdictional authorizations across registered companies and operating branch facilities."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Users Register"
+        icon="pi pi-users"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        routerLink="/tenant-admin/users"
+      ></p-button>
+
+      <p-button
+        label="Assign Scope"
+        icon="pi pi-plus"
+        size="small"
+        severity="primary"
+        (onClick)="navigateToNewScope()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Metric / Overview Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap primary">
+        <i class="pi pi-sitemap"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Total Scope Assignments</span>
+        <strong class="metric-value">{{ totalScopesCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap info">
+        <i class="pi pi-building"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Company-Wide Scopes</span>
+        <strong class="metric-value">{{ companyLevelCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap success">
+        <i class="pi pi-map-marker"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Facility / Branch Scopes</span>
+        <strong class="metric-value">{{ branchLevelCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap neutral">
+        <i class="pi pi-ban"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Revoked Scopes</span>
+        <strong class="metric-value">{{ revokedCount() }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Warehouse Scope Architecture Notice Callout -->
+  <div class="scope-notice-banner">
+    <i class="pi pi-info-circle"></i>
+    <div class="banner-content">
+      <strong>Scope Hierarchy &amp; Warehouse Access Governance</strong>
+      <p>
+        ApexERP security scopes are governed at the <strong>Company</strong> and <strong>Branch / Facility</strong> levels in accordance with the backend security schema (<code>SecurityDB.dbo.UserRoleScopes</code>). Specific warehouse-level access is automatically inherited from the user's assigned operating facility.
+      </p>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="message-banner banner-danger">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">{{ errorMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="errorMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message-banner banner-success">
+      <i class="pi pi-check-circle"></i>
+      <span class="message-text">{{ successMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="successMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Main Register Card -->
+  <div class="register-main-card erp-card">
+    <div class="table-search-row">
+      <div class="search-input-wrap">
+        <i class="pi pi-search"></i>
+        <input
+          pInputText
+          type="text"
+          placeholder="Filter by user, company, branch, or notes..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          class="w-full"
+        />
+      </div>
+
+      <div class="filter-controls-group">
+        <div class="user-filter-select-wrap">
+          <select
+            class="fluent-select"
+            [ngModel]="selectedUserId()"
+            (ngModelChange)="selectedUserId.set($event)"
+          >
+            <option value="all">All Users ({{ users().length }})</option>
+            @for (u of users(); track u.id) {
+              <option [value]="u.id">{{ u.fullName || u.username }} ({{ u.email }})</option>
+            }
+          </select>
+        </div>
+
+        <div class="status-filter-pills">
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === 'ALL'"
+            (click)="statusFilter.set('ALL')"
+          >
+            All ({{ scopes().length }})
+          </button>
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === 'Authorized'"
+            (click)="statusFilter.set('Authorized')"
+          >
+            Authorized
+          </button>
+          <button
+            type="button"
+            class="pill-btn"
+            [class.active]="statusFilter() === 'Revoked'"
+            (click)="statusFilter.set('Revoked')"
+          >
+            Revoked
+          </button>
+        </div>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="p-6">
+        <app-loading-state message="Loading organizational scopes from server..."></app-loading-state>
+      </div>
+    } @else {
+      <app-data-table
+        [data]="filteredScopes()"
+        [columns]="columns"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 20]"
+        searchPlaceholder="Filter scope assignments..."
+        emptyTitle="No Scope Assignments Found"
+        emptyDescription="No operating scopes match the current search or user filter."
+        [actionTemplate]="scopeActionsTemplate"
+      >
+        <ng-template #cellTemplate let-row="row" let-col="col">
+          @if (col.field === 'userName') {
+            <div class="user-cell">
+              <div class="user-avatar-circle">
+                {{ (row.userName || 'U').substring(0, 2).toUpperCase() }}
+              </div>
+              <div>
+                <span class="user-name-text">{{ row.userName }}</span>
+                <span class="user-email-sub">{{ row.userEmail }}</span>
+              </div>
+            </div>
+          } @else if (col.field === 'scopeLevel') {
+            @if (row.isAllBranches) {
+              <span class="scope-level-badge company-level">
+                <i class="pi pi-building"></i> Company-Wide
+              </span>
+            } @else {
+              <span class="scope-level-badge branch-level">
+                <i class="pi pi-map-marker"></i> Facility / Branch
+              </span>
+            }
+          } @else if (col.field === 'companyName') {
+            <span class="font-medium text-main">{{ row.companyName }}</span>
+          } @else if (col.field === 'branchName') {
+            <span class="text-sm">
+              @if (row.isAllBranches) {
+                <span class="text-muted italic">All Operating Facilities</span>
+              } @else {
+                {{ row.branchName }}
+              }
+            </span>
+          } @else if (col.field === 'status') {
+            <app-status-badge
+              [label]="row.status"
+              [severity]="row.status === 'Authorized' ? 'success' : 'neutral'"
+            ></app-status-badge>
+          } @else if (col.field === 'grantedAt') {
+            <span class="text-xs text-muted">{{ row.grantedAt | date:'mediumDate' }}</span>
+          }
+        </ng-template>
+
+        <ng-template #scopeActionsTemplate let-row="row">
+          <div class="row-actions-group">
+            @if (row.status === 'Authorized') {
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-text text-danger"
+                (click)="revokeScope(row)"
+                pTooltip="Revoke this operating scope"
+                tooltipPosition="top"
+              >
+                <i class="pi pi-times-circle"></i>
+                <span class="action-btn-text">Revoke</span>
+              </button>
+            } @else {
+              <span class="revoked-indicator">Revoked</span>
+            }
+          </div>
+        </ng-template>
+      </app-data-table>
+    }
+  </div>
+</div>

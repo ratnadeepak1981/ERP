@@ -2,6 +2,7 @@ using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+
 namespace ERP.Infrastructure.Persistence.Configurations.MasterData;
 
 public class CustomerConfiguration
@@ -54,8 +55,30 @@ public class CustomerConfiguration
         builder.Property(x => x.PaymentTerms)
             .HasMaxLength(100);
 
+        builder.Property(x => x.CurrencyId)
+            .IsRequired(false);
+
         builder.Property(x => x.IsActive)
             .IsRequired();
+
+        builder.HasOne(x => x.Currency);
+
+           // .HasForeignKey(x => new { x.TenantId, x.CurrencyId })
+            //.HasPrincipalKey(x => new { x.TenantId, x.CurrencyId });
+
+
+
+
+
+
+
+
+
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.CurrencyId
+        });
 
         // Tenant + CustomerCode must be unique
         builder.HasIndex(x => new

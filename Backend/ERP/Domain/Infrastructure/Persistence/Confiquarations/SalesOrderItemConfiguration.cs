@@ -32,9 +32,16 @@ public class SalesOrderItemConfiguration : IEntityTypeConfiguration<SalesOrderIt
             .HasDefaultValue(0m)
             .IsRequired();
 
+        builder.Property(x => x.TaxCodeId)
+            .IsRequired(false);
+
         builder.Property(x => x.TaxRate)
-            .HasColumnType("decimal(18,2)")
+            .HasColumnType("decimal(18,4)")
             .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.IsTaxInclusive)
+            .HasDefaultValue(false)
             .IsRequired();
 
         builder.Property(x => x.TaxAmount)

@@ -1,16 +1,25 @@
-using Microsoft.IdentityModel.Tokens;
-using Security.Interfaces;
+using System;
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Security.Interfaces;
+using Security.Options;
 
 namespace Security.Services;
 
 public class TokenService : ITokenService
 {
     private readonly RSA _rsa;
+    private readonly AuthenticationOptions _authOptions;
 
-    public TokenService(RsaPrivateKeyLoader keyLoader)
+    public TokenService(
+        RsaPrivateKeyLoader keyLoader,
+        IOptions<AuthenticationOptions>? authOptions = null)
     {
         // 1. Load the PRIVATE key needed for signing tokens
         if (!keyLoader.TryLoadPrivateKey())
@@ -26,6 +35,15 @@ public class TokenService : ITokenService
         _rsa = keyLoader.GetRsa()
             ?? throw new InvalidOperationException(
                 "RSA private key is unavailable.");
+
+        _authOptions = authOptions?.Value ?? new AuthenticationOptions();
+    }
+
+    public int GetAccessTokenLifetimeMinutes()
+    {
+        return _authOptions.AccessTokenLifetimeMinutes > 0
+            ? _authOptions.AccessTokenLifetimeMinutes
+            : 15;
     }
 
     public string GenerateAccessToken(
@@ -61,11 +79,13 @@ public class TokenService : ITokenService
             new RsaSecurityKey(_rsa),
             SecurityAlgorithms.RsaSha256);
 
+        int lifetimeMinutes = GetAccessTokenLifetimeMinutes();
+
         var token = new JwtSecurityToken(
             issuer: "CSharpAuthServer",
             audience: "ERP",
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(30),
+            expires: DateTime.UtcNow.AddMinutes(lifetimeMinutes),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler()
@@ -128,7 +148,7 @@ public class TokenService : ITokenService
 
         // Generates deterministic GUID namespace for service subjects to satisfy GUID-parsing consumers
         using var md5 = MD5.Create();
-        byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes($"service:{serviceName}"));
+        byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes($"service:{serviceName}"));
         var serviceGuid = new Guid(hash);
 
         var claims = new List<Claim>
@@ -168,5 +188,16 @@ public class TokenService : ITokenService
     {
         return Convert.ToBase64String(
             RandomNumberGenerator.GetBytes(64));
+    }
+
+    public string HashToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new ArgumentException("Token to hash cannot be null or empty.", nameof(token));
+        }
+
+        byte[] hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(hashBytes);
     }
 }

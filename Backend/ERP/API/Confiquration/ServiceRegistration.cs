@@ -12,6 +12,7 @@ using SaaS.Application.Services;
 using SaaS.Services;
 using Security.Infrastructure.Services;
 using Security.Interfaces;
+using Security.Options;
 using Security.Services;
 
 namespace API.Configuration;
@@ -24,6 +25,15 @@ public static class ServiceRegistration
     {
         services.AddAIInfrastructure(configuration);
 
+        services.AddOptions<AuthenticationOptions>()
+            .Bind(configuration.GetSection(AuthenticationOptions.SectionName))
+            .Validate(options =>
+            {
+                options.Validate();
+                return true;
+            }, "Authentication configuration is invalid.")
+            .ValidateOnStart();
+
         services.AddScoped<IDomainDatabaseConfiguration, DomainDatabaseConfiguration>();
 
         services.AddScoped<SaaSService>();
@@ -33,6 +43,7 @@ public static class ServiceRegistration
         services.AddSingleton<RsaPrivateKeyLoader>();
 
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<ISessionService, SessionService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
@@ -59,20 +70,33 @@ public static class ServiceRegistration
         services.AddScoped<IUserScopeService, UserScopeService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<Domain.Features.MasterData.Product.IProductPackagingService, Domain.Features.MasterData.Product.ProductPackagingService>();
+        services.AddScoped<Domain.Features.MasterData.Product.IProductIdentifierService, Domain.Features.MasterData.Product.ProductIdentifierService>();
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryService, ERP.Domain.Features.MasterData.Category.CategoryService>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureService>();
+        services.AddScoped<Domain.Features.MasterData.Currency.ICurrencyService, Domain.Features.MasterData.Currency.CurrencyService>();
+        services.AddScoped<Domain.Features.MasterData.Currency.IExchangeRateService, Domain.Features.MasterData.Currency.ExchangeRateService>();
+        services.AddScoped<Domain.Features.MasterData.Brand.IBrandService, Domain.Features.MasterData.Brand.BrandService>();
+        services.AddScoped<Domain.Features.MasterData.PaymentTerm.IPaymentTermService, Domain.Features.MasterData.PaymentTerm.PaymentTermService>();
+        services.AddScoped<Domain.Features.MasterData.TaxCode.ITaxCodeService, Domain.Features.MasterData.TaxCode.TaxCodeService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Customer.ICustomerService, ERP.Domain.Features.MasterData.Customer.CustomerService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Supplier.ISupplierService, ERP.Domain.Features.MasterData.Supplier.SupplierService>();
+        services.AddScoped<Domain.Features.MasterData.PriceCard.IPriceCardService, Domain.Features.MasterData.PriceCard.PriceCardService>();
+        services.AddScoped<Domain.Features.MasterData.PriceCard.IPricingResolutionService, Domain.Features.MasterData.PriceCard.PricingResolutionService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseService, ERP.Domain.Features.MasterData.Warehouse.WarehouseService>();
+        services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.ILocationIdentifierService, ERP.Domain.Features.MasterData.Warehouse.LocationIdentifierService>();
         services.AddScoped<Domain.Features.MasterData.Address.IAddressService, Domain.Features.MasterData.Address.AddressService>();
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceService, Domain.Features.MasterData.Supplier.SupplierProductPriceService>();
+        services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.ISpecialUomConversionSettingsProvider, API.Services.SpecialUomConversionSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, Domain.Features.Procurement.Approval.ApprovalWorkflowService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Domain.Features.Inventory.InventoryService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Planning.IInventoryPlanningService, ERP.Domain.Features.Inventory.Planning.InventoryPlanningService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Batch.IBatchService, ERP.Domain.Features.Inventory.Batch.BatchService>();
         services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayService, Domain.Features.Inventory.Putaway.PutawayService>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteService>();
 

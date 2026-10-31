@@ -76,6 +76,7 @@ public static class TenantAdminRolePermissionSeed
             "GRN.VIEW",
             "GRN.CREATE",
             "GRN.EDIT",
+            "GRN.DELETE",
             "GRN.CANCEL",
             "GRN.CONFIRM",
 
@@ -99,17 +100,46 @@ public static class TenantAdminRolePermissionSeed
             "UOM.CREATE",
             "UOM.EDIT",
             "UOM.DELETE",
+            "UOM.CONVERT",
+
+            "CURRENCY.VIEW",
+            "CURRENCY.CREATE",
+            "CURRENCY.EDIT",
+            "CURRENCY.DELETE",
+
+            "BRAND.VIEW",
+            "BRAND.CREATE",
+            "BRAND.EDIT",
+            "BRAND.DELETE",
+
+            "PAYMENT_TERM.VIEW",
+            "PAYMENT_TERM.CREATE",
+            "PAYMENT_TERM.EDIT",
+            "PAYMENT_TERM.DELETE",
+
+            "TAX_CODE.VIEW",
+            "TAX_CODE.CREATE",
+            "TAX_CODE.EDIT",
+            "TAX_CODE.DELETE",
 
             "WAREHOUSE.VIEW",
             "WAREHOUSE.CREATE",
             "WAREHOUSE.EDIT",
             "WAREHOUSE.DELETE",
             "WAREHOUSE.SOFT_DELETE",
+            "WAREHOUSE.ACTIVATE",
+            "WAREHOUSE.DEACTIVATE",
 
             "LOCATION.VIEW",
             "LOCATION.CREATE",
             "LOCATION.EDIT",
             "LOCATION.DELETE",
+            "LOCATION.ACTIVATE",
+            "LOCATION.DEACTIVATE",
+
+            "BATCH.VIEW",
+            "BATCH.CREATE",
+            "BATCH.EDIT",
 
             "ADDRESS.VIEW",
             "ADDRESS.CREATE",
@@ -125,6 +155,14 @@ public static class TenantAdminRolePermissionSeed
             "SUPPLIER_PRICE.CREATE",
             "SUPPLIER_PRICE.EDIT",
             "SUPPLIER_PRICE.DELETE",
+
+            "PRICE_CARD.VIEW",
+            "PRICE_CARD.CREATE",
+            "PRICE_CARD.EDIT",
+            "PRICE_CARD.MANAGE",
+            "PRICE_CARD.OVERRIDE",
+            "SUPPLIER.PRICE_CARD.ASSIGN",
+            "CUSTOMER.PRICE_CARD.ASSIGN",
 
             "COUNTRY.VIEW",
 

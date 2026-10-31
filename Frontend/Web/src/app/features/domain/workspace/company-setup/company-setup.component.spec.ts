@@ -33,6 +33,9 @@ describe('CompanySetupComponent', () => {
   });
 
   it('should create and load company onboarding state', () => {
+    vi.spyOn(masterDataService, 'getCurrencies').mockReturnValue(of([
+      { currencyId: 'curr-1', tenantId: 't1', currencyCode: 'LKR', currencyName: 'Sri Lankan Rupee', symbol: 'Rs', decimalPlaces: 2, isActive: true }
+    ]));
     vi.spyOn(companyService, 'getCompanies').mockReturnValue(of([
       { id: 'c1', tenantId: 't1', name: 'Alpha Manufacturing Ltd', code: 'ALPHA', isActive: true }
     ]));
@@ -49,5 +52,16 @@ describe('CompanySetupComponent', () => {
     expect(component.branches().length).toBe(1);
     expect(component.steps().length).toBe(4);
     expect(component.steps()[0].status).toBe('completed');
+    expect(component.activeCurrencies()).toHaveLength(1);
+  });
+
+  it('requires an active base currency before creating a company', () => {
+    component.newCompanyName = 'New Company';
+    component.newCompanyCode = 'NEW';
+    component.newCompanyCurrencyId = '';
+
+    component.saveCompany();
+
+    expect(component.formError()).toBe('Select an active company base currency.');
   });
 });

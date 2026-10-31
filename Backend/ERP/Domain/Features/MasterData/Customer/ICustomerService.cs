@@ -11,6 +11,7 @@ public interface ICustomerService
     Task<Customer> CreateCustomerAsync(Guid tenantId, CreateCustomerRequest request);
     Task<Customer> UpdateCustomerAsync(Guid tenantId, Guid customerId, UpdateCustomerRequest request);
     Task DeactivateCustomerAsync(Guid tenantId, Guid customerId);
+    Task<Customer> ReactivateCustomerAsync(Guid tenantId, Guid customerId);
 
     Task<List<CustomerAddress>> GetAddressesAsync(Guid tenantId, Guid customerId);
     Task<CustomerAddress> LinkAddressAsync(Guid tenantId, Guid customerId, CustomerAddressLinkRequest request);

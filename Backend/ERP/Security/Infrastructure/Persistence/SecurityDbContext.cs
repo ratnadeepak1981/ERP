@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Security.Core.Models;
 using Security.Infrastructure.Persistence.Auditing;
 
@@ -27,6 +27,12 @@ public class SecurityDbContext : DbContext
 
     public DbSet<UserRoleScope> UserRoleScopes
         => Set<UserRoleScope>();
+
+    public DbSet<UserSession> UserSessions
+        => Set<UserSession>();
+
+    public DbSet<RefreshToken> RefreshTokens
+        => Set<RefreshToken>();
 
     public DbSet<SecurityAuditRecord>
         SecurityAuditRecords

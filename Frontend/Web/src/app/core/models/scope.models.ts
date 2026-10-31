@@ -4,6 +4,8 @@ export interface Company {
   name: string;
   code: string;
   isActive: boolean;
+  baseCurrencyId?: string;
+  baseCurrencyCode?: string;
   currency?: string;
 }
 
@@ -31,6 +33,37 @@ export interface CategoryItem {
   description?: string;
   parentCategoryId?: string | null;
   isActive: boolean;
+}
+
+export interface CategoryTreeNode extends CategoryItem {
+  level?: number;
+  hasChildren?: boolean;
+}
+
+export interface CategoryNodeState {
+  expanded: boolean;
+  children: CategoryTreeNode[];
+  childrenLoading: boolean;
+  childrenLoaded: boolean;
+  hasMoreChildren: boolean;
+  childrenPage: number;
+  childrenError?: string | null;
+  showProducts: boolean;
+  products: ProductItem[];
+  productsLoading: boolean;
+  productsLoaded: boolean;
+  hasMoreProducts: boolean;
+  productsPage: number;
+  productsError?: string | null;
+  error?: string | null;
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
 }
 
 export interface UnitOfMeasureItem {
@@ -122,7 +155,7 @@ export interface CreateWarehouseDto {
   branchId?: string | null;
   addressLine1?: string;
   addressLine2?: string;
-  city: string;
+  city?: string;
   postalCode?: string;
   country?: string;
 }
@@ -134,7 +167,7 @@ export interface UpdateWarehouseDto {
   branchId?: string | null;
   addressLine1?: string;
   addressLine2?: string;
-  city: string;
+  city?: string;
   postalCode?: string;
   country?: string;
 }
@@ -164,6 +197,26 @@ export interface UpdateWarehouseLocationDto {
   parentLocationId?: string | null;
 }
 
+export enum ProductType {
+  StockItem = 1,
+  NonStockItem = 2,
+  Service = 3
+}
+
+export enum TrackingMode {
+  None = 0,
+  Batch = 1,
+  Serial = 2,
+  BatchAndSerial = 3
+}
+
+export enum ValuationMethod {
+  FIFO = 1,
+  WeightedAverage = 2,
+  StandardCost = 3,
+  LIFO = 4
+}
+
 export interface ProductItem {
   productId: string;
   tenantId: string;
@@ -171,6 +224,8 @@ export interface ProductItem {
   productName: string;
   categoryId: string;
   categoryName?: string;
+  brandId?: string | null;
+  brandName?: string | null;
   description?: string;
   unitOfMeasure: string;
   unitOfMeasureId?: string | null;
@@ -187,6 +242,10 @@ export interface ProductItem {
   sellingPrice: number;
   reorderLevel: number;
   reorderQuantity: number;
+  minStockQuantity?: number | null;
+  maxStockQuantity?: number | null;
+  safetyStockQuantity?: number | null;
+  leadTimeDays?: number | null;
   isActive: boolean;
   createdAt?: string;
 }
@@ -195,12 +254,18 @@ export interface CreateProductDto {
   productCode: string;
   productName: string;
   categoryId: string;
+  brandId?: string | null;
   description?: string;
   unitOfMeasure: string;
+  unitOfMeasureId?: string | null;
   standardCost: number;
   sellingPrice: number;
   reorderLevel: number;
   reorderQuantity: number;
+  minStockQuantity?: number | null;
+  maxStockQuantity?: number | null;
+  safetyStockQuantity?: number | null;
+  leadTimeDays?: number | null;
   isManufacturable: boolean;
   isPurchasable: boolean;
   isSellable: boolean;
@@ -209,11 +274,36 @@ export interface CreateProductDto {
   isStockTracked: boolean;
   productType?: number;
   trackingMode?: number;
-  unitOfMeasureId?: string | null;
+  valuationMethod?: number;
 }
 
 export interface UpdateProductDto extends CreateProductDto {
   isActive?: boolean;
+}
+
+export interface ProductPackagingItem {
+  productPackagingId: string;
+  tenantId: string;
+  companyId?: string | null;
+  productId: string;
+  packagingCode: string;
+  packagingName: string;
+  packagingUomId: string;
+  packagingUomCode?: string;
+  baseQuantity: number;
+  purchaseAllowed: boolean;
+  salesAllowed: boolean;
+  isActive: boolean;
+}
+
+export interface CreateProductPackagingDto {
+  packagingCode: string;
+  packagingName: string;
+  packagingUomId: string;
+  baseQuantity: number;
+  purchaseAllowed?: boolean;
+  salesAllowed?: boolean;
+  companyId?: string | null;
 }
 
 export interface SupplierItem {
@@ -228,6 +318,9 @@ export interface SupplierItem {
   country?: string;
   paymentTerms?: string;
   leadTimeDays?: number;
+  currencyId?: string | null;
+  currencyCode?: string | null;
+  defaultPurchasePriceCardId?: string | null;
   isActive: boolean;
   createdAt?: string;
 }
@@ -242,9 +335,9 @@ export interface CreateSupplierDto {
   country?: string;
   paymentTerms?: string;
   leadTimeDays?: number;
+  currencyId?: string | null;
   isActive?: boolean;
 }
-
 
 export interface CustomerItem {
   customerId: string;
@@ -262,6 +355,8 @@ export interface CustomerItem {
   taxNumber?: string;
   creditLimit?: number;
   paymentTerms?: string;
+  currencyId?: string | null;
+  currencyCode?: string | null;
   isActive: boolean;
   createdAt?: string;
 }
@@ -274,10 +369,166 @@ export interface CreateCustomerDto {
   phone?: string;
   addressLine1?: string;
   addressLine2?: string;
-  city: string;
+  city?: string;
   postalCode?: string;
   country?: string;
   taxNumber?: string;
   creditLimit?: number;
   paymentTerms?: string;
+  currencyId?: string | null;
+}
+
+export interface UnitOfMeasureConversionItem {
+  conversionId: string;
+  tenantId: string;
+  fromUnitId: string;
+  toUnitId: string;
+  conversionFactor: number;
+  isActive: boolean;
+}
+
+export interface CurrencyItem {
+  currencyId: string;
+  tenantId: string;
+  currencyCode: string;
+  currencyName: string;
+  symbol: string;
+  decimalPlaces: number;
+  isActive: boolean;
+  createdAt?: string;
+  modifiedAt?: string;
+}
+
+export interface CreateCurrencyDto {
+  currencyCode: string;
+  currencyName: string;
+  symbol: string;
+  decimalPlaces: number;
+}
+
+export interface UpdateCurrencyDto {
+  currencyName: string;
+  symbol: string;
+  decimalPlaces: number;
+}
+
+export interface BrandItem {
+  brandId: string;
+  tenantId: string;
+  brandCode: string;
+  brandName: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface CreateBrandDto {
+  brandCode: string;
+  brandName: string;
+  description?: string;
+}
+
+export interface UpdateBrandDto {
+  brandName: string;
+  description?: string;
+}
+
+export interface PaymentTermItem {
+  paymentTermId: string;
+  tenantId: string;
+  termCode: string;
+  termName: string;
+  days: number;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface CreatePaymentTermDto {
+  termCode: string;
+  termName: string;
+  days: number;
+  description?: string;
+}
+
+export interface UpdatePaymentTermDto {
+  termName: string;
+  days: number;
+  description?: string;
+}
+
+export interface AddressTypeItem {
+  addressTypeId: string;
+  code: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface AddressItem {
+  addressId: string;
+  tenantId: string;
+  addressName: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  stateProvince?: string;
+  postalCode?: string;
+  countryId?: string;
+  isActive: boolean;
+}
+
+export interface CustomerAddressItem {
+  customerAddressId: string;
+  customerId: string;
+  addressId: string;
+  addressTypeId: string;
+  isDefault: boolean;
+  isActive: boolean;
+  address?: AddressItem;
+  addressTypeName?: string;
+}
+
+export interface SupplierAddressItem {
+  supplierAddressId: string;
+  supplierId: string;
+  addressId: string;
+  addressTypeId: string;
+  isDefault: boolean;
+  isActive: boolean;
+  address?: AddressItem;
+  addressTypeName?: string;
+}
+
+export type TaxApplicabilityType = 'Both' | 'Purchase' | 'Sales' | 1 | 2 | 3;
+
+export interface TaxCodeItem {
+  taxCodeId: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  rate: number;
+  applicability: number | string;
+  applicabilityName?: string;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateTaxCodeDto {
+  code: string;
+  name: string;
+  rate: number;
+  applicability: number;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  description?: string | null;
+}
+
+export interface UpdateTaxCodeDto {
+  name: string;
+  rate: number;
+  applicability: number;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  description?: string | null;
 }

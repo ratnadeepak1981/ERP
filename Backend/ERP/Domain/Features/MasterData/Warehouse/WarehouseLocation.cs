@@ -23,6 +23,8 @@ public class WarehouseLocation : Auditable, ITenantScopedEntity
 
     public bool IsActive { get; private set; }
 
+    public ICollection<LocationIdentifier> Identifiers { get; private set; } = new List<LocationIdentifier>();
+
     public static WarehouseLocation Create(
         Guid tenantId,
         Guid warehouseId,

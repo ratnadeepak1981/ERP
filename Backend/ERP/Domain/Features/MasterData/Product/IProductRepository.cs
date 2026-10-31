@@ -2,7 +2,7 @@ namespace Domain.Features.MasterData.Product;
 
 public interface IProductRepository
 {
-    Task<List<Product>> GetByTenantAsync(Guid tenantId);
+    Task<List<Product>> GetByTenantAsync(Guid tenantId, Guid? brandId = null);
 
     Task<Product?> GetByIdAsync(
         Guid tenantId,
@@ -17,6 +17,8 @@ public interface IProductRepository
         string productName);
 
     Task<bool> CategoryExistsAsync(Guid tenantId, Guid categoryId);
+
+    Task<bool> BrandExistsAsync(Guid tenantId, Guid brandId);
 
     Task AddAsync(Product product);
 

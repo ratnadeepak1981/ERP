@@ -394,7 +394,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             new() { (ctx.Goods001Id, 5m, 50.00m) });
 
         // 2. Create shipment with StoreHandover
-        string shNum = $"SH-RET-{Guid.NewGuid():N}"[..14];
+        string shNum = $"SH-RET-{Guid.NewGuid():N}"[..24];
         var shRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -444,7 +444,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         var orderLineId = order.Items[0].Id;
 
         // 2. Shipment 1 for 40 units
-        string sh1Num = $"SH-W1-{Guid.NewGuid():N}"[..14];
+        string sh1Num = $"SH-W1-{Guid.NewGuid():N}"[..24];
         var sh1Res = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -486,7 +486,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         Assert.Equal(SalesOrderStatus.Confirmed, o1.Status);
 
         // 3. Shipment 2: Auto-defaults to remaining unfulfilled quantity (60 units)
-        string sh2Num = $"SH-W2-{Guid.NewGuid():N}"[..14];
+        string sh2Num = $"SH-W2-{Guid.NewGuid():N}"[..24];
         var sh2Res = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -532,7 +532,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             new() { (ctx.Goods002Id, 50m, 120.00m) });
 
         // 2. Create shipment with full carrier and logistics details
-        string shNum = $"SH-DIST-{Guid.NewGuid():N}"[..14];
+        string shNum = $"SH-DIST-{Guid.NewGuid():N}"[..24];
         var shRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -600,7 +600,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             new() { (ctx.Goods003Id, 30m, 85.00m) });
 
         // 3. Fulfill via Shipment -> Dispatch -> Deliver without any manufacturing
-        string shNum = $"SH-TRD-{Guid.NewGuid():N}"[..14];
+        string shNum = $"SH-TRD-{Guid.NewGuid():N}"[..24];
         var shRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -654,7 +654,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         var order = await CreateAndConfirmSalesOrderAsync(ctx.Client, ctx.CompanyId, ctx.BranchId, ctx.CustomerId,
             new() { (ctx.Goods003Id, 40m, 85.00m) });
 
-        string shNum = $"SH-REP-SALE-{Guid.NewGuid():N}"[..14];
+        string shNum = $"SH-REP-SALE-{Guid.NewGuid():N}"[..24];
         var shRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -688,7 +688,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         var order = await CreateAndConfirmSalesOrderAsync(ctx.Client, ctx.CompanyId, ctx.BranchId, ctx.CustomerId,
             new() { (ctx.Goods001Id, 10m, 50.00m) });
 
-        string overShipNum = $"SH-OVER-{Guid.NewGuid():N}"[..14];
+        string overShipNum = $"SH-OVER-{Guid.NewGuid():N}"[..24];
         var overShipRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -712,7 +712,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
 
         // 2. Duplicate Dispatch Idempotency
         // Valid shipment for 2 units
-        string validShipNum = $"SH-IDEM-{Guid.NewGuid():N}"[..14];
+        string validShipNum = $"SH-IDEM-{Guid.NewGuid():N}"[..24];
         var validShRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -754,7 +754,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         var largeOrder = await CreateAndConfirmSalesOrderAsync(ctx.Client, ctx.CompanyId, ctx.BranchId, ctx.CustomerId,
             new() { (ctx.Goods001Id, 500m, 50.00m) });
 
-        string largeShNum = $"SH-NOSTOCK-{Guid.NewGuid():N}"[..14];
+        string largeShNum = $"SH-NOSTOCK-{Guid.NewGuid():N}"[..24];
         var largeShRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{largeOrder.Id}",
             new CreateShipmentFromOrderRequest
@@ -797,7 +797,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         var serviceOnlyOrder = await CreateAndConfirmSalesOrderAsync(ctx.Client, ctx.CompanyId, ctx.BranchId, ctx.CustomerId,
             new() { (ctx.Service001Id, 5m, 150.00m) });
 
-        string srvShNum = $"SH-SRV-{Guid.NewGuid():N}"[..14];
+        string srvShNum = $"SH-SRV-{Guid.NewGuid():N}"[..24];
         var srvShRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{serviceOnlyOrder.Id}",
             new CreateShipmentFromOrderRequest
@@ -816,7 +816,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
                 (ctx.Service001Id, 2m, 150.00m)
             });
 
-        string mixedShNum = $"SH-MIX-{Guid.NewGuid():N}"[..14];
+        string mixedShNum = $"SH-MIX-{Guid.NewGuid():N}"[..24];
         var mixedShRes = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{mixedOrder.Id}",
             new CreateShipmentFromOrderRequest
@@ -868,7 +868,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
             new() { (ctx.Goods001Id, 10m, 50.00m) });
 
         // Create Draft Shipment 1 for 6 units
-        string sh1Num = $"SH-CONC-1-{Guid.NewGuid():N}"[..14];
+        string sh1Num = $"SH-CONC-1-{Guid.NewGuid():N}"[..24];
         var sh1Res = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest
@@ -892,7 +892,7 @@ public class SalesSimulationAndReplenishmentTests : IClassFixture<TestSecurityFi
         var sh1 = (await sh1Res.ReadApiResponseDataAsync<SalesShipmentDto>(_jsonOpts))!;
 
         // Create Draft Shipment 2 for 6 units (6 + 6 = 12 > 10 ordered!)
-        string sh2Num = $"SH-CONC-2-{Guid.NewGuid():N}"[..14];
+        string sh2Num = $"SH-CONC-2-{Guid.NewGuid():N}"[..24];
         var sh2Res = await ctx.Client.PostAsJsonAsync(
             $"/api/companies/{ctx.CompanyId}/branches/{ctx.BranchId}/sales-shipments/from-order/{order.Id}",
             new CreateShipmentFromOrderRequest

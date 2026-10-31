@@ -9,6 +9,7 @@ using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.Contact;
 using Domain.Features.MasterData.Supplier;
+using Domain.Features.MasterData.PriceCard;
 
 namespace Domain.Infrastructure.Persistence;
 
@@ -29,6 +30,15 @@ public class DomainDbContext : DbContext
     public DbSet<Product> Products
         => Set<Product>();
 
+    public DbSet<ProductIdentifier> ProductIdentifiers
+        => Set<ProductIdentifier>();
+
+    public DbSet<ProductPackaging> ProductPackagings
+        => Set<ProductPackaging>();
+
+    public DbSet<ProductWarehouseSetting> ProductWarehouseSettings
+        => Set<ProductWarehouseSetting>();
+
     public DbSet<Category> Categories
         => Set<Category>();
 
@@ -38,6 +48,12 @@ public class DomainDbContext : DbContext
     public DbSet<Supplier> Suppliers
         => Set<Supplier>();
 
+    public DbSet<PriceCard> PriceCards
+        => Set<PriceCard>();
+
+    public DbSet<PriceCardLine> PriceCardLines
+        => Set<PriceCardLine>();
+
     public DbSet<Warehouse> Warehouses
         => Set<Warehouse>();
 
@@ -46,6 +62,9 @@ public class DomainDbContext : DbContext
 
     public DbSet<WarehouseLocation> WarehouseLocations
         => Set<WarehouseLocation>();
+
+    public DbSet<LocationIdentifier> LocationIdentifiers
+        => Set<LocationIdentifier>();
 
     public DbSet<Domain.Features.MasterData.Country.Country> Countries
         => Set<Domain.Features.MasterData.Country.Country>();
@@ -89,6 +108,21 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureConversion> UnitOfMeasureConversions
         => Set<Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureConversion>();
 
+    public DbSet<Domain.Features.MasterData.Currency.Currency> Currencies
+        => Set<Domain.Features.MasterData.Currency.Currency>();
+
+    public DbSet<Domain.Features.MasterData.Currency.ExchangeRate> ExchangeRates
+        => Set<Domain.Features.MasterData.Currency.ExchangeRate>();
+
+    public DbSet<Domain.Features.MasterData.Brand.Brand> Brands
+        => Set<Domain.Features.MasterData.Brand.Brand>();
+
+    public DbSet<Domain.Features.MasterData.PaymentTerm.PaymentTerm> PaymentTerms
+        => Set<Domain.Features.MasterData.PaymentTerm.PaymentTerm>();
+
+    public DbSet<Domain.Features.MasterData.TaxCode.TaxCode> TaxCodes
+        => Set<Domain.Features.MasterData.TaxCode.TaxCode>();
+
     public DbSet<LocationType> LocationTypes
         => Set<LocationType>();
 
@@ -118,6 +152,9 @@ public class DomainDbContext : DbContext
 
     public DbSet<ERP.Domain.Features.Inventory.InventoryBalance> InventoryBalances
         => Set<ERP.Domain.Features.Inventory.InventoryBalance>();
+
+    public DbSet<ERP.Domain.Features.Inventory.Batch.ProductBatch> ProductBatches
+        => Set<ERP.Domain.Features.Inventory.Batch.ProductBatch>();
 
     public DbSet<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote> GoodsReceiptNotes
         => Set<Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNote>();

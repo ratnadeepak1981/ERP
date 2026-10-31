@@ -21,6 +21,13 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(x => x.IsActive)
             .IsRequired();
 
+        builder.Property(x => x.SpecialUomConversionEnabled)
+            .IsRequired()
+            .HasDefaultValue(true);
+
+        builder.Property(x => x.BaseCurrencyId)
+            .IsRequired(false);
+
         // Composite key for tenant-aware foreign keys
         builder.HasIndex(x => new
         {
@@ -28,5 +35,11 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
             x.Id
         })
         .IsUnique();
+
+        builder.HasOne(x => x.BaseCurrency)
+            .WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.BaseCurrencyId })
+            .HasPrincipalKey(x => new { x.TenantId, x.CurrencyId })
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

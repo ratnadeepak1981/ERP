@@ -1,0 +1,279 @@
+<div class="tax-codes-page">
+  <app-page-header
+    title="Tax Codes"
+    subtitle="Configure tenant-scoped tax codes, rates, and purchasing/sales applicability."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Contextual Message Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Confirmation Banner (NO POPUP) -->
+  @if (pendingAction()) {
+    <div class="action-confirm-bar">
+      <div class="confirm-text">
+        <i class="pi pi-question-circle"></i>
+        <span>
+          Are you sure you want to <strong>{{ pendingAction()!.type }}</strong> tax code
+          <strong>"{{ pendingAction()!.name }} ({{ pendingAction()!.code }})"</strong>?
+        </span>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelPendingAction()">Cancel</button>
+        <button
+          type="button"
+          class="p-button p-button-sm"
+          [class.p-button-danger]="pendingAction()!.type === 'deactivate'"
+          [class.p-button-primary]="pendingAction()!.type === 'reactivate'"
+          (click)="confirmPendingAction()"
+        >
+          Confirm {{ pendingAction()!.type | titlecase }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Loading tax codes..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+  } @else {
+    <div class="content-card erp-card">
+      <!-- Toolbar -->
+      <div class="content-toolbar">
+        <div class="search-box">
+          <i class="pi pi-search search-icon"></i>
+          <input
+            type="text"
+            class="p-inputtext p-inputtext-sm"
+            placeholder="Search tax codes by code, name, or description..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+          />
+        </div>
+        <div class="filter-box">
+          <label>Scope:</label>
+          <select
+            class="erp-select erp-select-sm"
+            [ngModel]="applicabilityFilter()"
+            (ngModelChange)="applicabilityFilter.set($event)"
+          >
+            <option value="ALL">All Applicability</option>
+            <option value="0">Both (Purchase & Sales)</option>
+            <option value="1">Purchase Only</option>
+            <option value="2">Sales Only</option>
+          </select>
+        </div>
+        <div class="toolbar-actions">
+          @if (!showForm()) {
+            <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateForm()">
+              <i class="pi pi-plus"></i>
+              <span>Add Tax Code</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Inline Tax Code Form Panel (NO POPUP) -->
+      @if (showForm()) {
+        <div class="inline-form-card">
+          <div class="form-header">
+            <h4>{{ isEditing() ? 'Edit Tax Code' : 'New Tax Code' }}</h4>
+            <button type="button" class="btn-close" (click)="cancelForm()">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Tax Code <span class="required">*</span></label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="e.g. VAT15, GST18, EXEMPT"
+                [(ngModel)]="code"
+                [disabled]="isEditing()"
+                maxlength="20"
+              />
+              <small class="helper-text">Unique uppercase identifier within tenant.</small>
+            </div>
+            <div class="form-group">
+              <label>Tax Name <span class="required">*</span></label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="e.g. Standard VAT 15%"
+                [(ngModel)]="name"
+                maxlength="100"
+              />
+            </div>
+            <div class="form-group">
+              <label>Tax Rate (%) <span class="required">*</span></label>
+              <input
+                type="number"
+                class="p-inputtext p-inputtext-sm"
+                [(ngModel)]="rate"
+                min="0"
+                max="100"
+                step="0.01"
+              />
+              <small class="helper-text">Percentage (e.g. 15 for 15%).</small>
+            </div>
+            <div class="form-group">
+              <label>Applicability <span class="required">*</span></label>
+              <select class="erp-select erp-select-sm" [(ngModel)]="applicability">
+                <option [ngValue]="0">Both (Purchasing & Sales)</option>
+                <option [ngValue]="1">Purchase Only</option>
+                <option [ngValue]="2">Sales Only</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Effective From</label>
+              <input
+                type="date"
+                class="p-inputtext p-inputtext-sm"
+                [(ngModel)]="effectiveFrom"
+              />
+              <small class="helper-text">Optional start date for validity.</small>
+            </div>
+            <div class="form-group">
+              <label>Effective To</label>
+              <input
+                type="date"
+                class="p-inputtext p-inputtext-sm"
+                [(ngModel)]="effectiveTo"
+              />
+              <small class="helper-text">Optional expiry date for validity.</small>
+            </div>
+            <div class="form-group full-width">
+              <label>Description</label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="Optional explanation of tax treatment..."
+                [(ngModel)]="description"
+                maxlength="250"
+              />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelForm()" [disabled]="formSaving()">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-primary"
+              (click)="saveTaxCode()"
+              [disabled]="formSaving() || !code.trim() || !name.trim()"
+            >
+              @if (formSaving()) {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else {
+                <i class="pi pi-check"></i>
+              }
+              <span>{{ isEditing() ? 'Update Tax Code' : 'Save Tax Code' }}</span>
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Tax Codes Table -->
+      @if (filteredTaxCodes().length === 0) {
+        <app-empty-state
+          title="No Tax Codes Found"
+          message="No tax codes match your search criteria. Create one using the button above."
+        ></app-empty-state>
+      } @else {
+        <div class="erp-table-responsive">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Code</th>
+                <th>Name</th>
+                <th style="width: 110px; text-align: right;">Rate</th>
+                <th style="width: 130px;">Applicability</th>
+                <th style="width: 180px;">Effective Dates</th>
+                <th>Description</th>
+                <th style="width: 100px;">Status</th>
+                <th style="width: 140px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tc of filteredTaxCodes(); track tc.taxCodeId) {
+                <tr [class.row-inactive]="!tc.isActive">
+                  <td>
+                    <span class="code-badge">{{ tc.code }}</span>
+                  </td>
+                  <td>
+                    <strong>{{ tc.name }}</strong>
+                  </td>
+                  <td style="text-align: right;">
+                    <span class="rate-badge">{{ tc.rate }}%</span>
+                  </td>
+                  <td>
+                    <span class="applicability-badge" [ngClass]="getApplicabilityClass(tc.applicability)">
+                      {{ tc.applicabilityName || getApplicabilityLabel(tc.applicability) }}
+                    </span>
+                  </td>
+                  <td class="text-secondary">
+                    @if (tc.effectiveFrom || tc.effectiveTo) {
+                      <span>{{ tc.effectiveFrom ? (tc.effectiveFrom | date:'mediumDate') : 'Open' }} – {{ tc.effectiveTo ? (tc.effectiveTo | date:'mediumDate') : 'Open' }}</span>
+                    } @else {
+                      <span>Always effective</span>
+                    }
+                  </td>
+                  <td class="text-secondary">{{ tc.description || '—' }}</td>
+                  <td>
+                    <app-status-badge [status]="tc.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="row-actions">
+                      <button
+                        type="button"
+                        class="btn-icon"
+                        title="Edit Tax Code"
+                        (click)="openEditForm(tc)"
+                      >
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      @if (tc.isActive) {
+                        <button
+                          type="button"
+                          class="btn-icon btn-icon-danger"
+                          title="Deactivate Tax Code"
+                          (click)="promptDeactivate(tc)"
+                        >
+                          <i class="pi pi-ban"></i>
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="btn-icon btn-icon-success"
+                          title="Reactivate Tax Code"
+                          (click)="promptReactivate(tc)"
+                        >
+                          <i class="pi pi-replay"></i>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

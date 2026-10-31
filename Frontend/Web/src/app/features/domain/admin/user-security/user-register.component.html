@@ -1,0 +1,214 @@
+<div class="user-register-page">
+  <app-page-header
+    title="User Administration"
+    subtitle="Manage tenant user accounts, credentials, assigned roles, and operating organizational scopes."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <p-button
+        label="Operating Scopes"
+        icon="pi pi-sitemap"
+        [outlined]="true"
+        size="small"
+        severity="secondary"
+        routerLink="/tenant-admin/user-scope"
+      ></p-button>
+
+      <p-button
+        label="New User"
+        icon="pi pi-user-plus"
+        size="small"
+        severity="primary"
+        (onClick)="navigateToCreateUser()"
+      ></p-button>
+    </div>
+  </app-page-header>
+
+  <!-- Metric / Overview Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap primary">
+        <i class="pi pi-users"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Total Registered Users</span>
+        <strong class="metric-value">{{ users().length }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap success">
+        <i class="pi pi-check-circle"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Active Accounts</span>
+        <strong class="metric-value">{{ activeUsersCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
+      <div class="metric-icon-wrap warning">
+        <i class="pi pi-ban"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Suspended Accounts</span>
+        <strong class="metric-value">{{ suspendedUsersCount() }}</strong>
+      </div>
+    </div>
+  </div>
+
+  @if (actionMessage()) {
+    <div class="message-banner" [ngClass]="'banner-' + actionMessage()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': actionMessage()!.severity === 'success',
+        'pi-exclamation-triangle': actionMessage()!.severity === 'danger',
+        'pi-info-circle': actionMessage()!.severity === 'info'
+      }"></i>
+      <span class="message-text">{{ actionMessage()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="actionMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Main User Register Card -->
+  <div class="register-main-card erp-card">
+    <div class="table-search-row">
+      <div class="search-input-wrap">
+        <i class="pi pi-search"></i>
+        <input
+          pInputText
+          type="text"
+          placeholder="Search users by name, email, role, or company..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          class="w-full"
+        />
+      </div>
+
+      <div class="status-filter-pills">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter() === 'all'"
+          (click)="statusFilter.set('all')"
+        >
+          All Users ({{ users().length }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter() === 'Active'"
+          (click)="statusFilter.set('Active')"
+        >
+          Active ({{ activeUsersCount() }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter() === 'Suspended'"
+          (click)="statusFilter.set('Suspended')"
+        >
+          Suspended ({{ suspendedUsersCount() }})
+        </button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="p-4">
+        <app-loading-state message="Loading user directory from server..."></app-loading-state>
+      </div>
+    } @else if (error()) {
+      <div class="p-4">
+        <app-error-state
+          title="Unable to load user accounts"
+          [message]="error()!"
+          (retry)="loadUsers()"
+        ></app-error-state>
+      </div>
+    } @else {
+      <app-data-table
+        [data]="displayedUsers()"
+        [columns]="userColumns"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 20]"
+        searchPlaceholder="Filter user records..."
+        emptyTitle="No Users Found"
+        emptyDescription="No registered user accounts match the selected search and filter criteria."
+        [actionTemplate]="userActionsTemplate"
+      >
+        <ng-template #cellTemplate let-row="row" let-col="col">
+          @if (col.field === 'fullName') {
+            <div class="user-cell" (click)="navigateToUserDetails(row)" role="button" tabindex="0">
+              <div class="user-avatar-circle">
+                {{ (row.fullName || row.username || 'U').substring(0, 2).toUpperCase() }}
+              </div>
+              <div>
+                <span class="user-name-text">{{ row.fullName || row.username }}</span>
+                <span class="user-username-sub">{{ '@' + row.username }}</span>
+              </div>
+            </div>
+          } @else if (col.field === 'email') {
+            <span class="email-text">{{ row.email }}</span>
+          } @else if (col.field === 'roleName') {
+            <span class="role-pill">
+              <i class="pi pi-shield"></i>
+              <span>{{ row.roleName || 'Authorized User' }}</span>
+            </span>
+          } @else if (col.field === 'primaryScope') {
+            <div class="scope-cell">
+              <span class="font-medium text-main">{{ row.primaryCompanyName || 'Unassigned' }}</span>
+              @if (row.primaryBranchName) {
+                <span class="text-xs text-muted block"><i class="pi pi-map-marker"></i> {{ row.primaryBranchName }}</span>
+              }
+            </div>
+          } @else if (col.field === 'accountStatus') {
+            <app-status-badge
+              [label]="row.accountStatus === 'Active' ? 'Active' : 'Suspended'"
+              [severity]="row.accountStatus === 'Active' ? 'success' : 'danger'"
+            ></app-status-badge>
+          }
+        </ng-template>
+
+        <ng-template #userActionsTemplate let-row="row">
+          <div class="row-actions-group">
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-text p-button-primary"
+              (click)="navigateToUserDetails(row)"
+              pTooltip="View &amp; Edit User Account"
+              tooltipPosition="top"
+            >
+              <i class="pi pi-pencil"></i>
+              <span class="action-btn-text">View / Edit</span>
+            </button>
+
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-text p-button-secondary"
+              (click)="manageUserScope(row)"
+              pTooltip="Manage Company &amp; Branch Operating Scopes"
+              tooltipPosition="top"
+            >
+              <i class="pi pi-sitemap"></i>
+              <span class="action-btn-text">Scopes</span>
+            </button>
+
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-text"
+              [class.text-danger]="row.accountStatus === 'Active'"
+              [class.text-success]="row.accountStatus !== 'Active'"
+              (click)="toggleUserStatus(row)"
+              [pTooltip]="row.accountStatus === 'Active' ? 'Suspend Access' : 'Activate Access'"
+              tooltipPosition="top"
+            >
+              <i [class]="row.accountStatus === 'Active' ? 'pi pi-ban' : 'pi pi-check'"></i>
+              <span class="action-btn-text">{{ row.accountStatus === 'Active' ? 'Suspend' : 'Activate' }}</span>
+            </button>
+          </div>
+        </ng-template>
+      </app-data-table>
+    }
+  </div>
+</div>

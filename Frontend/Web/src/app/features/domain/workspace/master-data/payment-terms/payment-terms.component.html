@@ -1,0 +1,227 @@
+<div class="payment-terms-page">
+  <app-page-header
+    title="Payment Terms"
+    subtitle="Configure commercial payment terms, standard due-day calculations, and credit conditions."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Contextual Message Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Confirmation Banner (NO POPUP) -->
+  @if (pendingAction()) {
+    <div class="action-confirm-bar">
+      <div class="confirm-text">
+        <i class="pi pi-question-circle"></i>
+        <span>
+          Are you sure you want to <strong>{{ pendingAction()!.type }}</strong> payment term
+          <strong>"{{ pendingAction()!.name }} ({{ pendingAction()!.code }})"</strong>?
+        </span>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelPendingAction()">Cancel</button>
+        <button
+          type="button"
+          class="p-button p-button-sm"
+          [class.p-button-danger]="pendingAction()!.type === 'deactivate'"
+          [class.p-button-primary]="pendingAction()!.type === 'reactivate'"
+          (click)="confirmPendingAction()"
+        >
+          Confirm {{ pendingAction()!.type | titlecase }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Loading payment terms..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+  } @else {
+    <div class="content-card erp-card">
+      <!-- Toolbar -->
+      <div class="content-toolbar">
+        <div class="search-box">
+          <i class="pi pi-search search-icon"></i>
+          <input
+            type="text"
+            class="p-inputtext p-inputtext-sm"
+            placeholder="Search payment terms by code or name..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+          />
+        </div>
+        <div class="toolbar-actions">
+          @if (!showForm()) {
+            <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateForm()">
+              <i class="pi pi-plus"></i>
+              <span>Add Payment Term</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Inline Payment Term Form Panel (NO POPUP) -->
+      @if (showForm()) {
+        <div class="inline-form-card">
+          <div class="form-header">
+            <h4>{{ isEditing() ? 'Edit Payment Term' : 'New Payment Term' }}</h4>
+            <button type="button" class="btn-close" (click)="cancelForm()">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Term Code <span class="required">*</span></label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="e.g. NET30, COD, NET60"
+                [(ngModel)]="termCode"
+                [disabled]="isEditing()"
+                maxlength="20"
+              />
+              <small class="helper-text">Unique code identifying the payment term.</small>
+            </div>
+            <div class="form-group">
+              <label>Term Name <span class="required">*</span></label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="e.g. Net 30 Days, Immediate Payment"
+                [(ngModel)]="termName"
+                maxlength="100"
+              />
+            </div>
+            <div class="form-group">
+              <label>Payment Due Days <span class="required">*</span></label>
+              <input
+                type="number"
+                class="p-inputtext p-inputtext-sm"
+                [(ngModel)]="days"
+                min="0"
+                step="1"
+              />
+              <small class="helper-text">Number of calendar days after invoice date until payment is due (0 for COD).</small>
+            </div>
+            <div class="form-group full-width">
+              <label>Description</label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="Optional commercial terms explanation..."
+                [(ngModel)]="description"
+                maxlength="250"
+              />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelForm()" [disabled]="formSaving()">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-primary"
+              (click)="savePaymentTerm()"
+              [disabled]="formSaving() || !termCode.trim() || !termName.trim()"
+            >
+              @if (formSaving()) {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else {
+                <i class="pi pi-check"></i>
+              }
+              <span>{{ isEditing() ? 'Update Term' : 'Save Term' }}</span>
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Payment Terms Table -->
+      @if (filteredPaymentTerms().length === 0) {
+        <app-empty-state
+          title="No Payment Terms Found"
+          message="No payment terms match your search criteria. Create one using the button above."
+        ></app-empty-state>
+      } @else {
+        <div class="erp-table-responsive">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Code</th>
+                <th>Term Name</th>
+                <th style="width: 120px;">Due Days</th>
+                <th>Description</th>
+                <th style="width: 110px;">Status</th>
+                <th style="width: 150px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (term of filteredPaymentTerms(); track term.paymentTermId) {
+                <tr [class.row-inactive]="!term.isActive">
+                  <td>
+                    <span class="code-badge">{{ term.termCode }}</span>
+                  </td>
+                  <td>
+                    <strong>{{ term.termName }}</strong>
+                  </td>
+                  <td>
+                    <span class="days-badge">
+                      {{ term.days === 0 ? 'Immediate (0)' : term.days + ' days' }}
+                    </span>
+                  </td>
+                  <td class="text-secondary">{{ term.description || '—' }}</td>
+                  <td>
+                    <app-status-badge [status]="term.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="row-actions">
+                      <button
+                        type="button"
+                        class="btn-icon"
+                        title="Edit Term"
+                        (click)="openEditForm(term)"
+                      >
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      @if (term.isActive) {
+                        <button
+                          type="button"
+                          class="btn-icon btn-icon-danger"
+                          title="Deactivate Term"
+                          (click)="promptDeactivate(term)"
+                        >
+                          <i class="pi pi-ban"></i>
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="btn-icon btn-icon-success"
+                          title="Reactivate Term"
+                          (click)="promptReactivate(term)"
+                        >
+                          <i class="pi pi-replay"></i>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

@@ -1,5 +1,5 @@
+using System;
 using ERP.Domain.Common;
-
 using ERP.Domain.Common.Scope;
 
 namespace Domain.Features.MasterData.Product;
@@ -39,6 +39,8 @@ public class Product : Auditable, ITenantScopedEntity
 
     public Guid? UnitOfMeasureId { get; private set; }
 
+    public Guid? BrandId { get; private set; }
+
     // Inventory / costing
     public ValuationMethod ValuationMethod { get; private set; }
 
@@ -50,7 +52,19 @@ public class Product : Auditable, ITenantScopedEntity
 
     public decimal ReorderQuantity { get; private set; }
 
+    public decimal? MinStockQuantity { get; private set; }
+
+    public decimal? MaxStockQuantity { get; private set; }
+
+    public decimal? SafetyStockQuantity { get; private set; }
+
+    public int? LeadTimeDays { get; private set; }
+
     public bool IsActive { get; private set; }
+
+    public ICollection<ProductIdentifier> Identifiers { get; private set; } = new List<ProductIdentifier>();
+
+    public ICollection<ProductPackaging> Packagings { get; private set; } = new List<ProductPackaging>();
 
     public static Product Create(
         Guid tenantId,
@@ -73,8 +87,16 @@ public class Product : Auditable, ITenantScopedEntity
         bool isStockTracked = true,
         ProductType productType = ProductType.StockItem,
         TrackingMode trackingMode = TrackingMode.None,
-        Guid? unitOfMeasureId = null)
+        Guid? unitOfMeasureId = null,
+        decimal? minStockQuantity = null,
+        decimal? maxStockQuantity = null,
+        decimal? safetyStockQuantity = null,
+        int? leadTimeDays = null,
+        Guid? brandId = null)
     {
+        ValidatePlanningSettings(reorderLevel, reorderQuantity, minStockQuantity, maxStockQuantity, safetyStockQuantity, leadTimeDays);
+        ValidateCapabilitiesAndTracking(productCode, productType, isStockTracked, trackingMode);
+
         return new Product
         {
             ProductId = productId ?? Guid.NewGuid(),
@@ -89,6 +111,10 @@ public class Product : Auditable, ITenantScopedEntity
             SellingPrice = sellingPrice,
             ReorderLevel = reorderLevel,
             ReorderQuantity = reorderQuantity,
+            MinStockQuantity = minStockQuantity,
+            MaxStockQuantity = maxStockQuantity,
+            SafetyStockQuantity = safetyStockQuantity,
+            LeadTimeDays = leadTimeDays,
             IsManufacturable = isManufacturable,
             IsPurchasable = isPurchasable,
             IsSellable = isSellable,
@@ -98,6 +124,7 @@ public class Product : Auditable, ITenantScopedEntity
             ProductType = productType,
             TrackingMode = trackingMode,
             UnitOfMeasureId = unitOfMeasureId,
+            BrandId = brandId,
             IsActive = true
         };
     }
@@ -120,8 +147,16 @@ public class Product : Auditable, ITenantScopedEntity
         bool isStockTracked,
         ProductType productType,
         TrackingMode trackingMode,
-        Guid? unitOfMeasureId = null)
+        Guid? unitOfMeasureId = null,
+        decimal? minStockQuantity = null,
+        decimal? maxStockQuantity = null,
+        decimal? safetyStockQuantity = null,
+        int? leadTimeDays = null,
+        Guid? brandId = null)
     {
+        ValidatePlanningSettings(reorderLevel, reorderQuantity, minStockQuantity, maxStockQuantity, safetyStockQuantity, leadTimeDays);
+        ValidateCapabilitiesAndTracking(ProductCode, productType, isStockTracked, trackingMode);
+
         ProductName = productName;
         CategoryId = categoryId;
         UnitOfMeasure = unitOfMeasure;
@@ -131,6 +166,10 @@ public class Product : Auditable, ITenantScopedEntity
         SellingPrice = sellingPrice;
         ReorderLevel = reorderLevel;
         ReorderQuantity = reorderQuantity;
+        MinStockQuantity = minStockQuantity;
+        MaxStockQuantity = maxStockQuantity;
+        SafetyStockQuantity = safetyStockQuantity;
+        LeadTimeDays = leadTimeDays;
         IsManufacturable = isManufacturable;
         IsPurchasable = isPurchasable;
         IsSellable = isSellable;
@@ -140,6 +179,103 @@ public class Product : Auditable, ITenantScopedEntity
         ProductType = productType;
         TrackingMode = trackingMode;
         UnitOfMeasureId = unitOfMeasureId;
+        BrandId = brandId;
+    }
+
+    public void UpdatePlanningSettings(
+        decimal reorderLevel,
+        decimal reorderQuantity,
+        decimal? minStockQuantity = null,
+        decimal? maxStockQuantity = null,
+        decimal? safetyStockQuantity = null,
+        int? leadTimeDays = null)
+    {
+        ValidatePlanningSettings(reorderLevel, reorderQuantity, minStockQuantity, maxStockQuantity, safetyStockQuantity, leadTimeDays);
+
+        ReorderLevel = reorderLevel;
+        ReorderQuantity = reorderQuantity;
+        MinStockQuantity = minStockQuantity;
+        MaxStockQuantity = maxStockQuantity;
+        SafetyStockQuantity = safetyStockQuantity;
+        LeadTimeDays = leadTimeDays;
+    }
+
+    public EffectivePlanningSettings GetEffectivePlanningSettings(ProductWarehouseSetting? warehouseSetting = null)
+    {
+        if (warehouseSetting == null || !warehouseSetting.IsActive || warehouseSetting.ProductId != ProductId)
+        {
+            return new EffectivePlanningSettings(
+                ReorderLevel: ReorderLevel,
+                ReorderQuantity: ReorderQuantity,
+                MinStockQuantity: MinStockQuantity,
+                MaxStockQuantity: MaxStockQuantity,
+                SafetyStockQuantity: SafetyStockQuantity,
+                LeadTimeDays: LeadTimeDays,
+                IsWarehouseOverrideApplied: false,
+                WarehouseId: null);
+        }
+
+        return new EffectivePlanningSettings(
+            ReorderLevel: warehouseSetting.ReorderLevel ?? ReorderLevel,
+            ReorderQuantity: warehouseSetting.ReorderQuantity ?? ReorderQuantity,
+            MinStockQuantity: warehouseSetting.MinStockQuantity ?? MinStockQuantity,
+            MaxStockQuantity: warehouseSetting.MaxStockQuantity ?? MaxStockQuantity,
+            SafetyStockQuantity: warehouseSetting.SafetyStockQuantity ?? SafetyStockQuantity,
+            LeadTimeDays: warehouseSetting.LeadTimeDays ?? LeadTimeDays,
+            IsWarehouseOverrideApplied: true,
+            WarehouseId: warehouseSetting.WarehouseId);
+    }
+
+    private static void ValidatePlanningSettings(
+        decimal reorderLevel,
+        decimal reorderQuantity,
+        decimal? minStockQuantity,
+        decimal? maxStockQuantity,
+        decimal? safetyStockQuantity,
+        int? leadTimeDays)
+    {
+        if (reorderLevel < 0)
+            throw new ArgumentOutOfRangeException(nameof(reorderLevel), "Reorder level cannot be negative.");
+
+        if (reorderQuantity < 0)
+            throw new ArgumentOutOfRangeException(nameof(reorderQuantity), "Reorder quantity cannot be negative.");
+
+        if (minStockQuantity.HasValue && minStockQuantity.Value < 0)
+            throw new ArgumentOutOfRangeException(nameof(minStockQuantity), "Minimum stock quantity cannot be negative.");
+
+        if (maxStockQuantity.HasValue && maxStockQuantity.Value < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxStockQuantity), "Maximum stock quantity cannot be negative.");
+
+        if (safetyStockQuantity.HasValue && safetyStockQuantity.Value < 0)
+            throw new ArgumentOutOfRangeException(nameof(safetyStockQuantity), "Safety stock quantity cannot be negative.");
+
+        if (leadTimeDays.HasValue && leadTimeDays.Value < 0)
+            throw new ArgumentOutOfRangeException(nameof(leadTimeDays), "Lead time days cannot be negative.");
+
+        if (minStockQuantity.HasValue && maxStockQuantity.HasValue && minStockQuantity.Value > maxStockQuantity.Value)
+            throw new InvalidOperationException("Minimum stock quantity cannot be greater than maximum stock quantity.");
+
+        if (safetyStockQuantity.HasValue && maxStockQuantity.HasValue && safetyStockQuantity.Value > maxStockQuantity.Value)
+            throw new InvalidOperationException("Safety stock quantity cannot be greater than maximum stock quantity.");
+
+        if (safetyStockQuantity.HasValue && minStockQuantity.HasValue && safetyStockQuantity.Value > minStockQuantity.Value)
+            throw new InvalidOperationException("Safety stock quantity cannot be greater than minimum stock quantity.");
+    }
+
+    private static void ValidateCapabilitiesAndTracking(
+        string productCode,
+        ProductType productType,
+        bool isStockTracked,
+        TrackingMode trackingMode)
+    {
+        if (productType == ProductType.Service && isStockTracked)
+            throw new InvalidOperationException($"Service product '{productCode}' cannot be configured as a stock-tracked item.");
+
+        if (productType == ProductType.NonStockItem && isStockTracked)
+            throw new InvalidOperationException($"Non-stock product '{productCode}' cannot be configured as a stock-tracked item.");
+
+        if (!isStockTracked && trackingMode != TrackingMode.None)
+            throw new InvalidOperationException($"Product '{productCode}' cannot have tracking mode '{trackingMode}' because it is not configured as a stock-tracked item.");
     }
 
     public void SetUnitOfMeasure(Guid? unitOfMeasureId, string unitOfMeasureCode)

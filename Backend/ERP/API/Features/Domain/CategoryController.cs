@@ -43,8 +43,15 @@ public class CategoryController : BaseApiController
         if (!tenantId.HasValue)
             return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
-        var categories = await _categoryService.GetCategoriesAsync(tenantId.Value);
-        return PaginateAndSort(categories, page, pageSize, sortBy, sortDirection, _sortMapping);
+        try
+        {
+            var categories = await _categoryService.GetCategoriesAsync(tenantId.Value);
+            return PaginateAndSort(categories, page, pageSize, sortBy, sortDirection, _sortMapping);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
     }
 
     [HttpGet("{id:guid}")]
@@ -55,11 +62,18 @@ public class CategoryController : BaseApiController
         if (!tenantId.HasValue)
             return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
-        var category = await _categoryService.GetCategoryAsync(tenantId.Value, id);
-        if (category == null)
-            return NotFoundResponse("Category not found.");
+        try
+        {
+            var category = await _categoryService.GetCategoryAsync(tenantId.Value, id);
+            if (category == null)
+                return NotFoundResponse("Category not found.");
 
-        return SuccessResponse(category);
+            return SuccessResponse(category);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
     }
 
     [HttpPost]
@@ -83,7 +97,7 @@ public class CategoryController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("CATEGORY.UPDATE")]
+    [RequirePermission("CATEGORY.EDIT")]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] UpdateCategoryRequest request)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
@@ -115,6 +129,26 @@ public class CategoryController : BaseApiController
         {
             await _categoryService.DeactivateCategoryAsync(tenantId.Value, id);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/reactivate")]
+    [RequirePermission("CATEGORY.EDIT")]
+    public async Task<IActionResult> ReactivateCategory(Guid id)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var category = await _categoryService.ReactivateCategoryAsync(tenantId.Value, id);
+            return SuccessResponse(category, "Category reactivated successfully.");
         }
         catch (Exception ex)
         {

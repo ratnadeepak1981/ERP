@@ -12,6 +12,8 @@ public static class WarehousePermissionSeed
         await SeedPermissionAsync(repository, "WAREHOUSE.EDIT", "Edit Warehouse", "Warehouse", "Allows editing warehouses and zones.");
         await SeedPermissionAsync(repository, "WAREHOUSE.DELETE", "Delete Warehouse", "Warehouse", "Allows deleting warehouses and zones.");
         await SeedPermissionAsync(repository, "WAREHOUSE.SOFT_DELETE", "Soft Delete Warehouse", "Warehouse", "Allows soft deleting warehouses.");
+        await SeedPermissionAsync(repository, "WAREHOUSE.ACTIVATE", "Activate Warehouse", "Warehouse", "Allows reactivating deactivated warehouses and zones.");
+        await SeedPermissionAsync(repository, "WAREHOUSE.DEACTIVATE", "Deactivate Warehouse", "Warehouse", "Allows deactivating warehouses and zones.");
         await repository.SaveChangesAsync();
     }
 

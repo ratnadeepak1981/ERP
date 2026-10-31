@@ -334,10 +334,12 @@ public class SalesOrderDomainUnitTests
             return Task.FromResult(_products.Find(p => p.TenantId == tenantId && p.ProductId == productId));
         }
 
-        public Task<List<Product>> GetByTenantAsync(Guid tenantId) => Task.FromResult(_products.FindAll(p => p.TenantId == tenantId));
+        public Task<List<Product>> GetByTenantAsync(Guid tenantId, Guid? brandId = null) =>
+            Task.FromResult(_products.FindAll(p => p.TenantId == tenantId && (!brandId.HasValue || p.BrandId == brandId.Value)));
         public Task<bool> ExistsByCodeAsync(Guid tenantId, string productCode) => Task.FromResult(_products.Exists(p => p.TenantId == tenantId && p.ProductCode == productCode));
         public Task<bool> ExistsByNameAsync(Guid tenantId, string productName) => Task.FromResult(_products.Exists(p => p.TenantId == tenantId && p.ProductName == productName));
         public Task<bool> CategoryExistsAsync(Guid tenantId, Guid categoryId) => Task.FromResult(true);
+        public Task<bool> BrandExistsAsync(Guid tenantId, Guid brandId) => Task.FromResult(true);
 
         public Task AddAsync(Product product)
         {

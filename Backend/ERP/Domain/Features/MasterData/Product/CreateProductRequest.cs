@@ -22,6 +22,14 @@ public class CreateProductRequest
 
     public decimal ReorderQuantity { get; set; }
 
+    public decimal? MinStockQuantity { get; set; }
+
+    public decimal? MaxStockQuantity { get; set; }
+
+    public decimal? SafetyStockQuantity { get; set; }
+
+    public int? LeadTimeDays { get; set; }
+
     public bool IsManufacturable { get; set; }
 
     public bool IsPurchasable { get; set; } = true;
@@ -39,4 +47,6 @@ public class CreateProductRequest
     public TrackingMode TrackingMode { get; set; } = TrackingMode.None;
 
     public Guid? UnitOfMeasureId { get; set; }
+
+    public Guid? BrandId { get; set; }
 }

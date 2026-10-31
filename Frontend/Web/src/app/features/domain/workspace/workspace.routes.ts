@@ -169,6 +169,82 @@ export const workspaceRoutes: Routes = [
         ]
       },
       {
+        path: 'uom',
+        loadComponent: () =>
+          import('./master-data/uom/uom-management.component').then(m => m.UomManagementComponent)
+      },
+      {
+        path: 'categories-brands',
+        loadComponent: () =>
+          import('./master-data/categories-brands/categories-brands.component').then(
+            m => m.CategoriesBrandsComponent
+          )
+      },
+      {
+        path: 'payment-terms',
+        loadComponent: () =>
+          import('./master-data/payment-terms/payment-terms.component').then(
+            m => m.PaymentTermsComponent
+          )
+      },
+      {
+        path: 'tax-codes',
+        loadComponent: () =>
+          import('./master-data/tax-codes/tax-codes.component').then(
+            m => m.TaxCodesComponent
+          )
+      },
+      {
+        path: 'currencies',
+        loadComponent: () =>
+          import('./master-data/currencies/currency-master.component').then(
+            m => m.CurrencyMasterComponent
+          )
+      },
+      {
+        path: 'exchange-rates',
+        loadComponent: () =>
+          import('./master-data/exchange-rates/exchange-rate-master.component').then(
+            m => m.ExchangeRateMasterComponent
+          )
+      },
+      {
+        path: 'price-cards',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-master.component').then(
+                m => m.PriceCardMasterComponent
+              )
+          },
+          {
+            path: 'new',
+            data: { mode: 'create' },
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-page.component').then(
+                m => m.PriceCardPageComponent
+              )
+          },
+          {
+            path: ':id/edit',
+            data: { mode: 'edit' },
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-page.component').then(
+                m => m.PriceCardPageComponent
+              )
+          },
+          {
+            path: ':id',
+            data: { mode: 'view' },
+            loadComponent: () =>
+              import('./master-data/price-cards/price-card-page.component').then(
+                m => m.PriceCardPageComponent
+              )
+          }
+        ]
+      },
+      {
         path: 'locations',
         redirectTo: 'warehouses',
         pathMatch: 'full'

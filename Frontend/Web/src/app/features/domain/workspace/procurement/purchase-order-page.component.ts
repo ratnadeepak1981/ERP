@@ -27,6 +27,7 @@ import { AppEmptyStateComponent } from '../../../../shared/components/empty-stat
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
 import { PurchaseOrderService } from '../../../../core/services/purchase-order.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
+import { PriceCardItem, PriceCardType } from '../../../../core/models/price-card.models';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import {
@@ -39,7 +40,7 @@ import {
 } from '../../../../core/models/purchase-order.models';
 import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
 import { LookupItem } from '../../../../shared/components/lookup-dropdown/lookup-item.model';
-import { Company, Branch, SupplierItem, ProductItem } from '../../../../core/models/scope.models';
+import { Company, Branch, SupplierItem, ProductItem, TaxCodeItem, CurrencyItem } from '../../../../core/models/scope.models';
 
 export type POPageMode = 'create' | 'view' | 'amend' | 'approval';
 
@@ -51,7 +52,14 @@ export interface EditablePOLine {
   unitOfMeasureId?: string | null;
   quantity: number;
   unitCost: number;
+  discountRate?: number;
+  discountAmount?: number;
+  taxCodeId?: string | null;
+  taxRate?: number;
+  taxAmount?: number;
+  subTotal?: number;
   lineTotal: number;
+  isTaxInclusive?: boolean;
 }
 
 @Component({
@@ -89,10 +97,49 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
   private readonly subs = new Subscription();
 
+  readonly taxCodes = signal<TaxCodeItem[]>([]);
+  readonly currencies = signal<CurrencyItem[]>([]);
+  readonly purchasePriceCards = signal<PriceCardItem[]>([]);
+  readonly currencyOptions = computed(() => [
+    { label: 'Use selected card / supplier default', value: '' },
+    ...this.currencies().map(currency => ({
+      label: `${currency.currencyCode} (${currency.symbol})`,
+      value: currency.currencyCode
+    }))
+  ]);
+  readonly purchasePriceCardOptions = computed(() => [
+    { label: 'Use supplier default', value: '' },
+    ...this.purchasePriceCards().map(card => ({
+      label: `${card.priceCardCode} — ${card.priceCardName} (${card.currency})`,
+      value: card.priceCardId
+    }))
+  ]);
+  readonly taxCodeLookupItems = computed<LookupItem[]>(() => {
+    return this.taxCodes().map(tc => ({
+      id: tc.taxCodeId,
+      code: tc.code,
+      name: `${tc.code} (${tc.rate}%)`,
+      meta: { rate: tc.rate }
+    }));
+  });
+
   // Mode & Route State
   readonly mode = signal<POPageMode>('create');
   readonly orderId = signal<string | null>(null);
   readonly currentOrder = signal<PurchaseOrderDto | null>(null);
+  readonly displayCurrencyCode = computed(() =>
+    this.headerForm.controls.currency.value ||
+    this.currentOrder()?.currency ||
+    this.scopeService.selectedCompany()?.baseCurrencyCode ||
+    'USD'
+  );
+  readonly exchangeRateSourceLabel = computed(() => {
+    const source = this.currentOrder()?.exchangeRateSource;
+    if (source === 'SameCurrency' || source === 0) return 'Same currency';
+    if (source === 'Daily' || source === 1) return 'Daily';
+    if (source === 'Monthly' || source === 2) return 'Monthly';
+    return 'Not resolved';
+  });
 
   // Loading & Error States
   readonly loading = signal<boolean>(false);
@@ -146,7 +193,8 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       validators: [Validators.required]
     }),
     deliveryDate: new FormControl<string>(''),
-    currency: new FormControl<string>('USD', { nonNullable: true }),
+    currency: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
+    priceCardId: new FormControl<string>(''),
     paymentTerms: new FormControl<string>('Net 30'),
     shippingMethod: new FormControl<string>('Standard Ground'),
     notes: new FormControl<string>('')
@@ -283,15 +331,18 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       },
       {
         name: 'currency',
-        label: 'Currency',
+        label: 'Transaction Currency',
         type: 'select',
-        options: [
-          { label: 'USD ($)', value: 'USD' },
-          { label: 'EUR (€)', value: 'EUR' },
-          { label: 'GBP (£)', value: 'GBP' },
-          { label: 'LKR (Rs)', value: 'LKR' }
-        ],
+        options: this.currencyOptions(),
         disabled: isReadOnly,
+        colSpan: 1
+      },
+      {
+        name: 'priceCardId',
+        label: 'Purchase Price Card',
+        type: 'select',
+        options: this.purchasePriceCardOptions(),
+        disabled: isReadOnly || this.mode() === 'amend',
         colSpan: 1
       },
       {
@@ -382,7 +433,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         header: 'Unit Cost',
         sortable: true,
         align: 'right',
-        width: '130px',
+        width: '120px',
         type: 'currency',
         editable: !isReadOnly,
         editType: 'currency',
@@ -396,11 +447,59 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         ]
       },
       {
+        field: 'discountRate',
+        header: 'Disc %',
+        sortable: true,
+        align: 'right',
+        width: '90px',
+        editable: !isReadOnly,
+        editType: 'number',
+        validators: [
+          (val: any) => {
+            const num = Number(val);
+            if (isNaN(num)) return 'Must be a number';
+            if (num < 0 || num > 100) return '0 - 100%';
+            return null;
+          }
+        ]
+      },
+      {
+        field: 'taxCodeId',
+        header: 'Tax Code',
+        sortable: true,
+        width: '130px',
+        editable: !isReadOnly,
+        editType: 'lookup',
+        lookupOptions: this.taxCodeLookupItems(),
+        onLookupSelect: (item, row) => {
+          row.taxCodeId = String(item.id);
+          row.taxRate = Number(item.meta?.rate) || 0;
+          this.calculateRow(row);
+        }
+      },
+      {
+        field: 'taxRate',
+        header: 'Tax %',
+        sortable: true,
+        align: 'right',
+        width: '85px',
+        editable: false
+      },
+      {
+        field: 'isTaxInclusive',
+        header: 'Tax Incl.',
+        sortable: true,
+        align: 'center',
+        width: '95px',
+        type: 'boolean',
+        editable: !isReadOnly
+      },
+      {
         field: 'lineTotal',
         header: 'Line Total',
         sortable: true,
         align: 'right',
-        width: '140px',
+        width: '120px',
         type: 'currency',
         editable: false
       }
@@ -409,9 +508,39 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
   // Row Calculation Callback
   readonly calculateRow = (row: EditablePOLine): void => {
-    const qty = Number(row.quantity) || 0;
-    const cost = Number(row.unitCost) || 0;
-    row.lineTotal = Math.round(qty * cost * 100) / 100;
+    const qty = Math.round((Number(row.quantity) || 0) * 10000) / 10000;
+    const cost = Math.round((Number(row.unitCost) || 0) * 100) / 100;
+    const discRate = Math.round((Number(row.discountRate) || 0) * 100) / 100;
+    const taxRate = Math.round((Number(row.taxRate) || 0) * 100) / 100;
+    const isInclusive = !!row.isTaxInclusive;
+
+    const gross = Math.round(qty * cost * 100) / 100;
+    const discAmount = Math.round(gross * (discRate / 100) * 100) / 100;
+
+    let taxable: number;
+    let taxAmount: number;
+    let lineTotal: number;
+
+    if (isInclusive) {
+      const discountedGross = gross - discAmount;
+      taxable = Math.round((discountedGross / (1 + (taxRate / 100))) * 100) / 100;
+      taxAmount = Math.round((discountedGross - taxable) * 100) / 100;
+      lineTotal = discountedGross;
+    } else {
+      taxable = gross - discAmount;
+      taxAmount = Math.round((taxable * (taxRate / 100)) * 100) / 100;
+      lineTotal = Math.round((taxable + taxAmount) * 100) / 100;
+    }
+
+    row.quantity = qty;
+    row.unitCost = cost;
+    row.discountRate = discRate;
+    row.discountAmount = discAmount;
+    row.taxRate = taxRate;
+    row.subTotal = taxable;
+    row.taxAmount = taxAmount;
+    row.lineTotal = lineTotal;
+
     const current = this.workingLines();
     if (current.some(l => l.lineId === row.lineId)) {
       this.workingLines.set(current.map(l => (l.lineId === row.lineId ? { ...l, ...row } : l)));
@@ -431,22 +560,32 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       productName: '',
       quantity: 1,
       unitCost: 0,
-      lineTotal: 0
+      discountRate: 0,
+      discountAmount: 0,
+      taxCodeId: null,
+      taxRate: 0,
+      taxAmount: 0,
+      subTotal: 0,
+      lineTotal: 0,
+      isTaxInclusive: false
     };
   };
 
   // Reactive Totals
   readonly subtotalAmount = computed<number>(() => {
-    return this.workingLines().reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0);
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.subTotal ?? (item.quantity * item.unitCost)) || 0), 0) * 100) / 100;
+  });
+
+  readonly discountTotalAmount = computed<number>(() => {
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.discountAmount) || 0), 0) * 100) / 100;
   });
 
   readonly taxAmount = computed<number>(() => {
-    // 0% default or calculate standard 0
-    return 0;
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.taxAmount) || 0), 0) * 100) / 100;
   });
 
   readonly totalOrderAmount = computed<number>(() => {
-    return this.subtotalAmount() + this.taxAmount();
+    return Math.round(this.workingLines().reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0) * 100) / 100;
   });
 
   // Current Order Status Name & Severity
@@ -498,6 +637,21 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     this.detectRouteMode();
     this.initScope();
     this.loadMasterData();
+    this.subs.add(
+      this.headerForm.controls.supplierId.valueChanges.subscribe(supplierId => {
+        this.applySupplierCurrencyDefaults(supplierId || '');
+      })
+    );
+    this.subs.add(
+      this.headerForm.controls.priceCardId.valueChanges.subscribe(priceCardId => {
+        const card = priceCardId
+          ? this.purchasePriceCards().find(item => item.priceCardId === priceCardId)
+          : null;
+        if (card && !this.headerForm.controls.currency.value) {
+          this.headerForm.controls.currency.setValue(card.currency);
+        }
+      })
+    );
 
     if (this.route.paramMap) {
       this.subs.add(
@@ -639,7 +793,8 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       supplierId: '',
       orderDate: new Date().toISOString().substring(0, 10),
       deliveryDate: '',
-      currency: 'USD',
+      currency: '',
+      priceCardId: '',
       paymentTerms: 'Net 30',
       shippingMethod: 'Standard Ground',
       notes: ''
@@ -734,6 +889,8 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       orderNumber: order.orderNumber,
       supplierId: order.supplierId || '',
       orderDate: order.orderDate ? order.orderDate.substring(0, 10) : new Date().toISOString().substring(0, 10),
+      currency: order.currency || '',
+      priceCardId: order.priceCardId || '',
       notes: ''
     });
 
@@ -753,7 +910,14 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         unitOfMeasureId: item.unitOfMeasureId || null,
         quantity: item.quantity,
         unitCost: item.unitPrice,
-        lineTotal: item.lineTotal || item.quantity * item.unitPrice
+        discountRate: item.discountRate || 0,
+        discountAmount: item.discountAmount || 0,
+        taxCodeId: item.taxCodeId || null,
+        taxRate: item.taxRate || 0,
+        taxAmount: item.taxAmount || 0,
+        subTotal: item.subTotal || item.quantity * item.unitPrice,
+        lineTotal: item.lineTotal || item.quantity * item.unitPrice,
+        isTaxInclusive: item.isTaxInclusive || false
       }));
       this.workingLines.set(this.enrichLinesWithProductMaster(lines));
     } else {
@@ -763,8 +927,41 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
   // Load Master Data: Suppliers and Products
   loadMasterData(): void {
+    this.masterDataService.getCurrencies().subscribe({
+      next: currencies => {
+        this.currencies.set(currencies.filter(currency => currency.isActive));
+        const supplierId = this.headerForm.controls.supplierId.value;
+        if (supplierId && !this.headerForm.controls.currency.value) {
+          this.applySupplierCurrencyDefaults(supplierId);
+        }
+      },
+      error: err => this.showMessage(this.getCleanErrorMessage(err, 'Failed to load currencies.'), 'danger')
+    });
+
+    this.masterDataService.getPriceCards({ type: PriceCardType.Purchase, isActive: true, pageSize: 100 }).subscribe({
+      next: result => {
+        this.purchasePriceCards.set(result.items);
+        const supplierId = this.headerForm.controls.supplierId.value;
+        if (!this.headerForm.controls.currency.value) {
+          this.applySupplierCurrencyDefaults(supplierId);
+        }
+      },
+      error: err => this.showMessage(this.getCleanErrorMessage(err, 'Failed to load purchase price cards.'), 'danger')
+    });
+
     this.masterDataService.getSuppliers().subscribe({
-      next: suppliers => this.suppliers.set(suppliers),
+      next: suppliers => {
+        this.suppliers.set(suppliers);
+        const supplierId = this.headerForm.controls.supplierId.value;
+        if (supplierId && !this.headerForm.controls.currency.value) {
+          this.applySupplierCurrencyDefaults(supplierId);
+        }
+      },
+      error: () => {}
+    });
+
+    this.masterDataService.getTaxCodes('Purchase', true).subscribe({
+      next: codes => this.taxCodes.set(codes),
       error: () => {}
     });
 
@@ -777,6 +974,79 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         }
       },
       error: () => {}
+    });
+  }
+
+  private applySupplierCurrencyDefaults(supplierId: string): void {
+    const supplier = this.suppliers().find(item => item.supplierId === supplierId);
+    if (!supplier) return;
+
+    if (supplier.defaultPurchasePriceCardId) {
+      this.headerForm.controls.priceCardId.setValue(supplier.defaultPurchasePriceCardId);
+      const card = this.purchasePriceCards().find(item =>
+        item.priceCardId === supplier.defaultPurchasePriceCardId
+      );
+      if (card) this.headerForm.controls.currency.setValue(card.currency);
+      return;
+    }
+
+    this.headerForm.controls.priceCardId.setValue('');
+    if (supplier.currencyCode && this.currencies().some(currency =>
+      currency.currencyCode.toUpperCase() === supplier.currencyCode!.toUpperCase()
+    )) {
+      this.headerForm.controls.currency.setValue(supplier.currencyCode);
+    } else {
+      this.headerForm.controls.currency.setValue('');
+    }
+  }
+
+  refreshDraftExchangeRate(): void {
+    const order = this.currentOrder();
+    if (!order || !this.canEdit()) return;
+
+    const companyId = order.companyId || this.scopeService.selectedCompany()?.id;
+    const branchId = order.branchId || this.scopeService.selectedBranch()?.id;
+    if (!companyId || !branchId) {
+      this.showMessage('The purchase order company and branch are required to refresh its exchange rate.', 'danger');
+      return;
+    }
+
+    const formValue = this.headerForm.getRawValue();
+    const supplier = this.suppliers().find(item => item.supplierId === order.supplierId);
+    const priceCardId = order.priceCardId || supplier?.defaultPurchasePriceCardId;
+    const priceCard = this.purchasePriceCards().find(item => item.priceCardId === priceCardId);
+    if (
+      priceCard &&
+      formValue.currency &&
+      priceCard.currency.toUpperCase() !== formValue.currency.toUpperCase()
+    ) {
+      this.showMessage(
+        `The selected Price Card is priced in ${priceCard.currency}; the PO currency must match.`,
+        'danger'
+      );
+      return;
+    }
+    const selectedCurrency = this.currencies().find(currency =>
+      currency.currencyCode.toUpperCase() === formValue.currency.toUpperCase()
+    );
+    this.actionInProgress.set(true);
+    this.poService.refreshExchangeRate(companyId, branchId, order.id, {
+      orderDate: formValue.orderDate ? new Date(formValue.orderDate).toISOString() : undefined,
+      transactionCurrencyId: selectedCurrency?.currencyId
+    }).subscribe({
+      next: refreshedOrder => {
+        this.currentOrder.set(refreshedOrder);
+        this.headerForm.patchValue({
+          orderDate: refreshedOrder.orderDate?.substring(0, 10) || formValue.orderDate,
+          currency: refreshedOrder.currency || formValue.currency
+        });
+        this.showMessage('Exchange rate and base-currency amounts refreshed for this draft.', 'success');
+        this.actionInProgress.set(false);
+      },
+      error: err => {
+        this.showMessage(this.getCleanErrorMessage(err, 'Unable to refresh the exchange rate.'), 'danger');
+        this.actionInProgress.set(false);
+      }
     });
   }
 
@@ -802,6 +1072,20 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     const company = this.scopeService.selectedCompany()!;
     const branch = this.scopeService.selectedBranch()!;
     const formVal = this.headerForm.getRawValue();
+    const supplier = this.suppliers().find(item => item.supplierId === formVal.supplierId);
+    const effectivePriceCardId = formVal.priceCardId || supplier?.defaultPurchasePriceCardId;
+    const selectedPriceCard = this.purchasePriceCards().find(card => card.priceCardId === effectivePriceCardId);
+    if (
+      selectedPriceCard &&
+      formVal.currency &&
+      selectedPriceCard.currency.toUpperCase() !== formVal.currency.toUpperCase()
+    ) {
+      this.showMessage(
+        `The selected Price Card is priced in ${selectedPriceCard.currency}; the PO currency must match.`,
+        'danger'
+      );
+      return;
+    }
 
     // Amend Mode: Update existing order
     if (this.mode() === 'amend' && this.orderId()) {
@@ -846,7 +1130,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
             productId: line.productId,
             unitOfMeasureId: line.unitOfMeasureId || null,
             quantity: Number(line.quantity),
-            unitPrice: Number(line.unitCost)
+            unitPrice: Number(line.unitCost),
+            discountRate: Number(line.discountRate) || 0,
+            taxCodeId: line.taxCodeId || null,
+            isTaxInclusive: !!line.isTaxInclusive
           }).subscribe({
             next: () => addSequentially(idx + 1),
             error: err => {
@@ -884,13 +1171,18 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       productId: l.productId,
       unitOfMeasureId: l.unitOfMeasureId || null,
       quantity: Number(l.quantity),
-      unitPrice: Number(l.unitCost)
+      unitPrice: Number(l.unitCost),
+      discountRate: Number(l.discountRate) || 0,
+      taxCodeId: l.taxCodeId || null,
+      isTaxInclusive: !!l.isTaxInclusive
     }));
 
     const request: CreatePurchaseOrderRequest = {
       orderNumber: formVal.orderNumber,
       supplierId: formVal.supplierId || null,
       orderDate: formVal.orderDate ? new Date(formVal.orderDate).toISOString() : new Date().toISOString(),
+      currency: formVal.currency || null,
+      priceCardId: formVal.priceCardId || null,
       items
     };
 

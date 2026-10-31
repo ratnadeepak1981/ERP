@@ -54,10 +54,19 @@ export interface PurchaseOrderItemDto {
   productCode?: string;
   productName?: string;
   unitOfMeasureId?: string | null;
+  unitOfMeasureCode?: string | null;
   quantity: number;
   receivedQuantity?: number;
   unitPrice: number;
+  discountRate?: number;
+  discountAmount?: number;
+  taxCodeId?: string | null;
+  taxRate?: number;
+  taxAmount?: number;
+  subTotal?: number;
   lineTotal: number;
+  isTaxInclusive?: boolean;
+  notes?: string;
   isActive?: boolean;
 }
 
@@ -72,7 +81,23 @@ export interface PurchaseOrderDto {
   orderNumber: string;
   orderDate: string;
   status: PurchaseOrderStatus | number | string;
+  subTotal?: number;
+  discountAmount?: number;
+  taxAmount?: number;
   totalAmount: number;
+  currency?: string;
+  transactionCurrencyId?: string | null;
+  baseCurrencyId?: string | null;
+  baseCurrencyCode?: string | null;
+  appliedExchangeRate?: number | null;
+  exchangeRateSource?: 'SameCurrency' | 'Daily' | 'Monthly' | number | null;
+  exchangeRateId?: string | null;
+  exchangeRateEffectiveDate?: string | null;
+  priceCardId?: string | null;
+  baseSubTotal?: number | null;
+  baseDiscountAmount?: number | null;
+  baseTaxAmount?: number | null;
+  baseTotalAmount?: number | null;
   isActive: boolean;
   items: PurchaseOrderItemDto[];
 }
@@ -82,12 +107,19 @@ export interface CreatePurchaseOrderItemRequest {
   unitOfMeasureId?: string | null;
   quantity: number;
   unitPrice?: number;
+  discountRate?: number;
+  taxCodeId?: string | null;
+  taxRate?: number;
+  isTaxInclusive?: boolean;
+  notes?: string;
 }
 
 export interface CreatePurchaseOrderRequest {
   orderNumber: string;
   supplierId?: string | null;
   orderDate?: string;
+  currency?: string | null;
+  priceCardId?: string | null;
   items: CreatePurchaseOrderItemRequest[];
 }
 

@@ -1,16 +1,28 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Domain.Features.MasterData.Product;
 
 namespace Domain.Features.MasterData.UnitOfMeasure;
 
 public class UnitOfMeasureService : IUnitOfMeasureService
 {
     private readonly IUnitOfMeasureRepository _repository;
+    private readonly IProductRepository? _productRepository;
+    private readonly IProductPackagingRepository? _packagingRepository;
+    private readonly ISpecialUomConversionSettingsProvider? _settingsProvider;
 
-    public UnitOfMeasureService(IUnitOfMeasureRepository repository)
+    public UnitOfMeasureService(
+        IUnitOfMeasureRepository repository,
+        IProductRepository? productRepository = null,
+        IProductPackagingRepository? packagingRepository = null,
+        ISpecialUomConversionSettingsProvider? settingsProvider = null)
     {
         _repository = repository;
+        _productRepository = productRepository;
+        _packagingRepository = packagingRepository;
+        _settingsProvider = settingsProvider;
     }
 
     public async Task<List<UnitOfMeasure>> GetUnitsAsync(Guid tenantId)
@@ -65,6 +77,19 @@ public class UnitOfMeasureService : IUnitOfMeasureService
 
         unit.Deactivate();
         await _repository.SaveChangesAsync();
+    }
+
+    public async Task<UnitOfMeasure> ReactivateUnitAsync(Guid tenantId, Guid unitOfMeasureId)
+    {
+        var unit = await _repository.GetUnitByIdAsync(tenantId, unitOfMeasureId)
+            ?? throw new KeyNotFoundException("Unit of measure not found.");
+
+        if (unit.IsActive)
+            return unit;
+
+        unit.Activate();
+        await _repository.SaveChangesAsync();
+        return unit;
     }
 
     public async Task<List<UnitOfMeasureConversion>> GetConversionsAsync(Guid tenantId)
@@ -123,5 +148,220 @@ public class UnitOfMeasureService : IUnitOfMeasureService
 
         conversion.Deactivate();
         await _repository.SaveChangesAsync();
+    }
+
+    public async Task<ConvertUnitOfMeasureResult> ConvertQuantityAsync(Guid tenantId, Guid fromUnitId, Guid toUnitId, decimal quantity)
+    {
+        var fromUnit = await _repository.GetUnitByIdAsync(tenantId, fromUnitId);
+        if (fromUnit == null || !fromUnit.IsActive)
+            throw new InvalidOperationException("Source unit of measure not found or is inactive.");
+
+        var toUnit = await _repository.GetUnitByIdAsync(tenantId, toUnitId);
+        if (toUnit == null || !toUnit.IsActive)
+            throw new InvalidOperationException("Target unit of measure not found or is inactive.");
+
+        if (fromUnitId == toUnitId)
+        {
+            return new ConvertUnitOfMeasureResult
+            {
+                FromUnitId = fromUnitId,
+                ToUnitId = toUnitId,
+                OriginalQuantity = quantity,
+                ConvertedQuantity = quantity,
+                EffectiveFactor = 1m,
+                IsInverse = false
+            };
+        }
+
+        // 1. Check direct conversion
+        var direct = await _repository.GetConversionAsync(tenantId, fromUnitId, toUnitId);
+        if (direct != null && direct.IsActive)
+        {
+            if (direct.ConversionFactor <= 0)
+                throw new InvalidOperationException("Conversion factor must be greater than zero.");
+
+            return new ConvertUnitOfMeasureResult
+            {
+                FromUnitId = fromUnitId,
+                ToUnitId = toUnitId,
+                OriginalQuantity = quantity,
+                ConvertedQuantity = quantity * direct.ConversionFactor,
+                EffectiveFactor = direct.ConversionFactor,
+                IsInverse = false
+            };
+        }
+
+        // 2. Check inverse conversion
+        var inverse = await _repository.GetConversionAsync(tenantId, toUnitId, fromUnitId);
+        if (inverse != null && inverse.IsActive)
+        {
+            if (inverse.ConversionFactor <= 0)
+                throw new InvalidOperationException("Conversion factor must be greater than zero.");
+
+            decimal effectiveFactor = 1m / inverse.ConversionFactor;
+            decimal convertedQty = quantity / inverse.ConversionFactor;
+
+            return new ConvertUnitOfMeasureResult
+            {
+                FromUnitId = fromUnitId,
+                ToUnitId = toUnitId,
+                OriginalQuantity = quantity,
+                ConvertedQuantity = convertedQty,
+                EffectiveFactor = effectiveFactor,
+                IsInverse = true
+            };
+        }
+
+        throw new InvalidOperationException($"No active unit conversion found between '{fromUnit.Code}' and '{toUnit.Code}' for this tenant.");
+    }
+
+    public async Task<ConvertUnitOfMeasureResult> ConvertProductQuantityAsync(
+        Guid tenantId,
+        Guid productId,
+        Guid fromUnitId,
+        Guid toUnitId,
+        decimal quantity,
+        ConversionContext context = ConversionContext.General,
+        Guid? productPackagingId = null,
+        Guid? companyId = null)
+    {
+        if (fromUnitId == toUnitId)
+        {
+            return new ConvertUnitOfMeasureResult
+            {
+                FromUnitId = fromUnitId,
+                ToUnitId = toUnitId,
+                OriginalQuantity = quantity,
+                ConvertedQuantity = quantity,
+                EffectiveFactor = 1m,
+                IsInverse = false,
+                IsSpecialConversion = false
+            };
+        }
+
+        if (_productRepository == null)
+            throw new InvalidOperationException("Product repository is required for product-specific UOM conversions.");
+
+        var product = await _productRepository.GetByIdAsync(tenantId, productId)
+            ?? throw new KeyNotFoundException("Product not found or does not belong to the current tenant.");
+
+        // Check if Special UOM conversion is enabled for this tenant / company
+        bool isSpecialEnabled = _settingsProvider != null && await _settingsProvider.IsSpecialUomConversionEnabledAsync(tenantId, companyId);
+
+        if (productPackagingId.HasValue && !isSpecialEnabled)
+        {
+            if (companyId.HasValue)
+            {
+                throw new InvalidOperationException("Special/Product-Specific UOM Conversion is disabled for this company.");
+            }
+            throw new InvalidOperationException("Special/Product-Specific UOM Conversion is disabled for this tenant.");
+        }
+
+        if (isSpecialEnabled && _packagingRepository != null)
+        {
+            ProductPackaging? packaging = null;
+
+            if (productPackagingId.HasValue)
+            {
+                var candidate = await _packagingRepository.GetByIdAsync(tenantId, productPackagingId.Value);
+                if (candidate != null && candidate.ProductId == productId && candidate.IsActive)
+                {
+                    packaging = candidate;
+                }
+                else
+                {
+                    throw new InvalidOperationException("Specified product packaging is not found, inactive, or does not belong to this product.");
+                }
+            }
+            else
+            {
+                var directPackagings = await _packagingRepository.GetByProductAndUomAsync(tenantId, productId, fromUnitId);
+                var matchingDirect = directPackagings.Where(p => p.IsActive).ToList();
+
+                if (matchingDirect.Count == 1)
+                {
+                    packaging = matchingDirect[0];
+                }
+                else if (matchingDirect.Count > 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Multiple active packaging definitions exist for product '{product.ProductCode}' and unit. Please specify the packaging definition explicitly.");
+                }
+                else
+                {
+                    var inversePackagings = await _packagingRepository.GetByProductAndUomAsync(tenantId, productId, toUnitId);
+                    var matchingInverse = inversePackagings.Where(p => p.IsActive).ToList();
+                    if (matchingInverse.Count == 1)
+                    {
+                        packaging = matchingInverse[0];
+                    }
+                    else if (matchingInverse.Count > 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"Multiple active packaging definitions exist for product '{product.ProductCode}' and unit. Please specify the packaging definition explicitly.");
+                    }
+                }
+            }
+
+            if (packaging != null)
+            {
+                if (companyId.HasValue && packaging.CompanyId.HasValue && packaging.CompanyId.Value != companyId.Value)
+                {
+                    throw new InvalidOperationException(
+                        $"Product packaging '{packaging.PackagingCode}' is not eligible for company '{companyId.Value}'.");
+                }
+
+                if (context == ConversionContext.Purchase && !packaging.PurchaseAllowed)
+                {
+                    throw new InvalidOperationException(
+                        $"Product packaging '{packaging.PackagingCode}' is not allowed for purchasing.");
+                }
+
+                if (context == ConversionContext.Sales && !packaging.SalesAllowed)
+                {
+                    throw new InvalidOperationException(
+                        $"Product packaging '{packaging.PackagingCode}' is not allowed for sales.");
+                }
+
+                if (packaging.BaseQuantity <= 0)
+                    throw new InvalidOperationException("Packaging base quantity must be greater than zero.");
+
+                if (fromUnitId == packaging.PackagingUomId)
+                {
+                    decimal convertedQty = quantity * packaging.BaseQuantity;
+                    return new ConvertUnitOfMeasureResult
+                    {
+                        FromUnitId = fromUnitId,
+                        ToUnitId = toUnitId,
+                        OriginalQuantity = quantity,
+                        ConvertedQuantity = convertedQty,
+                        EffectiveFactor = packaging.BaseQuantity,
+                        IsInverse = false,
+                        IsSpecialConversion = true,
+                        PackagingCode = packaging.PackagingCode,
+                        ProductPackagingId = packaging.ProductPackagingId
+                    };
+                }
+                else if (toUnitId == packaging.PackagingUomId)
+                {
+                    decimal effectiveFactor = 1m / packaging.BaseQuantity;
+                    decimal convertedQty = quantity / packaging.BaseQuantity;
+                    return new ConvertUnitOfMeasureResult
+                    {
+                        FromUnitId = fromUnitId,
+                        ToUnitId = toUnitId,
+                        OriginalQuantity = quantity,
+                        ConvertedQuantity = convertedQty,
+                        EffectiveFactor = effectiveFactor,
+                        IsInverse = true,
+                        IsSpecialConversion = true,
+                        PackagingCode = packaging.PackagingCode,
+                        ProductPackagingId = packaging.ProductPackagingId
+                    };
+                }
+            }
+        }
+
+        return await ConvertQuantityAsync(tenantId, fromUnitId, toUnitId, quantity);
     }
 }

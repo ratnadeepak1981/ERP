@@ -1,8 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 namespace Domain.Features.MasterData.Product;
 
 public interface IProductService
 {
-    Task<List<Product>> GetProductsAsync(Guid tenantId);
+    Task<List<Product>> GetProductsAsync(Guid tenantId, Guid? brandId = null);
 
     Task<Product?> GetProductAsync(
         Guid tenantId,
@@ -18,6 +22,10 @@ public interface IProductService
         UpdateProductRequest request);
 
     Task DeactivateProductAsync(
+        Guid tenantId,
+        Guid productId);
+
+    Task<Product> ReactivateProductAsync(
         Guid tenantId,
         Guid productId);
 }

@@ -213,6 +213,8 @@ public abstract class BaseApiController : ControllerBase
                 ConflictResponse(inv.Message),
             UnauthorizedAccessException unauth =>
                 UnauthorizedResponse(unauth.Message),
+            Microsoft.EntityFrameworkCore.DbUpdateException dbEx =>
+                ConflictResponse("A database conflict occurred (e.g. duplicate record or constraint violation).", errorCode: "DB_CONFLICT"),
             _ =>
                 InternalErrorResponse("An unexpected error occurred.", "INTERNAL_SERVER_ERROR", ex)
         };

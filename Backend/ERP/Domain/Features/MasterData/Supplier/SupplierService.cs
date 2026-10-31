@@ -53,6 +53,17 @@ public class SupplierService : ISupplierService
         if (await _repository.ExistsByNameAsync(tenantId, name))
             throw new InvalidOperationException($"Supplier name '{name}' already exists for this tenant.");
 
+        string? paymentTermsText = request.PaymentTerms?.Trim();
+
+        if (request.CurrencyId.HasValue)
+        {
+            var currency = await _context.Currencies.FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CurrencyId == request.CurrencyId.Value);
+            if (currency == null)
+                throw new InvalidOperationException("Selected default currency was not found or does not belong to this tenant.");
+            if (!currency.IsActive)
+                throw new InvalidOperationException("Selected default currency is inactive.");
+        }
+
         var supplier = Supplier.Create(
             tenantId,
             code,
@@ -67,7 +78,9 @@ public class SupplierService : ISupplierService
             request.Country?.Trim(),
             request.TaxNumber?.Trim(),
             request.CreditTerms?.Trim(),
-            request.PaymentTerms?.Trim());
+            paymentTermsText,
+            null,
+            request.CurrencyId);
 
         await _repository.AddSupplierAsync(supplier);
         await _repository.SaveChangesAsync();
@@ -167,6 +180,17 @@ public class SupplierService : ISupplierService
         if (supplier.SupplierName != name && await _repository.ExistsByNameAsync(tenantId, name))
             throw new InvalidOperationException($"Supplier name '{name}' already exists for this tenant.");
 
+        string? paymentTermsText = request.PaymentTerms?.Trim();
+
+        if (request.CurrencyId.HasValue)
+        {
+            var currency = await _context.Currencies.FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CurrencyId == request.CurrencyId.Value);
+            if (currency == null)
+                throw new InvalidOperationException("Selected default currency was not found or does not belong to this tenant.");
+            if (!currency.IsActive && supplier.CurrencyId != request.CurrencyId.Value)
+                throw new InvalidOperationException("Selected default currency is inactive.");
+        }
+
         supplier.Update(
             name,
             request.ContactPerson?.Trim(),
@@ -179,7 +203,8 @@ public class SupplierService : ISupplierService
             request.Country?.Trim(),
             request.TaxNumber?.Trim(),
             request.CreditTerms?.Trim(),
-            request.PaymentTerms?.Trim());
+            paymentTermsText,
+            request.CurrencyId);
 
         await _repository.SaveChangesAsync();
         return supplier;
@@ -192,6 +217,19 @@ public class SupplierService : ISupplierService
 
         supplier.Deactivate();
         await _repository.SaveChangesAsync();
+    }
+
+    public async Task<Supplier> ReactivateSupplierAsync(Guid tenantId, Guid supplierId)
+    {
+        var supplier = await _repository.GetSupplierByIdAsync(tenantId, supplierId)
+            ?? throw new KeyNotFoundException("Supplier not found.");
+
+        if (supplier.IsActive)
+            return supplier;
+
+        supplier.Activate();
+        await _repository.SaveChangesAsync();
+        return supplier;
     }
 
     public async Task<List<SupplierAddress>> GetAddressesAsync(Guid tenantId, Guid supplierId)

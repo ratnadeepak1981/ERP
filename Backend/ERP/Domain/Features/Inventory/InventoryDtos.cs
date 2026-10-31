@@ -98,6 +98,7 @@ public class AvailableStockDto
 
 public class CreateStockIssueRequest
 {
+    public Guid? StockIssueId { get; set; }
     public DateTime? IssueDate { get; set; }
     public StockIssuePurpose Purpose { get; set; } = StockIssuePurpose.InternalUse;
     public Guid WarehouseId { get; set; }
@@ -108,6 +109,7 @@ public class CreateStockIssueRequest
 
 public class CreateStockIssueLineRequest
 {
+    public Guid? StockIssueLineId { get; set; }
     public Guid ProductId { get; set; }
     public Guid WarehouseLocationId { get; set; }
     public decimal Quantity { get; set; }

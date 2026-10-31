@@ -84,7 +84,7 @@ public class AddressController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [RequirePermission("ADDRESS.UPDATE")]
+    [RequirePermission("ADDRESS.EDIT")]
     public async Task<IActionResult> UpdateAddress(Guid id, [FromBody] UpdateAddressRequest request)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();
@@ -104,7 +104,7 @@ public class AddressController : BaseApiController
     }
 
     [HttpPost("{id:guid}/resolve-country")]
-    [RequirePermission("ADDRESS.UPDATE")]
+    [RequirePermission("ADDRESS.EDIT")]
     public async Task<IActionResult> ResolveCountry(Guid id, [FromBody] Guid countryId)
     {
         if (_currentUserContext.IsPlatformUser) return Forbid();

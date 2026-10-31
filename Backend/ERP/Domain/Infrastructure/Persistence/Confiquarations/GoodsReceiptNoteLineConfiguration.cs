@@ -29,6 +29,10 @@ public class GoodsReceiptNoteLineConfiguration : IEntityTypeConfiguration<Domain
         builder.Property(x => x.SerialNumber)
             .HasMaxLength(100);
 
+        builder.Property(x => x.ManufacturingDate);
+
+        builder.Property(x => x.ExpiryDate);
+
         builder.Property(x => x.Remarks)
             .HasMaxLength(500);
 

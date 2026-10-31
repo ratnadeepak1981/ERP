@@ -11,6 +11,8 @@ public static class LocationPermissionSeed
         await SeedPermissionAsync(repository, "LOCATION.CREATE", "Create Warehouse Location", "Location", "Allows creating warehouse locations and types.");
         await SeedPermissionAsync(repository, "LOCATION.EDIT", "Edit Warehouse Location", "Location", "Allows editing warehouse locations and types.");
         await SeedPermissionAsync(repository, "LOCATION.DELETE", "Delete Warehouse Location", "Location", "Allows deleting warehouse locations and types.");
+        await SeedPermissionAsync(repository, "LOCATION.ACTIVATE", "Activate Warehouse Location", "Location", "Allows reactivating deactivated locations.");
+        await SeedPermissionAsync(repository, "LOCATION.DEACTIVATE", "Deactivate Warehouse Location", "Location", "Allows deactivating locations.");
         await repository.SaveChangesAsync();
     }
 

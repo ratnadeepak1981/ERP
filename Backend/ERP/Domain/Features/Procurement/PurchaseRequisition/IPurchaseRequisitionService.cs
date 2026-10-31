@@ -66,4 +66,33 @@ public interface IPurchaseRequisitionService
         Guid companyId,
         Guid branchId,
         Guid requisitionId);
+    // New CRUD operations
+    Task<PurchaseRequisition> UpdateRequisitionAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        UpdatePurchaseRequisitionRequest request);
+
+    Task<PurchaseRequisitionItem> UpdateItemAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        Guid itemId,
+        UpdatePurchaseRequisitionItemRequest request);
+
+    Task DeleteItemAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        Guid itemId);
+
+    Task DeleteRequisitionAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId);
 }
+

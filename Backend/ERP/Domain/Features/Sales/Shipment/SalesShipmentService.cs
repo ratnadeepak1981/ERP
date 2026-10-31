@@ -10,7 +10,7 @@ using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
-using SaaS.Application.Interfaces;
+
 
 namespace Domain.Features.Sales.Shipment;
 
@@ -21,9 +21,10 @@ public class SalesShipmentService : ISalesShipmentService
     private readonly IProductRepository _productRepository;
     private readonly IWarehouseRepository _warehouseRepository;
     private readonly IInventoryPostingService _postingService;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly DomainDbContext _context;
-    private readonly ISubscriptionUsageService? _subscriptionUsageService;
     private readonly IServiceProvider? _serviceProvider;
+    private readonly Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService? _uomService;
 
     public SalesShipmentService(
         ISalesShipmentRepository shipmentRepository,
@@ -32,8 +33,9 @@ public class SalesShipmentService : ISalesShipmentService
         IWarehouseRepository warehouseRepository,
         IInventoryPostingService postingService,
         DomainDbContext context,
-        ISubscriptionUsageService? subscriptionUsageService = null,
-        IServiceProvider? serviceProvider = null)
+        IInventoryRepository? inventoryRepository = null,
+        IServiceProvider? serviceProvider = null,
+        Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService? uomService = null)
     {
         _shipmentRepository = shipmentRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -41,8 +43,9 @@ public class SalesShipmentService : ISalesShipmentService
         _warehouseRepository = warehouseRepository;
         _postingService = postingService;
         _context = context;
-        _subscriptionUsageService = subscriptionUsageService;
+        _inventoryRepository = inventoryRepository ?? new InventoryRepository(context);
         _serviceProvider = serviceProvider;
+        _uomService = uomService;
     }
 
     public async Task<List<SalesShipmentDto>> GetShipmentsAsync(
@@ -187,8 +190,9 @@ public class SalesShipmentService : ISalesShipmentService
                 ?? throw new InvalidOperationException("No active warehouse found for tenant. Please provide warehouse and location.");
 
             var locations = await _warehouseRepository.GetLocationsAsync(tenantId, wh.WarehouseId);
-            var loc = locations.FirstOrDefault(l => l.IsActive)
-                ?? throw new InvalidOperationException($"No active location found in warehouse '{wh.WarehouseCode}'.");
+            var locTypes = (await _warehouseRepository.GetLocationTypesAsync(tenantId)).ToDictionary(t => t.LocationTypeId);
+            var loc = locations.FirstOrDefault(l => l.IsActive && (!l.LocationTypeId.HasValue || (locTypes.TryGetValue(l.LocationTypeId.Value, out var lt) && lt.CanPick)))
+                ?? throw new InvalidOperationException($"No active pickable location found in warehouse '{wh.WarehouseCode}'.");
 
             defaultWarehouseId = wh.WarehouseId;
             defaultLocationId = loc.WarehouseLocationId;
@@ -207,7 +211,7 @@ public class SalesShipmentService : ISalesShipmentService
             request.CarrierName,
             request.TrackingNumber,
             request.RecipientName,
-            request.DeliveryAddress,
+            !string.IsNullOrWhiteSpace(request.DeliveryAddress) ? request.DeliveryAddress.Trim() : order.DeliveryAddressSnapshot,
             request.VehicleNumber,
             request.Notes);
 
@@ -316,7 +320,7 @@ public class SalesShipmentService : ISalesShipmentService
             request.CarrierName,
             request.TrackingNumber,
             request.RecipientName,
-            request.DeliveryAddress,
+            !string.IsNullOrWhiteSpace(request.DeliveryAddress) ? request.DeliveryAddress.Trim() : order.DeliveryAddressSnapshot,
             request.VehicleNumber,
             request.Notes);
 
@@ -573,23 +577,62 @@ public class SalesShipmentService : ISalesShipmentService
                 .GroupBy(i => i.SalesOrderItemId)
                 .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
 
-            // Validate zero over-shipment tolerance
-            foreach (var item in activeShipmentItems)
-            {
-                var orderItem = order.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId && i.IsActive)
-                    ?? throw new InvalidOperationException($"Order line '{item.SalesOrderItemId}' not found on order.");
+            // Validate zero over-shipment tolerance aggregating across all shipment items for each order item
+            var groupedByOrderLine = activeShipmentItems
+                .GroupBy(i => i.SalesOrderItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
 
-                committedDispatchedQty.TryGetValue(item.SalesOrderItemId, out decimal alreadyDispatched);
+            foreach (var kvp in groupedByOrderLine)
+            {
+                var orderItem = order.Items.FirstOrDefault(i => i.Id == kvp.Key && i.IsActive)
+                    ?? throw new InvalidOperationException($"Order line '{kvp.Key}' not found on order.");
+
+                committedDispatchedQty.TryGetValue(kvp.Key, out decimal alreadyDispatched);
                 decimal maxAllowable = orderItem.Quantity - alreadyDispatched;
 
-                if (item.QuantityDispatched > maxAllowable)
+                if (kvp.Value > maxAllowable)
                 {
                     throw new InvalidOperationException(
-                        $"Over-shipment rejected for product '{item.ProductId}'. Ordered: {orderItem.Quantity}, Already Dispatched: {alreadyDispatched}, Attempted in this shipment: {item.QuantityDispatched}. Over-shipment tolerance is 0%.");
+                        $"Over-shipment rejected for product '{orderItem.ProductId}'. Ordered: {orderItem.Quantity}, Already Dispatched: {alreadyDispatched}, Attempted in this shipment: {kvp.Value}. Over-shipment tolerance is 0%.");
                 }
             }
 
-            // 4. Mark status
+            // 4. Validate all active items' warehouse and location picking capability and batch eligibility
+            var dispatchDate = (targetStatus == SalesShipmentStatus.Delivered ? deliveredAt : shipment.DispatchedAt) ?? DateTime.UtcNow;
+            foreach (var item in activeShipmentItems)
+            {
+                await ValidateWarehouseAndLocationAsync(tenantId, item.WarehouseId, item.WarehouseLocationId);
+
+                var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId)
+                    ?? throw new InvalidOperationException($"Product '{item.ProductId}' not found.");
+
+                if (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial)
+                {
+                    if (string.IsNullOrWhiteSpace(item.BatchNumber))
+                    {
+                        throw new InvalidOperationException($"Batch number is required for batch-tracked product '{product.ProductCode}'.");
+                    }
+
+                    string normBatch = item.BatchNumber.Trim();
+                    var batch = await _inventoryRepository.GetBatchAsync(tenantId, product.ProductId, normBatch);
+                    if (batch == null)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' does not exist for product '{product.ProductCode}'.");
+                    }
+
+                    if (!batch.IsActive)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' is inactive and cannot be dispatched.");
+                    }
+
+                    if (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < dispatchDate.Date)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' for product '{product.ProductCode}' expired on {batch.ExpiryDate.Value:yyyy-MM-dd} and cannot be dispatched.");
+                    }
+                }
+            }
+
+            // 5. Mark status
             if (targetStatus == SalesShipmentStatus.Delivered)
             {
                 shipment.MarkDelivered(deliveredAt, recipientName);
@@ -599,7 +642,7 @@ public class SalesShipmentService : ISalesShipmentService
                 shipment.MarkDispatched();
             }
 
-            // 5. Post Inventory ledger movement for stock-tracked products
+            // 6. Post Inventory ledger movement for stock-tracked products
             int sequence = 1;
             foreach (var item in activeShipmentItems)
             {
@@ -629,7 +672,7 @@ public class SalesShipmentService : ISalesShipmentService
                 }
             }
 
-            // 6. Recalculate Sales Order fulfillment status across all lines
+            // 7. Recalculate Sales Order fulfillment status across all lines
             // Physical lines: fulfilled when total dispatched >= ordered quantity
             // Service lines: not subject to physical dispatch (pending separate completion)
             bool allPhysicalFulfilled = true;
@@ -675,15 +718,6 @@ public class SalesShipmentService : ISalesShipmentService
             return MapToDto(shipment, order.OrderNumber);
         };
 
-        if (_subscriptionUsageService != null)
-        {
-            return await _subscriptionUsageService.ExecuteWithUsageLimitAsync(
-                tenantId,
-                "TRANSACTIONS",
-                1,
-                executionAction);
-        }
-
         return await executionAction();
     }
 
@@ -703,6 +737,15 @@ public class SalesShipmentService : ISalesShipmentService
 
         if (location.WarehouseId != warehouseId)
             throw new InvalidOperationException("Location does not belong to the specified warehouse.");
+
+        if (location.LocationTypeId.HasValue)
+        {
+            var locType = await _warehouseRepository.GetLocationTypeByIdAsync(tenantId, location.LocationTypeId.Value);
+            if (locType != null && !locType.CanPick)
+            {
+                throw new InvalidOperationException($"Location '{location.LocationCode}' does not allow picking for dispatch (type '{locType.Name}' has picking disabled).");
+            }
+        }
     }
 
     private static SalesShipmentDto MapToDto(SalesShipment shipment, string orderNumber)
@@ -766,4 +809,456 @@ public class SalesShipmentService : ISalesShipmentService
             // Failure in auto-invoice draft creation does not invalidate stock ledger.
         }
     }
+
+    public async Task<SalesOrderDispatchAvailabilityDto> GetOrderDispatchAvailabilityAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        Guid? targetLocationId = null)
+    {
+        var order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, branchId, salesOrderId)
+            ?? throw new KeyNotFoundException("Sales Order not found in authorized branch/company scope.");
+
+        if (order.Status != SalesOrderStatus.Confirmed && order.Status != SalesOrderStatus.Fulfilled)
+        {
+            throw new InvalidOperationException($"Cannot evaluate dispatch availability for Sales Order in status '{order.Status}'. Only Confirmed or partially Fulfilled orders can be dispatched.");
+        }
+
+        var activeOrderItems = order.Items.Where(i => i.IsActive).ToList();
+        var physicalLines = new List<(SalesOrderItem Item, Product Product)>();
+        foreach (var item in activeOrderItems)
+        {
+            var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId)
+                ?? throw new InvalidOperationException($"Product '{item.ProductId}' not found.");
+
+            if (product.ProductType != ProductType.Service)
+            {
+                physicalLines.Add((item, product));
+            }
+        }
+
+        // Calculate already dispatched quantities across all completed shipments
+        var existingShipments = await _shipmentRepository.GetBySalesOrderIdAsync(tenantId, salesOrderId);
+        var dispatchedQtyByLine = existingShipments
+            .Where(s => s.Status == SalesShipmentStatus.Dispatched || s.Status == SalesShipmentStatus.Delivered)
+            .SelectMany(s => s.Items)
+            .Where(i => i.IsActive)
+            .GroupBy(i => i.SalesOrderItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
+
+        var remainingLines = new List<(SalesOrderItem Item, Product Product, decimal RemainingQty)>();
+        foreach (var (item, product) in physicalLines)
+        {
+            dispatchedQtyByLine.TryGetValue(item.Id, out decimal alreadyDispatched);
+            decimal remaining = item.Quantity - alreadyDispatched;
+            if (remaining > 0)
+            {
+                remainingLines.Add((item, product, remaining));
+            }
+        }
+
+        // Discover active warehouses and active locations for the tenant
+        var warehouses = await _warehouseRepository.GetWarehousesAsync(tenantId);
+        var activeWarehouses = warehouses.Where(w => w.IsActive)
+            .OrderByDescending(w => w.BranchId == order.BranchId)
+            .ThenByDescending(w => w.CompanyId == order.CompanyId)
+            .ThenByDescending(w => w.CreatedAt)
+            .ToList();
+
+        var locTypes = (await _warehouseRepository.GetLocationTypesAsync(tenantId)).ToDictionary(t => t.LocationTypeId);
+        var allActiveLocations = new List<(WarehouseLocation Loc, Warehouse Wh)>();
+        foreach (var wh in activeWarehouses)
+        {
+            var locs = await _warehouseRepository.GetLocationsAsync(tenantId, wh.WarehouseId);
+            foreach (var loc in locs.Where(l => l.IsActive && (!l.LocationTypeId.HasValue || (locTypes.TryGetValue(l.LocationTypeId.Value, out var lt) && lt.CanPick))).OrderBy(l => l.CreatedAt))
+            {
+                allActiveLocations.Add((loc, wh));
+            }
+        }
+
+        var defaultLocTuple = allActiveLocations.FirstOrDefault();
+        (WarehouseLocation Loc, Warehouse Wh) selectedLocTuple;
+
+        if (targetLocationId.HasValue && targetLocationId.Value != Guid.Empty)
+        {
+            selectedLocTuple = allActiveLocations.FirstOrDefault(t => t.Loc.WarehouseLocationId == targetLocationId.Value);
+            if (selectedLocTuple.Loc == null)
+            {
+                var targetLoc = await _warehouseRepository.GetLocationByIdAsync(tenantId, targetLocationId.Value);
+                if (targetLoc != null && targetLoc.LocationTypeId.HasValue && locTypes.TryGetValue(targetLoc.LocationTypeId.Value, out var targetLt) && !targetLt.CanPick)
+                {
+                    throw new InvalidOperationException($"Specified target location '{targetLoc.LocationCode}' does not allow picking for dispatch.");
+                }
+
+                throw new InvalidOperationException("Specified target location not found or is inactive.");
+            }
+        }
+        else
+        {
+            selectedLocTuple = defaultLocTuple;
+        }
+
+        // Check availability per line for the selected location
+        var lineAvailabilities = new List<SalesOrderDispatchLineAvailabilityDto>();
+        foreach (var (item, product, remaining) in remainingLines)
+        {
+            dispatchedQtyByLine.TryGetValue(item.Id, out decimal alreadyDispatched);
+            decimal available = 0m;
+            if (selectedLocTuple.Loc != null)
+            {
+                if (product.IsStockTracked)
+                {
+                    bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+                    available = await _postingService.GetTotalAvailableStockAsync(tenantId, selectedLocTuple.Loc.WarehouseLocationId, product.ProductId, isBatch);
+                }
+                else
+                {
+                    available = remaining;
+                }
+            }
+
+            decimal shortage = Math.Max(0m, remaining - available);
+            bool canFulfil = available >= remaining;
+
+            lineAvailabilities.Add(new SalesOrderDispatchLineAvailabilityDto
+            {
+                SalesOrderItemId = item.Id,
+                ProductId = product.ProductId,
+                ProductCode = product.ProductCode,
+                ProductName = product.ProductName,
+                OrderedQuantity = item.Quantity,
+                AlreadyDispatchedQuantity = alreadyDispatched,
+                RemainingQuantity = remaining,
+                AvailableQuantity = available,
+                ShortageQuantity = shortage,
+                CanFulfil = canFulfil,
+                UnitOfMeasureId = item.UnitOfMeasureId
+            });
+        }
+
+        bool canSelectedFulfil = lineAvailabilities.Count > 0 && lineAvailabilities.All(l => l.CanFulfil);
+
+        // Check which single locations can fulfil 100% of remaining demand
+        var eligibleLocations = new List<EligibleLocationDto>();
+        bool canDefaultFulfil = false;
+
+        foreach (var (loc, wh) in allActiveLocations)
+        {
+            bool canLocFulfilAll = true;
+            foreach (var (item, product, remaining) in remainingLines)
+            {
+                decimal avail = 0m;
+                if (product.IsStockTracked)
+                {
+                    bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+                    avail = await _postingService.GetTotalAvailableStockAsync(tenantId, loc.WarehouseLocationId, product.ProductId, isBatch);
+                }
+                else
+                {
+                    avail = remaining;
+                }
+
+                if (avail < remaining)
+                {
+                    canLocFulfilAll = false;
+                    break;
+                }
+            }
+
+            if (defaultLocTuple.Loc != null && loc.WarehouseLocationId == defaultLocTuple.Loc.WarehouseLocationId)
+            {
+                canDefaultFulfil = canLocFulfilAll;
+            }
+
+            if (canLocFulfilAll)
+            {
+                eligibleLocations.Add(new EligibleLocationDto
+                {
+                    WarehouseId = wh.WarehouseId,
+                    WarehouseName = wh.WarehouseName,
+                    WarehouseCode = wh.WarehouseCode,
+                    LocationId = loc.WarehouseLocationId,
+                    LocationCode = loc.LocationCode,
+                    LocationName = loc.LocationName,
+                    IsDefault = (defaultLocTuple.Loc != null && loc.WarehouseLocationId == defaultLocTuple.Loc.WarehouseLocationId)
+                });
+            }
+        }
+
+        return new SalesOrderDispatchAvailabilityDto
+        {
+            SalesOrderId = order.Id,
+            OrderNumber = order.OrderNumber,
+            DefaultWarehouseId = defaultLocTuple.Wh?.WarehouseId,
+            DefaultWarehouseName = defaultLocTuple.Wh?.WarehouseName,
+            DefaultLocationId = defaultLocTuple.Loc?.WarehouseLocationId,
+            DefaultLocationCode = defaultLocTuple.Loc?.LocationCode,
+            DefaultLocationName = defaultLocTuple.Loc?.LocationName,
+            SelectedWarehouseId = selectedLocTuple.Wh?.WarehouseId,
+            SelectedWarehouseName = selectedLocTuple.Wh?.WarehouseName,
+            SelectedLocationId = selectedLocTuple.Loc?.WarehouseLocationId,
+            SelectedLocationCode = selectedLocTuple.Loc?.LocationCode,
+            SelectedLocationName = selectedLocTuple.Loc?.LocationName,
+            CanDefaultLocationFulfil = canDefaultFulfil,
+            CanFulfil = canSelectedFulfil,
+            HasShortages = !canSelectedFulfil,
+            EligibleLocations = eligibleLocations,
+            Lines = lineAvailabilities
+        };
+    }
+
+    public async Task<SalesShipmentDto> CreateAndDispatchFromOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        DispatchOrderRequest request)
+    {
+        if (request == null) throw new ArgumentNullException(nameof(request));
+        if (request.WarehouseId == Guid.Empty) throw new ArgumentException("Warehouse is required.", nameof(request.WarehouseId));
+        if (request.WarehouseLocationId == Guid.Empty) throw new ArgumentException("Warehouse Location is required.", nameof(request.WarehouseLocationId));
+
+        await using var domainTx = await _context.Database.BeginTransactionAsync();
+
+        // 1. Acquire row lock on SalesOrder
+        await _context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM SalesOrders WITH (UPDLOCK, ROWLOCK) WHERE Id = {salesOrderId} AND TenantId = {tenantId}");
+
+        var order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, branchId, salesOrderId)
+            ?? throw new KeyNotFoundException("Sales Order not found in authorized branch/company scope.");
+
+        if (order.Status != SalesOrderStatus.Confirmed && order.Status != SalesOrderStatus.Fulfilled)
+        {
+            throw new InvalidOperationException($"Cannot dispatch against Sales Order in status '{order.Status}'.");
+        }
+
+        await ValidateWarehouseAndLocationAsync(tenantId, request.WarehouseId, request.WarehouseLocationId);
+
+        var activeOrderItems = order.Items.Where(i => i.IsActive).ToList();
+        var physicalLines = new List<(SalesOrderItem Item, Product Product)>();
+        foreach (var item in activeOrderItems)
+        {
+            var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId)
+                ?? throw new InvalidOperationException($"Product '{item.ProductId}' not found.");
+
+            if (product.ProductType != ProductType.Service)
+            {
+                physicalLines.Add((item, product));
+            }
+        }
+
+        if (physicalLines.Count == 0)
+        {
+            throw new InvalidOperationException("Sales Order contains no physical goods for shipment.");
+        }
+
+        // 2. Authoritative remaining unfulfilled quantities across committed shipments
+        var existingShipments = await _shipmentRepository.GetBySalesOrderIdAsync(tenantId, salesOrderId);
+        var committedDispatchedQty = existingShipments
+            .Where(s => s.Status == SalesShipmentStatus.Dispatched || s.Status == SalesShipmentStatus.Delivered)
+            .SelectMany(s => s.Items)
+            .Where(i => i.IsActive)
+            .GroupBy(i => i.SalesOrderItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
+
+        var unfulfilledLines = new List<(SalesOrderItem Item, Product Product, decimal RemainingQty)>();
+        foreach (var (item, product) in physicalLines)
+        {
+            committedDispatchedQty.TryGetValue(item.Id, out decimal priorDispatched);
+            decimal remaining = item.Quantity - priorDispatched;
+            if (remaining > 0)
+            {
+                unfulfilledLines.Add((item, product, remaining));
+            }
+        }
+
+        if (unfulfilledLines.Count == 0)
+        {
+            throw new InvalidOperationException("All physical goods on this Sales Order have already been fully fulfilled.");
+        }
+
+        // 3. Authoritative stock revalidation at the specified location for all unfulfilled lines
+        var dateAsOf = request.ShipmentDate ?? DateTime.UtcNow;
+        foreach (var (item, product, remaining) in unfulfilledLines)
+        {
+            if (product.IsStockTracked)
+            {
+                bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+                decimal available = await _postingService.GetTotalAvailableStockAsync(
+                    tenantId,
+                    request.WarehouseLocationId,
+                    product.ProductId,
+                    isBatch,
+                    dateAsOf);
+
+                if (available < remaining)
+                {
+                    throw new InvalidOperationException(
+                        $"Insufficient eligible stock at location for product '{product.ProductCode}'. Required: {remaining}, Available: {available}.");
+                }
+            }
+        }
+
+        // 4. Create SalesShipment
+        string shipmentNum = string.IsNullOrWhiteSpace(request.ShipmentNumber)
+            ? $"DSP-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..18].ToUpper()
+            : request.ShipmentNumber.Trim();
+
+        if (await _shipmentRepository.ExistsShipmentNumberAsync(tenantId, companyId, shipmentNum))
+        {
+            throw new InvalidOperationException($"Shipment number '{shipmentNum}' already exists for this company.");
+        }
+
+        var shipment = SalesShipment.Create(
+            tenantId,
+            companyId,
+            branchId,
+            order.Id,
+            order.CustomerId,
+            shipmentNum,
+            request.Method,
+            request.WarehouseId,
+            request.ShipmentDate,
+            request.CarrierName,
+            request.TrackingNumber,
+            request.RecipientName,
+            !string.IsNullOrWhiteSpace(request.DeliveryAddress) ? request.DeliveryAddress.Trim() : order.DeliveryAddressSnapshot,
+            request.VehicleNumber,
+            request.Notes);
+
+        foreach (var (item, product, remaining) in unfulfilledLines)
+        {
+            bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+            if (isBatch)
+            {
+                var eligibleBatches = await _inventoryRepository.GetEligibleBatchesAsync(
+                    tenantId,
+                    product.ProductId,
+                    request.WarehouseId,
+                    request.WarehouseLocationId,
+                    dateAsOf);
+
+                decimal needed = remaining;
+                foreach (var b in eligibleBatches)
+                {
+                    if (needed <= 0) break;
+                    decimal take = Math.Min(needed, b.QuantityAvailable);
+                    var shipmentItem = SalesShipmentItem.Create(
+                        shipment.Id,
+                        item.Id,
+                        product.ProductId,
+                        request.WarehouseId,
+                        request.WarehouseLocationId,
+                        take,
+                        item.UnitOfMeasureId,
+                        batchNumber: b.BatchNumber,
+                        notes: request.Notes);
+
+                    shipment.AddItem(shipmentItem);
+                    needed -= take;
+                }
+
+                if (needed > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Insufficient eligible batch stock at location for product '{product.ProductCode}'. Required: {remaining}, Shortage: {needed}.");
+                }
+            }
+            else
+            {
+                var shipmentItem = SalesShipmentItem.Create(
+                    shipment.Id,
+                    item.Id,
+                    product.ProductId,
+                    request.WarehouseId,
+                    request.WarehouseLocationId,
+                    remaining,
+                    item.UnitOfMeasureId,
+                    notes: request.Notes);
+
+                shipment.AddItem(shipmentItem);
+            }
+        }
+
+        shipment.MarkDispatched();
+
+        await _shipmentRepository.AddAsync(shipment);
+        await _shipmentRepository.SaveChangesAsync();
+
+        // 5. Post Inventory movements via _postingService
+        int sequence = 1;
+        foreach (var item in shipment.Items.Where(i => i.IsActive))
+        {
+            var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId);
+            if (product != null && product.IsStockTracked)
+            {
+                decimal movementQty = item.QuantityDispatched;
+                if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                {
+                    if (_uomService != null)
+                    {
+                        var converted = await _uomService.ConvertProductQuantityAsync(
+                            tenantId,
+                            product.ProductId,
+                            item.UnitOfMeasureId.Value,
+                            product.UnitOfMeasureId.Value,
+                            item.QuantityDispatched,
+                            Domain.Features.MasterData.UnitOfMeasure.ConversionContext.Sales,
+                            companyId: companyId
+                        );
+                        movementQty = converted.ConvertedQuantity;
+                    }
+                }
+
+                var postReq = new PostInventoryMovementRequest
+                {
+                    MovementType = InventoryMovementType.ShipmentDispatch,
+                    SourceDocumentType = SourceDocumentType.SalesShipment,
+                    SourceDocumentId = shipment.Id,
+                    SourceDocumentLineId = item.Id,
+                    MovementSequence = sequence++,
+                    ProductId = item.ProductId,
+                    WarehouseId = item.WarehouseId,
+                    WarehouseLocationId = item.WarehouseLocationId,
+                    Quantity = movementQty,
+                    UnitOfMeasureId = product.UnitOfMeasureId ?? item.UnitOfMeasureId,
+                    BatchNumber = item.BatchNumber,
+                    SerialNumber = item.SerialNumber,
+                    TransactionDate = shipment.DispatchedAt ?? DateTime.UtcNow
+                };
+
+                await _postingService.PostMovementAsync(tenantId, postReq);
+            }
+        }
+
+        // 6. Recalculate Sales Order fulfillment status
+        bool allFulfilled = true;
+        foreach (var (item, product) in physicalLines)
+        {
+            committedDispatchedQty.TryGetValue(item.Id, out decimal priorDispatched);
+            decimal currentDispatched = shipment.Items
+                .Where(i => i.SalesOrderItemId == item.Id && i.IsActive)
+                .Sum(i => i.QuantityDispatched);
+
+            if (priorDispatched + currentDispatched < item.Quantity)
+            {
+                allFulfilled = false;
+                break;
+            }
+        }
+
+        if (allFulfilled)
+        {
+            order.Status = SalesOrderStatus.Fulfilled;
+                    }
+
+        await _salesOrderRepository.SaveChangesAsync();
+        await domainTx.CommitAsync();
+
+        await EnsureInvoiceCreatedAsync(tenantId, companyId, branchId, shipment);
+
+        return MapToDto(shipment, order.OrderNumber);
+    }
+
 }

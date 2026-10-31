@@ -160,6 +160,24 @@ public class GoodsReceiptNoteController : BaseApiController
         }
     }
 
+    [HttpDelete("{id:guid}")]
+    [RequirePermission("GRN.DELETE")]
+    public async Task<IActionResult> DeleteDraft(Guid companyId, Guid branchId, Guid id)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            await _grnService.DeleteDraftAsync(authResult.TenantId, companyId, branchId, id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost("{id:guid}/cancel")]
     [RequirePermission("GRN.CANCEL")]
     public async Task<IActionResult> CancelDraft(Guid companyId, Guid branchId, Guid id)

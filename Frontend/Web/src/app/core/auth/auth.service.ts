@@ -1,11 +1,12 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, throwError } from 'rxjs';
+import { Observable, tap, catchError, throwError, of } from 'rxjs';
 import {
   LoginRequest,
   LoginResponse,
   UserSession,
+  SessionInfo,
   ApiResponse,
   DiagnosticStepResult
 } from '../models/auth.models';
@@ -56,8 +57,9 @@ export class AuthService {
 
   private loadInitialSession(): UserSession | null {
     try {
-      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      const storage = typeof localStorage !== 'undefined' ? localStorage : (typeof window !== 'undefined' ? window.localStorage : null);
+      if (storage) {
+        const stored = storage.getItem(SESSION_STORAGE_KEY);
         if (stored) {
           return JSON.parse(stored) as UserSession;
         }
@@ -68,13 +70,14 @@ export class AuthService {
     return null;
   }
 
-  private saveSession(session: UserSession | null): void {
+  saveSession(session: UserSession | null): void {
     try {
-      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const storage = typeof localStorage !== 'undefined' ? localStorage : (typeof window !== 'undefined' ? window.localStorage : null);
+      if (storage) {
         if (session) {
-          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+          storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
         } else {
-          localStorage.removeItem(SESSION_STORAGE_KEY);
+          storage.removeItem(SESSION_STORAGE_KEY);
         }
       }
     } catch {
@@ -85,10 +88,14 @@ export class AuthService {
 
   login(credentials: LoginRequest): Observable<ApiResponse<LoginResponse>> {
     return this.http
-      .post<ApiResponse<LoginResponse>>(buildApiUrl('/Security/login'), {
-        email: credentials.email.trim(),
-        password: credentials.password
-      })
+      .post<ApiResponse<LoginResponse>>(
+        buildApiUrl('/Security/login'),
+        {
+          email: credentials.email.trim(),
+          password: credentials.password
+        },
+        { withCredentials: true }
+      )
       .pipe(
         tap(response => {
           if (response?.succeeded && response.data) {
@@ -100,13 +107,43 @@ export class AuthService {
               tenantId: data.tenantId,
               roles: data.roles || [],
               permissions: data.permissions || [],
-              token: data.token
+              token: data.accessToken || data.token,
+              accessTokenExpiresAt: data.accessTokenExpiresAt,
+              sessionId: data.sessionId
             };
             this.saveSession(session);
           }
         }),
         catchError(error => {
           return throwError(() => error);
+        })
+      );
+  }
+
+  refreshToken(): Observable<ApiResponse<LoginResponse>> {
+    return this.http
+      .post<ApiResponse<LoginResponse>>(
+        buildApiUrl('/Security/refresh'),
+        {},
+        { withCredentials: true }
+      )
+      .pipe(
+        tap(response => {
+          if (response?.succeeded && response.data) {
+            const data = response.data;
+            const session: UserSession = {
+              userId: data.userId,
+              username: data.username,
+              email: data.email,
+              tenantId: data.tenantId,
+              roles: data.roles || [],
+              permissions: data.permissions || [],
+              token: data.accessToken || data.token,
+              accessTokenExpiresAt: data.accessTokenExpiresAt,
+              sessionId: data.sessionId
+            };
+            this.saveSession(session);
+          }
         })
       );
   }
@@ -155,10 +192,51 @@ export class AuthService {
   }
 
   logout(redirectUrl = '/login'): void {
+    this.http
+      .post(buildApiUrl('/Security/logout'), {}, { withCredentials: true })
+      .pipe(catchError(() => of(null)))
+      .subscribe();
+
     this.saveSession(null);
     if (redirectUrl) {
       this.router.navigate([redirectUrl]);
     }
+  }
+
+  logoutAsync(redirectUrl = '/login'): Observable<any> {
+    return this.http
+      .post(buildApiUrl('/Security/logout'), {}, { withCredentials: true })
+      .pipe(
+        catchError(() => of(null)),
+        tap(() => {
+          this.saveSession(null);
+          if (redirectUrl) {
+            this.router.navigate([redirectUrl]);
+          }
+        })
+      );
+  }
+
+  logoutAll(redirectUrl = '/login'): Observable<any> {
+    return this.http
+      .post(buildApiUrl('/Security/logout-all'), {}, { withCredentials: true })
+      .pipe(
+        catchError(() => of(null)),
+        tap(() => {
+          this.saveSession(null);
+          if (redirectUrl) {
+            this.router.navigate([redirectUrl]);
+          }
+        })
+      );
+  }
+
+  getActiveSessions(): Observable<ApiResponse<SessionInfo[]>> {
+    return this.http.get<ApiResponse<SessionInfo[]>>(buildApiUrl('/Security/sessions'));
+  }
+
+  revokeSession(sessionId: string): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(buildApiUrl(`/Security/sessions/${sessionId}`));
   }
 
   hasRole(role: string): boolean {

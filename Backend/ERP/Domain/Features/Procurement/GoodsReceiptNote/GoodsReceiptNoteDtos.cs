@@ -23,6 +23,8 @@ public class CreateGoodsReceiptNoteLineRequest
 
     public string? SerialNumber { get; set; }
 
+    public DateTime? ManufacturingDate { get; set; }
+
     public DateTime? ExpiryDate { get; set; }
 
     public bool IsQuarantine { get; set; }
@@ -53,7 +55,7 @@ public class UpdateGoodsReceiptNoteRequest
 
     public string? Remarks { get; set; }
 
-    public List<CreateGoodsReceiptNoteLineRequest> Lines { get; set; } = new();
+    public List<CreateGoodsReceiptNoteLineRequest>? Lines { get; set; }
 }
 
 public class GoodsReceiptNoteLineDto
@@ -78,9 +80,13 @@ public class GoodsReceiptNoteLineDto
 
     public Guid? UnitOfMeasureId { get; set; }
 
+    public string? UnitOfMeasure { get; set; }
+
     public string? BatchNumber { get; set; }
 
     public string? SerialNumber { get; set; }
+
+    public DateTime? ManufacturingDate { get; set; }
 
     public DateTime? ExpiryDate { get; set; }
 

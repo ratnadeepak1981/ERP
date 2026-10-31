@@ -44,6 +44,21 @@ public class ProductConfiguration
         builder.Property(x => x.ReorderQuantity)
             .HasColumnType("decimal(18,2)");
 
+        builder.Property(x => x.MinStockQuantity)
+            .HasColumnType("decimal(18,2)")
+            .IsRequired(false);
+
+        builder.Property(x => x.MaxStockQuantity)
+            .HasColumnType("decimal(18,2)")
+            .IsRequired(false);
+
+        builder.Property(x => x.SafetyStockQuantity)
+            .HasColumnType("decimal(18,2)")
+            .IsRequired(false);
+
+        builder.Property(x => x.LeadTimeDays)
+            .IsRequired(false);
+
         builder.Property(x => x.IsManufacturable)
             .IsRequired();
 
@@ -74,6 +89,9 @@ public class ProductConfiguration
             .HasDefaultValue(TrackingMode.None);
 
         builder.Property(x => x.UnitOfMeasureId)
+            .IsRequired(false);
+
+        builder.Property(x => x.BrandId)
             .IsRequired(false);
 
         builder.Property(x => x.IsActive)
@@ -114,6 +132,13 @@ public class ProductConfiguration
             .WithMany()
             .HasForeignKey(x => new { x.TenantId, x.UnitOfMeasureId })
             .HasPrincipalKey(x => new { x.TenantId, x.UnitOfMeasureId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Product → Brand (Tenant-aware composite foreign key)
+        builder.HasOne<global::Domain.Features.MasterData.Brand.Brand>()
+            .WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.BrandId })
+            .HasPrincipalKey(x => new { x.TenantId, x.BrandId })
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
