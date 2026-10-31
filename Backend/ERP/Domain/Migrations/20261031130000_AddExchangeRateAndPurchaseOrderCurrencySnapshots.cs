@@ -33,6 +33,9 @@ public partial class AddExchangeRateAndPurchaseOrderCurrencySnapshots : Migratio
             constraints: table =>
             {
                 table.PrimaryKey("PK_ExchangeRates", x => x.ExchangeRateId);
+                table.UniqueConstraint(
+                    "AK_ExchangeRates_TenantId_ExchangeRateId",
+                    x => new { x.TenantId, x.ExchangeRateId });
                 table.ForeignKey(
                     name: "FK_ExchangeRates_Currencies_TenantId_FromCurrencyId",
                     columns: x => new { x.TenantId, x.FromCurrencyId },
@@ -114,11 +117,6 @@ public partial class AddExchangeRateAndPurchaseOrderCurrencySnapshots : Migratio
             type: "decimal(18,4)",
             nullable: true);
 
-        migrationBuilder.CreateIndex(
-            name: "IX_ExchangeRates_TenantId_ExchangeRateId",
-            table: "ExchangeRates",
-            columns: new[] { "TenantId", "ExchangeRateId" },
-            unique: true);
         migrationBuilder.CreateIndex(
             name: "IX_ExchangeRates_TenantId_FromCurrencyId_ToCurrencyId_RateType_EffectiveDate",
             table: "ExchangeRates",
