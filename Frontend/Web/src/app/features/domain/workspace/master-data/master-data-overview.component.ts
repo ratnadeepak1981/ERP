@@ -87,6 +87,33 @@ export class MasterDataOverviewComponent {
       available: true
     },
     {
+      title: 'Currencies',
+      badge: 'Financial & FX',
+      badgeSeverity: 'info',
+      icon: 'pi pi-dollar',
+      description: 'Tenant operational currencies, symbols, and decimal precision.',
+      route: '/app/master-data/currencies',
+      available: true
+    },
+    {
+      title: 'Exchange Rates',
+      badge: 'Financial & FX',
+      badgeSeverity: 'info',
+      icon: 'pi pi-chart-line',
+      description: 'Maintain tenant-scoped direct currency-pair rates with daily and monthly effective dates.',
+      route: '/app/master-data/exchange-rates',
+      available: true
+    },
+    {
+      title: 'Price Cards',
+      badge: 'Pricing & Commercial',
+      badgeSeverity: 'info',
+      icon: 'pi pi-tags',
+      description: 'Common Purchase and Sales price cards, tiered unit prices, and validity intervals.',
+      route: '/app/master-data/price-cards',
+      available: true
+    },
+    {
       title: 'Units of Measure',
       badge: 'Standards',
       badgeSeverity: 'neutral',

@@ -109,6 +109,20 @@
                     [(ngModel)]="catName"
                   />
                 </div>
+                <div class="form-group">
+                  <label>Parent Group</label>
+                  <select
+                    class="p-inputtext p-inputtext-sm"
+                    [(ngModel)]="catParentCategoryId"
+                  >
+                    <option value="">None (Top-Level)</option>
+                    @for (parent of eligibleParentCategories(); track parent.categoryId) {
+                      <option [value]="parent.categoryId">
+                        {{ parent.categoryName }} ({{ parent.categoryCode }})
+                      </option>
+                    }
+                  </select>
+                </div>
                 <div class="form-group full-width">
                   <label>Description</label>
                   <input

@@ -39,7 +39,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
         var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "LOC_B1");
         var product = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch);
 
-        string batchNo = $"LOT-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        string batchNo = $"LOT-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
         var mfgDate = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc);
         var expDate = new DateTime(2027, 6, 30, 0, 0, 0, DateTimeKind.Utc);
 
@@ -126,7 +126,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
         var productA = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "MED_A");
         var productB = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "MED_B");
 
-        string sharedBatchNo = $"SHARED-LOT-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        string sharedBatchNo = $"SHARED-LOT-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
 
         // 1. Receive batch under Product A
         await postingService.PostMovementAsync(tenantId, new PostInventoryMovementRequest
@@ -170,7 +170,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
         var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "LOC_B3");
         var product = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch);
 
-        string batchNo = $"LOT-CONF-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        string batchNo = $"LOT-CONF-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
         var originalMfg = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc);
         var originalExp = new DateTime(2027, 8, 31, 0, 0, 0, DateTimeKind.Utc);
 
@@ -333,7 +333,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
         var productB = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "PROD_B");
 
         // Pre-register batch BATCH-RESERVED for Product B
-        string reservedBatch = $"RSV-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        string reservedBatch = $"RSV-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
         var existingBatchB = ProductBatch.Create(tenantId, productB.ProductId, reservedBatch);
         await db.ProductBatches.AddAsync(existingBatchB);
         await db.SaveChangesAsync();
@@ -345,7 +345,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
             TenantId = tenantId,
             CompanyId = TestConstants.CompanyAId,
             BranchId = TestConstants.BranchA1Id,
-            OrderNumber = $"PO-BATCH-{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+            OrderNumber = $"PO-BATCH-{Guid.NewGuid():N}"[..24].ToUpperInvariant(),
             OrderDate = DateTime.UtcNow,
             Status = PurchaseOrderStatus.Approved,
             TotalAmount = 100m,
@@ -370,7 +370,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
             new CreateGoodsReceiptNoteRequest
             {
                 PurchaseOrderId = po.Id,
-                GrnNumber = $"GRN-ROLL-{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+                GrnNumber = $"GRN-ROLL-{Guid.NewGuid():N}"[..24].ToUpperInvariant(),
                 Lines = new List<CreateGoodsReceiptNoteLineRequest>
                 {
                     new CreateGoodsReceiptNoteLineRequest
@@ -430,7 +430,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
         var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "LOC_B7");
         var product = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "VAL_PROD");
 
-        string batchNo = $"VAL-BATCH-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        string batchNo = $"VAL-BATCH-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
         var expDate = new DateTime(2027, 10, 31, 0, 0, 0, DateTimeKind.Utc);
         var mfgDate = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -440,7 +440,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
             TenantId = tenantId,
             CompanyId = TestConstants.CompanyAId,
             BranchId = TestConstants.BranchA1Id,
-            OrderNumber = $"PO-VAL-{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+            OrderNumber = $"PO-VAL-{Guid.NewGuid():N}"[..24].ToUpperInvariant(),
             OrderDate = DateTime.UtcNow,
             Status = PurchaseOrderStatus.Approved,
             TotalAmount = 500m,
@@ -465,7 +465,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
             new CreateGoodsReceiptNoteRequest
             {
                 PurchaseOrderId = po.Id,
-                GrnNumber = $"GRN-VAL-{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+                GrnNumber = $"GRN-VAL-{Guid.NewGuid():N}"[..24].ToUpperInvariant(),
                 Lines = new List<CreateGoodsReceiptNoteLineRequest>
                 {
                     new CreateGoodsReceiptNoteLineRequest
@@ -517,7 +517,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
 
     private static async Task<Warehouse> CreateTestWarehouseAsync(DomainDbContext db, Guid tenantId)
     {
-        string code = $"WH_{Guid.NewGuid():N}"[..8];
+        string code = $"WH_{Guid.NewGuid():N}"[..18];
         var wh = Warehouse.Create(tenantId, code, $"Warehouse_{code}", city: "Colombo");
         await db.Warehouses.AddAsync(wh);
         await db.SaveChangesAsync();
@@ -526,7 +526,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
 
     private static async Task<WarehouseLocation> CreateTestLocationAsync(DomainDbContext db, Guid tenantId, Guid warehouseId, string codePrefix)
     {
-        string code = $"{codePrefix}_{Guid.NewGuid():N}"[..10];
+        string code = $"{codePrefix}_{Guid.NewGuid():N}"[..18];
         var loc = WarehouseLocation.Create(
             tenantId,
             warehouseId,
@@ -540,7 +540,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
 
     private static async Task<Product> CreateTestProductAsync(DomainDbContext db, Guid tenantId, TrackingMode trackingMode, string prefix = "PRD")
     {
-        string code = $"{prefix}_{Guid.NewGuid():N}"[..10];
+        string code = $"{prefix}_{Guid.NewGuid():N}"[..18];
         var prod = Product.Create(
             tenantId,
             code,

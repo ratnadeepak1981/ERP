@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 
 using ERP.Domain.Common.Scope;
+using Domain.Features.MasterData.Currency;
 
 namespace Domain.Features.Procurement.PurchaseOrder;
 
@@ -43,7 +44,52 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
 
     public decimal TotalAmount { get; set; }
 
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = string.Empty;
+
+    public Guid? TransactionCurrencyId { get; private set; }
+
+    public Guid? BaseCurrencyId { get; private set; }
+
+    public string? BaseCurrencyCode { get; private set; }
+
+    public int? BaseCurrencyDecimalPlaces { get; private set; }
+
+    public decimal? AppliedExchangeRate { get; private set; }
+
+    public ExchangeRateSource? ExchangeRateSource { get; private set; }
+
+    public Guid? ExchangeRateId { get; private set; }
+
+    public DateTime? ExchangeRateEffectiveDate { get; private set; }
+
+    public Guid? PriceCardId { get; set; }
+
+    public decimal? BaseSubTotal { get; private set; }
+
+    public decimal? BaseDiscountAmount { get; private set; }
+
+    public decimal? BaseTaxAmount { get; private set; }
+
+    public decimal? BaseTotalAmount { get; private set; }
+
+    /// <summary>
+    /// FK to the PaymentTerm master. Populated from Supplier default on creation;
+    /// can be overridden per-PO when business rules permit.
+    /// </summary>
+    public Guid? PaymentTermId { get; set; }
+
+    /// <summary>
+    /// Calculated due date = OrderDate + PaymentTerm.Days.
+    /// Null when no payment term is linked.
+    /// </summary>
+    public DateTime? DueDate { get; set; }
+
+    /// <summary>
+    /// Earliest expected delivery date.
+    /// Populated from the supplier price-card LeadTimeDays when creating the PO.
+    /// Null when lead time is not configured.
+    /// </summary>
+    public DateTime? ExpectedDeliveryDate { get; set; }
 
     public bool IsActive { get; set; } = true;
 
@@ -86,7 +132,8 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
         Guid? taxCodeId = null,
         decimal taxRate = 0m,
         bool isTaxInclusive = false,
-        string? notes = null)
+        string? notes = null,
+        Guid? supplierProductPriceId = null)
     {
         if (Status != PurchaseOrderStatus.Draft)
             throw new InvalidOperationException($"Cannot add items to purchase order '{OrderNumber}' because it is in status '{Status}'. Only Draft orders can be modified.");
@@ -136,6 +183,7 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
             PurchaseOrderId = this.Id,
             ProductId = productId,
             UnitOfMeasureId = unitOfMeasureId,
+            SupplierProductPriceId = supplierProductPriceId,
             Quantity = roundedQuantity,
             UnitPrice = roundedUnitPrice,
             DiscountRate = roundedDiscountRate,
@@ -153,6 +201,42 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
         Items.Add(item);
         RecalculateTotal();
         return item;
+    }
+
+    public void SetCurrencySnapshot(
+        Guid transactionCurrencyId,
+        string transactionCurrencyCode,
+        Guid baseCurrencyId,
+        string baseCurrencyCode,
+        int baseCurrencyDecimalPlaces,
+        ResolvedExchangeRate exchangeRate)
+    {
+        if (Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Currency snapshots can only be changed on draft purchase orders.");
+        if (string.IsNullOrWhiteSpace(transactionCurrencyCode) || string.IsNullOrWhiteSpace(baseCurrencyCode))
+            throw new ArgumentException("Transaction and base currency codes are required.");
+        if (baseCurrencyDecimalPlaces is < 0 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(baseCurrencyDecimalPlaces));
+        if (exchangeRate.Rate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(exchangeRate), "Exchange rate must be greater than zero.");
+
+        TransactionCurrencyId = transactionCurrencyId;
+        Currency = transactionCurrencyCode.Trim().ToUpperInvariant();
+        BaseCurrencyId = baseCurrencyId;
+        BaseCurrencyCode = baseCurrencyCode.Trim().ToUpperInvariant();
+        BaseCurrencyDecimalPlaces = baseCurrencyDecimalPlaces;
+        AppliedExchangeRate = exchangeRate.Rate;
+        ExchangeRateSource = exchangeRate.Source;
+        ExchangeRateId = exchangeRate.ExchangeRateId;
+        ExchangeRateEffectiveDate = exchangeRate.EffectiveDate;
+        RecalculateBaseAmounts();
+    }
+
+    public void ChangeDraftOrderDate(DateTime orderDate)
+    {
+        if (Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase orders can change transaction date.");
+        OrderDate = orderDate;
     }
 
     public void RecalculateTotal()
@@ -177,6 +261,18 @@ public class PurchaseOrder : ITenantScopedEntity, ICompanyScopedEntity, IBranchS
         DiscountAmount = Math.Round(discountAmount, 2, MidpointRounding.AwayFromZero);
         TaxAmount = Math.Round(taxAmount, 2, MidpointRounding.AwayFromZero);
         TotalAmount = Math.Round(totalAmount, 2, MidpointRounding.AwayFromZero);
+        RecalculateBaseAmounts();
+    }
+
+    private void RecalculateBaseAmounts()
+    {
+        if (!AppliedExchangeRate.HasValue || !BaseCurrencyDecimalPlaces.HasValue)
+            return;
+
+        BaseSubTotal = Math.Round(SubTotal * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
+        BaseDiscountAmount = Math.Round(DiscountAmount * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
+        BaseTaxAmount = Math.Round(TaxAmount * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
+        BaseTotalAmount = Math.Round(TotalAmount * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
     }
 
     public void Submit()

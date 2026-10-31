@@ -1,0 +1,207 @@
+<div class="currencies-page">
+  <app-page-header
+    title="Exchange Rates"
+    subtitle="Maintain tenant-scoped daily and monthly direct currency-pair rates used by transaction valuation."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="dismissMessage()" aria-label="Dismiss message">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (pendingAction(); as action) {
+    <div class="action-confirm-bar">
+      <div class="confirm-text">
+        <i class="pi pi-question-circle"></i>
+        <span>
+          Confirm {{ action.type }} for
+          <strong>{{ action.rate.fromCurrencyCode }}/{{ action.rate.toCurrencyCode }}</strong>
+          {{ rateTypeLabel(action.rate.rateType) }} rate effective
+          {{ action.rate.effectiveDate | date:'mediumDate' }}?
+        </span>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelPendingAction()">Cancel</button>
+        <button type="button" class="p-button p-button-sm p-button-primary" (click)="confirmPendingAction()">
+          Confirm
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Loading exchange rates..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+  } @else {
+    <div class="content-card erp-card">
+      <div class="content-toolbar">
+        <div class="search-and-filter">
+          <div class="search-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm"
+              placeholder="Search currency pair, type, or date..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+          <div class="filter-pills">
+            @for (filter of ['ALL', 'ACTIVE', 'INACTIVE']; track filter) {
+              <button
+                type="button"
+                class="pill-btn"
+                [class.active]="statusFilter() === filter"
+                (click)="statusFilter.set($any(filter))"
+              >{{ filter | titlecase }}</button>
+            }
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button type="button" class="p-button p-button-sm p-button-secondary" (click)="loadData()" [disabled]="loading()">
+            <i class="pi pi-refresh"></i><span>Refresh</span>
+          </button>
+          @if (!showForm() && canCreate()) {
+            <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateForm()">
+              <i class="pi pi-plus"></i><span>Add Rate</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (showForm()) {
+        <div class="inline-form-card">
+          <div class="form-header">
+            <h4>{{ isEditing() ? 'Edit Exchange Rate' : 'New Exchange Rate' }}</h4>
+            <button type="button" class="btn-close" (click)="cancelForm()" aria-label="Close form">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>From Currency <span class="required">*</span></label>
+              <select class="p-inputtext p-inputtext-sm" [(ngModel)]="fromCurrencyId">
+                <option value="">Select currency</option>
+                @for (currency of activeCurrencies(); track currency.currencyId) {
+                  <option [value]="currency.currencyId">{{ currency.currencyCode }} — {{ currency.currencyName }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
+              <label>To Currency <span class="required">*</span></label>
+              <select class="p-inputtext p-inputtext-sm" [(ngModel)]="toCurrencyId">
+                <option value="">Select currency</option>
+                @for (currency of activeCurrencies(); track currency.currencyId) {
+                  <option [value]="currency.currencyId">{{ currency.currencyCode }} — {{ currency.currencyName }}</option>
+                }
+              </select>
+              <small class="helper-text">Rates are direct From → To only; no reciprocal or cross-rate is inferred.</small>
+            </div>
+            <div class="form-group">
+              <label>Rate Type <span class="required">*</span></label>
+              <select
+                class="p-inputtext p-inputtext-sm"
+                [ngModel]="rateType"
+                (ngModelChange)="rateType = +$event === 2 ? 2 : 1"
+              >
+                <option [ngValue]="1">Daily</option>
+                <option [ngValue]="2">Monthly</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Effective Date <span class="required">*</span></label>
+              <input type="date" class="p-inputtext p-inputtext-sm" [(ngModel)]="effectiveDate" />
+              @if (rateType === 2) {
+                <small class="helper-text">Monthly dates are stored as the first day of the selected month.</small>
+              }
+            </div>
+            <div class="form-group">
+              <label>Rate <span class="required">*</span></label>
+              <input type="number" class="p-inputtext p-inputtext-sm" [(ngModel)]="rateValue" min="0" step="any" />
+              <small class="helper-text">Use positive decimal precision; intermediate conversion values are not rounded here.</small>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelForm()" [disabled]="formSaving()">Cancel</button>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-primary"
+              (click)="saveRate()"
+              [disabled]="formSaving() || !fromCurrencyId || !toCurrencyId || !effectiveDate || !rateValue"
+            >
+              @if (formSaving()) {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else {
+                <i class="pi pi-check"></i>
+              }
+              <span>{{ isEditing() ? 'Update Rate' : 'Save Rate' }}</span>
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (filteredRates().length === 0) {
+        <app-empty-state
+          title="No Exchange Rates Found"
+          message="No exchange rates match the current filters. Add a daily or monthly rate to enable foreign-currency transactions."
+        ></app-empty-state>
+      } @else {
+        <div class="erp-table-responsive">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th>Currency Pair</th>
+                <th>Rate Type</th>
+                <th>Effective Date / Month</th>
+                <th>Rate</th>
+                <th>Status</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of filteredRates(); track item.exchangeRateId) {
+                <tr [class.row-inactive]="!item.isActive">
+                  <td><strong>{{ item.fromCurrencyCode }} → {{ item.toCurrencyCode }}</strong></td>
+                  <td>{{ rateTypeLabel(item.rateType) }}</td>
+                  <td>{{ item.effectiveDate | date:'mediumDate' }}</td>
+                  <td>{{ item.rate | number:'1.0-12' }}</td>
+                  <td><app-status-badge [status]="item.isActive ? 'Active' : 'Inactive'"></app-status-badge></td>
+                  <td style="text-align: right;">
+                    <div class="row-actions">
+                      @if (canEdit()) {
+                        <button type="button" class="btn-icon" title="Edit exchange rate" (click)="openEditForm(item)">
+                          <i class="pi pi-pencil"></i>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-icon"
+                          [class.btn-icon-danger]="item.isActive"
+                          [class.btn-icon-success]="!item.isActive"
+                          [title]="item.isActive ? 'Deactivate exchange rate' : 'Activate exchange rate'"
+                          (click)="promptToggle(item)"
+                        >
+                          <i [class]="item.isActive ? 'pi pi-ban' : 'pi pi-replay'"></i>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

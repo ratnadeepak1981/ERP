@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
 using Domain.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -14,13 +18,20 @@ public class ProductRepository : IProductRepository
     }
 
     public async Task<List<Product>> GetByTenantAsync(
-        Guid tenantId)
+        Guid tenantId,
+        Guid? brandId = null)
     {
-        return await _context.Products
+        var query = _context.Products
             .Where(x =>
                 x.TenantId == tenantId &&
-                x.IsActive)
-            .ToListAsync();
+                x.IsActive);
+
+        if (brandId.HasValue)
+        {
+            query = query.Where(x => x.BrandId == brandId.Value);
+        }
+
+        return await query.ToListAsync();
     }
 
     public async Task<Product?> GetByIdAsync(
@@ -58,6 +69,12 @@ public class ProductRepository : IProductRepository
     {
         return await _context.Categories
             .AnyAsync(x => x.TenantId == tenantId && x.CategoryId == categoryId && x.IsActive);
+    }
+
+    public async Task<bool> BrandExistsAsync(Guid tenantId, Guid brandId)
+    {
+        return await _context.Brands
+            .AnyAsync(x => x.TenantId == tenantId && x.BrandId == brandId && x.IsActive);
     }
 
     public async Task AddAsync(Product product)

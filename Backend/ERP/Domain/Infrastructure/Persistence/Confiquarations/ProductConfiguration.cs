@@ -91,6 +91,9 @@ public class ProductConfiguration
         builder.Property(x => x.UnitOfMeasureId)
             .IsRequired(false);
 
+        builder.Property(x => x.BrandId)
+            .IsRequired(false);
+
         builder.Property(x => x.IsActive)
             .IsRequired();
 
@@ -129,6 +132,13 @@ public class ProductConfiguration
             .WithMany()
             .HasForeignKey(x => new { x.TenantId, x.UnitOfMeasureId })
             .HasPrincipalKey(x => new { x.TenantId, x.UnitOfMeasureId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Product → Brand (Tenant-aware composite foreign key)
+        builder.HasOne<global::Domain.Features.MasterData.Brand.Brand>()
+            .WithMany()
+            .HasForeignKey(x => new { x.TenantId, x.BrandId })
+            .HasPrincipalKey(x => new { x.TenantId, x.BrandId })
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

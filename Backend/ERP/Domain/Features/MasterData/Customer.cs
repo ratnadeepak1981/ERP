@@ -1,6 +1,7 @@
 using ERP.Domain.Common;
 using ERP.Domain.Common.Scope;
 using System;
+using Domain.Features.MasterData.Currency;
 
 namespace ERP.Domain.Features.MasterData.Customer;
 
@@ -18,7 +19,7 @@ public class Customer : Auditable, ITenantScopedEntity
 
     public string? AddressLine1 { get; private set; }
     public string? AddressLine2 { get; private set; }
-    public string? City { get; private set; }
+    public string City { get; private set; } = string.Empty;
     public string? PostalCode { get; private set; }
     public string? Country { get; private set; }
 
@@ -27,6 +28,13 @@ public class Customer : Auditable, ITenantScopedEntity
     public decimal CreditLimit { get; private set; }
 
     public string? PaymentTerms { get; private set; }
+
+    public Guid? CurrencyId { get; private set; }
+    public Currency? Currency { get; private set; }
+
+    public string? CurrencyCode => Currency?.CurrencyCode;
+
+    public Guid? DefaultSalesPriceCardId { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -45,7 +53,8 @@ public class Customer : Auditable, ITenantScopedEntity
         string? taxNumber = null,
         decimal creditLimit = 0,
         string? paymentTerms = null,
-        Guid? customerId = null)
+        Guid? customerId = null,
+        Guid? currencyId = null)
     {
         return new Customer
         {
@@ -58,12 +67,13 @@ public class Customer : Auditable, ITenantScopedEntity
             Phone = phone,
             AddressLine1 = addressLine1,
             AddressLine2 = addressLine2,
-            City = city,
+            City = city ?? string.Empty,
             PostalCode = postalCode,
             Country = country,
             TaxNumber = taxNumber,
             CreditLimit = creditLimit,
             PaymentTerms = paymentTerms,
+            CurrencyId = currencyId,
             IsActive = true
         };
     }
@@ -75,12 +85,13 @@ public class Customer : Auditable, ITenantScopedEntity
         string? phone,
         string? addressLine1,
         string? addressLine2,
-        string? city,
+        string city,
         string? postalCode,
         string? country,
         string? taxNumber,
         decimal creditLimit,
-        string? paymentTerms)
+        string? paymentTerms,
+        Guid? currencyId = null)
     {
         CustomerName = customerName;
         ContactPerson = contactPerson;
@@ -94,6 +105,12 @@ public class Customer : Auditable, ITenantScopedEntity
         TaxNumber = taxNumber;
         CreditLimit = creditLimit;
         PaymentTerms = paymentTerms;
+        CurrencyId = currencyId;
+    }
+
+    public void SetDefaultCurrency(Guid? currencyId)
+    {
+        CurrencyId = currencyId;
     }
 
     public void SyncPrimaryContact(string? contactPerson, string? email, string? phone)
@@ -103,7 +120,7 @@ public class Customer : Auditable, ITenantScopedEntity
         Phone = phone;
     }
 
-    public void SyncDefaultAddress(string? addressLine1, string? addressLine2, string? city, string? postalCode, string? country)
+    public void SyncDefaultAddress(string? addressLine1, string? addressLine2, string city, string? postalCode, string? country)
     {
         AddressLine1 = addressLine1;
         AddressLine2 = addressLine2;

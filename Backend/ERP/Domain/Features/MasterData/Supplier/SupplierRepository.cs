@@ -19,6 +19,7 @@ public class SupplierRepository : ISupplierRepository
     public async Task<List<Supplier>> GetSuppliersAsync(Guid tenantId)
     {
         return await _context.Suppliers
+            .Include(x => x.Currency)
             .Where(x => x.TenantId == tenantId && x.IsActive)
             .ToListAsync();
     }
@@ -26,6 +27,7 @@ public class SupplierRepository : ISupplierRepository
     public async Task<Supplier?> GetSupplierByIdAsync(Guid tenantId, Guid supplierId)
     {
         return await _context.Suppliers
+            .Include(x => x.Currency)
             .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.SupplierId == supplierId && x.IsActive);
     }
 

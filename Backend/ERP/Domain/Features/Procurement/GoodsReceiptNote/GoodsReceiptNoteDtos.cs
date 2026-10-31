@@ -55,7 +55,7 @@ public class UpdateGoodsReceiptNoteRequest
 
     public string? Remarks { get; set; }
 
-    public List<CreateGoodsReceiptNoteLineRequest> Lines { get; set; } = new();
+    public List<CreateGoodsReceiptNoteLineRequest>? Lines { get; set; }
 }
 
 public class GoodsReceiptNoteLineDto
@@ -79,6 +79,8 @@ public class GoodsReceiptNoteLineDto
     public decimal LineTotal { get; set; }
 
     public Guid? UnitOfMeasureId { get; set; }
+
+    public string? UnitOfMeasure { get; set; }
 
     public string? BatchNumber { get; set; }
 

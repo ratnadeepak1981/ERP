@@ -3,101 +3,127 @@
     title="Products"
     subtitle="Enterprise master item definitions, capabilities, units, and inventory tracking policies."
     [breadcrumbs]="breadcrumbs"
-  ></app-page-header>
+  >
+  </app-page-header>
 
-  @if (loading()) {
-    <app-loading-state message="Loading product master records from server..."></app-loading-state>
-  } @else if (error()) {
-    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
-  } @else {
-    @if (!scopeService.hasCompany()) {
-      <div class="scope-prompt-alert erp-card">
-        <i class="pi pi-exclamation-triangle alert-icon"></i>
-        <span><strong>Select a company to continue.</strong> Company-specific operations are disabled until an operating company is selected.</span>
-        <a routerLink="/app/company-setup" class="p-button p-button-sm p-button-outlined">
-          <i class="pi pi-cog p-button-icon-left"></i> Set Up Company
-        </a>
+  <!-- Error Alert Banner -->
+  @if (error()) {
+    <div class="p-message p-message-error mb-3" role="alert">
+      <div class="p-message-wrapper">
+        <i class="pi pi-times-circle p-message-icon"></i>
+        <div class="p-message-detail">{{ error() }}</div>
+        <button type="button" class="p-message-close" (click)="error.set(null)" aria-label="Close">
+          <i class="pi pi-times"></i>
+        </button>
       </div>
-    }
+    </div>
+  }
 
-    <div class="product-table-card erp-card">
-      <!-- Search, Filters and Create Action Header (Matching Image 5) -->
-      <div class="table-controls-bar">
-        <div class="search-and-filters">
-          <div class="search-input-box">
-            <i class="pi pi-search search-icon"></i>
-            <input
-              type="text"
-              class="p-inputtext p-inputtext-sm search-field"
-              placeholder="Search code or product name..."
-              [ngModel]="searchTerm()"
-              (ngModelChange)="searchTerm.set($event)"
-            />
-          </div>
-
-          <!-- Filter Pills matching Image 5 -->
-          <div class="filter-pills">
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'all'"
-              (click)="activeStatusFilter.set('all')"
-            >
-              All Status
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'active'"
-              (click)="activeStatusFilter.set('active')"
-            >
-              Active Only
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="purchaseableOnly()"
-              (click)="purchaseableOnly.update(v => !v)"
-            >
-              <i class="pi pi-shopping-cart pill-icon"></i> Purchasable
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="sellableOnly()"
-              (click)="sellableOnly.update(v => !v)"
-            >
-              <i class="pi pi-tag pill-icon"></i> Sellable
-            </button>
-          </div>
+  <!-- Main Card -->
+  <div class="erp-card product-table-card">
+    <!-- Action Controls Bar -->
+    <div class="table-controls-bar">
+      <!-- Search & Status Filters -->
+      <div class="search-and-filters">
+        <div class="search-input-box">
+          <i class="pi pi-search search-icon"></i>
+          <input
+            pInputText
+            type="text"
+            placeholder="Search code or product name..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+            class="p-inputtext-sm search-field"
+          />
         </div>
 
-        <div class="action-buttons">
+        <div class="filter-pills">
           <button
             type="button"
-            class="p-button p-button-sm p-button-primary"
-            [disabled]="!scopeService.hasCompany()"
-            [title]="!scopeService.hasCompany() ? 'Select a company to continue' : 'Register New Master Product'"
-            (click)="openCreateDialog()"
+            class="filter-pill"
+            [class.active]="activeStatusFilter() === 'all'"
+            (click)="activeStatusFilter.set('all')"
           >
-            <i class="pi pi-plus p-button-icon-left"></i>
-            <span class="p-button-label">New Product</span>
+            All Status
+          </button>
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="activeStatusFilter() === 'active'"
+            (click)="activeStatusFilter.set('active')"
+          >
+            Active Only
+          </button>
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="purchaseableOnly()"
+            (click)="purchaseableOnly.set(!purchaseableOnly())"
+          >
+            <i class="pi pi-shopping-cart"></i> Purchasable
+          </button>
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="sellableOnly()"
+            (click)="sellableOnly.set(!sellableOnly())"
+          >
+            <i class="pi pi-tag"></i> Sellable
           </button>
         </div>
       </div>
 
-      <!-- Products Data Table -->
-      @if (filteredProducts().length === 0) {
+      <!-- Right Header Actions: View Switcher + New Product -->
+      <div class="right-actions-group">
+        <!-- View Mode Switcher -->
+        <div class="view-mode-toggle" role="group" aria-label="Product master view modes">
+          <button
+            type="button"
+            class="view-toggle-btn"
+            [class.active]="viewMode() === 'table'"
+            (click)="onViewModeChange('table')"
+            title="Switch to Flat Table View"
+          >
+            <i class="pi pi-table"></i>
+            <span>Table View</span>
+          </button>
+          <button
+            type="button"
+            class="view-toggle-btn"
+            [class.active]="viewMode() === 'hierarchy'"
+            (click)="onViewModeChange('hierarchy')"
+            title="Switch to Category Hierarchy View"
+          >
+            <i class="pi pi-sitemap"></i>
+            <span>Hierarchy View</span>
+          </button>
+        </div>
+
+        <p-button
+          label="New Product"
+          icon="pi pi-plus"
+          size="small"
+          severity="primary"
+          (onClick)="openCreateDialog()"
+        ></p-button>
+      </div>
+    </div>
+
+    <!-- Mode 1: Table View -->
+    @if (viewMode() === 'table') {
+      @if (loading()) {
+        <app-loading-state message="Loading products..."></app-loading-state>
+      } @else if (filteredProducts().length === 0) {
         <app-empty-state
-          title="No products found"
-          description="No products match your current search criteria or none are registered yet."
-          actionLabel="Create First Product"
-          actionIcon="pi pi-plus"
+          title="No Products Found"
+          message="No product definitions match your search or filter criteria."
+          icon="pi pi-box"
+          actionLabel="New Product"
           (action)="openCreateDialog()"
         ></app-empty-state>
       } @else {
-        <div class="data-table-wrapper">
-          <table class="enterprise-grid-table">
+        <div class="table-container">
+          <table class="enterprise-table">
             <thead>
               <tr>
                 <th style="width: 140px;">Code</th>
@@ -105,16 +131,22 @@
                 <th style="width: 100px;">Unit</th>
                 <th style="width: 240px;">Usage</th>
                 <th style="width: 110px;">Status</th>
-                <th style="width: 120px; text-align: right;">Actions</th>
+                <th style="width: 130px; text-align: right;">Actions</th>
               </tr>
             </thead>
             <tbody>
               @for (product of filteredProducts(); track product.productId) {
                 <tr>
-                  <td><code class="code-badge">{{ product.productCode }}</code></td>
+                  <td>
+                    <a class="code-link" (click)="viewProduct(product)" title="View product details">
+                      <code class="code-badge">{{ product.productCode }}</code>
+                    </a>
+                  </td>
                   <td>
                     <div class="product-cell">
-                      <strong>{{ product.productName }}</strong>
+                      <a class="product-title-link" (click)="viewProduct(product)" title="View product details">
+                        <strong>{{ product.productName }}</strong>
+                      </a>
                       @if (product.description) {
                         <span class="product-subtext">{{ product.description }}</span>
                       }
@@ -129,6 +161,14 @@
                   </td>
                   <td style="text-align: right;">
                     <div class="action-buttons-cell">
+                      <button
+                        type="button"
+                        class="p-button p-button-sm p-button-text"
+                        (click)="viewProduct(product)"
+                        title="View Product"
+                      >
+                        <i class="pi pi-eye"></i>
+                      </button>
                       <button
                         type="button"
                         class="p-button p-button-sm p-button-text"
@@ -153,6 +193,288 @@
           </table>
         </div>
       }
-    </div>
-  }
+    }
+
+    <!-- Mode 2: Category Hierarchy View (Lazy-Loaded Tree) -->
+    @if (viewMode() === 'hierarchy') {
+      <div class="hierarchy-view-container">
+        <!-- Hierarchy Header Bar -->
+        <div class="hierarchy-header-bar">
+          <div class="hierarchy-info">
+            <span class="hierarchy-title"><i class="pi pi-sitemap"></i> Product Category Hierarchy</span>
+            <span class="hierarchy-subtitle">
+              Expand categories to navigate taxonomy. Click "Direct Products" to view assigned inventory items.
+            </span>
+          </div>
+          <div class="hierarchy-actions">
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-outlined refresh-tree-btn"
+              (click)="refreshHierarchy()"
+              title="Refresh hierarchy and clear cache"
+            >
+              <i class="pi pi-refresh p-button-icon-left"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Initial Roots Loading State -->
+        @if (rootsLoading()) {
+          <div class="tree-loading-box">
+            <app-loading-state message="Loading category taxonomy hierarchy..."></app-loading-state>
+          </div>
+        } @else if (rootsError()) {
+          <!-- Roots Error State with Retry -->
+          <div class="tree-error-box">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>{{ rootsError() }}</span>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-outlined"
+              (click)="loadRoots(true)"
+            >
+              Retry
+            </button>
+          </div>
+        } @else if (rootCategories().length === 0) {
+          <!-- Roots Empty State -->
+          <div class="tree-empty-box">
+            <app-empty-state
+              title="No Root Categories"
+              message="No product categories have been configured yet. Create a category to build your taxonomy."
+              icon="pi pi-folder"
+              actionLabel="New Product"
+              (action)="openCreateDialog()"
+            ></app-empty-state>
+          </div>
+        } @else {
+          <!-- Tree Nodes List -->
+          <div class="tree-nodes-list" role="tree" aria-label="Product Category Hierarchy">
+            @for (root of rootCategories(); track root.categoryId) {
+              <ng-container
+                *ngTemplateOutlet="categoryNodeTemplate; context: { $implicit: root, level: 0 }"
+              ></ng-container>
+            }
+
+            <!-- Load More Roots Pagination -->
+            @if (hasMoreRoots()) {
+              <div class="load-more-row">
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-outlined load-more-btn"
+                  [disabled]="loadingMoreRoots()"
+                  (click)="loadMoreRoots()"
+                >
+                  <i class="pi" [ngClass]="loadingMoreRoots() ? 'pi-spin pi-spinner' : 'pi-angle-down'"></i>
+                  <span>Load More Root Categories</span>
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
 </div>
+
+<!-- Recursive Category Node Template -->
+<ng-template #categoryNodeTemplate let-node let-level="level">
+  @let state = getNodeState(node.categoryId);
+
+  <div
+    class="tree-node-wrapper"
+    [style.--node-level]="level"
+    [class.node-expanded]="state.expanded"
+    role="treeitem"
+    [attr.aria-expanded]="state.expanded"
+  >
+    <!-- Node Main Row -->
+    <div class="tree-node-row">
+      <!-- Left: Expand/Collapse Chevron + Folder Icon + Info -->
+      <div class="tree-node-main">
+        <!-- Chevron button for expanding children -->
+        @if (node.hasChildren) {
+          <button
+            type="button"
+            class="tree-chevron-btn"
+            [class.expanded]="state.expanded"
+            (click)="toggleExpandCategory(node, $event)"
+            [attr.aria-label]="state.expanded ? 'Collapse ' + node.categoryName : 'Expand ' + node.categoryName"
+          >
+            <i class="pi pi-chevron-right"></i>
+          </button>
+        } @else {
+          <span class="tree-chevron-spacer">•</span>
+        }
+
+        <!-- Category Folder Icon -->
+        <i
+          class="pi tree-folder-icon"
+          [ngClass]="state.expanded ? 'pi-folder-open' : 'pi-folder'"
+        ></i>
+
+        <!-- Code & Name -->
+        <code class="code-badge">{{ node.categoryCode }}</code>
+        <span class="category-name">{{ node.categoryName }}</span>
+        @if (node.description) {
+          <span class="category-desc">({{ node.description }})</span>
+        }
+      </div>
+
+      <!-- Node Status & Actions -->
+      <div class="tree-node-actions">
+        <app-status-badge [status]="node.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+
+        <!-- Reveal Direct Products Button -->
+        <button
+          type="button"
+          class="p-button p-button-sm p-button-outlined view-products-btn"
+          [class.active]="state.showProducts"
+          (click)="toggleShowProducts(node, $event)"
+          title="Toggle display of products directly assigned to this category"
+        >
+          <i class="pi pi-box p-button-icon-left"></i>
+          <span>{{ state.showProducts ? 'Hide Products' : 'Direct Products' }}</span>
+          @if (state.productsLoaded) {
+            <span class="count-pill">{{ state.products.length }}</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- Direct Products Panel (Leaf Items directly under this category) -->
+    @if (state.showProducts) {
+      <div class="node-products-panel">
+        <div class="products-panel-header">
+          <span class="panel-title">
+            <i class="pi pi-box"></i> Direct Products in {{ node.categoryName }}
+          </span>
+        </div>
+
+        @if (state.productsLoading && !state.productsLoaded) {
+          <div class="products-loading-state">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Loading assigned products...</span>
+          </div>
+        } @else if (state.productsError) {
+          <div class="products-error-state">
+            <i class="pi pi-exclamation-circle"></i>
+            <span>{{ state.productsError }}</span>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-text"
+              (click)="loadCategoryProducts(node.categoryId, 1)"
+            >
+              Retry
+            </button>
+          </div>
+        } @else if (state.products.length === 0) {
+          <div class="products-empty-state">
+            <i class="pi pi-info-circle"></i>
+            <span>No products are directly assigned to this category.</span>
+          </div>
+        } @else {
+          <div class="products-leaf-list">
+            @for (product of state.products; track product.productId) {
+              <div class="product-leaf-item">
+                <span class="leaf-indicator"><i class="pi pi-tag"></i></span>
+                <a class="code-link" (click)="viewProduct(product)" title="View product details">
+                  <code class="code-badge">{{ product.productCode }}</code>
+                </a>
+                <div class="product-leaf-details">
+                  <a class="product-title-link" (click)="viewProduct(product)" title="View product details">
+                    <span class="product-leaf-name">{{ product.productName }}</span>
+                  </a>
+                  @if (product.description) {
+                    <span class="product-leaf-desc">{{ product.description }}</span>
+                  }
+                </div>
+                <span class="uom-tag">{{ product.unitOfMeasure }}</span>
+                <span class="usage-tag">{{ getUsageText(product) }}</span>
+                <app-status-badge [status]="product.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                <div class="leaf-actions">
+                  <button
+                    type="button"
+                    class="p-button p-button-sm p-button-text leaf-view-btn"
+                    (click)="viewProduct(product)"
+                    title="View Product"
+                  >
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="p-button p-button-sm p-button-text leaf-edit-btn"
+                    (click)="openEditDialog(product)"
+                    title="Edit Product"
+                  >
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                </div>
+              </div>
+            }
+
+            @if (state.hasMoreProducts) {
+              <div class="load-more-row">
+                <button
+                  type="button"
+                  class="p-button p-button-sm p-button-text load-more-btn"
+                  [disabled]="state.productsLoading"
+                  (click)="loadMoreProducts(node, $event)"
+                >
+                  <i class="pi" [ngClass]="state.productsLoading ? 'pi-spin pi-spinner' : 'pi-angle-down'"></i>
+                  <span>Load More Products</span>
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Children Categories Subtree -->
+    @if (state.expanded) {
+      <div class="node-children-container" role="group">
+        @if (state.childrenLoading && !state.childrenLoaded) {
+          <div class="children-loading-state">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Loading subcategories...</span>
+          </div>
+        } @else if (state.childrenError) {
+          <div class="children-error-state">
+            <i class="pi pi-exclamation-circle"></i>
+            <span>{{ state.childrenError }}</span>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-text"
+              (click)="loadCategoryChildren(node.categoryId, 1)"
+            >
+              Retry
+            </button>
+          </div>
+        } @else {
+          <!-- Render Child Category Nodes Recursively -->
+          @for (child of state.children; track child.categoryId) {
+            <ng-container
+              *ngTemplateOutlet="categoryNodeTemplate; context: { $implicit: child, level: level + 1 }"
+            ></ng-container>
+          }
+
+          <!-- Load More Children Pagination -->
+          @if (state.hasMoreChildren) {
+            <div class="load-more-row load-more-children-row">
+              <button
+                type="button"
+                class="p-button p-button-sm p-button-text load-more-btn"
+                [disabled]="state.childrenLoading"
+                (click)="loadMoreChildren(node, $event)"
+              >
+                <i class="pi" [ngClass]="state.childrenLoading ? 'pi-spin pi-spinner' : 'pi-angle-down'"></i>
+                <span>Load More Subcategories</span>
+              </button>
+            </div>
+          }
+        }
+      </div>
+    }
+  </div>
+</ng-template>

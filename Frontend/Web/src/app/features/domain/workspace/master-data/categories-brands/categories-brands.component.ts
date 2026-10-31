@@ -45,6 +45,7 @@ export class CategoriesBrandsComponent implements OnInit {
   catCode = '';
   catName = '';
   catDescription = '';
+  catParentCategoryId = '';
   readonly categoryFormSaving = signal<boolean>(false);
 
   // Inline Brand Form State (NO POPUP)
@@ -75,6 +76,29 @@ export class CategoriesBrandsComponent implements OnInit {
     const list = this.categories();
     if (!q) return list;
     return list.filter(c => c.categoryCode.toLowerCase().includes(q) || c.categoryName.toLowerCase().includes(q));
+  });
+
+  readonly eligibleParentCategories = computed<CategoryItem[]>(() => {
+    const all = this.categories();
+    const currentId = this.editingCategoryId();
+    if (!this.isEditingCategory() || !currentId) {
+      return all.filter(c => c.isActive !== false);
+    }
+
+    // Exclude the current category and all its descendants to prevent cycles
+    const excludedIds = new Set<string>([currentId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const c of all) {
+        if (c.parentCategoryId && excludedIds.has(c.parentCategoryId) && !excludedIds.has(c.categoryId)) {
+          excludedIds.add(c.categoryId);
+          changed = true;
+        }
+      }
+    }
+
+    return all.filter(c => !excludedIds.has(c.categoryId) && c.isActive !== false);
   });
 
   readonly filteredBrands = computed(() => {
@@ -120,6 +144,7 @@ export class CategoriesBrandsComponent implements OnInit {
     this.catCode = '';
     this.catName = '';
     this.catDescription = '';
+    this.catParentCategoryId = '';
     this.showCategoryForm.set(true);
     this.message.set(null);
   }
@@ -130,6 +155,7 @@ export class CategoriesBrandsComponent implements OnInit {
     this.catCode = cat.categoryCode;
     this.catName = cat.categoryName;
     this.catDescription = cat.description || '';
+    this.catParentCategoryId = cat.parentCategoryId || '';
     this.showCategoryForm.set(true);
     this.message.set(null);
   }
@@ -142,12 +168,15 @@ export class CategoriesBrandsComponent implements OnInit {
     if (!this.catName.trim()) return;
     this.categoryFormSaving.set(true);
 
+    const parentId = this.catParentCategoryId.trim() ? this.catParentCategoryId.trim() : null;
+
     if (this.isEditingCategory()) {
       const id = this.editingCategoryId();
       if (!id) return;
       this.masterDataService.updateCategory(id, {
         categoryName: this.catName.trim(),
-        description: this.catDescription.trim() || undefined
+        description: this.catDescription.trim() || undefined,
+        parentCategoryId: parentId
       }).subscribe({
         next: (updated) => {
           this.categoryFormSaving.set(false);
@@ -165,7 +194,8 @@ export class CategoriesBrandsComponent implements OnInit {
       this.masterDataService.createCategory({
         categoryCode: this.catCode.trim(),
         categoryName: this.catName.trim(),
-        description: this.catDescription.trim() || undefined
+        description: this.catDescription.trim() || undefined,
+        parentCategoryId: parentId
       }).subscribe({
         next: (created) => {
           this.categoryFormSaving.set(false);

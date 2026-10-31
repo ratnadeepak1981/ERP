@@ -60,6 +60,9 @@ public class GoodsReceiptNoteRepository : IGoodsReceiptNoteRepository
 
     public Task DeleteDraftAsync(GoodsReceiptNote grn)
     {
+        if (grn.Status != GoodsReceiptNoteStatus.Draft)
+            throw new InvalidOperationException($"Only Draft GRNs can be deleted. Current status: '{grn.Status}'.");
+
         _context.GoodsReceiptNotes.Remove(grn);
         return Task.CompletedTask;
     }

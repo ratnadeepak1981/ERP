@@ -58,13 +58,18 @@ public class CurrencyTests : IClassFixture<TestSecurityFixture>
             new[] { "Tenant Admin" },
             new[] { "CURRENCY.VIEW", "CURRENCY.CREATE" });
 
-        var code = $"D{Guid.NewGuid():N}"[..3].ToUpperInvariant();
-        var res1 = await client.PostAsJsonAsync("/api/currencies", new CreateCurrencyRequest
+        string code;
+        HttpResponseMessage res1;
+        do
         {
-            CurrencyCode = code,
-            CurrencyName = "First Currency",
-            Symbol = "F"
-        });
+            code = $"Z{Guid.NewGuid():N}"[..3].ToUpperInvariant();
+            res1 = await client.PostAsJsonAsync("/api/currencies", new CreateCurrencyRequest
+            {
+                CurrencyCode = code,
+                CurrencyName = "First Currency",
+                Symbol = "F"
+            });
+        } while (res1.StatusCode == HttpStatusCode.Conflict);
         Assert.Equal(HttpStatusCode.Created, res1.StatusCode);
 
         var res2 = await client.PostAsJsonAsync("/api/currencies", new CreateCurrencyRequest

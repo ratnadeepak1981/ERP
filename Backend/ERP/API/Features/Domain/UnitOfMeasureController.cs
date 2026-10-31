@@ -195,4 +195,40 @@ public class UnitOfMeasureController : BaseApiController
             return HandleDomainException(ex);
         }
     }
+
+    [HttpGet("convert-product")]
+    [RequirePermission("UOM.CONVERT")]
+    public async Task<IActionResult> ConvertProductQuantity(
+        [FromQuery] Guid productId,
+        [FromQuery] Guid fromUnitId,
+        [FromQuery] Guid toUnitId,
+        [FromQuery] decimal quantity,
+        [FromQuery] ConversionContext context = ConversionContext.General,
+        [FromQuery] Guid? productPackagingId = null,
+        [FromQuery] Guid? companyId = null)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        try
+        {
+            var result = await _uomService.ConvertProductQuantityAsync(
+                tenantId.Value,
+                productId,
+                fromUnitId,
+                toUnitId,
+                quantity,
+                context,
+                productPackagingId,
+                companyId);
+
+            return SuccessResponse(result);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
 }

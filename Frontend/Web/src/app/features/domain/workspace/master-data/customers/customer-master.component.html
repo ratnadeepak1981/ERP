@@ -118,6 +118,7 @@
                 <th>Contact Person</th>
                 <th>City / Region</th>
                 <th>Payment Terms</th>
+                <th style="width: 100px;">Currency</th>
                 <th style="width: 100px;">Status</th>
                 <th style="width: 130px; text-align: right;">Actions</th>
               </tr>
@@ -137,6 +138,13 @@
                   <td>{{ cust.contactPerson || '—' }}</td>
                   <td>{{ cust.city || '—' }}</td>
                   <td>{{ cust.paymentTerms || 'Net 30' }}</td>
+                  <td>
+                    @if (cust.currencyCode) {
+                      <span class="currency-tag">{{ cust.currencyCode }}</span>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
                   <td>
                     <app-status-badge [status]="cust.isActive ? 'Active' : 'Inactive'"></app-status-badge>
                   </td>

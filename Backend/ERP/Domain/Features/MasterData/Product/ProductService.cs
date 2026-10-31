@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.UnitOfMeasure;
-using SaaS.Application.Interfaces;
+
 
 namespace Domain.Features.MasterData.Product;
 
@@ -11,28 +11,20 @@ public class ProductService : IProductService
 {
     private readonly IProductRepository _repository;
     private readonly IUnitOfMeasureRepository _uomRepository;
-    private readonly ISubscriptionUsageService? _subscriptionUsageService;
+
 
     public ProductService(
         IProductRepository repository,
-        IUnitOfMeasureRepository? uomRepository,
-        ISubscriptionUsageService? subscriptionUsageService = null)
+        IUnitOfMeasureRepository? uomRepository)
     {
         _repository = repository;
         _uomRepository = uomRepository!;
-        _subscriptionUsageService = subscriptionUsageService;
     }
 
-    public ProductService(
-        IProductRepository repository,
-        ISubscriptionUsageService? subscriptionUsageService)
-        : this(repository, null, subscriptionUsageService)
-    {
-    }
 
-    public async Task<List<Product>> GetProductsAsync(Guid tenantId)
+    public async Task<List<Product>> GetProductsAsync(Guid tenantId, Guid? brandId = null)
     {
-        return await _repository.GetByTenantAsync(tenantId);
+        return await _repository.GetByTenantAsync(tenantId, brandId);
     }
 
     public async Task<Product?> GetProductAsync(Guid tenantId, Guid productId)
@@ -62,6 +54,13 @@ public class ProductService : IProductService
         // Category tenant isolation check
         if (!await _repository.CategoryExistsAsync(tenantId, request.CategoryId))
             throw new InvalidOperationException("Category not found or does not belong to the current tenant.");
+
+        // Brand tenant isolation and active status check (optional)
+        if (request.BrandId.HasValue)
+        {
+            if (!await _repository.BrandExistsAsync(tenantId, request.BrandId.Value))
+                throw new InvalidOperationException("Brand not found, is inactive, or does not belong to the current tenant.");
+        }
 
         // UOM resolution and validation
         Guid? resolvedUomId = null;
@@ -118,21 +117,9 @@ public class ProductService : IProductService
             request.MinStockQuantity,
             request.MaxStockQuantity,
             request.SafetyStockQuantity,
-            request.LeadTimeDays);
+            request.LeadTimeDays,
+            request.BrandId);
 
-        if (_subscriptionUsageService != null)
-        {
-            return await _subscriptionUsageService.ExecuteWithUsageLimitAsync(
-                tenantId,
-                "MASTER_DATA",
-                1m,
-                async () =>
-                {
-                    await _repository.AddAsync(product);
-                    await _repository.SaveChangesAsync();
-                    return product;
-                });
-        }
 
         await _repository.AddAsync(product);
         await _repository.SaveChangesAsync();
@@ -156,6 +143,13 @@ public class ProductService : IProductService
 
         if (!await _repository.CategoryExistsAsync(tenantId, request.CategoryId))
             throw new InvalidOperationException("Category not found or does not belong to the current tenant.");
+
+        // Brand tenant isolation and active status check (optional)
+        if (request.BrandId.HasValue)
+        {
+            if (!await _repository.BrandExistsAsync(tenantId, request.BrandId.Value))
+                throw new InvalidOperationException("Brand not found, is inactive, or does not belong to the current tenant.");
+        }
 
         Guid? resolvedUomId = null;
         string resolvedUomCode = string.IsNullOrWhiteSpace(request.UnitOfMeasure) ? "PCS" : request.UnitOfMeasure.Trim();
@@ -204,7 +198,8 @@ public class ProductService : IProductService
             request.MinStockQuantity,
             request.MaxStockQuantity,
             request.SafetyStockQuantity,
-            request.LeadTimeDays);
+            request.LeadTimeDays,
+            request.BrandId);
 
         await _repository.SaveChangesAsync();
         return product;

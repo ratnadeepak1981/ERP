@@ -10,7 +10,7 @@ using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
 using Microsoft.EntityFrameworkCore;
-using SaaS.Application.Interfaces;
+
 
 namespace Domain.Features.Sales.Shipment;
 
@@ -23,8 +23,8 @@ public class SalesShipmentService : ISalesShipmentService
     private readonly IInventoryPostingService _postingService;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly DomainDbContext _context;
-    private readonly ISubscriptionUsageService? _subscriptionUsageService;
     private readonly IServiceProvider? _serviceProvider;
+    private readonly Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService? _uomService;
 
     public SalesShipmentService(
         ISalesShipmentRepository shipmentRepository,
@@ -34,8 +34,8 @@ public class SalesShipmentService : ISalesShipmentService
         IInventoryPostingService postingService,
         DomainDbContext context,
         IInventoryRepository? inventoryRepository = null,
-        ISubscriptionUsageService? subscriptionUsageService = null,
-        IServiceProvider? serviceProvider = null)
+        IServiceProvider? serviceProvider = null,
+        Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService? uomService = null)
     {
         _shipmentRepository = shipmentRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -44,8 +44,8 @@ public class SalesShipmentService : ISalesShipmentService
         _postingService = postingService;
         _context = context;
         _inventoryRepository = inventoryRepository ?? new InventoryRepository(context);
-        _subscriptionUsageService = subscriptionUsageService;
         _serviceProvider = serviceProvider;
+        _uomService = uomService;
     }
 
     public async Task<List<SalesShipmentDto>> GetShipmentsAsync(
@@ -718,15 +718,6 @@ public class SalesShipmentService : ISalesShipmentService
             return MapToDto(shipment, order.OrderNumber);
         };
 
-        if (_subscriptionUsageService != null)
-        {
-            return await _subscriptionUsageService.ExecuteWithUsageLimitAsync(
-                tenantId,
-                "TRANSACTIONS",
-                1,
-                executionAction);
-        }
-
         return await executionAction();
     }
 
@@ -1202,6 +1193,24 @@ public class SalesShipmentService : ISalesShipmentService
             var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId);
             if (product != null && product.IsStockTracked)
             {
+                decimal movementQty = item.QuantityDispatched;
+                if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                {
+                    if (_uomService != null)
+                    {
+                        var converted = await _uomService.ConvertProductQuantityAsync(
+                            tenantId,
+                            product.ProductId,
+                            item.UnitOfMeasureId.Value,
+                            product.UnitOfMeasureId.Value,
+                            item.QuantityDispatched,
+                            Domain.Features.MasterData.UnitOfMeasure.ConversionContext.Sales,
+                            companyId: companyId
+                        );
+                        movementQty = converted.ConvertedQuantity;
+                    }
+                }
+
                 var postReq = new PostInventoryMovementRequest
                 {
                     MovementType = InventoryMovementType.ShipmentDispatch,
@@ -1212,8 +1221,8 @@ public class SalesShipmentService : ISalesShipmentService
                     ProductId = item.ProductId,
                     WarehouseId = item.WarehouseId,
                     WarehouseLocationId = item.WarehouseLocationId,
-                    Quantity = item.QuantityDispatched,
-                    UnitOfMeasureId = item.UnitOfMeasureId,
+                    Quantity = movementQty,
+                    UnitOfMeasureId = product.UnitOfMeasureId ?? item.UnitOfMeasureId,
                     BatchNumber = item.BatchNumber,
                     SerialNumber = item.SerialNumber,
                     TransactionDate = shipment.DispatchedAt ?? DateTime.UtcNow

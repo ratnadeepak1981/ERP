@@ -1,8 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 namespace Domain.Features.MasterData.Product;
 
 public interface IProductService
 {
-    Task<List<Product>> GetProductsAsync(Guid tenantId);
+    Task<List<Product>> GetProductsAsync(Guid tenantId, Guid? brandId = null);
 
     Task<Product?> GetProductAsync(
         Guid tenantId,

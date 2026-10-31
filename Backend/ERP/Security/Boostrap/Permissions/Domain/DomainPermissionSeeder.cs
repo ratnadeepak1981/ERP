@@ -1,4 +1,3 @@
-
 using Security.Interfaces;
 using ERP.Domain.Bootstrap.Permissions.MasterData;
 
@@ -21,6 +20,7 @@ public static class DomainPermissionSeeder
         await Security.Bootstrap.Permissions.Domain.AddressPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.ContactPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.SupplierProductPricePermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.PriceCardPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.CountryPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.CrmPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.SalesOrderPermissionSeed.SeedAsync(repository);

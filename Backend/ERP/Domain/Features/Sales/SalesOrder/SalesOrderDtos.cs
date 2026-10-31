@@ -113,6 +113,8 @@ public class SalesOrderDto
 
     public string? PaymentTerms { get; set; }
 
+    public Guid? PriceCardId { get; set; }
+
     public SalesOrderStatus Status { get; set; }
 
     public decimal SubTotal { get; set; }

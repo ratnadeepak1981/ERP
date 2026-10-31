@@ -1,0 +1,155 @@
+<div class="price-card-master-page">
+  <app-page-header
+    title="Price Cards"
+    subtitle="Configure common Purchase and Sales price cards, tiered unit prices, and validity periods."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Contextual Message Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)" aria-label="Dismiss banner">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Confirmation Dialog via Reusable ActionDialogComponent (NO direct PrimeNG) -->
+  <app-action-dialog
+    [visible]="isActionDialogVisible()"
+    (visibleChange)="isActionDialogVisible.set($event)"
+    [title]="pendingAction()?.title || 'Confirm Action'"
+    [confirmLabel]="pendingAction()?.confirmLabel || 'Confirm'"
+    [confirmSeverity]="pendingAction()?.severity || 'secondary'"
+    [loading]="actionLoading()"
+    (confirm)="executePendingAction()"
+    (cancel)="cancelPendingAction()"
+  >
+    <div class="dialog-confirmation-body">
+      {{ pendingAction()?.message }}
+    </div>
+  </app-action-dialog>
+
+  @if (loading() && priceCards().length === 0) {
+    <app-loading-state message="Loading price cards from server..."></app-loading-state>
+  } @else if (error() && priceCards().length === 0) {
+    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+  } @else {
+    <div class="price-card-table-card erp-card">
+      <!-- Toolbar Controls -->
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <!-- Search box -->
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="search-field"
+              placeholder="Search by code or name..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="onSearchChange($event)"
+            />
+          </div>
+
+          <!-- Type filter pills -->
+          <div class="filter-pills" role="radiogroup" aria-label="Price Card Type Filter">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="typeFilter() === 'ALL'"
+              (click)="onTypeFilterChange('ALL')"
+            >
+              All Types
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="typeFilter() === '1'"
+              (click)="onTypeFilterChange('1')"
+            >
+              Purchase
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="typeFilter() === '2'"
+              (click)="onTypeFilterChange('2')"
+            >
+              Sales
+            </button>
+          </div>
+
+          <!-- Status filter pills -->
+          <div class="filter-pills" role="radiogroup" aria-label="Status Filter">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'ALL'"
+              (click)="onStatusFilterChange('ALL')"
+            >
+              All Statuses
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'ACTIVE'"
+              (click)="onStatusFilterChange('ACTIVE')"
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="statusFilter() === 'INACTIVE'"
+              (click)="onStatusFilterChange('INACTIVE')"
+            >
+              Inactive
+            </button>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="action-buttons">
+          @if (canCreate()) {
+            <button
+              type="button"
+              class="erp-btn erp-btn-primary"
+              (click)="navigateToCreate()"
+            >
+              <i class="pi pi-plus"></i>
+              <span>New Price Card</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Overview Data Table using Reusable AppDataTableComponent -->
+      <app-data-table
+        [data]="priceCards()"
+        [columns]="tableColumns"
+        [rowActions]="tableActions"
+        rowKey="priceCardId"
+        [loading]="loading()"
+        emptyTitle="No price cards found"
+        emptyDescription="No price cards match your criteria. Create a new purchase or sales price card to get started."
+        [showGlobalSearch]="false"
+        [showColumnChooser]="true"
+        [showExport]="true"
+        [showViewSwitcher]="true"
+        cardTitleField="priceCardCode"
+        cardSubtitleField="priceCardName"
+        cardIcon="pi pi-tags"
+        [paginator]="true"
+        [rows]="pageSize()"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+        (queryChange)="onQueryChange($event)"
+      ></app-data-table>
+    </div>
+  }
+</div>

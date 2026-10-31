@@ -92,6 +92,20 @@ export class PurchaseOrderService {
       .pipe(map(res => res.data));
   }
 
+  refreshExchangeRate(
+    companyId: string,
+    branchId: string,
+    orderId: string,
+    request: { orderDate?: string; transactionCurrencyId?: string } = {}
+  ): Observable<PurchaseOrderDto> {
+    return this.http
+      .post<ApiResponse<PurchaseOrderDto>>(
+        this.buildPath(companyId, branchId, `/${orderId}/refresh-exchange-rate`),
+        request
+      )
+      .pipe(map(res => res.data));
+  }
+
   approveOrder(
     companyId: string,
     branchId: string,

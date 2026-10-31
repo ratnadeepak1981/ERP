@@ -26,7 +26,8 @@ import {
   SupplierAddressItem,
   AddressTypeItem,
   AddressItem,
-  PaymentTermItem
+  PaymentTermItem,
+  CurrencyItem
 } from '../../../../../core/models/scope.models';
 
 export type SupplierPageMode = 'create' | 'edit' | 'view';
@@ -91,6 +92,20 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
   // Payment Terms
   readonly paymentTermsList = signal<PaymentTermItem[]>([]);
 
+  // Currencies
+  readonly currenciesList = signal<CurrencyItem[]>([]);
+  readonly currencyOptions = computed(() => {
+    const list = this.currenciesList();
+    const opts = [{ label: '-- None (No default currency) --', value: '' }];
+    list.forEach(c => {
+      opts.push({
+        label: `${c.currencyCode} - ${c.currencyName} (${c.symbol})`,
+        value: c.currencyId
+      });
+    });
+    return opts;
+  });
+
   // Reactive Form
   readonly supplierForm = new FormGroup({
     supplierCode: new FormControl<string>('', {
@@ -113,6 +128,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
       nonNullable: true,
       validators: [Validators.required]
     }),
+    currencyId: new FormControl<string>('', { nonNullable: true }),
     leadTimeDays: new FormControl<number>(7, {
       nonNullable: true,
       validators: [Validators.min(0)]
@@ -258,6 +274,15 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
         colSpan: 1
       },
       {
+        name: 'currencyId',
+        label: 'Default Currency',
+        type: 'select',
+        placeholder: '-- Select Default Currency (Optional) --',
+        options: this.currencyOptions(),
+        disabled: isView,
+        colSpan: 1
+      },
+      {
         name: 'leadTimeDays',
         label: 'Standard Lead Time (Days)',
         type: 'number',
@@ -281,6 +306,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.detectRoute();
     this.loadPaymentTerms();
+    this.loadCurrencies();
 
     this.subs.add(
       this.route.paramMap.subscribe(() => {
@@ -296,6 +322,13 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
   private loadPaymentTerms(): void {
     this.masterDataService.getPaymentTerms().subscribe({
       next: terms => this.paymentTermsList.set(terms.filter(t => t.isActive)),
+      error: () => {}
+    });
+  }
+
+  private loadCurrencies(): void {
+    this.masterDataService.getCurrencies().subscribe({
+      next: list => this.currenciesList.set(list.filter(c => c.isActive)),
       error: () => {}
     });
   }
@@ -322,6 +355,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
         city: '',
         country: 'Sri Lanka',
         paymentTerms: 'Net 30',
+        currencyId: '',
         leadTimeDays: 7,
         isActive: true
       });
@@ -391,6 +425,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
       city: sup.city || '',
       country: sup.country || 'Sri Lanka',
       paymentTerms: sup.paymentTerms || 'Net 30',
+      currencyId: sup.currencyId || '',
       leadTimeDays: Number(sup.leadTimeDays) || 7,
       isActive: sup.isActive !== false
     });
@@ -521,6 +556,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
       city: val.city?.trim() || undefined,
       country: val.country?.trim() || undefined,
       paymentTerms: val.paymentTerms?.trim() || undefined,
+      currencyId: val.currencyId ? val.currencyId : null,
       leadTimeDays: Number(val.leadTimeDays) || 0,
       isActive: !!val.isActive
     };

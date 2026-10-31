@@ -1,0 +1,177 @@
+<div class="price-card-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <button
+        type="button"
+        class="erp-btn erp-btn-secondary erp-btn-sm"
+        (click)="navigateBack()"
+      >
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to Price Cards</span>
+      </button>
+
+      @if (currentPriceCard()) {
+        <app-status-badge
+          [label]="currentPriceCard()!.isActive ? 'Active' : 'Inactive'"
+          [severity]="currentPriceCard()!.isActive ? 'success' : 'neutral'"
+        ></app-status-badge>
+      }
+
+      @if (mode() === 'view' && currentPriceCard()) {
+        @if (currentPriceCard()!.isActive && canEdit()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary erp-btn-sm"
+            (click)="navigateToEdit()"
+          >
+            <i class="pi pi-pencil"></i>
+            <span>Edit</span>
+          </button>
+        }
+
+        @if (currentPriceCard()!.isActive && canManage()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-danger erp-btn-sm"
+            (click)="promptDeactivate()"
+          >
+            <i class="pi pi-ban"></i>
+            <span>Deactivate</span>
+          </button>
+        } @else if (!currentPriceCard()!.isActive && canManage()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-success erp-btn-sm"
+            (click)="promptReactivate()"
+          >
+            <i class="pi pi-replay"></i>
+            <span>Reactivate</span>
+          </button>
+        }
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Contextual Notification Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)" aria-label="Dismiss banner">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Dialog via Reusable ActionDialogComponent (NO direct PrimeNG) -->
+  <app-action-dialog
+    [visible]="isActionDialogVisible()"
+    (visibleChange)="isActionDialogVisible.set($event)"
+    [title]="pendingAction()?.title || 'Confirm Action'"
+    [confirmLabel]="pendingAction()?.confirmLabel || 'Confirm'"
+    [confirmSeverity]="pendingAction()?.severity || 'secondary'"
+    [loading]="actionLoading()"
+    (confirm)="executePendingAction()"
+    (cancel)="cancelPendingAction()"
+  >
+    <div class="dialog-confirmation-body">
+      {{ pendingAction()?.message }}
+    </div>
+  </app-action-dialog>
+
+  @if (loading()) {
+    <app-loading-state message="Loading price card details..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadCardData()"></app-error-state>
+  } @else {
+    <!-- SECTION 1: HEADER ATTRIBUTES VIA REUSABLE APPREACTIVEFORMCOMPONENT -->
+    <div class="erp-card-section erp-card">
+      <div class="section-title-bar">
+        <h3 class="section-title">
+          <i class="pi pi-file-edit"></i>
+          <span>Header Details</span>
+        </h3>
+        <p class="section-hint">General information, currency, and validity dates</p>
+      </div>
+
+      <app-reactive-form
+        [form]="headerForm"
+        [fields]="headerFields"
+        [readonly]="isReadonly()"
+        [serverErrors]="serverErrors()"
+        [columns]="3"
+      ></app-reactive-form>
+    </div>
+
+    <!-- SECTION 2: DETAIL LINES VIA REUSABLE APPEDITABLEDATATABLECOMPONENT -->
+    <div class="erp-card-section erp-card">
+      <div class="section-title-bar">
+        <h3 class="section-title">
+          <i class="pi pi-list"></i>
+          <span>Pricing Lines</span>
+        </h3>
+        <p class="section-hint">
+          @if (!isReadonly()) {
+            Click any cell to edit &bull; Press Tab at the last column or click Add Row to insert a line
+          } @else {
+            Read-only pricing items
+          }
+        </p>
+      </div>
+
+      <app-editable-data-table
+        [data]="lines()"
+        [columns]="lineColumns"
+        rowKey="lineId"
+        [readonly]="isReadonly()"
+        [allowAddRow]="!isReadonly()"
+        [allowDeleteRow]="!isReadonly()"
+        [currencyCode]="currentCurrency()"
+        [showSubtotal]="false"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+        searchPlaceholder="Filter items by product code or name..."
+        [defaultNewRow]="createBlankLine"
+        (dataChange)="onLinesDataChange($event)"
+        (cellValueChange)="onCellValueChange($event)"
+      ></app-editable-data-table>
+    </div>
+
+    <!-- FOOTER ACTIONS FOR CREATE / EDIT -->
+    @if (!isReadonly()) {
+      <div class="page-footer-actions">
+        <button
+          type="button"
+          class="erp-btn erp-btn-secondary"
+          (click)="navigateBack()"
+          [disabled]="saving()"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          class="erp-btn erp-btn-primary"
+          (click)="saveCard()"
+          [disabled]="saving()"
+        >
+          @if (saving()) {
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Saving...</span>
+          } @else {
+            <i class="pi pi-check"></i>
+            <span>{{ mode() === 'create' ? 'Create Price Card' : 'Update Price Card' }}</span>
+          }
+        </button>
+      </div>
+    }
+  }
+</div>

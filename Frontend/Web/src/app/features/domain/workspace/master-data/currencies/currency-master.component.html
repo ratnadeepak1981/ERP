@@ -1,0 +1,261 @@
+<div class="currencies-page">
+  <app-page-header
+    title="Currencies"
+    subtitle="Configure enterprise operational currencies, display symbols, decimal precision, and status."
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Contextual Message Banner -->
+  @if (message()) {
+    <div class="inline-message-banner" [class]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'error'
+      }"></i>
+      <span>{{ message()!.text }}</span>
+      <button type="button" class="btn-dismiss" (click)="message.set(null)">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Consequential Action Confirmation Banner (NO POPUP) -->
+  @if (pendingAction()) {
+    <div class="action-confirm-bar">
+      <div class="confirm-text">
+        <i class="pi pi-question-circle"></i>
+        <span>
+          Are you sure you want to <strong>{{ pendingAction()!.type }}</strong> currency
+          <strong>"{{ pendingAction()!.name }} ({{ pendingAction()!.code }})"</strong>?
+        </span>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelPendingAction()">Cancel</button>
+        <button
+          type="button"
+          class="p-button p-button-sm"
+          [class.p-button-danger]="pendingAction()!.type === 'deactivate'"
+          [class.p-button-primary]="pendingAction()!.type === 'reactivate'"
+          (click)="confirmPendingAction()"
+        >
+          Confirm {{ pendingAction()!.type | titlecase }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (loading()) {
+    <app-loading-state message="Loading currencies..."></app-loading-state>
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+  } @else {
+    <div class="content-card erp-card">
+      <!-- Toolbar -->
+      <div class="content-toolbar">
+        <div class="search-and-filter">
+          <div class="search-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm"
+              placeholder="Search by code, name, or symbol..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="pill-btn"
+              [class.active]="statusFilter() === 'ALL'"
+              (click)="statusFilter.set('ALL')"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              class="pill-btn"
+              [class.active]="statusFilter() === 'ACTIVE'"
+              (click)="statusFilter.set('ACTIVE')"
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              class="pill-btn"
+              [class.active]="statusFilter() === 'INACTIVE'"
+              (click)="statusFilter.set('INACTIVE')"
+            >
+              Inactive
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-actions">
+          @if (!showForm() && canCreate()) {
+            <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateForm()">
+              <i class="pi pi-plus"></i>
+              <span>Add Currency</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Inline Currency Form Panel (NO POPUP) -->
+      @if (showForm()) {
+        <div class="inline-form-card">
+          <div class="form-header">
+            <h4>{{ isEditing() ? 'Edit Currency' : 'New Currency' }}</h4>
+            <button type="button" class="btn-close" (click)="cancelForm()">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Currency Code <span class="required">*</span></label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm uppercase"
+                placeholder="e.g. USD, EUR, GBP, LKR"
+                [(ngModel)]="currencyCode"
+                [disabled]="isEditing()"
+                maxlength="10"
+              />
+              <small class="helper-text">ISO standard uppercase alphabetic currency code.</small>
+            </div>
+            <div class="form-group">
+              <label>Currency Name <span class="required">*</span></label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="e.g. US Dollar, Euro, Sri Lankan Rupee"
+                [(ngModel)]="currencyName"
+                maxlength="100"
+              />
+            </div>
+            <div class="form-group">
+              <label>Display Symbol <span class="required">*</span></label>
+              <input
+                type="text"
+                class="p-inputtext p-inputtext-sm"
+                placeholder="e.g. $, €, £, Rs."
+                [(ngModel)]="symbol"
+                maxlength="10"
+              />
+            </div>
+            <div class="form-group">
+              <label>Decimal Places <span class="required">*</span></label>
+              <input
+                type="number"
+                class="p-inputtext p-inputtext-sm"
+                [(ngModel)]="decimalPlaces"
+                min="0"
+                max="4"
+                step="1"
+              />
+              <small class="helper-text">Display decimal precision for monetary figures (0 to 4).</small>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="p-button p-button-sm p-button-secondary" (click)="cancelForm()" [disabled]="formSaving()">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="p-button p-button-sm p-button-primary"
+              (click)="saveCurrency()"
+              [disabled]="formSaving() || !currencyCode.trim() || !currencyName.trim() || !symbol.trim()"
+            >
+              @if (formSaving()) {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else {
+                <i class="pi pi-check"></i>
+              }
+              <span>{{ isEditing() ? 'Update Currency' : 'Save Currency' }}</span>
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Currencies Table -->
+      @if (filteredCurrencies().length === 0) {
+        <app-empty-state
+          title="No Currencies Found"
+          message="No currency records match your search filter. Add one using the button above."
+        ></app-empty-state>
+      } @else {
+        <div class="erp-table-responsive">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th style="width: 120px;">Code</th>
+                <th>Currency Name</th>
+                <th style="width: 100px;">Symbol</th>
+                <th style="width: 140px;">Decimal Places</th>
+                <th style="width: 120px;">Status</th>
+                <th style="width: 140px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (curr of filteredCurrencies(); track curr.currencyId) {
+                <tr [class.row-inactive]="!curr.isActive">
+                  <td>
+                    <span class="code-badge">{{ curr.currencyCode }}</span>
+                  </td>
+                  <td>
+                    <strong>{{ curr.currencyName }}</strong>
+                  </td>
+                  <td>
+                    <span class="symbol-badge">{{ curr.symbol }}</span>
+                  </td>
+                  <td>
+                    <span class="precision-badge">{{ curr.decimalPlaces }} decimals</span>
+                  </td>
+                  <td>
+                    <app-status-badge [status]="curr.isActive ? 'Active' : 'Inactive'"></app-status-badge>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="row-actions">
+                      @if (canEdit()) {
+                        <button
+                          type="button"
+                          class="btn-icon"
+                          title="Edit Currency"
+                          (click)="openEditForm(curr)"
+                        >
+                          <i class="pi pi-pencil"></i>
+                        </button>
+                      }
+                      @if (canDelete()) {
+                        @if (curr.isActive) {
+                          <button
+                            type="button"
+                            class="btn-icon btn-icon-danger"
+                            title="Deactivate Currency"
+                            (click)="promptDeactivate(curr)"
+                          >
+                            <i class="pi pi-ban"></i>
+                          </button>
+                        } @else {
+                          <button
+                            type="button"
+                            class="btn-icon btn-icon-success"
+                            title="Reactivate Currency"
+                            (click)="promptReactivate(curr)"
+                          >
+                            <i class="pi pi-replay"></i>
+                          </button>
+                        }
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

@@ -75,7 +75,7 @@ public class BrandController : BaseApiController
         try
         {
             var brand = await _brandService.CreateBrandAsync(tenantId.Value, request);
-            return CreatedResponse(nameof(GetBrand), new { id = brand.BrandId }, brand);
+            return CreatedResponse(brand, "Brand created successfully.");
         }
         catch (Exception ex)
         {
