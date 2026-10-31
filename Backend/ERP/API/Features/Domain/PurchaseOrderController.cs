@@ -245,6 +245,33 @@ public class PurchaseOrderController : BaseApiController
         }
     }
 
+    [HttpPost("{orderId:guid}/refresh-exchange-rate")]
+    [RequirePermission("PURCHASE_ORDER.EDIT")]
+    public async Task<IActionResult> RefreshExchangeRate(
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        [FromBody] RefreshPurchaseOrderCurrencyRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var order = await _orderService.RefreshCurrencyAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                orderId,
+                request);
+            return SuccessResponse(order, "Purchase order exchange-rate snapshot refreshed.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost("{orderId:guid}/submit")]
     [RequirePermission("PURCHASE_ORDER.SUBMIT")]
     public async Task<IActionResult> SubmitOrder(

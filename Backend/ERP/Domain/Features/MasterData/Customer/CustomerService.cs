@@ -53,6 +53,17 @@ public class CustomerService : ICustomerService
         if (await _repository.ExistsByNameAsync(tenantId, name))
             throw new InvalidOperationException($"Customer name '{name}' already exists for this tenant.");
 
+        string? paymentTermsText = request.PaymentTerms?.Trim();
+
+        if (request.CurrencyId.HasValue)
+        {
+            var currency = await _context.Currencies.FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CurrencyId == request.CurrencyId.Value);
+            if (currency == null)
+                throw new InvalidOperationException("Selected default currency was not found or does not belong to this tenant.");
+            if (!currency.IsActive)
+                throw new InvalidOperationException("Selected default currency is inactive.");
+        }
+
         var customer = Customer.Create(
             tenantId,
             code,
@@ -67,7 +78,9 @@ public class CustomerService : ICustomerService
             request.Country?.Trim(),
             request.TaxNumber?.Trim(),
             request.CreditLimit,
-            request.PaymentTerms?.Trim());
+            paymentTermsText,
+            null,
+            request.CurrencyId);
 
         await _repository.AddCustomerAsync(customer);
         await _repository.SaveChangesAsync();
@@ -168,6 +181,17 @@ public class CustomerService : ICustomerService
         if (customer.CustomerName != name && await _repository.ExistsByNameAsync(tenantId, name))
             throw new InvalidOperationException($"Customer name '{name}' already exists for this tenant.");
 
+        string? paymentTermsText = request.PaymentTerms?.Trim();
+
+        if (request.CurrencyId.HasValue)
+        {
+            var currency = await _context.Currencies.FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CurrencyId == request.CurrencyId.Value);
+            if (currency == null)
+                throw new InvalidOperationException("Selected default currency was not found or does not belong to this tenant.");
+            if (!currency.IsActive && customer.CurrencyId != request.CurrencyId.Value)
+                throw new InvalidOperationException("Selected default currency is inactive.");
+        }
+
         customer.Update(
             name,
             request.ContactPerson?.Trim(),
@@ -175,12 +199,13 @@ public class CustomerService : ICustomerService
             request.Phone?.Trim(),
             request.AddressLine1?.Trim(),
             request.AddressLine2?.Trim(),
-            request.City?.Trim(),
+            request.City.Trim(),
             request.PostalCode?.Trim(),
             request.Country?.Trim(),
             request.TaxNumber?.Trim(),
             request.CreditLimit,
-            request.PaymentTerms?.Trim());
+            paymentTermsText,
+            request.CurrencyId);
 
         await _repository.SaveChangesAsync();
         return customer;

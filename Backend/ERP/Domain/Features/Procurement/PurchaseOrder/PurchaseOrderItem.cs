@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Features.Procurement.PurchaseOrder;
 
@@ -11,6 +12,15 @@ public class PurchaseOrderItem
     public Guid ProductId { get; set; }
 
     public Guid? UnitOfMeasureId { get; set; }
+
+    [NotMapped]
+    public string? UnitOfMeasureCode { get; set; }
+
+    /// <summary>
+    /// Tracks which supplier price-card entry was used to derive the unit price and UOM.
+    /// Null when the unit price was supplied directly in the request.
+    /// </summary>
+    public Guid? SupplierProductPriceId { get; set; }
 
     public decimal Quantity { get; set; }
 

@@ -19,6 +19,7 @@ public class CustomerRepository : ICustomerRepository
     public async Task<List<Customer>> GetCustomersAsync(Guid tenantId)
     {
         return await _context.Customers
+            .Include(x => x.Currency)
             .Where(x => x.TenantId == tenantId && x.IsActive)
             .ToListAsync();
     }
@@ -26,6 +27,7 @@ public class CustomerRepository : ICustomerRepository
     public async Task<Customer?> GetCustomerByIdAsync(Guid tenantId, Guid customerId)
     {
         return await _context.Customers
+            .Include(x => x.Currency)
             .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.CustomerId == customerId && x.IsActive);
     }
 

@@ -318,6 +318,9 @@ export interface SupplierItem {
   country?: string;
   paymentTerms?: string;
   leadTimeDays?: number;
+  currencyId?: string | null;
+  currencyCode?: string | null;
+  defaultPurchasePriceCardId?: string | null;
   isActive: boolean;
   createdAt?: string;
 }
@@ -332,6 +335,7 @@ export interface CreateSupplierDto {
   country?: string;
   paymentTerms?: string;
   leadTimeDays?: number;
+  currencyId?: string | null;
   isActive?: boolean;
 }
 
@@ -351,6 +355,8 @@ export interface CustomerItem {
   taxNumber?: string;
   creditLimit?: number;
   paymentTerms?: string;
+  currencyId?: string | null;
+  currencyCode?: string | null;
   isActive: boolean;
   createdAt?: string;
 }
@@ -369,6 +375,7 @@ export interface CreateCustomerDto {
   taxNumber?: string;
   creditLimit?: number;
   paymentTerms?: string;
+  currencyId?: string | null;
 }
 
 export interface UnitOfMeasureConversionItem {
@@ -388,6 +395,21 @@ export interface CurrencyItem {
   symbol: string;
   decimalPlaces: number;
   isActive: boolean;
+  createdAt?: string;
+  modifiedAt?: string;
+}
+
+export interface CreateCurrencyDto {
+  currencyCode: string;
+  currencyName: string;
+  symbol: string;
+  decimalPlaces: number;
+}
+
+export interface UpdateCurrencyDto {
+  currencyName: string;
+  symbol: string;
+  decimalPlaces: number;
 }
 
 export interface BrandItem {

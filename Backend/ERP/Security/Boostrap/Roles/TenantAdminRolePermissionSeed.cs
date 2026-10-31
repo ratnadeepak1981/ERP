@@ -76,6 +76,7 @@ public static class TenantAdminRolePermissionSeed
             "GRN.VIEW",
             "GRN.CREATE",
             "GRN.EDIT",
+            "GRN.DELETE",
             "GRN.CANCEL",
             "GRN.CONFIRM",
 
@@ -154,6 +155,14 @@ public static class TenantAdminRolePermissionSeed
             "SUPPLIER_PRICE.CREATE",
             "SUPPLIER_PRICE.EDIT",
             "SUPPLIER_PRICE.DELETE",
+
+            "PRICE_CARD.VIEW",
+            "PRICE_CARD.CREATE",
+            "PRICE_CARD.EDIT",
+            "PRICE_CARD.MANAGE",
+            "PRICE_CARD.OVERRIDE",
+            "SUPPLIER.PRICE_CARD.ASSIGN",
+            "CUSTOMER.PRICE_CARD.ASSIGN",
 
             "COUNTRY.VIEW",
 

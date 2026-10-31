@@ -59,6 +59,8 @@ describe('GoodsReceiptPageComponent', () => {
         productId: 'prod-1',
         productCode: 'RAW-001',
         productName: 'Steel Sheet 2mm',
+        unitOfMeasureId: 'uom-kg',
+        unitOfMeasureCode: 'KG',
         quantity: 20,
         receivedQuantity: 5, // 5 previously received
         unitPrice: 25.0,
@@ -160,6 +162,8 @@ describe('GoodsReceiptPageComponent', () => {
     expect(lines[0].previouslyReceivedQuantity).toBe(5);
     expect(lines[0].outstandingQuantity).toBe(15);
     expect(lines[0].receivedQuantityNow).toBe(15);
+    expect(lines[0].unitOfMeasure).toBe('KG');
+    expect(lines[0].unitOfMeasureId).toBe('uom-kg');
     expect(lines[0].unitCost).toBe(25.0); // PO unit price
     expect(lines[0].lineTotal).toBe(375.0);
 
@@ -189,6 +193,26 @@ describe('GoodsReceiptPageComponent', () => {
     expect(component.poIneligibleError()).toContain('Only Approved Purchase Orders can be received');
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.ineligible-card')).toBeTruthy();
+  });
+
+  it('should calculate the GRN preview with the PO discount', () => {
+    const discountedPo: PurchaseOrderDto = {
+      ...mockApprovedPo,
+      items: mockApprovedPo.items.map(item => ({
+        ...item,
+        discountRate: 10,
+        subTotal: 500,
+        discountAmount: 50
+      }))
+    };
+    vi.spyOn(poService, 'getOrder').mockReturnValue(of(discountedPo));
+
+    fixture.detectChanges();
+
+    expect(component.workingLines()[0].lineTotal).toBe(337.5);
+    component.workingLines()[0].receivedQuantityNow = 10;
+    component.calculateRow(component.workingLines()[0]);
+    expect(component.workingLines()[0].lineTotal).toBe(225);
   });
 
   it('should prevent over-receipt where receivedQuantityNow exceeds outstandingQuantity', () => {
@@ -254,6 +278,7 @@ describe('GoodsReceiptPageComponent', () => {
     vi.spyOn(route.snapshot.paramMap, 'get').mockImplementation((k: string) => (k === 'id' ? 'grn-201' : null));
     vi.spyOn(route.snapshot.queryParamMap, 'get').mockReturnValue(null);
     vi.spyOn(grnService, 'getGrn').mockReturnValue(of(mockSavedGrn));
+    vi.spyOn(poService, 'getOrder').mockReturnValue(of(mockApprovedPo));
 
     fixture.detectChanges();
 
@@ -261,11 +286,43 @@ describe('GoodsReceiptPageComponent', () => {
     expect(component.currentGrn()).toEqual(mockSavedGrn);
     expect(component.headerForm.get('grnNumber')?.value).toBe('GRN-2026-001');
     expect(component.grnStatusName()).toBe('Draft');
+    expect(component.workingLines()[0].unitOfMeasure).toBe('KG');
+    expect(component.workingLines()[0].unitOfMeasureId).toBe('uom-kg');
 
     // All columns in view mode must be read-only
     const cols = component.itemColumns();
     const receivedNowCol = cols.find(c => c.field === 'receivedQuantityNow');
     expect(receivedNowCol?.editable).toBe(false);
+  });
+
+  it('should edit and save an existing draft using the update endpoint', () => {
+    const route = TestBed.inject(ActivatedRoute);
+    vi.spyOn(route.snapshot.paramMap, 'get').mockImplementation((k: string) => (k === 'id' ? 'grn-201' : null));
+    vi.spyOn(route.snapshot.queryParamMap, 'get').mockReturnValue(null);
+    vi.spyOn(grnService, 'getGrn').mockReturnValue(of(mockSavedGrn));
+    vi.spyOn(poService, 'getOrder').mockReturnValue(of(mockApprovedPo));
+    const updateSpy = vi.spyOn(grnService, 'updateDraft').mockReturnValue(of(mockSavedGrn));
+
+    fixture.detectChanges();
+    component.editCurrentDraft();
+    component.workingLines()[0].receivedQuantityNow = 12;
+    component.calculateRow(component.workingLines()[0]);
+    component.saveReceipt(false);
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      mockCompany.id,
+      mockBranch.id,
+      'grn-201',
+      expect.objectContaining({
+        lines: expect.arrayContaining([
+          expect.objectContaining({
+            purchaseOrderItemId: 'poi-1',
+            quantityReceived: 12
+          })
+        ])
+      })
+    );
+    expect(component.editingDraft()).toBe(false);
   });
 
   it('should render AccessDeniedComponent when PO fetch returns 403 Forbidden', () => {

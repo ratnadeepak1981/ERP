@@ -185,7 +185,9 @@ export class TenantLayoutComponent implements OnInit {
           { label: 'Products', icon: 'pi pi-box', route: '/app/master-data/products' },
           { label: 'Customers', icon: 'pi pi-users', route: '/app/master-data/customers' },
           { label: 'Suppliers', icon: 'pi pi-truck', route: '/app/master-data/suppliers' },
-          { label: 'Warehouses & Locations', icon: 'pi pi-building', route: '/app/master-data/warehouses' }
+          { label: 'Warehouses & Locations', icon: 'pi pi-building', route: '/app/master-data/warehouses' },
+          { label: 'Price Cards', icon: 'pi pi-tags', route: '/app/master-data/price-cards' },
+          { label: 'Currencies', icon: 'pi pi-dollar', route: '/app/master-data/currencies' }
         ]
       }
     ];

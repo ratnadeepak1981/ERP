@@ -74,6 +74,9 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
         builder.Property(x => x.UnitOfMeasureId)
             .IsRequired(false);
 
+        builder.Property(x => x.SupplierProductPriceId)
+            .IsRequired(false);
+
         builder.HasOne<Product>()
             .WithMany()
             .HasForeignKey(x => x.ProductId)

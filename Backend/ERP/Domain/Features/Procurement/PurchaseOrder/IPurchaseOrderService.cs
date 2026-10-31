@@ -42,6 +42,13 @@ public interface IPurchaseOrderService
         Guid orderId,
         CreatePurchaseOrderItemRequest request);
 
+    Task<PurchaseOrder> RefreshCurrencyAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        RefreshPurchaseOrderCurrencyRequest request);
+
     Task<PurchaseOrder> SubmitOrderAsync(
         Guid tenantId,
         Guid companyId,

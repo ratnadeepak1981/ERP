@@ -10,7 +10,8 @@ import { MasterDataService } from '../../../../core/services/master-data.service
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { PurchaseOrderDto, PurchaseOrderStatus } from '../../../../core/models/purchase-order.models';
-import { SupplierItem, ProductItem, Company, Branch } from '../../../../core/models/scope.models';
+import { SupplierItem, ProductItem, Company, Branch, CurrencyItem } from '../../../../core/models/scope.models';
+import { PriceCardItem, PriceCardType } from '../../../../core/models/price-card.models';
 
 describe('PurchaseOrderPageComponent', () => {
   let component: PurchaseOrderPageComponent;
@@ -54,6 +55,40 @@ describe('PurchaseOrderPageComponent', () => {
       isActive: true
     }
   ];
+
+  const mockCurrencies: CurrencyItem[] = [
+    {
+      currencyId: 'currency-usd',
+      tenantId: 't1',
+      currencyCode: 'USD',
+      currencyName: 'US Dollar',
+      symbol: '$',
+      decimalPlaces: 2,
+      isActive: true
+    },
+    {
+      currencyId: 'currency-eur',
+      tenantId: 't1',
+      currencyCode: 'EUR',
+      currencyName: 'Euro',
+      symbol: '€',
+      decimalPlaces: 2,
+      isActive: true
+    }
+  ];
+
+  const mockPurchasePriceCard: PriceCardItem = {
+    priceCardId: 'pc-eur',
+    tenantId: 't1',
+    priceCardCode: 'PUR-EUR',
+    priceCardName: 'Euro Purchase Card',
+    priceCardType: PriceCardType.Purchase,
+    currency: 'EUR',
+    effectiveFrom: '2026-01-01',
+    isActive: true,
+    lineCount: 0,
+    lines: []
+  };
 
   const mockProducts: ProductItem[] = [
     {
@@ -146,6 +181,14 @@ describe('PurchaseOrderPageComponent', () => {
 
     vi.spyOn(masterDataService, 'getSuppliers').mockReturnValue(of(mockSuppliers));
     vi.spyOn(masterDataService, 'getProducts').mockReturnValue(of(mockProducts));
+    vi.spyOn(masterDataService, 'getCurrencies').mockReturnValue(of(mockCurrencies));
+    vi.spyOn(masterDataService, 'getPriceCards').mockReturnValue(of({
+      items: [mockPurchasePriceCard],
+      totalCount: 1,
+      page: 1,
+      pageSize: 100,
+      hasMore: false
+    }));
     scopeService.companies.set([mockCompanyA, mockCompanyB]);
     scopeService.branches.set([mockBranchA]);
     scopeService.selectedCompany.set(mockCompanyA);
@@ -188,6 +231,73 @@ describe('PurchaseOrderPageComponent', () => {
     expect(component.message()?.text).toContain('Please correct required fields');
   });
 
+  it('uses the supplier default Price Card currency when the supplier is selected', () => {
+    vi.spyOn(masterDataService, 'getSuppliers').mockReturnValue(of([
+      { ...mockSuppliers[0], defaultPurchasePriceCardId: mockPurchasePriceCard.priceCardId }
+    ]));
+    fixture.detectChanges();
+
+    component.headerForm.controls.supplierId.setValue(mockSuppliers[0].supplierId);
+
+    expect(component.headerForm.controls.priceCardId.value).toBe(mockPurchasePriceCard.priceCardId);
+    expect(component.headerForm.controls.currency.value).toBe('EUR');
+  });
+
+  it('uses the supplier default currency and permits a manual currency override without a Price Card', () => {
+    vi.spyOn(masterDataService, 'getSuppliers').mockReturnValue(of([
+      { ...mockSuppliers[0], currencyCode: 'EUR' }
+    ]));
+    const createOrder = vi.spyOn(poService, 'createOrder').mockReturnValue(of(mockOrder));
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    fixture.detectChanges();
+
+    component.headerForm.patchValue({
+      supplierId: mockSuppliers[0].supplierId,
+      currency: 'USD'
+    });
+    component.workingLines.set([{
+      lineId: 'new-line',
+      productId: 'p1',
+      productCode: 'RAW-001',
+      productName: 'Steel Sheet 2mm',
+      quantity: 1,
+      unitCost: 20,
+      lineTotal: 20
+    }]);
+
+    component.saveOrder(false);
+
+    expect(createOrder).toHaveBeenCalledWith(
+      mockCompanyA.id,
+      mockBranchA.id,
+      expect.objectContaining({ currency: 'USD', priceCardId: null })
+    );
+  });
+
+  it('rejects a PO currency that differs from its selected Price Card currency', () => {
+    const createOrder = vi.spyOn(poService, 'createOrder');
+    fixture.detectChanges();
+    component.headerForm.patchValue({
+      supplierId: mockSuppliers[0].supplierId,
+      currency: 'USD',
+      priceCardId: mockPurchasePriceCard.priceCardId
+    });
+    component.workingLines.set([{
+      lineId: 'new-line',
+      productId: 'p1',
+      productCode: 'RAW-001',
+      productName: 'Steel Sheet 2mm',
+      quantity: 1,
+      unitCost: 20,
+      lineTotal: 20
+    }]);
+
+    component.saveOrder(false);
+
+    expect(component.message()?.text).toContain('PO currency must match');
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
   it('should prompt confirmation when user changes company with dirty line items', () => {
     fixture.detectChanges();
 
@@ -228,7 +338,8 @@ describe('PurchaseOrderPageComponent', () => {
     component.headerForm.patchValue({
       orderNumber: 'PO-2026-999',
       supplierId: 's1',
-      orderDate: '2026-10-18'
+      orderDate: '2026-10-18',
+      currency: 'USD'
     });
 
     component.workingLines.set([
@@ -272,7 +383,8 @@ describe('PurchaseOrderPageComponent', () => {
     component.headerForm.patchValue({
       orderNumber: 'PO-2026-999',
       supplierId: 's1',
-      orderDate: '2026-10-18'
+      orderDate: '2026-10-18',
+      currency: 'USD'
     });
 
     component.workingLines.set([
@@ -452,7 +564,8 @@ describe('PurchaseOrderPageComponent', () => {
       component.headerForm.patchValue({
         orderNumber: 'PO-2026-MULTI',
         supplierId: 's1',
-        orderDate: '2026-10-18'
+        orderDate: '2026-10-18',
+        currency: 'USD'
       });
 
       const threeLines = [

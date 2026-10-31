@@ -43,11 +43,13 @@ public static class RepositoryRegistration
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryRepository, ERP.Domain.Features.MasterData.Category.CategoryRepository>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureRepository, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureRepository>();
         services.AddScoped<Domain.Features.MasterData.Currency.ICurrencyRepository, Domain.Features.MasterData.Currency.CurrencyRepository>();
+        services.AddScoped<Domain.Features.MasterData.Currency.IExchangeRateRepository, Domain.Features.MasterData.Currency.ExchangeRateRepository>();
         services.AddScoped<Domain.Features.MasterData.Brand.IBrandRepository, Domain.Features.MasterData.Brand.BrandRepository>();
         services.AddScoped<Domain.Features.MasterData.PaymentTerm.IPaymentTermRepository, Domain.Features.MasterData.PaymentTerm.PaymentTermRepository>();
         services.AddScoped<Domain.Features.MasterData.TaxCode.ITaxCodeRepository, Domain.Features.MasterData.TaxCode.TaxCodeRepository>();
         services.AddScoped<ERP.Domain.Features.MasterData.Customer.ICustomerRepository, ERP.Domain.Features.MasterData.Customer.CustomerRepository>();
         services.AddScoped<ERP.Domain.Features.MasterData.Supplier.ISupplierRepository, ERP.Domain.Features.MasterData.Supplier.SupplierRepository>();
+        services.AddScoped<Domain.Features.MasterData.PriceCard.IPriceCardRepository, Domain.Features.MasterData.PriceCard.PriceCardRepository>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseRepository, ERP.Domain.Features.MasterData.Warehouse.WarehouseRepository>();
         services.AddScoped<Domain.Features.MasterData.Address.IAddressRepository, Domain.Features.MasterData.Address.AddressRepository>();
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceRepository, Domain.Features.MasterData.Supplier.SupplierProductPriceRepository>();
