@@ -17,7 +17,7 @@ import { CompanyService } from '../../../../core/services/company.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { Company, Branch } from '../../../../core/models/scope.models';
+import { Company, Branch, CurrencyItem } from '../../../../core/models/scope.models';
 
 export interface OnboardingStep {
   stepNumber: number;
@@ -61,6 +61,8 @@ export class CompanySetupComponent implements OnInit {
   readonly saving = signal<boolean>(false);
   readonly companies = signal<Company[]>([]);
   readonly branches = signal<Branch[]>([]);
+  readonly activeCurrencies = signal<CurrencyItem[]>([]);
+  readonly currenciesLoading = signal<boolean>(false);
   readonly warehouseCount = signal<number>(0);
   readonly productCount = signal<number>(0);
   readonly steps = signal<OnboardingStep[]>([]);
@@ -118,7 +120,7 @@ export class CompanySetupComponent implements OnInit {
     return this.companies().map(c => ({
       ...c,
       status: c.isActive ? 'Active' : 'Inactive',
-      currency: c.baseCurrencyCode || c.currency || 'USD',
+      currency: c.baseCurrencyCode || 'Not set',
       branchCount: branchCountStr
     }));
   });
@@ -217,7 +219,7 @@ export class CompanySetupComponent implements OnInit {
   // Add Company Form
   newCompanyName = '';
   newCompanyCode = '';
-  newCompanyCurrency = 'USD';
+  newCompanyCurrencyId = '';
 
   // Add Branch Form
   newBranchCompanyId = '';
@@ -227,7 +229,7 @@ export class CompanySetupComponent implements OnInit {
   // Initial Organization Setup Wizard Form
   initCompanyName = '';
   initCompanyCode = '';
-  initCompanyCurrency = 'USD';
+  initCompanyCurrencyId = '';
   initBranchName = '';
   initBranchCode = '';
 
@@ -237,7 +239,23 @@ export class CompanySetupComponent implements OnInit {
   ];
 
   ngOnInit(): void {
+    this.loadCurrencies();
     this.loadOnboardingState();
+  }
+
+  private loadCurrencies(): void {
+    this.currenciesLoading.set(true);
+    this.masterDataService.getCurrencies().subscribe({
+      next: currencies => {
+        this.activeCurrencies.set(currencies.filter(currency => currency.isActive));
+        this.currenciesLoading.set(false);
+      },
+      error: err => {
+        this.activeCurrencies.set([]);
+        this.currenciesLoading.set(false);
+        this.formError.set(err?.error?.message || 'Unable to load active currencies.');
+      }
+    });
   }
 
   loadOnboardingState(): void {
@@ -353,7 +371,9 @@ export class CompanySetupComponent implements OnInit {
   openAddCompanyModal(): void {
     this.newCompanyName = '';
     this.newCompanyCode = '';
-    this.newCompanyCurrency = 'USD';
+    this.newCompanyCurrencyId = this.scopeService.selectedCompany()?.baseCurrencyId
+      || this.activeCurrencies()[0]?.currencyId
+      || '';
     this.formError.set(null);
     this.showAddCompanyDialog.set(true);
   }
@@ -361,10 +381,16 @@ export class CompanySetupComponent implements OnInit {
   saveCompany(): void {
     const trimmedName = this.newCompanyName.trim();
     const trimmedCode = this.newCompanyCode.trim().toUpperCase();
-    const trimmedCurrency = (this.newCompanyCurrency || 'USD').trim().toUpperCase();
+    const selectedCurrency = this.activeCurrencies().find(
+      currency => currency.currencyId === this.newCompanyCurrencyId
+    );
 
     if (!trimmedName || !trimmedCode) {
       this.formError.set('Company name and company code are required.');
+      return;
+    }
+    if (!selectedCurrency) {
+      this.formError.set('Select an active company base currency.');
       return;
     }
 
@@ -374,7 +400,8 @@ export class CompanySetupComponent implements OnInit {
     this.companyService.createCompany({
       name: trimmedName,
       code: trimmedCode,
-      currency: trimmedCurrency
+      currency: selectedCurrency.currencyCode,
+      baseCurrencyId: selectedCurrency.currencyId
     }).subscribe({
       next: (comp) => {
         this.saving.set(false);
@@ -446,7 +473,7 @@ export class CompanySetupComponent implements OnInit {
 
     this.initCompanyName = `${titleCase} (Pvt) Ltd`;
     this.initCompanyCode = `${shortCode}-MFG`;
-    this.initCompanyCurrency = 'USD';
+    this.initCompanyCurrencyId = this.activeCurrencies()[0]?.currencyId || '';
     this.initBranchName = `${titleCase} Main Branch`;
     this.initBranchCode = `${shortCode}-BR01`;
     this.formError.set(null);
@@ -456,12 +483,18 @@ export class CompanySetupComponent implements OnInit {
   saveInitWizard(): void {
     const cName = this.initCompanyName.trim();
     const cCode = this.initCompanyCode.trim().toUpperCase();
-    const cCurr = (this.initCompanyCurrency || 'USD').trim().toUpperCase();
+    const selectedCurrency = this.activeCurrencies().find(
+      currency => currency.currencyId === this.initCompanyCurrencyId
+    );
     const bName = this.initBranchName.trim();
     const bCode = this.initBranchCode.trim().toUpperCase();
 
     if (!cName || !cCode) {
       this.formError.set('Company name and company code are required.');
+      return;
+    }
+    if (!selectedCurrency) {
+      this.formError.set('Select an active company base currency.');
       return;
     }
     if (!bName || !bCode) {
@@ -472,18 +505,21 @@ export class CompanySetupComponent implements OnInit {
     this.saving.set(true);
     this.formError.set(null);
 
-    this.companyService.initializeDefaultCompanyAndBranch(undefined, {
-      companyName: cName,
-      companyCode: cCode,
-      currency: cCurr,
-      branchName: bName,
-      branchCode: bCode
+    this.companyService.createCompany({
+      name: cName,
+      code: cCode,
+      currency: selectedCurrency.currencyCode,
+      baseCurrencyId: selectedCurrency.currencyId
     }).subscribe({
-      next: ({ company, branch }) => {
+      next: (company) => {
+        const branch = this.companyService.createBranch(company.id, {
+          name: bName,
+          code: bCode
+        });
         this.saving.set(false);
         this.showInitWizardDialog.set(false);
         this.scopeService.selectCompany(company);
-        this.scopeService.selectBranch(branch);
+        branch.subscribe(createdBranch => this.scopeService.selectBranch(createdBranch));
         this.loadOnboardingState();
       },
       error: (err) => {

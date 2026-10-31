@@ -19,6 +19,7 @@ public class CategoryRepository : ICategoryRepository
     public async Task<List<Category>> GetByTenantAsync(Guid tenantId)
     {
         return await _context.Categories
+            .AsNoTracking()
             .Where(x => x.TenantId == tenantId && x.IsActive)
             .ToListAsync();
     }
@@ -26,6 +27,7 @@ public class CategoryRepository : ICategoryRepository
     public async Task<Category?> GetByIdAsync(Guid tenantId, Guid categoryId)
     {
         return await _context.Categories
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.CategoryId == categoryId && x.IsActive);
     }
 

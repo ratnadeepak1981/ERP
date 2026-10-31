@@ -18,6 +18,7 @@ public class CreateCustomerRequest
     public string? TaxNumber { get; set; }
     public decimal CreditLimit { get; set; }
     public string? PaymentTerms { get; set; }
+    public Guid? CurrencyId { get; set; }
 }
 
 public class UpdateCustomerRequest
@@ -34,6 +35,7 @@ public class UpdateCustomerRequest
     public string? TaxNumber { get; set; }
     public decimal CreditLimit { get; set; }
     public string? PaymentTerms { get; set; }
+    public Guid? CurrencyId { get; set; }
 }
 
 public class CustomerAddressLinkRequest

@@ -30,6 +30,13 @@ public static class GoodsReceiptNotePermissionSeed
 
         await SeedPermissionAsync(
             repository,
+            "GRN.DELETE",
+            "Delete Goods Receipt Note Draft",
+            "GoodsReceiptNote",
+            "Allows deleting draft goods receipt notes.");
+
+        await SeedPermissionAsync(
+            repository,
             "GRN.CANCEL",
             "Cancel Goods Receipt Note",
             "GoodsReceiptNote",

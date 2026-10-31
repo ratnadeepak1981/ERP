@@ -26,7 +26,8 @@ import {
   CustomerAddressItem,
   AddressTypeItem,
   AddressItem,
-  PaymentTermItem
+  PaymentTermItem,
+  CurrencyItem
 } from '../../../../../core/models/scope.models';
 
 export type CustomerPageMode = 'create' | 'edit' | 'view';
@@ -91,6 +92,20 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
   // Payment Terms
   readonly paymentTermsList = signal<PaymentTermItem[]>([]);
 
+  // Currencies
+  readonly currenciesList = signal<CurrencyItem[]>([]);
+  readonly currencyOptions = computed(() => {
+    const list = this.currenciesList();
+    const opts = [{ label: '-- None (No default currency) --', value: '' }];
+    list.forEach(c => {
+      opts.push({
+        label: `${c.currencyCode} - ${c.currencyName} (${c.symbol})`,
+        value: c.currencyId
+      });
+    });
+    return opts;
+  });
+
   // Reactive Form
   readonly customerForm = new FormGroup({
     customerCode: new FormControl<string>('', {
@@ -124,6 +139,7 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
       nonNullable: true,
       validators: [Validators.required]
     }),
+    currencyId: new FormControl<string>('', { nonNullable: true }),
     isActive: new FormControl<boolean>(true, { nonNullable: true })
   });
 
@@ -298,6 +314,15 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
         colSpan: 1
       },
       {
+        name: 'currencyId',
+        label: 'Default Currency',
+        type: 'select',
+        placeholder: '-- Select Default Currency (Optional) --',
+        options: this.currencyOptions(),
+        disabled: isView,
+        colSpan: 1
+      },
+      {
         name: 'creditLimit',
         label: 'Approved Credit Limit (LKR)',
         type: 'number',
@@ -321,6 +346,7 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.detectRoute();
     this.loadPaymentTerms();
+    this.loadCurrencies();
 
     this.subs.add(
       this.route.paramMap.subscribe(() => {
@@ -336,6 +362,13 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
   private loadPaymentTerms(): void {
     this.masterDataService.getPaymentTerms().subscribe({
       next: terms => this.paymentTermsList.set(terms.filter(t => t.isActive)),
+      error: () => {}
+    });
+  }
+
+  private loadCurrencies(): void {
+    this.masterDataService.getCurrencies().subscribe({
+      next: list => this.currenciesList.set(list.filter(c => c.isActive)),
       error: () => {}
     });
   }
@@ -367,6 +400,7 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
         taxNumber: '',
         creditLimit: 0,
         paymentTerms: 'Net 30',
+        currencyId: '',
         isActive: true
       });
       this.customerForm.get('customerCode')?.enable();
@@ -440,6 +474,7 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
       taxNumber: cust.taxNumber || '',
       creditLimit: Number(cust.creditLimit) || 0,
       paymentTerms: cust.paymentTerms || 'Net 30',
+      currencyId: cust.currencyId || '',
       isActive: cust.isActive !== false
     });
 
@@ -573,7 +608,8 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
       country: val.country?.trim() || undefined,
       taxNumber: val.taxNumber?.trim() || undefined,
       creditLimit: Number(val.creditLimit) || 0,
-      paymentTerms: val.paymentTerms?.trim() || undefined
+      paymentTerms: val.paymentTerms?.trim() || undefined,
+      currencyId: val.currencyId ? val.currencyId : null
     };
 
     if (this.mode() !== 'create' && this.customerId()) {

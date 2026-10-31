@@ -20,7 +20,25 @@
           [severity]="grnStatusSeverity()"
         ></app-status-badge>
 
-        @if (currentGrn()?.status === 1) {
+        @if (isDraft() && !editingDraft()) {
+          <p-button
+            label="Edit Draft"
+            icon="pi pi-pencil"
+            size="small"
+            severity="secondary"
+            (onClick)="editCurrentDraft()"
+          ></p-button>
+
+          <p-button
+            label="Delete Draft"
+            icon="pi pi-trash"
+            size="small"
+            severity="danger"
+            [outlined]="true"
+            [loading]="actionInProgress()"
+            (onClick)="confirmDeleteDraft.set(true)"
+          ></p-button>
+
           <p-button
             label="Confirm Receipt"
             icon="pi pi-check"
@@ -41,6 +59,17 @@
           ></p-button>
         }
 
+        @if (editingDraft()) {
+          <p-button
+            label="Discard Changes"
+            icon="pi pi-undo"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="discardDraftEdits()"
+          ></p-button>
+        }
+
         @if (currentGrn()?.status === 2) {
           <p-button
             label="Create Putaway"
@@ -53,6 +82,14 @@
       }
     </div>
   </app-page-header>
+
+  @if (confirmDeleteDraft()) {
+    <div class="message-banner banner-warn" role="status">
+      <span class="message-text">Delete this draft? This cannot be undone.</span>
+      <p-button label="Delete Draft" severity="danger" size="small" [loading]="actionInProgress()" (onClick)="deleteCurrentDraft()"></p-button>
+      <p-button label="Keep Draft" severity="secondary" size="small" [outlined]="true" (onClick)="confirmDeleteDraft.set(false)"></p-button>
+    </div>
+  }
 
   <!-- Global Banner Messages -->
   @if (message()) {
@@ -146,7 +183,7 @@
         <app-reactive-form
           [form]="headerForm"
           [fields]="formFields()"
-          [readonly]="mode() === 'view'"
+          [readonly]="!canEditDraft()"
           [columns]="3"
         ></app-reactive-form>
       </section>
@@ -170,11 +207,12 @@
           [data]="workingLines()"
           [columns]="itemColumns()"
           rowKey="lineId"
-          [readonly]="mode() === 'view'"
+          [readonly]="!canEditDraft()"
           [showActionBar]="false"
           [allowAddRow]="false"
-          [allowDeleteRow]="false"
+          [allowDeleteRow]="editingDraft()"
           [onRowCalculate]="calculateRow"
+          (dataChange)="onDraftLinesChange($event)"
           subtotalField="lineTotal"
           subtotalLabel="Total Receipt Value"
           currencyCode="USD"
@@ -224,13 +262,21 @@
               [disabled]="!scopeService.canOperateTransactions()"
               (onClick)="saveReceipt(true)"
             ></p-button>
-          } @else if (mode() === 'view' && currentGrn()?.status === 1) {
+          } @else if (mode() === 'view' && isDraft() && editingDraft()) {
+            <p-button
+              label="Save Draft"
+              icon="pi pi-save"
+              severity="secondary"
+              [loading]="actionInProgress()"
+              (onClick)="saveReceipt(false)"
+            ></p-button>
+
             <p-button
               label="Confirm & Post Receipt"
               icon="pi pi-check"
               severity="success"
               [loading]="actionInProgress()"
-              (onClick)="confirmCurrentDraft()"
+              (onClick)="saveReceipt(true)"
             ></p-button>
           }
         </div>

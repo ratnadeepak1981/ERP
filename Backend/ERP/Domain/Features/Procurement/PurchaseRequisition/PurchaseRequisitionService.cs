@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.Procurement.Approval;
@@ -284,6 +285,123 @@ public class PurchaseRequisitionService : IPurchaseRequisitionService
         return req;
     }
 
+// New CRUD operations
+    public async Task<PurchaseRequisition> UpdateRequisitionAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        UpdatePurchaseRequisitionRequest request)
+    {
+        var req = await _repository.GetByIdAsync(tenantId, companyId, branchId, requisitionId)
+            ?? throw new KeyNotFoundException("Purchase requisition not found in authorized scope.");
+
+        // Allowed statuses: Draft, Rejected
+        if (req.Status != PurchaseRequisitionStatus.Draft && req.Status != PurchaseRequisitionStatus.Rejected)
+            throw new InvalidOperationException($"Only Draft or Rejected requisitions can be updated. Current status: {req.Status}.");
+
+        // Update mutable fields
+        if (request.RequisitionDate.HasValue)
+            req.RequisitionDate = request.RequisitionDate.Value;
+        if (request.RequiredDate.HasValue)
+            req.RequiredDate = request.RequiredDate.Value;
+        if (request.Notes != null)
+            req.Notes = request.Notes?.Trim();
+
+        await _repository.SaveChangesAsync();
+        return req;
+    }
+
+    public async Task<PurchaseRequisitionItem> UpdateItemAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        Guid itemId,
+        UpdatePurchaseRequisitionItemRequest request)
+    {
+        var req = await _repository.GetByIdAsync(tenantId, companyId, branchId, requisitionId)
+            ?? throw new KeyNotFoundException("Purchase requisition not found in authorized scope.");
+
+        if (req.Status != PurchaseRequisitionStatus.Draft && req.Status != PurchaseRequisitionStatus.Rejected)
+            throw new InvalidOperationException($"Only Draft or Rejected requisitions can have line items updated. Current status: {req.Status}.");
+
+        var item = req.Items.FirstOrDefault(i => i.Id == itemId && i.IsActive)
+            ?? throw new KeyNotFoundException("Purchase requisition line item not found or is inactive.");
+
+        // Validate product & UOM similar to AddItem
+        var product = await _productRepository.GetByIdAsync(tenantId, request.ProductId)
+            ?? throw new InvalidOperationException($"Product '{request.ProductId}' was not found or does not belong to this tenant.");
+        if (!product.IsPurchasable)
+            throw new InvalidOperationException($"Product '{product.ProductCode}' is not marked as purchasable.");
+
+        Guid? uomId = request.UnitOfMeasureId ?? product.UnitOfMeasureId;
+        if (uomId.HasValue)
+        {
+            var uom = await _uomRepository.GetUnitByIdAsync(tenantId, uomId.Value);
+            if (uom == null)
+                throw new InvalidOperationException($"Unit of measure '{uomId.Value}' was not found or does not belong to this tenant.");
+        }
+
+        // Apply updates
+        item.ProductId = request.ProductId;
+        item.UnitOfMeasureId = uomId;
+        item.Quantity = Math.Round(request.Quantity, 4, MidpointRounding.AwayFromZero);
+        item.EstimatedUnitPrice = Math.Round(request.EstimatedUnitPrice ?? 0m, 2, MidpointRounding.AwayFromZero);
+        item.EstimatedLineTotal = Math.Round(item.Quantity * item.EstimatedUnitPrice, 2, MidpointRounding.AwayFromZero);
+        item.Remarks = request.Remarks?.Trim();
+
+        // Recalculate total on parent
+        req.RecalculateTotal();
+        await _repository.SaveChangesAsync();
+        return item;
+    }
+
+    public async Task DeleteItemAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        Guid itemId)
+    {
+        var req = await _repository.GetByIdAsync(tenantId, companyId, branchId, requisitionId)
+            ?? throw new KeyNotFoundException("Purchase requisition not found in authorized scope.");
+
+        if (req.Status != PurchaseRequisitionStatus.Draft && req.Status != PurchaseRequisitionStatus.Rejected)
+            throw new InvalidOperationException($"Only Draft or Rejected requisitions can have line items deleted. Current status: {req.Status}.");
+
+        var item = req.Items.FirstOrDefault(i => i.Id == itemId && i.IsActive)
+            ?? throw new KeyNotFoundException("Purchase requisition line item not found or already inactive.");
+
+        // Soft delete line
+        item.IsActive = false;
+        req.RecalculateTotal();
+        await _repository.SaveChangesAsync();
+    }
+
+    public async Task DeleteRequisitionAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId)
+    {
+        var req = await _repository.GetByIdAsync(tenantId, companyId, branchId, requisitionId)
+            ?? throw new KeyNotFoundException("Purchase requisition not found in authorized scope.");
+
+        // Only Draft can be deleted
+        if (req.Status != PurchaseRequisitionStatus.Draft)
+            throw new InvalidOperationException($"Only Draft requisitions can be deleted. Current status: {req.Status}.");
+
+        // Soft delete
+        req.IsActive = false;
+        foreach (var item in req.Items)
+        {
+            item.IsActive = false;
+        }
+        await _repository.SaveChangesAsync();
+    }
+
+    // Existing method continues
     public async Task<List<ApprovalAuditRecord>> GetApprovalHistoryAsync(
         Guid tenantId,
         Guid companyId,

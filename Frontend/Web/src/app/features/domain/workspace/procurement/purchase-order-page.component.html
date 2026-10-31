@@ -24,6 +24,15 @@
       @if (mode() === 'view' && currentOrder()) {
         @if (canEdit()) {
           <p-button
+            label="Refresh Exchange Rate"
+            icon="pi pi-refresh"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            [loading]="actionInProgress()"
+            (onClick)="refreshDraftExchangeRate()"
+          ></p-button>
+          <p-button
             label="Amend"
             icon="pi pi-pencil"
             size="small"
@@ -110,6 +119,15 @@
       }
 
       @if (mode() === 'amend' && currentOrder()) {
+        <p-button
+          label="Refresh Exchange Rate"
+          icon="pi pi-refresh"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          [loading]="actionInProgress()"
+          (onClick)="refreshDraftExchangeRate()"
+        ></p-button>
         <p-button
           label="Save as Draft"
           icon="pi pi-save"
@@ -282,6 +300,62 @@
         ></app-reactive-form>
       </section>
 
+      @if (currentOrder()) {
+        <section class="erp-card currency-snapshot-section" aria-label="Currency and exchange rate">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <span class="section-step-badge">Currency</span>
+              <h2 class="section-title">Currency Snapshot</h2>
+            </div>
+            <span class="section-subtitle">
+              The saved rate is retained for this transaction; refreshing is available only while it is a draft.
+            </span>
+          </div>
+          <div class="summary-totals-grid">
+            <div class="summary-row">
+              <span class="summary-label">Transaction Currency:</span>
+              <span class="summary-value">{{ currentOrder()!.currency || '—' }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Company Base Currency:</span>
+              <span class="summary-value">{{ currentOrder()!.baseCurrencyCode || '—' }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Applied Rate:</span>
+              <span class="summary-value">
+                {{ currentOrder()!.appliedExchangeRate === null || currentOrder()!.appliedExchangeRate === undefined
+                  ? '—'
+                  : (currentOrder()!.appliedExchangeRate | number:'1.0-8') }}
+              </span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Rate Source:</span>
+              <span class="summary-value">{{ exchangeRateSourceLabel() }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Rate Effective Date:</span>
+              <span class="summary-value">
+                {{ currentOrder()!.exchangeRateEffectiveDate ? (currentOrder()!.exchangeRateEffectiveDate | date:'mediumDate') : '—' }}
+              </span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Native Total:</span>
+              <span class="summary-value">
+                {{ currentOrder()!.totalAmount | currency:(currentOrder()!.currency || 'USD'):'symbol':'1.2-2' }}
+              </span>
+            </div>
+            <div class="summary-row total-row">
+              <span class="summary-label">Company Base Total:</span>
+              <span class="summary-value grand-total">
+                {{ currentOrder()!.baseTotalAmount === null || currentOrder()!.baseTotalAmount === undefined
+                  ? '—'
+                  : (currentOrder()!.baseTotalAmount | currency:(currentOrder()!.baseCurrencyCode || 'USD'):'symbol':'1.2-2') }}
+              </span>
+            </div>
+          </div>
+        </section>
+      }
+
       <!-- Section 3: Reusable Editable Data Table for Line Items -->
       <section class="erp-card items-section">
         <div class="section-header line-items-header">
@@ -310,7 +384,7 @@
           (dataChange)="onLinesChange($event)"
           subtotalField="lineTotal"
           subtotalLabel="Line Items Subtotal"
-          currencyCode="USD"
+          [currencyCode]="displayCurrencyCode()"
           emptyTitle="No line items added"
           emptyDescription="Click 'Add Row' to search and select products for this requisition."
         ></app-editable-data-table>
@@ -321,21 +395,21 @@
         <div class="summary-totals-grid">
           <div class="summary-row">
             <span class="summary-label">Items Subtotal:</span>
-            <span class="summary-value">{{ subtotalAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="summary-value">{{ subtotalAmount() | currency:displayCurrencyCode():'symbol':'1.2-2' }}</span>
           </div>
           @if (discountTotalAmount() > 0) {
             <div class="summary-row">
               <span class="summary-label">Total Discount:</span>
-              <span class="summary-value text-danger">-{{ discountTotalAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+              <span class="summary-value text-danger">-{{ discountTotalAmount() | currency:displayCurrencyCode():'symbol':'1.2-2' }}</span>
             </div>
           }
           <div class="summary-row">
             <span class="summary-label">Estimated Tax:</span>
-            <span class="summary-value">{{ taxAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="summary-value">{{ taxAmount() | currency:displayCurrencyCode():'symbol':'1.2-2' }}</span>
           </div>
           <div class="summary-row total-row">
             <span class="summary-label">Total Order Value:</span>
-            <span class="summary-value grand-total">{{ totalOrderAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+            <span class="summary-value grand-total">{{ totalOrderAmount() | currency:displayCurrencyCode():'symbol':'1.2-2' }}</span>
           </div>
         </div>
 

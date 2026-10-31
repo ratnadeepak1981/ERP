@@ -173,4 +173,52 @@ describe('SupplierPageComponent', () => {
     expect(component.message()?.severity).toBe('danger');
     expect(component.message()?.text).toContain('already exists');
   });
+
+  it('should load active currencies and populate currency dropdown options', () => {
+    const mockCurrencies = [
+      { currencyId: 'c-usd', tenantId: 't1', currencyCode: 'USD', currencyName: 'US Dollar', symbol: '$', decimalPlaces: 2, isActive: true },
+      { currencyId: 'c-lkr', tenantId: 't1', currencyCode: 'LKR', currencyName: 'Sri Lankan Rupee', symbol: 'Rs.', decimalPlaces: 2, isActive: true },
+      { currencyId: 'c-old', tenantId: 't1', currencyCode: 'OLD', currencyName: 'Inactive Coin', symbol: 'O', decimalPlaces: 2, isActive: false }
+    ];
+    vi.spyOn(masterDataService, 'getCurrencies').mockReturnValue(of(mockCurrencies));
+
+    fixture.detectChanges();
+
+    const options = component.currencyOptions();
+    expect(options.length).toBe(3);
+    expect(options[0].label).toContain('None');
+    expect(options[1].label).toContain('USD');
+    expect(options[2].label).toContain('LKR');
+  });
+
+  it('should save selected currencyId and support clearing currency to null', () => {
+    const createSpy = vi.spyOn(masterDataService, 'createSupplier').mockReturnValue(of(mockSupplier));
+    fixture.detectChanges();
+
+    component.supplierForm.patchValue({
+      supplierCode: 'SUP-CURR',
+      supplierName: 'Currency Vendor',
+      currencyId: 'c-usd'
+    });
+
+    component.saveSupplier();
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currencyId: 'c-usd'
+      })
+    );
+
+    component.supplierForm.patchValue({
+      currencyId: ''
+    });
+
+    component.saveSupplier();
+
+    expect(createSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        currencyId: null
+      })
+    );
+  });
 });

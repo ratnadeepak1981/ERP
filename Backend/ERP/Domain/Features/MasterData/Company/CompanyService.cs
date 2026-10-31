@@ -45,14 +45,7 @@ public class CompanyService : ICompanyService
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Company code is required.", nameof(code));
 
-        if (baseCurrencyId.HasValue)
-        {
-            var currency = await _currencyRepository.GetCurrencyByIdAsync(tenantId, baseCurrencyId.Value);
-            if (currency == null || currency.TenantId != tenantId)
-            {
-                throw new InvalidOperationException("Base currency does not exist or does not belong to this tenant.");
-            }
-        }
+        var baseCurrency = await GetActiveBaseCurrencyAsync(tenantId, baseCurrencyId);
 
         var company = new CompanyEntity
         {
@@ -62,7 +55,7 @@ public class CompanyService : ICompanyService
             Code = code.Trim().ToUpperInvariant(),
             IsActive = true,
             SpecialUomConversionEnabled = true,
-            BaseCurrencyId = baseCurrencyId
+            BaseCurrencyId = baseCurrency.CurrencyId
         };
 
         await _repository.AddAsync(company);
@@ -89,19 +82,12 @@ public class CompanyService : ICompanyService
         if (company == null)
             throw new InvalidOperationException("Company not found.");
 
-        if (baseCurrencyId.HasValue)
-        {
-            var currency = await _currencyRepository.GetCurrencyByIdAsync(tenantId, baseCurrencyId.Value);
-            if (currency == null || currency.TenantId != tenantId)
-            {
-                throw new InvalidOperationException("Base currency does not exist or does not belong to this tenant.");
-            }
-        }
+        var baseCurrency = await GetActiveBaseCurrencyAsync(tenantId, baseCurrencyId);
 
         company.Name = name.Trim();
         company.Code = code.Trim().ToUpperInvariant();
         company.IsActive = isActive;
-        company.BaseCurrencyId = baseCurrencyId;
+        company.BaseCurrencyId = baseCurrency.CurrencyId;
         if (specialUomConversionEnabled.HasValue)
         {
             company.SpecialUomConversionEnabled = specialUomConversionEnabled.Value;
@@ -111,5 +97,19 @@ public class CompanyService : ICompanyService
         await _repository.SaveChangesAsync();
 
         return await _repository.GetByIdAsync(tenantId, companyId) ?? company;
+    }
+
+    private async Task<Domain.Features.MasterData.Currency.Currency> GetActiveBaseCurrencyAsync(Guid tenantId, Guid? currencyId)
+    {
+        if (!currencyId.HasValue || currencyId.Value == Guid.Empty)
+            throw new InvalidOperationException("An active company base currency is required.");
+
+        var currency = await _currencyRepository.GetCurrencyByIdAsync(tenantId, currencyId.Value);
+        if (currency == null || currency.TenantId != tenantId)
+            throw new InvalidOperationException("Base currency does not exist or does not belong to this tenant.");
+        if (!currency.IsActive)
+            throw new InvalidOperationException("The selected base currency is inactive.");
+
+        return currency;
     }
 }

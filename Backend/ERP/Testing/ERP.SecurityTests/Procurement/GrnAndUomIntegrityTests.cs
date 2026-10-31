@@ -47,6 +47,11 @@ public class GrnAndUomIntegrityTests : IClassFixture<TestSecurityFixture>
         var cat = await GetOrCreateTestCategoryAsync(db, tenantId);
 
         string uid = Guid.NewGuid().ToString("N")[..8];
+        var mtrUom = UnitOfMeasure.Create(tenantId, $"MTR_{uid}", "Meters", null);
+        var jobUom = UnitOfMeasure.Create(tenantId, $"JOB_{uid}", "Job", null);
+        await db.UnitsOfMeasure.AddRangeAsync(mtrUom, jobUom);
+        await db.SaveChangesAsync();
+
         var stockProd = Product.Create(
             tenantId,
             $"STK_{uid}",
@@ -55,7 +60,8 @@ public class GrnAndUomIntegrityTests : IClassFixture<TestSecurityFixture>
             unitOfMeasure: "MTR",
             isStockTracked: true,
             productType: ProductType.StockItem,
-            trackingMode: TrackingMode.None);
+            trackingMode: TrackingMode.None,
+            unitOfMeasureId: mtrUom.UnitOfMeasureId);
         await db.Products.AddAsync(stockProd);
 
         var srvProd = Product.Create(
@@ -66,15 +72,16 @@ public class GrnAndUomIntegrityTests : IClassFixture<TestSecurityFixture>
             unitOfMeasure: "JOB",
             isStockTracked: false,
             productType: ProductType.Service,
-            trackingMode: TrackingMode.None);
+            trackingMode: TrackingMode.None,
+            unitOfMeasureId: jobUom.UnitOfMeasureId);
         await db.Products.AddAsync(srvProd);
         await db.SaveChangesAsync();
 
         // 2. Create Approved PO with 1 stock item and 1 service item
         string poNum = $"PO_MIX_{Guid.NewGuid():N}"[..18];
         var po = PurchaseOrder.Create(tenantId, companyId, branchId, poNum);
-        var stockPoItem = po.AddItem(stockProd.ProductId, quantity: 10m, unitPrice: 15.00m);
-        var srvPoItem = po.AddItem(srvProd.ProductId, quantity: 1m, unitPrice: 150.00m);
+        var stockPoItem = po.AddItem(stockProd.ProductId, quantity: 10m, unitPrice: 15.00m, unitOfMeasureId: mtrUom.UnitOfMeasureId);
+        var srvPoItem = po.AddItem(srvProd.ProductId, quantity: 1m, unitPrice: 150.00m, unitOfMeasureId: jobUom.UnitOfMeasureId);
         po.AutoApprove();
         await db.PurchaseOrders.AddAsync(po);
         await db.SaveChangesAsync();
@@ -339,6 +346,106 @@ public class GrnAndUomIntegrityTests : IClassFixture<TestSecurityFixture>
     }
 
     [Fact]
+    public async Task ProductPackagingReceipt_UsesProductSpecificPurchaseConversion()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        var db = sp.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        var platformDb = sp.GetRequiredService<SaaS.Infrastructure.Persistence.SaaSDbContext>();
+        var tenantConfiguration = await platformDb.TenantConfigurations.FirstAsync(c => c.TenantId == tenantId);
+        tenantConfiguration.UpdateSpecialUomConversion(true);
+        await platformDb.SaveChangesAsync();
+
+        var company = await db.Companies.FirstAsync(c => c.TenantId == tenantId && c.Id == companyId);
+        company.SpecialUomConversionEnabled = true;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_PRODUCT_UOM");
+        var category = await GetOrCreateTestCategoryAsync(db, tenantId);
+        string suffix = Guid.NewGuid().ToString("N")[..8];
+        var each = UnitOfMeasure.Create(tenantId, $"EA_{suffix}", "Each", null);
+        var box = UnitOfMeasure.Create(tenantId, $"BX_{suffix}", "Box", null);
+        await db.UnitsOfMeasure.AddRangeAsync(each, box);
+        await db.SaveChangesAsync();
+
+        var product = Product.Create(
+            tenantId,
+            $"PRD_PACK_{suffix}",
+            $"Packaged product {suffix}",
+            category.CategoryId,
+            unitOfMeasure: each.Code,
+            isStockTracked: true,
+            unitOfMeasureId: each.UnitOfMeasureId);
+        await db.Products.AddAsync(product);
+        await db.SaveChangesAsync();
+
+        var packagingService = sp.GetRequiredService<IProductPackagingService>();
+        await packagingService.CreatePackagingAsync(tenantId, new CreateProductPackagingRequest
+        {
+            ProductId = product.ProductId,
+            PackagingCode = $"PKG_{suffix}",
+            PackagingName = "Twelve pieces",
+            PackagingUomId = box.UnitOfMeasureId,
+            BaseQuantity = 12m,
+            PurchaseAllowed = true,
+            CompanyId = companyId
+        });
+
+        var po = PurchaseOrder.Create(tenantId, companyId, branchId, $"PO_PACK_{suffix}");
+        var poItem = po.AddItem(product.ProductId, 10m, 120m, unitOfMeasureId: box.UnitOfMeasureId);
+        po.AutoApprove();
+        await db.PurchaseOrders.AddAsync(po);
+        await db.SaveChangesAsync();
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+        var draftResponse = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = po.Id,
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = poItem.Id,
+                        ProductId = product.ProductId,
+                        WarehouseId = warehouse.WarehouseId,
+                        WarehouseLocationId = location.WarehouseLocationId,
+                        QuantityReceived = 3m,
+                        UnitOfMeasureId = box.UnitOfMeasureId
+                    }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, draftResponse.StatusCode);
+        var draft = await draftResponse.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        Assert.NotNull(draft);
+        Assert.Equal(360m, draft.Lines.Single().LineTotal);
+
+        var confirmResponse = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{draft.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
+
+        using var verifyScope = _fixture.Services.CreateScope();
+        var posting = verifyScope.ServiceProvider.GetRequiredService<IInventoryPostingService>();
+        var balance = await posting.GetBalanceAsync(tenantId, location.WarehouseLocationId, product.ProductId);
+        Assert.NotNull(balance);
+        Assert.Equal(36m, balance.QuantityOnHand);
+        var transaction = await verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>()
+            .InventoryTransactions.SingleAsync(t => t.SourceDocumentId == draft.GoodsReceiptNoteId);
+        Assert.Equal(10m, transaction.UnitCost);
+        Assert.Equal(360m, transaction.TotalCost);
+    }
+
+    [Fact]
     public async Task AlternateUomReceipt_MissingConversion_ThrowsInformativeException()
     {
         using var scope = _fixture.Services.CreateScope();
@@ -404,6 +511,315 @@ public class GrnAndUomIntegrityTests : IClassFixture<TestSecurityFixture>
         Assert.True(confirmRes.StatusCode == HttpStatusCode.BadRequest ||
                     confirmRes.StatusCode == HttpStatusCode.Conflict ||
                     confirmRes.StatusCode == HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task PartialReceipts_ConvertToPoAndStockUom_AndKeepDraftOutOfReceivedQuantity()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_PARTIAL_UOM");
+        var category = await GetOrCreateTestCategoryAsync(db, tenantId);
+        string suffix = Guid.NewGuid().ToString("N")[..8];
+        var pcs = UnitOfMeasure.Create(tenantId, $"PCS_{suffix}", "Pieces", null);
+        var box = UnitOfMeasure.Create(tenantId, $"BOX_{suffix}", "Box of twelve", null);
+        await db.UnitsOfMeasure.AddRangeAsync(pcs, box);
+        await db.SaveChangesAsync();
+        await db.UnitOfMeasureConversions.AddAsync(
+            UnitOfMeasureConversion.Create(tenantId, box.UnitOfMeasureId, pcs.UnitOfMeasureId, 12m));
+        var product = Product.Create(
+            tenantId,
+            $"PRD_PARTIAL_{suffix}",
+            $"Partial receipt product {suffix}",
+            category.CategoryId,
+            unitOfMeasure: pcs.Code,
+            isStockTracked: true,
+            productType: ProductType.StockItem,
+            trackingMode: TrackingMode.None,
+            unitOfMeasureId: pcs.UnitOfMeasureId);
+        await db.Products.AddAsync(product);
+
+        var po = PurchaseOrder.Create(tenantId, companyId, branchId, $"PO_PARTIAL_{suffix}");
+        var poItem = po.AddItem(
+            product.ProductId,
+            quantity: 100m,
+            unitPrice: 12m,
+            unitOfMeasureId: box.UnitOfMeasureId);
+        po.AutoApprove();
+        await db.PurchaseOrders.AddAsync(po);
+        await db.SaveChangesAsync();
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+
+        async Task<GoodsReceiptNoteDto> CreateReceipt(decimal qty, Guid uomId)
+        {
+            var response = await client.PostAsJsonAsync(
+                $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+                new CreateGoodsReceiptNoteRequest
+                {
+                    PurchaseOrderId = po.Id,
+                    GrnNumber = $"GRN_{Guid.NewGuid():N}"[..12],
+                    Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                    {
+                        new()
+                        {
+                            PurchaseOrderItemId = poItem.Id,
+                            ProductId = product.ProductId,
+                            WarehouseId = warehouse.WarehouseId,
+                            WarehouseLocationId = location.WarehouseLocationId,
+                            QuantityReceived = qty,
+                            UnitOfMeasureId = uomId
+                        }
+                    }
+                });
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            return (await response.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts))!;
+        }
+
+        var firstDraft = await CreateReceipt(2m, box.UnitOfMeasureId);
+        var poBeforeConfirm = await db.PurchaseOrders.Include(p => p.Items).FirstAsync(p => p.Id == po.Id);
+        Assert.Equal(0m, poBeforeConfirm.Items.Single().ReceivedQuantity);
+        Assert.Empty(await db.InventoryTransactions.Where(t => t.SourceDocumentId == firstDraft.GoodsReceiptNoteId).ToListAsync());
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{firstDraft.GoodsReceiptNoteId}/confirm",
+            null)).StatusCode);
+
+        var secondDraft = await CreateReceipt(3m, box.UnitOfMeasureId);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{secondDraft.GoodsReceiptNoteId}/confirm",
+            null)).StatusCode);
+
+        var thirdDraft = await CreateReceipt(40m, pcs.UnitOfMeasureId);
+        Assert.Equal(1m, thirdDraft.Lines.Single().UnitCost);
+        Assert.Equal(40m, thirdDraft.Lines.Single().LineTotal);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{thirdDraft.GoodsReceiptNoteId}/confirm",
+            null)).StatusCode);
+
+        using var verifyScope = _fixture.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var updatedPo = await verifyDb.PurchaseOrders.Include(p => p.Items).FirstAsync(p => p.Id == po.Id);
+        Assert.Equal(8.3333m, updatedPo.Items.Single().ReceivedQuantity);
+        Assert.Equal(PurchaseOrderStatus.Approved, updatedPo.Status);
+
+        var posting = verifyScope.ServiceProvider.GetRequiredService<IInventoryPostingService>();
+        var balance = await posting.GetBalanceAsync(tenantId, location.WarehouseLocationId, product.ProductId);
+        Assert.NotNull(balance);
+        Assert.Equal(100m, balance.QuantityOnHand);
+        var postedTransactions = await verifyDb.InventoryTransactions
+            .Where(t => t.SourceDocumentType == SourceDocumentType.GoodsReceiptNote && t.SourceDocumentId != Guid.Empty)
+            .Where(t => t.ProductId == product.ProductId)
+            .ToListAsync();
+        Assert.Equal(100m, postedTransactions.Sum(t => t.TotalCost));
+    }
+
+    [Fact]
+    public async Task SameUomInactiveAtConfirmation_IsRejected_AndMissingUomCannotBeAssumed()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_INACTIVE_UOM");
+        var category = await GetOrCreateTestCategoryAsync(db, tenantId);
+        string suffix = Guid.NewGuid().ToString("N")[..8];
+        var unit = UnitOfMeasure.Create(tenantId, $"EA_{suffix}", "Each", null);
+        await db.UnitsOfMeasure.AddAsync(unit);
+        var product = Product.Create(
+            tenantId,
+            $"PRD_UOM_{suffix}",
+            $"UOM test {suffix}",
+            category.CategoryId,
+            unitOfMeasure: unit.Code,
+            isStockTracked: true,
+            unitOfMeasureId: unit.UnitOfMeasureId);
+        await db.Products.AddAsync(product);
+        var po = PurchaseOrder.Create(tenantId, companyId, branchId, $"PO_UOM_{suffix}");
+        po.AddItem(product.ProductId, 2m, 5m, unitOfMeasureId: unit.UnitOfMeasureId);
+        po.AutoApprove();
+        await db.PurchaseOrders.AddAsync(po);
+        await db.SaveChangesAsync();
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+        var draftResponse = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/from-po/{po.Id}?warehouseId={warehouse.WarehouseId}&warehouseLocationId={location.WarehouseLocationId}",
+            null);
+        Assert.Equal(HttpStatusCode.Created, draftResponse.StatusCode);
+        var draft = await draftResponse.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        Assert.NotNull(draft);
+
+        unit.Deactivate();
+        await db.SaveChangesAsync();
+        var confirmResponse = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{draft.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.Conflict, confirmResponse.StatusCode);
+
+        var noUomProduct = Product.Create(
+            tenantId,
+            $"PRD_NO_UOM_{suffix}",
+            $"Missing UOM {suffix}",
+            category.CategoryId,
+            unitOfMeasure: "EA",
+            isStockTracked: true);
+        await db.Products.AddAsync(noUomProduct);
+        var noUomPo = PurchaseOrder.Create(tenantId, companyId, branchId, $"PO_NO_UOM_{suffix}");
+        noUomPo.AddItem(noUomProduct.ProductId, 1m, 1m);
+        noUomPo.AutoApprove();
+        await db.PurchaseOrders.AddAsync(noUomPo);
+        await db.SaveChangesAsync();
+
+        var noUomResponse = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = noUomPo.Id,
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = noUomPo.Items.Single().Id,
+                        ProductId = noUomProduct.ProductId,
+                        WarehouseId = warehouse.WarehouseId,
+                        WarehouseLocationId = location.WarehouseLocationId,
+                        QuantityReceived = 1m
+                    }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Conflict, noUomResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConvertedReceiptBoundary_UsesFullPrecisionForOverReceiptValidation()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_UOM_BOUNDARY");
+        var category = await GetOrCreateTestCategoryAsync(db, tenantId);
+        string suffix = Guid.NewGuid().ToString("N")[..8];
+        var each = UnitOfMeasure.Create(tenantId, $"EA_{suffix}", "Each", null);
+        var box = UnitOfMeasure.Create(tenantId, $"BX_{suffix}", "Box of twelve", null);
+        await db.UnitsOfMeasure.AddRangeAsync(each, box);
+        await db.SaveChangesAsync();
+        await db.UnitOfMeasureConversions.AddAsync(
+            UnitOfMeasureConversion.Create(tenantId, box.UnitOfMeasureId, each.UnitOfMeasureId, 12m));
+        var product = Product.Create(
+            tenantId,
+            $"PRD_BOUNDARY_{suffix}",
+            $"Boundary {suffix}",
+            category.CategoryId,
+            unitOfMeasure: each.Code,
+            isStockTracked: true,
+            unitOfMeasureId: each.UnitOfMeasureId);
+        await db.Products.AddAsync(product);
+        var representablePo = PurchaseOrder.Create(tenantId, companyId, branchId, $"PO_BELOW_{suffix}");
+        var representableItem = representablePo.AddItem(product.ProductId, 10m, 12m, unitOfMeasureId: box.UnitOfMeasureId);
+        representablePo.AutoApprove();
+        var cumulativePo = PurchaseOrder.Create(tenantId, companyId, branchId, $"PO_CUM_{suffix}");
+        var cumulativeItem = cumulativePo.AddItem(product.ProductId, 10m, 12m, unitOfMeasureId: box.UnitOfMeasureId);
+        cumulativePo.AutoApprove();
+        var abovePo = PurchaseOrder.Create(tenantId, companyId, branchId, $"PO_ABOVE_{suffix}");
+        var aboveItem = abovePo.AddItem(product.ProductId, 10m, 12m, unitOfMeasureId: box.UnitOfMeasureId);
+        abovePo.AutoApprove();
+        await db.PurchaseOrders.AddRangeAsync(representablePo, cumulativePo, abovePo);
+        await db.SaveChangesAsync();
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+
+        async Task<GoodsReceiptNoteDto> CreateReceipt(PurchaseOrder po, PurchaseOrderItem item, decimal qty)
+        {
+            var response = await client.PostAsJsonAsync(
+                $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+                new CreateGoodsReceiptNoteRequest
+                {
+                    PurchaseOrderId = po.Id,
+                    Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                    {
+                        new()
+                        {
+                            PurchaseOrderItemId = item.Id,
+                            ProductId = product.ProductId,
+                            WarehouseId = warehouse.WarehouseId,
+                            WarehouseLocationId = location.WarehouseLocationId,
+                            QuantityReceived = qty,
+                            UnitOfMeasureId = each.UnitOfMeasureId
+                        }
+                    }
+                });
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            return (await response.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts))!;
+        }
+
+        var belowDraft = await CreateReceipt(representablePo, representableItem, 119.999m);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{belowDraft.GoodsReceiptNoteId}/confirm",
+            null)).StatusCode);
+
+        var cumulativeFirst = await CreateReceipt(cumulativePo, cumulativeItem, 119.9999m);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{cumulativeFirst.GoodsReceiptNoteId}/confirm",
+            null)).StatusCode);
+        using (var firstReceiptScope = _fixture.Services.CreateScope())
+        {
+            var firstReceiptDb = firstReceiptScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+            var partiallyReceivedPo = await firstReceiptDb.PurchaseOrders
+                .Include(order => order.Items)
+                .FirstAsync(order => order.Id == cumulativePo.Id);
+            Assert.Equal(9.9999m, partiallyReceivedPo.Items.Single().ReceivedQuantity);
+            Assert.Equal(PurchaseOrderStatus.Approved, partiallyReceivedPo.Status);
+        }
+
+        var cumulativeFinal = await CreateReceipt(cumulativePo, cumulativeItem, 0.0001m);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{cumulativeFinal.GoodsReceiptNoteId}/confirm",
+            null)).StatusCode);
+
+        var aboveDraft = await CreateReceipt(abovePo, aboveItem, 120.0001m);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{aboveDraft.GoodsReceiptNoteId}/confirm",
+            null)).StatusCode);
+
+        using var verifyScope = _fixture.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var updatedRepresentablePo = await verifyDb.PurchaseOrders.Include(p => p.Items).FirstAsync(p => p.Id == representablePo.Id);
+        Assert.Equal(9.9999m, updatedRepresentablePo.Items.Single().ReceivedQuantity);
+        Assert.Equal(PurchaseOrderStatus.Approved, updatedRepresentablePo.Status);
+        var updatedCumulativePo = await verifyDb.PurchaseOrders.Include(p => p.Items).FirstAsync(p => p.Id == cumulativePo.Id);
+        Assert.Equal(10m, updatedCumulativePo.Items.Single().ReceivedQuantity);
+        Assert.Equal(PurchaseOrderStatus.Fulfilled, updatedCumulativePo.Status);
+        var cumulativeTransactions = await verifyDb.InventoryTransactions
+            .Where(transaction => transaction.SourceDocumentId == cumulativeFirst.GoodsReceiptNoteId ||
+                                  transaction.SourceDocumentId == cumulativeFinal.GoodsReceiptNoteId)
+            .ToListAsync();
+        Assert.Equal(120m, cumulativeTransactions.Sum(transaction => transaction.Quantity));
+        var updatedAbovePo = await verifyDb.PurchaseOrders.Include(p => p.Items).FirstAsync(p => p.Id == abovePo.Id);
+        Assert.Equal(0m, updatedAbovePo.Items.Single().ReceivedQuantity);
+        Assert.Equal(PurchaseOrderStatus.Approved, updatedAbovePo.Status);
     }
 
     [Fact]
@@ -523,7 +939,13 @@ public class GrnAndUomIntegrityTests : IClassFixture<TestSecurityFixture>
     private static async Task<Warehouse> CreateTestWarehouseAsync(DomainDbContext db, Guid tenantId)
     {
         string code = $"WH_{Guid.NewGuid():N}"[..18];
-        var wh = Warehouse.Create(tenantId, code, $"Warehouse_{code}", city: "Colombo");
+        var wh = Warehouse.Create(
+            tenantId,
+            code,
+            $"Warehouse_{code}",
+            companyId: TestConstants.CompanyAId,
+            branchId: TestConstants.BranchA1Id,
+            city: "Colombo");
         await db.Warehouses.AddAsync(wh);
         await db.SaveChangesAsync();
         return wh;

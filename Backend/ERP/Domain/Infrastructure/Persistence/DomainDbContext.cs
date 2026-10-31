@@ -9,6 +9,7 @@ using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.Contact;
 using Domain.Features.MasterData.Supplier;
+using Domain.Features.MasterData.PriceCard;
 
 namespace Domain.Infrastructure.Persistence;
 
@@ -46,6 +47,12 @@ public class DomainDbContext : DbContext
 
     public DbSet<Supplier> Suppliers
         => Set<Supplier>();
+
+    public DbSet<PriceCard> PriceCards
+        => Set<PriceCard>();
+
+    public DbSet<PriceCardLine> PriceCardLines
+        => Set<PriceCardLine>();
 
     public DbSet<Warehouse> Warehouses
         => Set<Warehouse>();
@@ -103,6 +110,9 @@ public class DomainDbContext : DbContext
 
     public DbSet<Domain.Features.MasterData.Currency.Currency> Currencies
         => Set<Domain.Features.MasterData.Currency.Currency>();
+
+    public DbSet<Domain.Features.MasterData.Currency.ExchangeRate> ExchangeRates
+        => Set<Domain.Features.MasterData.Currency.ExchangeRate>();
 
     public DbSet<Domain.Features.MasterData.Brand.Brand> Brands
         => Set<Domain.Features.MasterData.Brand.Brand>();

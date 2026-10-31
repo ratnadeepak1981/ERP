@@ -43,8 +43,15 @@ public class CategoryController : BaseApiController
         if (!tenantId.HasValue)
             return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
-        var categories = await _categoryService.GetCategoriesAsync(tenantId.Value);
-        return PaginateAndSort(categories, page, pageSize, sortBy, sortDirection, _sortMapping);
+        try
+        {
+            var categories = await _categoryService.GetCategoriesAsync(tenantId.Value);
+            return PaginateAndSort(categories, page, pageSize, sortBy, sortDirection, _sortMapping);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
     }
 
     [HttpGet("{id:guid}")]
@@ -55,11 +62,18 @@ public class CategoryController : BaseApiController
         if (!tenantId.HasValue)
             return UnauthorizedResponse("Tenant identity is missing or invalid.");
 
-        var category = await _categoryService.GetCategoryAsync(tenantId.Value, id);
-        if (category == null)
-            return NotFoundResponse("Category not found.");
+        try
+        {
+            var category = await _categoryService.GetCategoryAsync(tenantId.Value, id);
+            if (category == null)
+                return NotFoundResponse("Category not found.");
 
-        return SuccessResponse(category);
+            return SuccessResponse(category);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
     }
 
     [HttpPost]

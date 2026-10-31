@@ -102,6 +102,10 @@ export class GoodsReceiptNoteService {
       .pipe(map(res => res.data));
   }
 
+  deleteDraft(companyId: string, branchId: string, id: string): Observable<void> {
+    return this.http.delete<void>(this.buildPath(companyId, branchId, `/${id}`));
+  }
+
   confirmGrn(companyId: string, branchId: string, id: string): Observable<GoodsReceiptNoteDto> {
     return this.http
       .post<ApiResponse<GoodsReceiptNoteDto>>(this.buildPath(companyId, branchId, `/${id}/confirm`), null)

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map, of, catchError } from 'rxjs';
+import { Observable, map, of, catchError, throwError } from 'rxjs';
 import { buildApiUrl } from '../utils/api-url.util';
 import { ApiResponse } from '../models/auth.models';
 import { Company, Branch } from '../models/scope.models';
@@ -99,14 +99,18 @@ export class CompanyService {
       );
   }
 
-  createCompany(dto: { name: string; code: string; currency?: string; baseCurrencyId?: string }): Observable<Company> {
+  createCompany(dto: { name: string; code: string; currency?: string; baseCurrencyId: string }): Observable<Company> {
     return this.http.post<ApiResponse<Company>>(buildApiUrl('/companies'), {
       name: dto.name.trim(),
       code: dto.code.trim().toUpperCase(),
       baseCurrencyId: dto.baseCurrencyId
     }).pipe(
       map(res => res.data),
-      catchError(() => {
+      catchError(err => {
+        if (err?.status !== 0 && err?.status != null) {
+          return throwError(() => err);
+        }
+
         const newCompany: Company = {
           id: 'comp-' + Math.random().toString(36).substring(2, 9),
           tenantId: this.authService?.tenantId() || 'tenant-local',
@@ -232,4 +236,3 @@ export class CompanyService {
     }
   }
 }
-

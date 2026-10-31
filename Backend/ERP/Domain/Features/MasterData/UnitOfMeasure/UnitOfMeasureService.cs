@@ -185,7 +185,7 @@ public class UnitOfMeasureService : IUnitOfMeasureService
                 FromUnitId = fromUnitId,
                 ToUnitId = toUnitId,
                 OriginalQuantity = quantity,
-                ConvertedQuantity = Math.Round(quantity * direct.ConversionFactor, 6, MidpointRounding.AwayFromZero),
+                ConvertedQuantity = quantity * direct.ConversionFactor,
                 EffectiveFactor = direct.ConversionFactor,
                 IsInverse = false
             };
@@ -198,8 +198,8 @@ public class UnitOfMeasureService : IUnitOfMeasureService
             if (inverse.ConversionFactor <= 0)
                 throw new InvalidOperationException("Conversion factor must be greater than zero.");
 
-            decimal effectiveFactor = Math.Round(1m / inverse.ConversionFactor, 6, MidpointRounding.AwayFromZero);
-            decimal convertedQty = Math.Round(quantity / inverse.ConversionFactor, 6, MidpointRounding.AwayFromZero);
+            decimal effectiveFactor = 1m / inverse.ConversionFactor;
+            decimal convertedQty = quantity / inverse.ConversionFactor;
 
             return new ConvertUnitOfMeasureResult
             {
@@ -328,7 +328,7 @@ public class UnitOfMeasureService : IUnitOfMeasureService
 
                 if (fromUnitId == packaging.PackagingUomId)
                 {
-                    decimal convertedQty = Math.Round(quantity * packaging.BaseQuantity, 6, MidpointRounding.AwayFromZero);
+                    decimal convertedQty = quantity * packaging.BaseQuantity;
                     return new ConvertUnitOfMeasureResult
                     {
                         FromUnitId = fromUnitId,
@@ -344,8 +344,8 @@ public class UnitOfMeasureService : IUnitOfMeasureService
                 }
                 else if (toUnitId == packaging.PackagingUomId)
                 {
-                    decimal effectiveFactor = Math.Round(1m / packaging.BaseQuantity, 6, MidpointRounding.AwayFromZero);
-                    decimal convertedQty = Math.Round(quantity / packaging.BaseQuantity, 6, MidpointRounding.AwayFromZero);
+                    decimal effectiveFactor = 1m / packaging.BaseQuantity;
+                    decimal convertedQty = quantity / packaging.BaseQuantity;
                     return new ConvertUnitOfMeasureResult
                     {
                         FromUnitId = fromUnitId,
