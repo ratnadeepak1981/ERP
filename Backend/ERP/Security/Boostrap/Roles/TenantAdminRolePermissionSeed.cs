@@ -76,6 +76,7 @@ public static class TenantAdminRolePermissionSeed
             "GRN.VIEW",
             "GRN.CREATE",
             "GRN.EDIT",
+            "GRN.DELETE",
             "GRN.CANCEL",
             "GRN.CONFIRM",
 

@@ -320,6 +320,7 @@ export interface SupplierItem {
   leadTimeDays?: number;
   currencyId?: string | null;
   currencyCode?: string | null;
+  defaultPurchasePriceCardId?: string | null;
   isActive: boolean;
   createdAt?: string;
 }

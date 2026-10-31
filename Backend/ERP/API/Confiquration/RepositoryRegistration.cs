@@ -43,6 +43,7 @@ public static class RepositoryRegistration
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryRepository, ERP.Domain.Features.MasterData.Category.CategoryRepository>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureRepository, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureRepository>();
         services.AddScoped<Domain.Features.MasterData.Currency.ICurrencyRepository, Domain.Features.MasterData.Currency.CurrencyRepository>();
+        services.AddScoped<Domain.Features.MasterData.Currency.IExchangeRateRepository, Domain.Features.MasterData.Currency.ExchangeRateRepository>();
         services.AddScoped<Domain.Features.MasterData.Brand.IBrandRepository, Domain.Features.MasterData.Brand.BrandRepository>();
         services.AddScoped<Domain.Features.MasterData.PaymentTerm.IPaymentTermRepository, Domain.Features.MasterData.PaymentTerm.PaymentTermRepository>();
         services.AddScoped<Domain.Features.MasterData.TaxCode.ITaxCodeRepository, Domain.Features.MasterData.TaxCode.TaxCodeRepository>();

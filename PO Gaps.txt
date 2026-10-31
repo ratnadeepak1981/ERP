@@ -1,0 +1,145 @@
+ApexERP – Purchase Order (PO) Integration Gap Report
+
+Scope – Backend (Backend/ERP/Domain/...) and Angular frontend (Frontend/Web/...).
+Goal – Verify that the PO flow correctly pulls data from Supplier, Currency, Payment Terms, Lead Time, Price Cards, UOM, and supports Partial Receipt.
+
+1️⃣ Supplier Synchronisation
+Item	Implementation found	Gap / Issue	Classification
+SupplierId on PO	PurchaseOrder.SupplierId (line 28‑29 of PurchaseOrder.cs)	PO stores only the GUID; no eager fetch of supplier details.	Implemented (store only)
+Supplier validation	PurchaseOrderService.CreateOrderAsync validates existence via ISupplierRepository.GetSupplierByIdAsync (lines 119‑126).	Works for existence but does not load supplier‑level defaults (currency, payment terms, lead time, default price card).	Partially implemented
+Supplier‑related defaults	None – the PO creation never copies Supplier.CurrencyId, Supplier.PaymentTerms, Supplier.LeadTimeDays, etc.	PO creation must call a supplier‑detail service and populate additional PO fields.	Missing
+Frontend loading	Angular PurchaseOrderService only posts CreatePurchaseOrderRequest (no supplier enrichment).	UI cannot display supplier currency / terms without extra endpoint.	Missing
+
+Recommended small backend step
+
+Add a method ISupplierService.GetSupplierDetailsAsync(Guid tenantId, Guid supplierId) that returns the full SupplierDto (already defined).
+In PurchaseOrderService.CreateOrderAsync, after confirming the supplier exists, fetch the details and populate PO.Currency, PaymentTermId, LeadTimeDays (new PO fields) with the supplier’s defaults.
+2️⃣ Currency
+Item	Implementation found	Gap / Issue	Classification
+PO Currency field	PurchaseOrder.Currency (line 46 of PurchaseOrder.cs, default "USD").	Hard‑coded default; never set from supplier or company base currency.	Implemented (but static)
+Company base currency	Not referenced anywhere in the PO flow.	No way to convert PO amounts to the company’s base currency.	Missing
+Exchange‑rate lookup	No service or repository that reads exchange rates in the PO code.	PO net amounts are stored in the PO currency with no snapshot of the rate used at posting.	Missing
+Currency snapshot	None – PO stores only a string.	Auditing / reporting of historic rates impossible.	Missing
+Frontend model	PurchaseOrderDto (in purchase-order.models.ts) contains currency?: string.	UI can show but never receives a rate or conversion.	Implemented (display only)
+
+Recommended small backend step
+
+Introduce an ExchangeRate domain entity (if not existing) and a service IExchangeRateService.GetRateAsync(string from, string to, DateTime date).
+When persisting a PO (or at submit), resolve the rate, store it in a new PO column CurrencyRateAtCreation.
+Add a migration to add these columns.
+3️⃣ Payment Terms
+Item	Implementation found	Gap / Issue	Classification
+PaymentTerm entity	PaymentTerm.cs (lines 7‑69) and service/repository (PaymentTermService.cs, IPaymentTermRepository.cs).	Exists, but PO has no reference to a payment term.	Missing
+Supplier‑linked terms	SupplierDtos.cs includes PaymentTerms (line 20).	Supplier can store term text, but PO never copies it.	Missing
+Due‑date calculation	No code that computes DueDate = OrderDate + PaymentTerm.Days.	PO line items have no due‑date field.	Missing
+Override support	No API to supply a PO‑level payment‑term override.	Users cannot change terms per PO.	Missing
+
+Recommended small backend step
+
+Add PaymentTermId (FK) and DueDate to PurchaseOrder.
+During PO creation, if request.SupplierId is present, load the supplier’s default PaymentTermId and compute DueDate. Allow the request DTO to optionally override.
+4️⃣ Lead Time
+Item	Implementation found	Gap / Issue	Classification
+Lead‑time on price card	SupplierProductPrice.LeadTimeDays (line 31).	Captured per product‑supplier price card.	Implemented
+Delivery‑date on PO	No DeliveryDate field in PurchaseOrder.	Lead‑time never propagates to PO header.	Missing
+Source of lead‑time	In PurchaseOrderService.CreateOrderAsync the service does not query SupplierProductPrice for LeadTimeDays.	PO cannot auto‑calculate expected delivery.	Missing
+
+Recommended small backend step
+
+Add ExpectedDeliveryDate (nullable) to PurchaseOrder.
+In PO creation, after fetching the supplier‑price card (already called for price), also read LeadTimeDays and set ExpectedDeliveryDate = (request.OrderDate ?? DateTime.UtcNow).AddDays(leadTime).
+5️⃣ Price Card
+Item	Implementation found	Gap / Issue	Classification
+Supplier‑price‑card entity	SupplierProductPrice (lines 7‑84) with IsActive, EffectiveFrom/To.	Exists.	Implemented
+Active price lookup	SupplierProductPriceService.GetActivePriceAsync (line 92‑95). Used in PurchaseOrderService (lines 160‑183).	PO obtains price when UnitPrice omitted.	Implemented
+Multiple price cards per supplier	Repository likely returns many; service filters by IsActive and dates. No explicit “default” selection logic – just the first active.	May be ambiguous if several active cards exist.	Partially implemented
+Purchase vs sales pricing	No separate entity; price card is generic.	No guarantee that the price is a purchase price.	Missing
+Currency per price card	SupplierProductPrice.Currency (line 21). PO does not copy it; PO currency remains "USD" unless manually set.	Currency mismatch possible.	Missing
+Product‑specific price	Lookup by supplierId + productId (line 169‑173). Works.	Good.	Implemented
+Frontend	Angular DTOs have unitPrice?: number only; no price‑card ID.	UI cannot select a specific price card.	Missing
+
+Recommended small backend step
+
+Add optional PriceCardId on PurchaseOrderItem.
+When the service resolves the active price, store the SupplierProductPriceId on the item.
+Update the Angular models (PurchaseOrderItemDto) to expose priceCardId.
+6️⃣ Unit‑of‑Measure (UOM)
+Item	Implementation found	Gap / Issue	Classification
+UOM on PO item	PurchaseOrderItem.UnitOfMeasureId (line 13).	Exists.	
+UOM resolution	In CreateOrderAsync the service picks itemReq.UnitOfMeasureId ?? product.UnitOfMeasureId (lines 149‑155).	Works for manual entry.	
+UOM from price card	SupplierProductPrice.UnitOfMeasureId exists but is not used when determining the PO line UOM.	PO may ignore the UOM defined on the price card.	Missing
+Conversion factor	No conversion logic anywhere (e.g., between purchasing UOM and stock UOM).	Quantities may be stored in the wrong unit.	Missing
+Stock posting	In GoodsReceiptNoteService.CreateManualDraftAsync line 221 uses poItem.UnitOfMeasureId (the PO line’s UOM) – no conversion.	If PO UOM ≠ product base UOM, stock quantity will be incorrect.	Missing
+Frontend	PurchaseOrderItemDto includes unitOfMeasureId?: string; UI must pass it.	No automatic conversion.	Implemented (pass‑through only)
+
+Recommended small backend step
+
+When a price card supplies a UnitOfMeasureId, assign it to the PO line if the request didn’t specify one.
+Introduce a UomConversionService that can convert a quantity from purchase UOM to stock UOM using IUnitOfMeasureRepository.
+Apply the conversion in GoodsReceiptNoteService when creating GRN lines (multiply by conversion factor before posting to inventory).
+7️⃣ Partial Receipt
+Item	Implementation found	Gap / Issue	Classification
+GRN creation from PO	GoodsReceiptNoteService.CreateDraftFromPoAsync (lines 76‑89) validates PO status and computes remaining qty.	✔️	
+Remaining quantity	Computed via i.Quantity - i.ReceivedQuantity.	✔️	
+Multiple receipts	Allowed – each call creates a new GRN with remaining lines.	✔️	
+Over‑receipt prevention	Only checks > 0 remaining qty; no tolerance or explicit guard for receipt > ordered qty.	Potential defect	
+UOM conversion in receipt	Receives PO line UnitPrice and UnitOfMeasureId unchanged (line 132‑133). No conversion to stock UOM.	Potential defect	
+PO line status after receipt	ReceivedQuantity updated only in GRN creation (not shown here) – later on inventory posting may update PO, but no explicit status change (e.g., FullyReceived).	Missing	
+Header status	PO status stays Approved; no transition to Fulfilled after all lines received.	Missing	
+Frontend	No Angular component for GRN shown; UI likely posts to a GRN endpoint.	Not verified.	
+
+Recommended small backend step
+
+Add a PurchaseOrderStatus.Fulfilled transition in PurchaseOrderService (or in a domain event) when all Items have ReceivedQuantity >= Quantity.
+In GoodsReceiptNoteService, after persisting a GRN, call a method UpdateReceivedQuantitiesAsync that increments ReceivedQuantity on the related PO items.
+Add an optional tolerance parameter (maxOverReceiptPercentage) and guard against ReceivedQuantity > Quantity * (1 + tolerance).
+Implement a conversion step (see UOM section) before persisting the GRN line inventory.
+8️⃣ End‑to‑End Business Flow (Trace)
+Step	Origin of Value	Where it is transferred / persisted
+Supplier selection	UI dropdown → SupplierId (PO DTO).	PurchaseOrder.SupplierId.
+Currency sync	Supplier.CurrencyId (via SupplierDto).	Missing – not copied to PurchaseOrder.Currency.
+Payment‑terms sync	Supplier.PaymentTerms (string) or PaymentTermId.	Missing – no PO field.
+Lead time	SupplierProductPrice.LeadTimeDays (price‑card).	Missing – not used to compute PO ExpectedDeliveryDate.
+Price‑card selection	SupplierProductPriceService.GetActivePriceAsync.	Used for PO line UnitPrice; price‑card ID not stored.
+UOM resolution	itemReq.UnitOfMeasureId or Product.UnitOfMeasureId.	Stored on PO line; price‑card UOM ignored.
+PO save / edit / reload	PurchaseOrderRepository (EF).	Persists PO + items; missing fields (currency, payment term, lead time, price‑card ID).
+Partial receipt	GoodsReceiptNoteService.CreateDraftFromPoAsync → GoodsReceiptNote + GoodsReceiptNoteLine.	Receives PO Id, copies UnitPrice, UnitOfMeasureId, updates ReceivedQuantity.
+GRN / inventory posting	IInventoryPostingService (called later, not shown).	Posts stock movements based on GRN lines (still using PO UOM).
+Post‑receipt PO status	Missing – PO status never moves to Fulfilled.	
+📋 Recommended Implementation Sequence (backend‑first)
+#	Change	Reason / Dependency
+1	Add CurrencyId and CurrencyRateAtCreation columns to PurchaseOrder.	Enables snapshot of supplier / company currency.
+2	Add PaymentTermId and DueDate columns to PurchaseOrder.	Allows payment‑term linkage and due‑date calculation.
+3	Add ExpectedDeliveryDate column to PurchaseOrder.	Uses lead‑time from price card.
+4	Extend PurchaseOrderItem with PriceCardId (FK) and PurchaseUomId (if not already).	Stores source of price & UOM.
+5	In PurchaseOrderService.CreateOrderAsync – after supplier existence check, fetch supplier details (ISupplierService.GetSupplierDetailsAsync) and populate the new fields (currency, payment term, lead time).	
+6	In the same service – when UnitPrice is resolved from a price card, also store the price‑card Id and UOM from the price card (if the request did not specify one).	
+7	Implement a UomConversionService (or reuse existing) and adjust GoodsReceiptNoteService.CreateDraftFromPoAsync / CreateManualDraftAsync to convert received quantity from purchase UOM to the product’s stock UOM before posting inventory.	
+8	Add tolerance logic to GoodsReceiptNoteService (e.g., 5 % over‑receipt allowed) and throw an error otherwise.	
+9	After each GRN creation, call a new method PurchaseOrderService.UpdateReceivedQuantitiesAsync that increments ReceivedQuantity and updates PO status to Fulfilled when all lines are fully received.	
+10	Update Angular models (purchase-order.models.ts) to include the new fields (currencyId, paymentTermId, dueDate, expectedDeliveryDate, priceCardId). Adjust the UI/forms to bind them (supplier selection must trigger a call to a new endpoint GET /suppliers/{id}/details that returns the enriched DTO).	
+11	Add unit tests for the new service methods (price‑card linking, currency snapshot, due‑date calculation, receipt tolerance).	
+12	Run integration tests to verify:
+• PO creation with a supplier automatically fills currency, payment term, delivery date.
+• Unit price falls back to active price card.
+• Partial receipt updates PO line quantities correctly and prevents over‑receipt.
+• PO status transitions to Fulfilled after full receipt.	
+
+Note: All migrations should be additive (new columns nullable or defaulted) to avoid breaking existing data. Existing PO records can be back‑filled via a one‑off data‑migration script that copies the supplier’s current defaults where possible.
+
+9️⃣ Existing Functionality That Must BE PRESERVED
+Feature	Files / Classes	Must retain
+PO status workflow (Draft → Submitted → Approved → Fulfilled)	PurchaseOrder.cs, PurchaseOrderService, controller actions (Submit, Approve).	Do not remove status transitions; add Fulfilled as a new allowed state after receipt.
+Price lookup via SupplierProductPrice	SupplierProductPriceService, PurchaseOrderService lines 160‑183.	Preserve the active‑price‑lookup logic; only extend to store the price‑card ID.
+GRN creation & validation	GoodsReceiptNoteService lines 76‑89, 122‑135, 214‑228.	Keep the existing validation (approved PO, remaining qty) – add tolerance & conversion on top.
+Angular PO service API signatures	purchase-order.service.ts (methods createOrder, addItem, etc.).	Keep method names and URLs unchanged; extend request DTOs only.
+📢 Next Steps for the Team
+Create migration scripts for the new columns (currency, payment‑term, delivery‑date, price‑card ID, received‑quantity tracking).
+Implement the supplier‑detail fetch and PO field population (backend).
+Add the UOM conversion service and plug it into the GRN flow.
+Update Angular models and UI components to show supplier defaults (currency, terms) and allow overrides where required.
+Write unit tests for all new branches (price‑card linking, currency snapshot, receipt tolerance).
+
+Once the backend changes are merged and verified (unit + integration tests), the frontend can be updated in a separate PR without touching existing endpoints—ensuring a smooth rollout with minimal risk.
+
+All observations are based on the current source files; no code modifications were performed.

@@ -31,6 +31,7 @@ import {
   GoodsReceiptNoteDto,
   GoodsReceiptNoteStatus,
   CreateGoodsReceiptNoteRequest,
+  UpdateGoodsReceiptNoteRequest,
   getGrnStatusName,
   getGrnStatusSeverity
 } from '../../../../core/models/goods-receipt-note.models';
@@ -51,9 +52,12 @@ export interface EditableGRNLine {
   outstandingQuantity: number;
   receivedQuantityNow: number;
   unitCost: number; // Strictly read-only
+  discountRate?: number;
+  netLineAmount?: number;
   lineTotal: number; // Strictly read-only
   warehouseId?: string;
   warehouseLocationId?: string;
+  unitOfMeasureId?: string | null;
   remarks?: string;
 }
 
@@ -97,6 +101,17 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   readonly purchaseOrderId = signal<string | null>(null);
   readonly currentGrn = signal<GoodsReceiptNoteDto | null>(null);
   readonly sourcePo = signal<PurchaseOrderDto | null>(null);
+  readonly editingDraft = signal<boolean>(false);
+  readonly confirmDeleteDraft = signal<boolean>(false);
+  readonly canEditDraft = computed(() =>
+    this.mode() === 'create' ||
+    (this.mode() === 'view' &&
+      this.editingDraft() &&
+      Number(this.currentGrn()?.status) === GoodsReceiptNoteStatus.Draft)
+  );
+  readonly isDraft = computed(() =>
+    Number(this.currentGrn()?.status) === GoodsReceiptNoteStatus.Draft
+  );
 
   // Loading & Error States
   readonly loading = signal<boolean>(false);
@@ -160,7 +175,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
   // Header Form Field Configuration for Reusable Form
   readonly formFields = computed<FormFieldConfig[]>(() => {
-    const isView = this.mode() === 'view';
+    const isView = !this.canEditDraft();
     return [
       {
         name: 'grnNumber',
@@ -216,7 +231,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
   // Columns for the Received Items Table
   readonly itemColumns = computed<DataTableColumn<EditableGRNLine>[]>(() => {
-    const isView = this.mode() === 'view';
+    const isView = !this.canEditDraft();
     return [
       {
         field: 'productCode',
@@ -307,7 +322,9 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   readonly calculateRow = (row: EditableGRNLine): void => {
     const qty = Number(row.receivedQuantityNow) || 0;
     const cost = Number(row.unitCost) || 0;
-    row.lineTotal = Math.round(qty * cost * 100) / 100;
+    row.lineTotal = row.netLineAmount !== undefined && row.orderedQuantity > 0
+      ? Math.round(row.netLineAmount * qty / row.orderedQuantity * 100) / 100
+      : Math.round(qty * cost * (1 - (Number(row.discountRate) || 0) / 100) * 100) / 100;
     this.workingLines.set([...this.workingLines()]);
   };
 
@@ -451,13 +468,22 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         productId: item.productId,
         productCode: item.productCode || 'ITEM',
         productName: item.productName || 'Material Item',
-        unitOfMeasure: 'PCS',
+        unitOfMeasure: item.unitOfMeasureCode || '',
+        unitOfMeasureId: item.unitOfMeasureId ?? null,
         orderedQuantity: ordered,
         previouslyReceivedQuantity: prevReceived,
         outstandingQuantity: outstanding,
         receivedQuantityNow: outstanding, // Defaults to receiving full outstanding quantity
         unitCost: Number(item.unitPrice) || 0, // Server-copied unit price, strictly read-only
-        lineTotal: Math.round(outstanding * (Number(item.unitPrice) || 0) * 100) / 100
+        discountRate: Number(item.discountRate) || 0,
+        netLineAmount:
+          Number(item.subTotal ?? (ordered * (Number(item.unitPrice) || 0))) -
+          Number(item.discountAmount || 0),
+        lineTotal: Math.round(
+          (Number(item.subTotal ?? (ordered * (Number(item.unitPrice) || 0))) -
+            Number(item.discountAmount || 0)) *
+          outstanding / (ordered || 1) * 100
+        ) / 100
       };
     });
 
@@ -491,6 +517,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
         this.currentGrn.set(grn);
         this.populateFromSavedGrn(grn);
+        this.loadPurchaseOrderForDraft(grn);
       },
       error: err => {
         this.loading.set(false);
@@ -519,15 +546,80 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       productId: l.productId,
       productCode: l.productCode || 'ITEM',
       productName: l.productName || 'Material',
-      unitOfMeasure: l.unitOfMeasure || 'PCS',
+      unitOfMeasure: l.unitOfMeasure || '',
       orderedQuantity: l.quantityReceived,
       previouslyReceivedQuantity: 0,
-      outstandingQuantity: 0,
+      outstandingQuantity: l.quantityReceived,
       receivedQuantityNow: l.quantityReceived,
       unitCost: l.unitCost, // Strictly read-only
-      lineTotal: l.lineTotal
+      discountRate: 0,
+      netLineAmount: undefined,
+      lineTotal: l.lineTotal,
+      warehouseId: l.warehouseId,
+      warehouseLocationId: l.warehouseLocationId,
+      unitOfMeasureId: l.unitOfMeasureId ?? null,
+      remarks: l.remarks ?? undefined
     }));
 
+    this.workingLines.set(lines);
+  }
+
+  private loadPurchaseOrderForDraft(grn: GoodsReceiptNoteDto): void {
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!company || !branch) return;
+
+    this.poService.getOrder(company.id, branch.id, grn.purchaseOrderId).subscribe({
+      next: po => {
+        if (!po) return;
+        this.sourcePo.set(po);
+        const poItems = new Map((po.items || []).map(item => [item.id, item]));
+        this.workingLines.update(lines => lines.map(line => {
+          const item = poItems.get(line.purchaseOrderItemId);
+          if (!item) return line;
+          const ordered = Number(item.quantity) || 0;
+          const previouslyReceived = Number(item.receivedQuantity) || 0;
+          const usesPurchaseOrderUom =
+            !line.unitOfMeasureId || line.unitOfMeasureId === item.unitOfMeasureId;
+          return {
+            ...line,
+            orderedQuantity: ordered,
+            previouslyReceivedQuantity: previouslyReceived,
+            outstandingQuantity: Math.max(0, ordered - previouslyReceived),
+            unitOfMeasure: line.unitOfMeasure || item.unitOfMeasureCode || '',
+            unitCost: usesPurchaseOrderUom ? Number(item.unitPrice) || line.unitCost : line.unitCost,
+            discountRate: usesPurchaseOrderUom ? Number(item.discountRate) || 0 : 0,
+            netLineAmount: usesPurchaseOrderUom
+              ? Number(item.subTotal ?? (Number(item.quantity) * Number(item.unitPrice))) - Number(item.discountAmount || 0)
+              : undefined,
+            unitOfMeasureId: line.unitOfMeasureId ?? item.unitOfMeasureId ?? null
+          };
+        }));
+      },
+      error: err => {
+        this.showMessage(
+          this.getCleanErrorMessage(err, 'Could not load the source PO. Draft changes remain available, but PO validations require server confirmation.'),
+          'warn'
+        );
+      }
+    });
+  }
+
+  editCurrentDraft(): void {
+    if (this.isDraft()) {
+      this.confirmDeleteDraft.set(false);
+      this.editingDraft.set(true);
+    }
+  }
+
+  discardDraftEdits(): void {
+    const grn = this.currentGrn();
+    if (!grn) return;
+    this.populateFromSavedGrn(grn);
+    this.editingDraft.set(false);
+  }
+
+  onDraftLinesChange(lines: EditableGRNLine[]): void {
     this.workingLines.set(lines);
   }
 
@@ -546,6 +638,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     const company = this.scopeService.selectedCompany()!;
     const branch = this.scopeService.selectedBranch()!;
     const po = this.sourcePo();
+    const currentGrn = this.currentGrn();
 
     if (!po && this.mode() === 'create') {
       this.showMessage('Cannot save receipt without valid source Purchase Order.', 'danger');
@@ -554,7 +647,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
     // Filter lines that have actual received quantity > 0
     const linesToReceive = this.workingLines().filter(l => Number(l.receivedQuantityNow) > 0);
-    if (linesToReceive.length === 0) {
+    if (linesToReceive.length === 0 && this.mode() === 'create') {
       this.showMessage('At least one item line must have a received quantity greater than zero.', 'danger');
       return;
     }
@@ -573,15 +666,75 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     const formVal = this.headerForm.getRawValue();
 
     // Map request DTO - note: prices are server-authoritative and not client supplied
+    const lines = linesToReceive.map(l => ({
+      purchaseOrderItemId: l.purchaseOrderItemId,
+      productId: l.productId,
+      warehouseId: l.warehouseId,
+      warehouseLocationId: l.warehouseLocationId,
+      quantityReceived: Number(l.receivedQuantityNow),
+      unitOfMeasureId: l.unitOfMeasureId ?? null,
+      remarks: l.remarks || null
+    }));
+
+    const receiptDate = formVal.receiptDate
+      ? new Date(formVal.receiptDate).toISOString()
+      : new Date().toISOString();
+
+    if (this.mode() === 'view' && currentGrn && this.editingDraft()) {
+      const request: UpdateGoodsReceiptNoteRequest = {
+        receiptDate,
+        deliveryNoteNumber: formVal.deliveryNoteNumber || null,
+        remarks: formVal.remarks || null,
+        lines
+      };
+
+      this.actionInProgress.set(true);
+      this.grnService.updateDraft(company.id, branch.id, currentGrn.goodsReceiptNoteId, request).subscribe({
+        next: updatedGrn => {
+          this.currentGrn.set(updatedGrn);
+          this.populateFromSavedGrn(updatedGrn);
+          if (andConfirm) {
+            this.grnService.confirmGrn(company.id, branch.id, updatedGrn.goodsReceiptNoteId).subscribe({
+              next: confirmedGrn => {
+                this.actionInProgress.set(false);
+                this.currentGrn.set(confirmedGrn);
+                this.populateFromSavedGrn(confirmedGrn);
+                this.editingDraft.set(false);
+                this.showMessage(`Goods Receipt ${confirmedGrn.grnNumber} confirmed and stock posted successfully.`, 'success');
+              },
+              error: confErr => {
+                this.actionInProgress.set(false);
+                this.editingDraft.set(false);
+                this.showMessage(
+                  `Draft saved, but confirmation failed: ${this.getCleanErrorMessage(confErr, 'Failed to confirm.')}`,
+                  'warn'
+                );
+              }
+            });
+          } else {
+            this.actionInProgress.set(false);
+            this.editingDraft.set(false);
+            this.showMessage(`Goods Receipt ${updatedGrn.grnNumber} draft updated.`, 'success');
+          }
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.showMessage(this.getCleanErrorMessage(err, 'Failed to update Goods Receipt Note draft.'), 'danger');
+        }
+      });
+      return;
+    }
+
     const request: CreateGoodsReceiptNoteRequest = {
       purchaseOrderId: po!.id,
-      receiptDate: formVal.receiptDate ? new Date(formVal.receiptDate).toISOString() : new Date().toISOString(),
+      receiptDate,
       deliveryNoteNumber: formVal.deliveryNoteNumber || null,
       remarks: formVal.remarks || null,
       lines: linesToReceive.map(l => ({
         purchaseOrderItemId: l.purchaseOrderItemId,
         productId: l.productId,
         quantityReceived: Number(l.receivedQuantityNow),
+        unitOfMeasureId: l.unitOfMeasureId ?? null,
         remarks: l.remarks || null
       }))
     };
@@ -657,6 +810,26 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       error: err => {
         this.actionInProgress.set(false);
         this.showMessage(this.getCleanErrorMessage(err, 'Failed to cancel goods receipt.'), 'danger');
+      }
+    });
+  }
+
+  deleteCurrentDraft(): void {
+    const grn = this.currentGrn();
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!grn || !company || !branch || !this.isDraft()) return;
+
+    this.actionInProgress.set(true);
+    this.grnService.deleteDraft(company.id, branch.id, grn.goodsReceiptNoteId).subscribe({
+      next: () => {
+        this.actionInProgress.set(false);
+        this.showMessage(`Draft ${grn.grnNumber} deleted.`, 'success');
+        this.router.navigate(['/app/procurement/goods-receipts']);
+      },
+      error: err => {
+        this.actionInProgress.set(false);
+        this.showMessage(this.getCleanErrorMessage(err, 'Failed to delete goods receipt draft.'), 'danger');
       }
     });
   }

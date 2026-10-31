@@ -91,8 +91,17 @@ export class MasterDataOverviewComponent {
       badge: 'Financial & FX',
       badgeSeverity: 'info',
       icon: 'pi pi-dollar',
-      description: 'Tenant operational currencies, symbols, decimal precision, and baseline rates.',
+      description: 'Tenant operational currencies, symbols, and decimal precision.',
       route: '/app/master-data/currencies',
+      available: true
+    },
+    {
+      title: 'Exchange Rates',
+      badge: 'Financial & FX',
+      badgeSeverity: 'info',
+      icon: 'pi pi-chart-line',
+      description: 'Maintain tenant-scoped direct currency-pair rates with daily and monthly effective dates.',
+      route: '/app/master-data/exchange-rates',
       available: true
     },
     {

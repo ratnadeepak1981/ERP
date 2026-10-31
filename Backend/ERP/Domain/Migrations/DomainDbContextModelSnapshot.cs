@@ -769,6 +769,62 @@ namespace Domain.Migrations
                     b.ToTable("Currencies", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Features.MasterData.Currency.ExchangeRate", b =>
+                {
+                    b.Property<Guid>("ExchangeRateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("FromCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<int>("RateType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ToCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ExchangeRateId");
+
+                    b.HasIndex("TenantId", "ExchangeRateId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "FromCurrencyId", "ToCurrencyId", "RateType", "EffectiveDate")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "FromCurrencyId", "ToCurrencyId", "RateType", "IsActive", "EffectiveDate");
+
+                    b.HasIndex("TenantId", "ToCurrencyId");
+
+                    b.ToTable("ExchangeRates", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.PaymentTerm.PaymentTerm", b =>
                 {
                     b.Property<Guid>("PaymentTermId")
@@ -1458,6 +1514,31 @@ namespace Domain.Migrations
                     b.Property<Guid>("BranchId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("AppliedExchangeRate")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<decimal?>("BaseDiscountAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BaseCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int?>("BaseCurrencyDecimalPlaces")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("BaseSubTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTaxAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTotalAmount")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1614,6 +1695,31 @@ namespace Domain.Migrations
                     b.Property<Guid>("BranchId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("AppliedExchangeRate")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<decimal?>("BaseDiscountAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BaseCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int?>("BaseCurrencyDecimalPlaces")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("BaseSubTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTaxAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTotalAmount")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1637,6 +1743,21 @@ namespace Domain.Migrations
 
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExchangeRateEffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("ExchangeRateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("ExchangeRateSource")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("PriceCardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TransactionCurrencyId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("OrderNumber")
                         .IsRequired()
@@ -1675,6 +1796,12 @@ namespace Domain.Migrations
 
                     b.HasIndex("TenantId", "CompanyId", "OrderNumber")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "BaseCurrencyId");
+
+                    b.HasIndex("TenantId", "ExchangeRateId");
+
+                    b.HasIndex("TenantId", "TransactionCurrencyId");
 
                     b.ToTable("PurchaseOrders", (string)null);
                 });
@@ -4061,6 +4188,26 @@ namespace Domain.Migrations
                     b.Navigation("BaseCurrency");
                 });
 
+            modelBuilder.Entity("Domain.Features.MasterData.Currency.ExchangeRate", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", "FromCurrency")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "FromCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", "ToCurrency")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ToCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FromCurrency");
+                    b.Navigation("ToCurrency");
+                });
+
             modelBuilder.Entity("Domain.Features.MasterData.Company.CompanyAddress", b =>
                 {
                     b.HasOne("Domain.Features.MasterData.AddressType.AddressType", null)
@@ -4241,6 +4388,24 @@ namespace Domain.Migrations
 
             modelBuilder.Entity("Domain.Features.Procurement.PurchaseOrder.PurchaseOrder", b =>
                 {
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "BaseCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "TransactionCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Features.MasterData.Currency.ExchangeRate", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ExchangeRateId")
+                        .HasPrincipalKey("TenantId", "ExchangeRateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ERP.Domain.Features.MasterData.Supplier.Supplier", null)
                         .WithMany()
                         .HasForeignKey("SupplierId")

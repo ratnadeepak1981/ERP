@@ -111,6 +111,9 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.MasterData.Currency.Currency> Currencies
         => Set<Domain.Features.MasterData.Currency.Currency>();
 
+    public DbSet<Domain.Features.MasterData.Currency.ExchangeRate> ExchangeRates
+        => Set<Domain.Features.MasterData.Currency.ExchangeRate>();
+
     public DbSet<Domain.Features.MasterData.Brand.Brand> Brands
         => Set<Domain.Features.MasterData.Brand.Brand>();
 

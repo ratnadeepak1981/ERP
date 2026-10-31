@@ -246,15 +246,19 @@
           />
         </div>
         <div class="field-row">
-          <label for="companyCurrency">Operating Currency</label>
-          <input
-            pInputText
+          <label for="companyCurrency">Company Base Currency <span class="required-star">*</span></label>
+          <select
             id="companyCurrency"
-            [(ngModel)]="newCompanyCurrency"
-            placeholder="USD, LKR, EUR"
-            class="w-full"
-            (keydown.enter)="saveCompany()"
-          />
+            [(ngModel)]="newCompanyCurrencyId"
+            class="w-full p-inputtext select-input"
+            [disabled]="currenciesLoading()"
+            required
+          >
+            <option value="" disabled>Select an active currency</option>
+            @for (currency of activeCurrencies(); track currency.currencyId) {
+              <option [value]="currency.currencyId">{{ currency.currencyCode }} — {{ currency.currencyName }}</option>
+            }
+          </select>
         </div>
       </div>
 
@@ -271,6 +275,7 @@
             icon="pi pi-check"
             severity="primary"
             [loading]="saving()"
+            [disabled]="currenciesLoading() || activeCurrencies().length === 0"
             (onClick)="saveCompany()"
           ></p-button>
         </div>
@@ -406,15 +411,19 @@
               />
             </div>
             <div class="field-row">
-              <label for="initCompanyCurrency">Operating Currency <span class="required-star">*</span></label>
-              <input
-                pInputText
+              <label for="initCompanyCurrency">Company Base Currency <span class="required-star">*</span></label>
+              <select
                 id="initCompanyCurrency"
-                [(ngModel)]="initCompanyCurrency"
-                placeholder="USD, LKR, EUR"
-                class="w-full"
-                (keydown.enter)="saveInitWizard()"
-              />
+                [(ngModel)]="initCompanyCurrencyId"
+                class="w-full p-inputtext select-input"
+                [disabled]="currenciesLoading()"
+                required
+              >
+                <option value="" disabled>Select an active currency</option>
+                @for (currency of activeCurrencies(); track currency.currencyId) {
+                  <option [value]="currency.currencyId">{{ currency.currencyCode }} — {{ currency.currencyName }}</option>
+                }
+              </select>
             </div>
           </div>
         </div>
@@ -463,6 +472,7 @@
             icon="pi pi-check"
             severity="primary"
             [loading]="saving()"
+            [disabled]="currenciesLoading() || activeCurrencies().length === 0"
             (onClick)="saveInitWizard()"
           ></p-button>
         </div>

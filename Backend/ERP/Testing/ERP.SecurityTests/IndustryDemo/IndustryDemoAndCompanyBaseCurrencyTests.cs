@@ -130,6 +130,45 @@ public class IndustryDemoAndCompanyBaseCurrencyTests : IClassFixture<TestSecurit
     }
 
     [Fact]
+    public async Task CompanyBaseCurrency_IsRequiredOnCreate()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var companyService = scope.ServiceProvider.GetRequiredService<ICompanyService>();
+        var retailTenantId = IndustryDemoMasterDataSeeder.TenantIds["retail"];
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            companyService.CreateCompanyAsync(
+                retailTenantId,
+                "Missing Base Currency",
+                "NO-BASE",
+                null));
+
+        Assert.Contains("base currency is required", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CompanyBaseCurrency_MustBeActive()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var companyService = scope.ServiceProvider.GetRequiredService<ICompanyService>();
+        var domainDb = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = IndustryDemoMasterDataSeeder.TenantIds["retail"];
+        var inactiveCurrency = Currency.Create(tenantId, "ZZZ", "Inactive Test Currency", "Z");
+        inactiveCurrency.Deactivate();
+        domainDb.Currencies.Add(inactiveCurrency);
+        await domainDb.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            companyService.CreateCompanyAsync(
+                tenantId,
+                "Inactive Base Currency",
+                "INACTIVE-BASE",
+                inactiveCurrency.CurrencyId));
+
+        Assert.Contains("inactive", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task PurchasingApproval_DistinctSubmitAndApprove_SelfApprovalRejection()
     {
         using var scope = _fixture.Services.CreateScope();

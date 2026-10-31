@@ -202,6 +202,13 @@ export const workspaceRoutes: Routes = [
           )
       },
       {
+        path: 'exchange-rates',
+        loadComponent: () =>
+          import('./master-data/exchange-rates/exchange-rate-master.component').then(
+            m => m.ExchangeRateMasterComponent
+          )
+      },
+      {
         path: 'price-cards',
         children: [
           {

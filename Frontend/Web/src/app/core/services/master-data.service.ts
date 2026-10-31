@@ -9,6 +9,7 @@ import {
   UpdatePriceCardDto,
   PriceCardQueryParams
 } from '../models/price-card.models';
+import { ExchangeRateItem, ExchangeRateRequest } from '../models/exchange-rate.models';
 import {
   ProductItem,
   CreateProductDto,
@@ -596,6 +597,33 @@ export class MasterDataService {
 
   activateCurrency(id: string): Observable<void> {
     return this.http.post<void>(buildApiUrl(`/currencies/${id}/activate`), {});
+  }
+
+  // --- Exchange Rates ---
+  getExchangeRates(): Observable<ExchangeRateItem[]> {
+    return this.http
+      .get<ApiResponse<ExchangeRateItem[]>>(buildApiUrl('/exchange-rates'))
+      .pipe(map(res => res?.data || []));
+  }
+
+  createExchangeRate(data: ExchangeRateRequest): Observable<ExchangeRateItem> {
+    return this.http
+      .post<ApiResponse<ExchangeRateItem>>(buildApiUrl('/exchange-rates'), data)
+      .pipe(map(res => res.data));
+  }
+
+  updateExchangeRate(id: string, data: ExchangeRateRequest): Observable<ExchangeRateItem> {
+    return this.http
+      .put<ApiResponse<ExchangeRateItem>>(buildApiUrl(`/exchange-rates/${id}`), data)
+      .pipe(map(res => res.data));
+  }
+
+  deactivateExchangeRate(id: string): Observable<void> {
+    return this.http.delete<void>(buildApiUrl(`/exchange-rates/${id}`));
+  }
+
+  activateExchangeRate(id: string): Observable<void> {
+    return this.http.post<void>(buildApiUrl(`/exchange-rates/${id}/activate`), {});
   }
 
   // --- Warehouses ---
