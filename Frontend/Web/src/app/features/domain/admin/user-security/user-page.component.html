@@ -31,7 +31,7 @@
       }
 
       <p-button
-        [label]="mode() === 'create' ? 'Save User Account' : 'Update Profile &amp; Role'"
+        [label]="mode() === 'create' ? 'Save User Account' : 'Update Profile'"
         icon="pi pi-check"
         size="small"
         severity="primary"
@@ -148,33 +148,33 @@
           </div>
         </div>
 
-        <!-- Card 2: Role Assignment & Authentication Policy -->
-        <div class="erp-card form-section-card">
-          <div class="section-card-header">
-            <div class="section-icon shield">
-              <i class="pi pi-shield"></i>
-            </div>
-            <div>
-              <h3>Role &amp; Capability Assignment</h3>
-              <p>Assign capability role governing functional permissions across ERP modules.</p>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <div class="form-field full-width">
-              <label for="roleSelect">Assigned System Role <span class="required">*</span></label>
-              <select id="roleSelect" class="fluent-select" [(ngModel)]="selectedRoleId">
-                <option value="" disabled>-- Select Capability Role --</option>
-                @for (role of roles(); track role.id) {
-                  <option [value]="role.id">
-                    {{ role.name }} ({{ role.isSystem ? 'System Defined' : 'Custom Tenant Role' }})
-                  </option>
-                }
-              </select>
-              <span class="field-hint">Role governs view, edit, post, and administrative capabilities.</span>
+        @if (mode() === 'create') {
+          <!-- Card 2: Role Assignment (Create Mode) -->
+          <div class="erp-card form-section-card">
+            <div class="section-card-header">
+              <div class="section-icon shield">
+                <i class="pi pi-shield"></i>
+              </div>
+              <div>
+                <h3>Role &amp; Capability Assignment</h3>
+                <p>Assign capability role governing functional permissions across ERP modules.</p>
+              </div>
             </div>
 
-            @if (mode() === 'create') {
+            <div class="form-grid">
+              <div class="form-field full-width">
+                <label for="roleSelect">Assigned System Role <span class="required">*</span></label>
+                <select id="roleSelect" class="fluent-select" [(ngModel)]="selectedRoleId">
+                  <option value="" disabled>-- Select Capability Role --</option>
+                  @for (role of roles(); track role.id) {
+                    <option [value]="role.id">
+                      {{ role.name }} ({{ role.isSystem ? 'System Defined' : 'Custom Tenant Role' }})
+                    </option>
+                  }
+                </select>
+                <span class="field-hint">Role governs view, edit, post, and administrative capabilities.</span>
+              </div>
+
               <div class="form-field full-width">
                 <label for="userPassword">Initial Authentication Password</label>
                 <input
@@ -186,12 +186,10 @@
                 />
                 <span class="field-hint">User will use this initial password on first sign-in.</span>
               </div>
-            }
+            </div>
           </div>
-        </div>
 
-        @if (mode() === 'create') {
-          <!-- Card 3: Initial Operating Facility Scope (Create mode) -->
+          <!-- Card 3: Initial Operating Facility Scope (Create Mode) -->
           <div class="erp-card form-section-card">
             <div class="section-card-header">
               <div class="section-icon sitemap">
@@ -230,10 +228,228 @@
               </div>
             </div>
           </div>
+        } @else {
+          <!-- Card 2: Assigned Roles (View/Edit Mode - matching Recommended Design) -->
+          <div class="erp-card form-section-card">
+            <div class="section-card-header">
+              <div class="section-icon shield">
+                <i class="pi pi-shield"></i>
+              </div>
+              <div class="header-content">
+                <div class="header-title-row">
+                  <h3>Assigned roles</h3>
+                  @if (!editingRole()) {
+                    <button type="button" class="btn-link-action" (click)="startEditingRole()">
+                      <i class="pi pi-pencil"></i> Edit assignments
+                    </button>
+                  }
+                </div>
+                <p>Configured capability roles governing functional authorization.</p>
+              </div>
+            </div>
+
+            @if (editingRole()) {
+              <div class="role-inline-editor">
+                <label for="roleSelector">Select Capability Role</label>
+                <div class="editor-row">
+                  <select id="roleSelector" class="fluent-select" [ngModel]="editRoleId()" (ngModelChange)="editRoleId.set($event)">
+                    @for (role of roles(); track role.id) {
+                      <option [value]="role.id">
+                        {{ role.name }} ({{ role.isSystem ? 'System Defined' : 'Custom Role' }})
+                      </option>
+                    }
+                  </select>
+                  <p-button
+                    label="Save Assignment"
+                    icon="pi pi-check"
+                    size="small"
+                    severity="primary"
+                    [loading]="savingRole()"
+                    (onClick)="saveRoleQuick()"
+                  ></p-button>
+                  <p-button
+                    label="Cancel"
+                    icon="pi pi-times"
+                    size="small"
+                    [outlined]="true"
+                    severity="secondary"
+                    (onClick)="cancelEditingRole()"
+                  ></p-button>
+                </div>
+              </div>
+            } @else {
+              <div class="assigned-roles-block">
+                <div class="role-item-card">
+                  <div class="role-info">
+                    <div class="role-name-line">
+                      <strong class="role-title">{{ assignedRole()?.name || user()?.roleName || 'Assigned Role' }}</strong>
+                      <span class="pill-badge pill-badge-active">Active</span>
+                    </div>
+                    <span class="role-type-badge">{{ assignedRole()?.isSystem ? 'System defined role' : 'Custom role' }}</span>
+                    @if (assignedRole()?.description) {
+                      <p class="role-description">{{ assignedRole()?.description }}</p>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Card 3: Role Permissions Matrix (matching Recommended Design) -->
+          <div class="erp-card form-section-card">
+            <div class="section-card-header">
+              <div class="section-icon key">
+                <i class="pi pi-key"></i>
+              </div>
+              <div>
+                <h3>Role permissions – {{ assignedRole()?.name || user()?.roleName || 'Procurement' }}</h3>
+                <p>Functional operation permissions granted under current role definition.</p>
+              </div>
+            </div>
+
+            <div class="permissions-matrix-wrap">
+              <table class="diagnostic-matrix-table">
+                <thead>
+                  <tr>
+                    <th>Permission</th>
+                    <th class="text-right">Effective</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (poItem of accessDiagnostics().poItems; track poItem.code) {
+                    <tr>
+                      <td>
+                        <div class="perm-row">
+                          <span class="perm-display-name">{{ poItem.name }}</span>
+                          <code class="perm-code-tag">{{ poItem.code }}</code>
+                        </div>
+                      </td>
+                      <td class="text-right">
+                        @if (poItem.granted) {
+                          <span class="pill-badge pill-badge-granted">Granted</span>
+                        } @else {
+                          <span class="pill-badge pill-badge-missing">Missing</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+
+                  @for (other of otherPermissions(); track other.id || other.code) {
+                    <tr>
+                      <td>
+                        <div class="perm-row">
+                          <span class="perm-display-name">{{ other.name }}</span>
+                          <code class="perm-code-tag">{{ other.code }}</code>
+                        </div>
+                      </td>
+                      <td class="text-right">
+                        <span class="pill-badge pill-badge-granted">Granted</span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Card 4: Access Troubleshooting (Exact Match with Image 5) -->
+          <div class="erp-card form-section-card diagnostic-card">
+            <div class="section-card-header">
+              <div class="section-icon compass">
+                <i class="pi pi-compass"></i>
+              </div>
+              <div>
+                <h3>Access troubleshooting</h3>
+                <p>Live diagnostic validation comparing company workspace scope with effective permissions.</p>
+              </div>
+            </div>
+
+            <div class="diagnostic-wrap">
+              <table class="diagnostic-matrix-table">
+                <thead>
+                  <tr>
+                    <th>Jurisdiction / Dimension</th>
+                    <th class="text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="dim-info">
+                        <strong>Company workspace</strong>
+                        <span class="dim-sub">Operating company and branch jurisdiction required for workspace operations</span>
+                      </div>
+                    </td>
+                    <td class="text-right">
+                      @if (accessDiagnostics().scopeGranted) {
+                        <span class="pill-badge pill-badge-granted">
+                          Granted ({{ accessDiagnostics().scopeDetail }})
+                        </span>
+                      } @else {
+                        <div class="scope-action-group">
+                          <span class="pill-badge pill-badge-danger">Scope missing</span>
+                          <button type="button" class="btn-link-action" (click)="navigateToAssignScope()">
+                            + Assign Scope
+                          </button>
+                        </div>
+                      }
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="dim-info">
+                        <strong>PO permissions</strong>
+                        <span class="dim-sub">Required procurement capabilities (PO View, Create, Edit, Submit)</span>
+                      </div>
+                    </td>
+                    <td class="text-right">
+                      @if (accessDiagnostics().poAllGranted) {
+                        <span class="pill-badge pill-badge-granted">Granted</span>
+                      } @else if (accessDiagnostics().poAnyGranted) {
+                        <span class="pill-badge pill-badge-warning">Partial</span>
+                      } @else {
+                        <span class="pill-badge pill-badge-danger">Missing</span>
+                      }
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="diagnostic-verdict-box" [ngClass]="{
+                'verdict-pass': accessDiagnostics().isFullyReady,
+                'verdict-warn': accessDiagnostics().isScopeMissingOnly,
+                'verdict-fail': !accessDiagnostics().isFullyReady && !accessDiagnostics().isScopeMissingOnly
+              }">
+                <div class="verdict-icon">
+                  <i class="pi" [ngClass]="{
+                    'pi-check-circle': accessDiagnostics().isFullyReady,
+                    'pi-exclamation-triangle': accessDiagnostics().isScopeMissingOnly,
+                    'pi-times-circle': !accessDiagnostics().isFullyReady && !accessDiagnostics().isScopeMissingOnly
+                  }"></i>
+                </div>
+                <div class="verdict-text">
+                  @if (accessDiagnostics().isFullyReady) {
+                    <strong>Workspace and Purchase Order Access Ready</strong>
+                    <p>User is fully authorized with operating company workspace and all Purchase Order permissions. Purchase Orders and procurement workflows are accessible.</p>
+                  } @else if (accessDiagnostics().isScopeMissingOnly) {
+                    <strong>Company Workspace Scope Required</strong>
+                    <p>Purchase Order permissions are correctly granted, but no company workspace is assigned. The user cannot access Purchase Orders until an operating company and branch are authorized in User Operating Scopes.</p>
+                  } @else {
+                    <strong>Procurement Access Configuration Incomplete</strong>
+                    <p>User requires both an authorized operating company workspace and Purchase Order permissions to access procurement workflows.</p>
+                  }
+                </div>
+              </div>
+
+              <div class="diagnostic-footer-note">
+                <i class="pi pi-info-circle"></i> Live security evaluation based on effective tenant scope and role permissions.
+              </div>
+            </div>
+          </div>
         }
       </div>
 
-      <!-- Right Column: Scopes & Metadata (in view/edit mode) -->
+      <!-- Right Column: Scopes & Account Summary -->
       @if (mode() !== 'create') {
         <div class="user-side-col">
           <div class="erp-card summary-card">
@@ -258,6 +474,10 @@
                 <span class="label">Provisioned Date</span>
                 <span class="val-text">{{ user()?.createdAt | date:'mediumDate' }}</span>
               </div>
+              <div class="summary-item">
+                <span class="label">Primary Company</span>
+                <span class="val-text">{{ user()?.primaryCompanyName || 'Unspecified' }}</span>
+              </div>
             </div>
           </div>
 
@@ -279,13 +499,21 @@
 
             @if (userScopes().length === 0) {
               <div class="empty-scopes">
-                <i class="pi pi-info-circle"></i>
-                <p>No additional operating facility scopes assigned.</p>
+                <i class="pi pi-exclamation-circle text-danger"></i>
+                <p>No operating facility scopes assigned. User cannot access transaction workflows.</p>
+                <p-button
+                  label="Assign Scope Now"
+                  icon="pi pi-plus"
+                  size="small"
+                  severity="primary"
+                  (onClick)="navigateToAddScope()"
+                  class="mt-2"
+                ></p-button>
               </div>
             } @else {
               <div class="scopes-list">
                 @for (sc of userScopes(); track sc.id) {
-                  <div class="scope-item-card">
+                  <div class="scope-item-card" [class.scope-revoked]="sc.status === 'Revoked'">
                     <div class="scope-icon">
                       <i class="pi pi-building"></i>
                     </div>

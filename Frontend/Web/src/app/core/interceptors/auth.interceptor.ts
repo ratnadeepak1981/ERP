@@ -104,6 +104,19 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         }
       }
 
+      if (error instanceof HttpErrorResponse && error.status === 403) {
+        const errorDetail = String(error.error?.detail || error.error?.message || '');
+        if (errorDetail.toLowerCase().includes('cross-tenant')) {
+          router.navigate(['/access-denied'], {
+            queryParams: {
+              attempted: router.url,
+              reason: 'cross-tenant-mismatch',
+              message: errorDetail
+            }
+          });
+        }
+      }
+
       return throwError(() => error);
     })
   );

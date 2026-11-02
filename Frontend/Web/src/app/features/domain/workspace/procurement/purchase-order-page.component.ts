@@ -27,7 +27,7 @@ import { AppEmptyStateComponent } from '../../../../shared/components/empty-stat
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
 import { PurchaseOrderService } from '../../../../core/services/purchase-order.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
-import { PriceCardItem, PriceCardType } from '../../../../core/models/price-card.models';
+import { PriceCardItem, PriceCardType, PriceResolutionResult, ResolvePriceRequest } from '../../../../core/models/price-card.models';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import {
@@ -40,7 +40,7 @@ import {
 } from '../../../../core/models/purchase-order.models';
 import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
 import { LookupItem } from '../../../../shared/components/lookup-dropdown/lookup-item.model';
-import { Company, Branch, SupplierItem, ProductItem, TaxCodeItem, CurrencyItem } from '../../../../core/models/scope.models';
+import { Company, Branch, SupplierItem, ProductItem, TaxCodeItem, CurrencyItem, UnitOfMeasureItem } from '../../../../core/models/scope.models';
 
 export type POPageMode = 'create' | 'view' | 'amend' | 'approval';
 
@@ -60,6 +60,10 @@ export interface EditablePOLine {
   subTotal?: number;
   lineTotal: number;
   isTaxInclusive?: boolean;
+  isPriceOverridden?: boolean;
+  originalResolvedPrice?: number | null;
+  pricingSource?: string | null;
+  pricingSourceRecordId?: string | null;
 }
 
 @Component({
@@ -114,6 +118,15 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       value: card.priceCardId
     }))
   ]);
+  readonly uoms = signal<UnitOfMeasureItem[]>([]);
+  readonly uomSelectOptions = computed(() => [
+    { label: '-- Select UOM --', value: '' },
+    ...this.uoms().map(u => ({
+      label: `${u.code} (${u.name})`,
+      value: u.unitOfMeasureId
+    }))
+  ]);
+
   readonly taxCodeLookupItems = computed<LookupItem[]>(() => {
     return this.taxCodes().map(tc => ({
       id: tc.taxCodeId,
@@ -394,13 +407,16 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
           row.productId = String(item.id);
           row.productCode = item.code;
           row.productName = item.name;
-          if (item.meta?.cost !== undefined) {
-            row.unitCost = Number(item.meta.cost) || 0;
-          }
+          row.unitCost = 0;
+          row.originalResolvedPrice = null;
+          row.isPriceOverridden = false;
+          row.pricingSource = null;
+          row.pricingSourceRecordId = null;
           if (item.meta?.unitOfMeasureId) {
             row.unitOfMeasureId = item.meta.unitOfMeasureId;
           }
           this.calculateRow(row);
+          this.resolveLinePrice(row, true);
         },
         validators: [(val: any) => (val ? null : 'Product is required')]
       },
@@ -410,6 +426,16 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         sortable: true,
         width: '240px',
         editable: false
+      },
+      {
+        field: 'unitOfMeasureId',
+        header: 'UOM',
+        sortable: true,
+        width: '130px',
+        editable: !isReadOnly,
+        editType: 'select',
+        editOptions: this.uomSelectOptions(),
+        validators: [(val: any) => (val ? null : 'UOM is required')]
       },
       {
         field: 'quantity',
@@ -514,6 +540,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     const taxRate = Math.round((Number(row.taxRate) || 0) * 100) / 100;
     const isInclusive = !!row.isTaxInclusive;
 
+    if (row.originalResolvedPrice !== null && row.originalResolvedPrice !== undefined) {
+      row.isPriceOverridden = Math.abs(cost - row.originalResolvedPrice) > 0.0001;
+    }
+
     const gross = Math.round(qty * cost * 100) / 100;
     const discAmount = Math.round(gross * (discRate / 100) * 100) / 100;
 
@@ -551,6 +581,79 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     this.workingLines.set([...updated]);
   }
 
+  onCellValueChange(event: { row: EditablePOLine; column: DataTableColumn<EditablePOLine>; value: any }): void {
+    if (event.column.field === 'unitCost') {
+      const enteredCost = Number(event.value) || 0;
+      if (event.row.originalResolvedPrice !== null && event.row.originalResolvedPrice !== undefined) {
+        event.row.isPriceOverridden = Math.abs(enteredCost - event.row.originalResolvedPrice) > 0.0001;
+      }
+    } else if (event.column.field === 'unitOfMeasureId') {
+      event.row.unitOfMeasureId = event.value || null;
+      if (!event.row.isPriceOverridden) {
+        this.resolveLinePrice(event.row, true);
+      }
+    }
+  }
+
+  resolveLinePrice(row: EditablePOLine, force = false): void {
+    if (!row.productId) return;
+    if (!force && row.isPriceOverridden) return;
+
+    const companyId = this.selectedCompanyId() || this.scopeService.selectedCompany()?.id;
+    if (!companyId) return;
+
+    const branchId = this.selectedBranchId() || this.scopeService.selectedBranch()?.id;
+    const formVal = this.headerForm.getRawValue();
+
+    const request: ResolvePriceRequest = {
+      companyId,
+      branchId,
+      supplierId: formVal.supplierId || null,
+      productId: row.productId,
+      priceCardId: formVal.priceCardId || null,
+      unitOfMeasureId: row.unitOfMeasureId || null,
+      currency: formVal.currency || null,
+      transactionDate: formVal.orderDate ? new Date(formVal.orderDate).toISOString() : new Date().toISOString()
+    };
+
+    this.poService.resolvePrice(companyId, branchId, request).subscribe({
+      next: result => {
+        if (result && result.found && result.unitPrice > 0) {
+          row.unitCost = result.unitPrice;
+          row.originalResolvedPrice = result.unitPrice;
+          row.isPriceOverridden = false;
+          row.pricingSource = result.source;
+          row.pricingSourceRecordId = result.sourceRecordId || result.priceCardLineId || result.supplierProductPriceId || null;
+          if (result.resolvedUomId && !row.unitOfMeasureId) {
+            row.unitOfMeasureId = result.resolvedUomId;
+          }
+          this.calculateRow(row);
+        } else {
+          row.originalResolvedPrice = null;
+          row.pricingSource = null;
+          row.pricingSourceRecordId = null;
+          this.calculateRow(row);
+        }
+      },
+      error: () => {
+        row.originalResolvedPrice = null;
+        row.pricingSource = null;
+        row.pricingSourceRecordId = null;
+        this.calculateRow(row);
+      }
+    });
+  }
+
+  reResolveLines(): void {
+    if (this.isReadOnlyMode()) return;
+    const lines = this.workingLines();
+    for (const line of lines) {
+      if (line.productId && !line.isPriceOverridden) {
+        this.resolveLinePrice(line, true);
+      }
+    }
+  }
+
   // Blank New Row Factory
   readonly defaultNewRow = (): Partial<EditablePOLine> => {
     return {
@@ -567,7 +670,11 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       taxAmount: 0,
       subTotal: 0,
       lineTotal: 0,
-      isTaxInclusive: false
+      isTaxInclusive: false,
+      isPriceOverridden: false,
+      originalResolvedPrice: null,
+      pricingSource: null,
+      pricingSourceRecordId: null
     };
   };
 
@@ -650,6 +757,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         if (card && !this.headerForm.controls.currency.value) {
           this.headerForm.controls.currency.setValue(card.currency);
         }
+        this.reResolveLines();
       })
     );
 
@@ -960,6 +1068,11 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       error: () => {}
     });
 
+    this.masterDataService.getUnitsOfMeasure().subscribe({
+      next: uoms => this.uoms.set(uoms.filter(u => u.isActive)),
+      error: () => {}
+    });
+
     this.masterDataService.getTaxCodes('Purchase', true).subscribe({
       next: codes => this.taxCodes.set(codes),
       error: () => {}
@@ -981,6 +1094,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     const supplier = this.suppliers().find(item => item.supplierId === supplierId);
     if (!supplier) return;
 
+    if (supplier.paymentTerms) {
+      this.headerForm.controls.paymentTerms.setValue(supplier.paymentTerms);
+    }
+
     if (supplier.defaultPurchasePriceCardId) {
       this.headerForm.controls.priceCardId.setValue(supplier.defaultPurchasePriceCardId);
       const card = this.purchasePriceCards().find(item =>
@@ -998,6 +1115,8 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     } else {
       this.headerForm.controls.currency.setValue('');
     }
+
+    this.reResolveLines();
   }
 
   refreshDraftExchangeRate(): void {

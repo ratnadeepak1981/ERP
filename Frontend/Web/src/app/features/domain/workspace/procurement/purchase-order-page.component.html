@@ -382,6 +382,7 @@
           [defaultNewRow]="defaultNewRow"
           [onRowCalculate]="calculateRow"
           (dataChange)="onLinesChange($event)"
+          (cellValueChange)="onCellValueChange($event)"
           subtotalField="lineTotal"
           subtotalLabel="Line Items Subtotal"
           [currencyCode]="displayCurrencyCode()"

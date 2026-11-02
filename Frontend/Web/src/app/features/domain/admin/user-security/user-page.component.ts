@@ -11,10 +11,23 @@ import { AppStatusBadgeComponent } from '../../../../shared/components/status-ba
 import { AppLoadingStateComponent } from '../../../../shared/components/loading-state/loading-state.component';
 import { UserSecurityService } from '../../../../core/services/user-security.service';
 import { CompanyService } from '../../../../core/services/company.service';
-import { UserAccount, RoleDefinition, UserScopeAssignment, CreateUserDto, UpdateUserDto } from '../../../../core/models/security.models';
+import {
+  UserAccount,
+  RoleDefinition,
+  UserScopeAssignment,
+  CreateUserDto,
+  UpdateUserDto,
+  PermissionItem
+} from '../../../../core/models/security.models';
 import { Company, Branch } from '../../../../core/models/scope.models';
 
 export type UserPageMode = 'create' | 'edit' | 'view';
+
+export interface PoDiagnosticItem {
+  name: string;
+  code: string;
+  granted: boolean;
+}
 
 @Component({
   selector: 'app-user-page',
@@ -68,6 +81,67 @@ export class UserPageComponent implements OnInit {
   roles = signal<RoleDefinition[]>([]);
   companies = signal<Company[]>([]);
 
+  // Role & Permissions Inspection State
+  assignedRole = signal<RoleDefinition | null>(null);
+  rolePermissions = signal<PermissionItem[]>([]);
+  editingRole = signal<boolean>(false);
+  editRoleId = signal<string>('');
+  savingRole = signal<boolean>(false);
+
+  readonly otherPermissions = computed<PermissionItem[]>(() => {
+    const poCodes = [
+      'PURCHASE_ORDER.VIEW',
+      'PURCHASE_ORDER.CREATE',
+      'PURCHASE_ORDER.EDIT',
+      'PURCHASE_ORDER.SUBMIT',
+      'PO.VIEW',
+      'PO.CREATE',
+      'PO.EDIT',
+      'PO.SUBMIT',
+      'PO.APPROVE'
+    ];
+    return this.rolePermissions().filter(p => !poCodes.includes(p.code?.toUpperCase()));
+  });
+
+  readonly accessDiagnostics = computed(() => {
+    const scopes = this.userScopes().filter(s => s.status === 'Authorized');
+    const hasScope = scopes.length > 0 && scopes.some(s => !!s.companyId);
+    const activeScope = scopes.find(s => !!s.companyId);
+    const scopeDetail = activeScope
+      ? `${activeScope.companyName}${activeScope.branchName && activeScope.branchName !== 'All Facilities' ? ' / ' + activeScope.branchName : ' (All Facilities)'}`
+      : '';
+
+    const permissions = this.rolePermissions().map(p => p.code?.toUpperCase() || '');
+
+    const poViewGranted = permissions.includes('PURCHASE_ORDER.VIEW') || permissions.includes('PO.VIEW');
+    const poCreateGranted = permissions.includes('PURCHASE_ORDER.CREATE') || permissions.includes('PO.CREATE');
+    const poEditGranted = permissions.includes('PURCHASE_ORDER.EDIT') || permissions.includes('PO.EDIT');
+    const poSubmitGranted =
+      permissions.includes('PURCHASE_ORDER.SUBMIT') ||
+      permissions.includes('PO.SUBMIT') ||
+      permissions.includes('PO.APPROVE');
+
+    const poAllGranted = poViewGranted && poCreateGranted && poEditGranted && poSubmitGranted;
+    const poAnyGranted = poViewGranted || poCreateGranted || poEditGranted || poSubmitGranted;
+
+    const poItems: PoDiagnosticItem[] = [
+      { name: 'PO View', code: 'PURCHASE_ORDER.VIEW', granted: poViewGranted },
+      { name: 'PO Create', code: 'PURCHASE_ORDER.CREATE', granted: poCreateGranted },
+      { name: 'PO Edit', code: 'PURCHASE_ORDER.EDIT', granted: poEditGranted },
+      { name: 'PO Submit', code: 'PURCHASE_ORDER.SUBMIT', granted: poSubmitGranted }
+    ];
+
+    return {
+      scopeGranted: hasScope,
+      scopeDetail,
+      poAllGranted,
+      poAnyGranted,
+      poItems,
+      isFullyReady: hasScope && poAllGranted,
+      isScopeMissingOnly: !hasScope && poAllGranted
+    };
+  });
+
   readonly breadcrumbs = computed<MenuItem[]>(() => [
     { label: 'Workspace', routerLink: '/app/dashboard' },
     { label: 'Administration' },
@@ -108,6 +182,10 @@ export class UserPageComponent implements OnInit {
       if (this.mode() === 'create' && r.length > 0 && !this.selectedRoleId) {
         this.selectedRoleId = r[0].id;
       }
+      if (this.selectedRoleId) {
+        const found = r.find(x => x.id === this.selectedRoleId);
+        if (found) this.assignedRole.set(found);
+      }
     });
 
     this.companyService.getCompanies().subscribe(comps => {
@@ -138,18 +216,99 @@ export class UserPageComponent implements OnInit {
         this.username = userData.username || '';
         this.phone = userData.phone || '';
         this.selectedRoleId = userData.roleId || '';
+        this.editRoleId.set(userData.roleId || '');
         this.accountStatus = userData.accountStatus || 'Active';
 
+        this.loadRolePermissions(userData.roleId);
+
         // Load scopes for this user
-        this.securityService.getUserScopes(id).subscribe(scopes => {
-          this.userScopes.set(scopes);
-          this.loading.set(false);
+        this.securityService.getUserScopes(id).subscribe({
+          next: scopes => {
+            this.userScopes.set(scopes);
+            this.loading.set(false);
+          },
+          error: () => {
+            this.loading.set(false);
+          }
         });
       },
       error: () => {
         this.errorMessage.set('Failed to load user account details.');
         this.loading.set(false);
       }
+    });
+  }
+
+  loadRolePermissions(roleId: string): void {
+    if (!roleId) {
+      this.assignedRole.set(null);
+      this.rolePermissions.set([]);
+      return;
+    }
+
+    const role = this.roles().find(r => r.id === roleId);
+    if (role) {
+      this.assignedRole.set(role);
+    } else {
+      this.securityService.getRole(roleId).subscribe({
+        next: r => this.assignedRole.set(r),
+        error: () => {}
+      });
+    }
+
+    this.securityService.getRolePermissions(roleId).subscribe({
+      next: perms => {
+        this.rolePermissions.set(perms);
+      },
+      error: () => {
+        this.rolePermissions.set([]);
+      }
+    });
+  }
+
+  startEditingRole(): void {
+    this.editRoleId.set(this.selectedRoleId);
+    this.editingRole.set(true);
+  }
+
+  cancelEditingRole(): void {
+    this.editingRole.set(false);
+  }
+
+  saveRoleQuick(): void {
+    const newRoleId = this.editRoleId();
+    if (!newRoleId || newRoleId === this.selectedRoleId) {
+      this.editingRole.set(false);
+      return;
+    }
+
+    this.savingRole.set(true);
+    const updateDto: UpdateUserDto = {
+      roleId: newRoleId,
+      email: this.email.trim().toLowerCase(),
+      username: this.username.trim() || undefined,
+      isActive: this.accountStatus === 'Active'
+    };
+
+    this.securityService.updateUser(this.userId()!, updateDto).subscribe({
+      next: () => {
+        this.savingRole.set(false);
+        this.editingRole.set(false);
+        this.selectedRoleId = newRoleId;
+        this.successMessage.set('Assigned role updated successfully.');
+        this.loadRolePermissions(newRoleId);
+        this.loadUserData(this.userId()!);
+      },
+      error: err => {
+        this.savingRole.set(false);
+        this.errorMessage.set(err?.error?.message || 'Failed to update assigned role.');
+      }
+    });
+  }
+
+  navigateToAssignScope(): void {
+    this.router.navigate(['/tenant-admin/user-scope/new'], {
+      queryParams: { userId: this.userId() }
     });
   }
 
@@ -218,7 +377,7 @@ export class UserPageComponent implements OnInit {
         comp?.name || 'Primary Company',
         br?.name || 'Primary Facility'
       ).subscribe({
-        next: createdUser => {
+        next: () => {
           this.saving.set(false);
           this.successMessage.set('User account created and primary facility scope provisioned successfully.');
           setTimeout(() => this.router.navigate(['/tenant-admin/users']), 1000);
@@ -244,7 +403,7 @@ export class UserPageComponent implements OnInit {
       };
 
       this.securityService.updateUser(this.userId()!, updateDto).subscribe({
-        next: updated => {
+        next: () => {
           this.saving.set(false);
           this.successMessage.set('User account details and role assignment updated successfully.');
           this.loadUserData(this.userId()!);
@@ -260,7 +419,7 @@ export class UserPageComponent implements OnInit {
   toggleAccountStatus(): void {
     if (!this.userId()) return;
     this.securityService.toggleUserStatus(this.userId()!).subscribe({
-      next: res => {
+      next: () => {
         const nextStatus = this.accountStatus === 'Active' ? 'Suspended' : 'Active';
         this.accountStatus = nextStatus;
         this.successMessage.set(`User account authentication access has been ${nextStatus === 'Active' ? 'activated' : 'suspended'}.`);

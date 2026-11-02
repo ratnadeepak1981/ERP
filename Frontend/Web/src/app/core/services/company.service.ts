@@ -40,13 +40,12 @@ export class CompanyService {
           return list;
         }),
         catchError((err) => {
-          // Only use localStorage on genuine network errors (status 0 / no response).
-          // For 401/403/5xx the backend responded � return [] so the UI shows
-          // "no company" rather than a stale company with a fake local ID.
-          if (err?.status === 0 || err?.status == null) {
-            return of(this.getLocalCompanies());
+          // Propagate authentic HTTP error responses (401, 403, 5xx) so caller
+          // can distinguish authorization/session/server errors from valid empty company lists.
+          if (err?.status !== 0 && err?.status != null) {
+            return throwError(() => err);
           }
-          return of([]);
+          return of(this.getLocalCompanies());
         })
       );
   }
@@ -81,7 +80,10 @@ export class CompanyService {
           }
           return this.getLocalBranches(companyId);
         }),
-        catchError(() => {
+        catchError((err) => {
+          if (err?.status !== 0 && err?.status != null) {
+            return throwError(() => err);
+          }
           return of(this.getLocalBranches(companyId));
         })
       );

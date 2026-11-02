@@ -42,7 +42,8 @@ public class PricingResolutionService : IPricingResolutionService
         Guid productId,
         Guid? requestedUomId,
         DateTime? transactionDate = null,
-        Guid? overridePriceCardId = null)
+        Guid? overridePriceCardId = null,
+        string? expectedCurrency = null)
     {
         DateTime checkDate = transactionDate ?? DateTime.UtcNow;
 
@@ -60,17 +61,36 @@ public class PricingResolutionService : IPricingResolutionService
                 };
             }
 
+            if (!card.IsActive)
+            {
+                return new PriceResolutionResult
+                {
+                    Found = false,
+                    ProductId = productId,
+                    PriceCardId = card.PriceCardId,
+                    PriceCardCode = card.PriceCardCode,
+                    PriceCardName = card.PriceCardName,
+                    PriceCardType = card.PriceCardType,
+                    Message = $"Selected Purchase Price Card '{card.PriceCardCode}' is inactive."
+                };
+            }
+
             if (card.PriceCardType != PriceCardType.Purchase)
             {
                 return new PriceResolutionResult
                 {
                     Found = false,
                     ProductId = productId,
+                    PriceCardId = card.PriceCardId,
+                    PriceCardCode = card.PriceCardCode,
+                    PriceCardName = card.PriceCardName,
+                    PriceCardType = card.PriceCardType,
                     Message = $"Price Card '{card.PriceCardCode}' is of type {card.PriceCardType} and cannot be used in a Purchase transaction."
                 };
             }
 
-            return await _priceCardService.GetApplicablePriceAsync(tenantId, card.PriceCardId, productId, requestedUomId, checkDate);
+            var cardResult = await _priceCardService.GetApplicablePriceAsync(tenantId, card.PriceCardId, productId, requestedUomId, checkDate);
+            return ValidateCurrency(cardResult, expectedCurrency);
         }
 
         // 2. Supplier default purchase price card
@@ -85,7 +105,7 @@ public class PricingResolutionService : IPricingResolutionService
                     var result = await _priceCardService.GetApplicablePriceAsync(tenantId, card.PriceCardId, productId, requestedUomId, checkDate);
                     if (result.Found)
                     {
-                        return result;
+                        return ValidateCurrency(result, expectedCurrency);
                     }
                 }
             }
@@ -118,7 +138,7 @@ public class PricingResolutionService : IPricingResolutionService
                     catch { }
                 }
 
-                return new PriceResolutionResult
+                var legacyResult = new PriceResolutionResult
                 {
                     Found = true,
                     ProductId = productId,
@@ -126,8 +146,11 @@ public class PricingResolutionService : IPricingResolutionService
                     UnitPrice = unitPrice,
                     Currency = legacyPrice.Currency,
                     ExchangeRate = 1m,
-                    Source = "SupplierProductPrice"
+                    Source = "SupplierProductPrice",
+                    SourceRecordId = legacyPrice.SupplierProductPriceId,
+                    SupplierProductPriceId = legacyPrice.SupplierProductPriceId
                 };
+                return ValidateCurrency(legacyResult, expectedCurrency);
             }
         }
 
@@ -137,6 +160,28 @@ public class PricingResolutionService : IPricingResolutionService
             ProductId = productId,
             Message = "No applicable purchase price found on any assigned price card or supplier price configuration."
         };
+    }
+
+    private static PriceResolutionResult ValidateCurrency(PriceResolutionResult result, string? expectedCurrency)
+    {
+        if (result.Found && !string.IsNullOrWhiteSpace(expectedCurrency))
+        {
+            if (!string.Equals(result.Currency, expectedCurrency.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return new PriceResolutionResult
+                {
+                    Found = false,
+                    ProductId = result.ProductId,
+                    PriceCardId = result.PriceCardId,
+                    PriceCardCode = result.PriceCardCode,
+                    PriceCardName = result.PriceCardName,
+                    PriceCardType = result.PriceCardType,
+                    Currency = result.Currency,
+                    Message = $"Currency mismatch: Resolved price is in '{result.Currency}' but transaction currency is '{expectedCurrency.Trim().ToUpperInvariant()}'."
+                };
+            }
+        }
+        return result;
     }
 
     public async Task<PriceResolutionResult> ResolveSalesPriceAsync(

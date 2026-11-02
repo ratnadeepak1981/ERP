@@ -151,9 +151,10 @@
           } @else if (col.field === 'email') {
             <span class="email-text">{{ row.email }}</span>
           } @else if (col.field === 'roleName') {
-            <span class="role-pill">
+            <span class="role-pill clickable" (click)="navigateToUserDetails(row)" pTooltip="Inspect &amp; Edit Assigned Role" tooltipPosition="top">
               <i class="pi pi-shield"></i>
               <span>{{ row.roleName || 'Authorized User' }}</span>
+              <i class="pi pi-pencil edit-icon"></i>
             </span>
           } @else if (col.field === 'primaryScope') {
             <div class="scope-cell">

@@ -12,7 +12,6 @@ namespace API.Features.Domain;
 
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches")]
-[RequirePermission("BRANCH.VIEW")]
 public class BranchController : BaseApiController
 {
     private readonly IBranchService _branchService;
@@ -67,7 +66,22 @@ public class BranchController : BaseApiController
             tenantId.Value,
             companyId);
 
-        return PaginateAndSort(branches, page, pageSize, sortBy, sortDirection, _sortMapping);
+        var accessibleBranches = new List<Branch>();
+        foreach (var branch in branches)
+        {
+            var canAccess = await _userAccessService.CanAccessBranchAsync(
+                _currentUserContext.UserId,
+                tenantId.Value,
+                companyId,
+                branch.Id);
+
+            if (canAccess)
+            {
+                accessibleBranches.Add(branch);
+            }
+        }
+
+        return PaginateAndSort(accessibleBranches, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
 
     [HttpGet("{id:guid}")]
@@ -92,6 +106,17 @@ public class BranchController : BaseApiController
             companyId);
 
         if (!canAccessCompany)
+        {
+            return Forbid();
+        }
+
+        var canAccessBranch = await _userAccessService.CanAccessBranchAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId,
+            id);
+
+        if (!canAccessBranch)
         {
             return Forbid();
         }

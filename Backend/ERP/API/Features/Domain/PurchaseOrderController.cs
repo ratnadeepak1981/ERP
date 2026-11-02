@@ -5,6 +5,7 @@ using API.Common;
 using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Branch;
+using Domain.Features.MasterData.PriceCard;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseOrder;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,7 @@ namespace API.Features.Domain;
 public class PurchaseOrderController : BaseApiController
 {
     private readonly IPurchaseOrderService _orderService;
+    private readonly IPricingResolutionService _pricingResolutionService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
     private readonly IBranchService _branchService;
@@ -31,11 +33,13 @@ public class PurchaseOrderController : BaseApiController
 
     public PurchaseOrderController(
         IPurchaseOrderService orderService,
+        IPricingResolutionService pricingResolutionService,
         ICurrentUserContext currentUserContext,
         IUserAccessService userAccessService,
         IBranchService branchService)
     {
         _orderService = orderService;
+        _pricingResolutionService = pricingResolutionService;
         _currentUserContext = currentUserContext;
         _userAccessService = userAccessService;
         _branchService = branchService;
@@ -453,5 +457,48 @@ public class PurchaseOrderController : BaseApiController
         }
 
         return (null, tenantId.Value);
+    }
+
+    [HttpPost("resolve-price")]
+    [HttpPost("~/api/companies/{companyId:guid}/purchase-orders/resolve-price")]
+    public async Task<IActionResult> ResolvePrice(
+        Guid companyId,
+        [FromRoute] Guid? branchId,
+        [FromBody] ResolvePurchasePriceRequest request)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
+        if (!canAccessCompany) return Forbid();
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            var canAccessBranch = await _userAccessService.CanAccessBranchAsync(
+                _currentUserContext.UserId,
+                tenantId.Value,
+                companyId,
+                branchId.Value);
+            if (!canAccessBranch) return Forbid();
+        }
+
+        if (request == null || request.ProductId == Guid.Empty)
+            return BadRequestResponse("Valid request with ProductId is required.");
+
+        var result = await _pricingResolutionService.ResolvePurchasePriceAsync(
+            tenantId.Value,
+            request.SupplierId,
+            request.ProductId,
+            request.UnitOfMeasureId,
+            request.TransactionDate,
+            request.PriceCardId,
+            request.Currency);
+
+        return SuccessResponse(result);
     }
 }

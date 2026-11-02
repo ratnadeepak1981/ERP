@@ -266,32 +266,49 @@ public class PurchaseOrderService : IPurchaseOrderService
                         request.OrderDate ?? DateTime.UtcNow);
                 }
 
-                if (selectedPriceCard != null && !itemReq.UnitPrice.HasValue)
+                // Resolve applicable purchase price through PricingResolutionService if available
+                if (_pricingResolutionService != null && (selectedPriceCard != null || request.SupplierId.HasValue))
                 {
-                    if (_pricingResolutionService == null)
-                        throw new InvalidOperationException("Purchase Price Card price lookup is unavailable.");
-
                     selectedCardPrice = await _pricingResolutionService.ResolvePurchasePriceAsync(
                         tenantId,
                         request.SupplierId,
                         itemReq.ProductId,
                         uomId,
                         request.OrderDate,
-                        selectedPriceCard.PriceCardId);
-                    if (!selectedCardPrice.Found)
-                    {
-                        throw new InvalidOperationException(
-                            selectedCardPrice.Message ?? $"No price exists on Purchase Price Card '{selectedPriceCard.PriceCardCode}' for product '{product.ProductCode}'.");
-                    }
-                    if (!string.Equals(selectedCardPrice.Currency, selectedPriceCard.Currency, StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("Resolved Purchase Price Card price currency does not match the selected card currency.");
+                        selectedPriceCard?.PriceCardId,
+                        expectedCurrency: requestedCurrencyCode ?? selectedPriceCard?.Currency);
                 }
 
-                // A manual price may still be linked to a supplier price card.
+                if (selectedPriceCard != null && !itemReq.UnitPrice.HasValue && (selectedCardPrice == null || !selectedCardPrice.Found))
+                {
+                    throw new InvalidOperationException(
+                        selectedCardPrice?.Message ?? $"No price exists on Purchase Price Card '{selectedPriceCard.PriceCardCode}' for product '{product.ProductCode}'.");
+                }
+                if (selectedPriceCard != null && selectedCardPrice?.Found == true && !string.Equals(selectedCardPrice.Currency, selectedPriceCard.Currency, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Resolved Purchase Price Card price currency does not match the selected card currency.");
+                }
+
+                // Determine effective unit price and detect price overrides
                 decimal unitPrice;
+                bool isPriceOverridden = false;
                 if (itemReq.UnitPrice.HasValue)
                 {
                     unitPrice = itemReq.UnitPrice.Value;
+                    if (selectedCardPrice?.Found == true)
+                    {
+                        if (Math.Abs(unitPrice - selectedCardPrice.UnitPrice) > 0.0001m)
+                        {
+                            isPriceOverridden = true;
+                        }
+                    }
+                    else if (activePrice != null)
+                    {
+                        if (Math.Abs(unitPrice - activePrice.UnitPrice) > 0.0001m)
+                        {
+                            isPriceOverridden = true;
+                        }
+                    }
                 }
                 else if (selectedCardPrice?.Found == true)
                 {
@@ -310,25 +327,39 @@ public class PurchaseOrderService : IPurchaseOrderService
                             : "UnitPrice must be specified.");
                 }
 
+                if (selectedCardPrice?.Found == true && selectedCardPrice.Source == "PriceCard")
+                {
+                    supplierProductPriceId = selectedCardPrice.SourceRecordId ?? selectedCardPrice.PriceCardLineId;
+                    uomId ??= selectedCardPrice.ResolvedUomId;
+                }
+
                 if (activePrice != null)
                 {
                     var usesLegacyPrice = selectedPriceCard == null ||
                         (selectedCardPrice?.Source == "SupplierProductPrice");
                     if (usesLegacyPrice)
                     {
-                        var legacyCurrency = await GetActiveCurrencyByCodeAsync(
-                            tenantId, activePrice.Currency);
-                        if (selectedPriceCard != null &&
-                            !string.Equals(legacyCurrency.CurrencyCode, selectedPriceCard.Currency, StringComparison.OrdinalIgnoreCase))
-                            throw new InvalidOperationException("Supplier price currency does not match the selected Purchase Price Card currency.");
-                        if (requestedCurrencyCode != null &&
-                            !string.Equals(legacyCurrency.CurrencyCode, requestedCurrencyCode, StringComparison.OrdinalIgnoreCase))
-                            throw new InvalidOperationException("PO currency must match the selected supplier price currency.");
-                        if (priceSourceCurrency != null &&
-                            !string.Equals(priceSourceCurrency, legacyCurrency.CurrencyCode, StringComparison.OrdinalIgnoreCase))
-                            throw new InvalidOperationException("Supplier prices in different currencies cannot be combined on one purchase order.");
+                        if (_currencyRepository != null)
+                        {
+                            var legacyCurrency = await GetActiveCurrencyByCodeAsync(
+                                tenantId, activePrice.Currency);
+                            if (selectedPriceCard != null &&
+                                !string.Equals(legacyCurrency.CurrencyCode, selectedPriceCard.Currency, StringComparison.OrdinalIgnoreCase))
+                                throw new InvalidOperationException("Supplier price currency does not match the selected Purchase Price Card currency.");
+                            if (requestedCurrencyCode != null &&
+                                !string.Equals(legacyCurrency.CurrencyCode, requestedCurrencyCode, StringComparison.OrdinalIgnoreCase))
+                                throw new InvalidOperationException("PO currency must match the selected supplier price currency.");
+                            if (priceSourceCurrency != null &&
+                                !string.Equals(priceSourceCurrency, legacyCurrency.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+                                throw new InvalidOperationException("Supplier prices in different currencies cannot be combined on one purchase order.");
 
-                        priceSourceCurrency = legacyCurrency.CurrencyCode;
+                            priceSourceCurrency = legacyCurrency.CurrencyCode;
+                        }
+                        else
+                        {
+                            priceSourceCurrency = activePrice.Currency;
+                        }
+
                         supplierProductPriceId = activePrice.SupplierProductPriceId;
                         uomId ??= activePrice.UnitOfMeasureId ?? product.UnitOfMeasureId;
                     }
@@ -362,7 +393,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                 }
 
                 decimal taxRate = await ResolveTaxRateAsync(tenantId, itemReq.TaxCodeId, itemReq.TaxRate, order.OrderDate);
-                order.AddItem(
+                var createdItem = order.AddItem(
                     itemReq.ProductId,
                     itemReq.Quantity,
                     unitPrice,
@@ -374,6 +405,36 @@ public class PurchaseOrderService : IPurchaseOrderService
                     itemReq.Notes,
                     supplierProductPriceId);
 
+                if (_context != null && isPriceOverridden)
+                {
+                    var originalPrice = selectedCardPrice?.Found == true ? selectedCardPrice.UnitPrice : activePrice?.UnitPrice ?? 0;
+                    _context.DomainAuditRecords.Add(new ERP.Infrastructure.Persistence.Auditing.DomainAuditRecord
+                    {
+                        AuditId = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        EntityName = "PurchaseOrderItem",
+                        EntityId = createdItem.Id.ToString(),
+                        Action = "PRICE_OVERRIDE",
+                        UserId = actorUserId,
+                        Timestamp = DateTime.UtcNow,
+                        OldValues = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            OriginalPrice = originalPrice,
+                            Source = selectedCardPrice?.Source ?? "SupplierProductPrice",
+                            SourceRecordId = supplierProductPriceId,
+                            PriceCardId = selectedCardPrice?.PriceCardId ?? selectedPriceCard?.PriceCardId,
+                            Currency = selectedCardPrice?.Currency ?? requestedCurrencyCode ?? order.Currency,
+                            UomId = uomId
+                        }),
+                        NewValues = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            OverriddenPrice = unitPrice,
+                            Currency = requestedCurrencyCode ?? order.Currency,
+                            UomId = uomId
+                        })
+                    });
+                }
+
             }
         }
 
@@ -384,15 +445,26 @@ public class PurchaseOrderService : IPurchaseOrderService
             order.ExpectedDeliveryDate = order.OrderDate.AddDays(minLeadTimeDays.Value);
         }
 
+        Domain.Features.MasterData.Company.Company? activeCompany = null;
+        if (_context != null)
+        {
+            activeCompany = await _context.Companies
+                .Include(c => c.BaseCurrency)
+                .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == companyId && c.IsActive);
+        }
+
         string? nativeCurrencyCode = selectedPriceCard?.Currency
             ?? priceSourceCurrency
             ?? requestedCurrencyCode
-            ?? configuredSupplierCurrency;
-        if (nativeCurrencyCode == null)
-            throw new InvalidOperationException(
-                "Purchase order currency is required when no Price Card or supplier currency is configured.");
+            ?? configuredSupplierCurrency
+            ?? activeCompany?.BaseCurrency?.CurrencyCode;
 
-        if (_context != null)
+        if (string.IsNullOrWhiteSpace(nativeCurrencyCode))
+        {
+            nativeCurrencyCode = "USD";
+        }
+
+        if (_context != null && activeCompany?.BaseCurrency != null && activeCompany.BaseCurrency.IsActive)
         {
             await ApplyCurrencySnapshotAsync(order, nativeCurrencyCode);
         }
@@ -463,28 +535,47 @@ public class PurchaseOrderService : IPurchaseOrderService
         }
 
         PriceResolutionResult? selectedCardPrice = null;
-        if (order.PriceCardId.HasValue && !request.UnitPrice.HasValue)
+        if (_pricingResolutionService != null && (order.PriceCardId.HasValue || order.SupplierId.HasValue))
         {
-            if (_pricingResolutionService == null)
-                throw new InvalidOperationException("Purchase Price Card price lookup is unavailable.");
             selectedCardPrice = await _pricingResolutionService.ResolvePurchasePriceAsync(
                 tenantId,
                 order.SupplierId,
                 request.ProductId,
                 request.UnitOfMeasureId,
                 order.OrderDate,
-                order.PriceCardId);
-            if (!selectedCardPrice.Found)
-                throw new InvalidOperationException(selectedCardPrice.Message ?? "No applicable price exists on the selected Purchase Price Card.");
-            if (!string.Equals(selectedCardPrice.Currency, order.Currency, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("The selected Purchase Price Card price currency does not match the saved PO currency.");
+                order.PriceCardId,
+                expectedCurrency: order.Currency);
+        }
+
+        if (order.PriceCardId.HasValue && !request.UnitPrice.HasValue && (selectedCardPrice == null || !selectedCardPrice.Found))
+        {
+            throw new InvalidOperationException(selectedCardPrice?.Message ?? "No applicable price exists on the selected Purchase Price Card.");
+        }
+        if (order.PriceCardId.HasValue && selectedCardPrice?.Found == true && !string.Equals(selectedCardPrice.Currency, order.Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("The selected Purchase Price Card price currency does not match the saved PO currency.");
         }
 
         Guid? uomId = request.UnitOfMeasureId;
         decimal unitPrice;
+        bool isPriceOverridden = false;
         if (request.UnitPrice.HasValue)
         {
             unitPrice = request.UnitPrice.Value;
+            if (selectedCardPrice?.Found == true)
+            {
+                if (Math.Abs(unitPrice - selectedCardPrice.UnitPrice) > 0.0001m)
+                {
+                    isPriceOverridden = true;
+                }
+            }
+            else if (activePrice != null)
+            {
+                if (Math.Abs(unitPrice - activePrice.UnitPrice) > 0.0001m)
+                {
+                    isPriceOverridden = true;
+                }
+            }
         }
         else if (selectedCardPrice?.Found == true)
         {
@@ -504,15 +595,24 @@ public class PurchaseOrderService : IPurchaseOrderService
         }
 
         Guid? supplierProductPriceId = null;
+        if (selectedCardPrice?.Found == true && selectedCardPrice.Source == "PriceCard")
+        {
+            supplierProductPriceId = selectedCardPrice.SourceRecordId ?? selectedCardPrice.PriceCardLineId;
+            uomId ??= selectedCardPrice.ResolvedUomId;
+        }
+
         if (activePrice != null)
         {
             var usesLegacyPrice = !order.PriceCardId.HasValue ||
                 selectedCardPrice?.Source == "SupplierProductPrice";
             if (usesLegacyPrice)
             {
-                var legacyCurrency = await GetActiveCurrencyByCodeAsync(tenantId, activePrice.Currency);
-                if (!string.Equals(legacyCurrency.CurrencyCode, order.Currency, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Supplier price currency does not match the saved PO currency.");
+                if (_currencyRepository != null)
+                {
+                    var legacyCurrency = await GetActiveCurrencyByCodeAsync(tenantId, activePrice.Currency);
+                    if (!string.Equals(legacyCurrency.CurrencyCode, order.Currency, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("Supplier price currency does not match the saved PO currency.");
+                }
                 supplierProductPriceId = activePrice.SupplierProductPriceId;
                 uomId ??= activePrice.UnitOfMeasureId ?? product.UnitOfMeasureId;
             }
@@ -539,7 +639,7 @@ public class PurchaseOrderService : IPurchaseOrderService
         }
 
         decimal taxRate = await ResolveTaxRateAsync(tenantId, request.TaxCodeId, request.TaxRate, order.OrderDate);
-        order.AddItem(
+        var addedItem = order.AddItem(
             request.ProductId,
             request.Quantity,
             unitPrice,
@@ -551,6 +651,35 @@ public class PurchaseOrderService : IPurchaseOrderService
             request.Notes,
             supplierProductPriceId);
 
+        if (_context != null && isPriceOverridden)
+        {
+            var originalPrice = selectedCardPrice?.Found == true ? selectedCardPrice.UnitPrice : activePrice?.UnitPrice ?? 0;
+            _context.DomainAuditRecords.Add(new ERP.Infrastructure.Persistence.Auditing.DomainAuditRecord
+            {
+                AuditId = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntityName = "PurchaseOrderItem",
+                EntityId = addedItem.Id.ToString(),
+                Action = "PRICE_OVERRIDE",
+                UserId = null,
+                Timestamp = DateTime.UtcNow,
+                OldValues = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    OriginalPrice = originalPrice,
+                    Source = selectedCardPrice?.Source ?? "SupplierProductPrice",
+                    SourceRecordId = supplierProductPriceId,
+                    PriceCardId = order.PriceCardId,
+                    Currency = selectedCardPrice?.Currency ?? order.Currency,
+                    UomId = uomId
+                }),
+                NewValues = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    OverriddenPrice = unitPrice,
+                    Currency = order.Currency,
+                    UomId = uomId
+                })
+            });
+        }
 
         await _repository.SaveChangesAsync();
 
