@@ -53,6 +53,9 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
         var configs = await platformDb.TenantConfigurations.Where(x => x.TenantId == tenantId).ToListAsync();
         platformDb.TenantConfigurations.RemoveRange(configs);
 
+        var domains = await platformDb.TenantDomains.Where(x => x.TenantId == tenantId).ToListAsync();
+        platformDb.TenantDomains.RemoveRange(domains);
+
         var usages = await platformDb.SubscriptionUsages.Where(x => x.Subscription.TenantId == tenantId).ToListAsync();
         platformDb.SubscriptionUsages.RemoveRange(usages);
 
@@ -93,7 +96,7 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
                 platformDb.Tenants.Add(new Tenant
                 {
                     Id = testTenantId,
-                    Name = "Provisioning Test Corp",
+                    Name = $"Provisioning Test {Guid.NewGuid():N}"[..22],
                     Code = $"PROV_{Guid.NewGuid():N}"[..8].ToUpperInvariant(),
                     IsActive = true
                 });
@@ -195,7 +198,7 @@ public class TenantProvisioningTests : IClassFixture<TestSecurityFixture>
                 platformDb.Tenants.Add(new Tenant
                 {
                     Id = testTenantId,
-                    Name = "Repeat Provisioning Corp",
+                    Name = $"Repeat Provisioning {Guid.NewGuid():N}"[..22],
                     Code = $"REP_{Guid.NewGuid():N}"[..8].ToUpperInvariant(),
                     IsActive = true
                 });

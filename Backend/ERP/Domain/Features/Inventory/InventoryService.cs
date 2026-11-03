@@ -235,6 +235,7 @@ public class InventoryService : IInventoryService
             return new StockIssueDto
             {
                 StockIssueId = t.InventoryTransactionId,
+                StockIssueLineId = t.SourceDocumentLineId != Guid.Empty ? t.SourceDocumentLineId : null,
                 IssueNumber = t.TransactionNumber,
                 IssueDate = t.TransactionDate,
                 Purpose = issuePurpose,
@@ -257,6 +258,7 @@ public class InventoryService : IInventoryService
                 TotalCost = t.TotalCost,
                 BatchNumber = t.BatchNumber,
                 SerialNumber = t.SerialNumber,
+                SourceDocumentReference = t.SourceDocumentId != Guid.Empty ? t.SourceDocumentId.ToString() : null,
                 CreatedAt = t.CreatedAt
             };
         }).ToList();
@@ -279,6 +281,7 @@ public class InventoryService : IInventoryService
         return new StockIssueDto
         {
             StockIssueId = tx.InventoryTransactionId,
+            StockIssueLineId = tx.SourceDocumentLineId != Guid.Empty ? tx.SourceDocumentLineId : null,
             IssueNumber = tx.TransactionNumber,
             IssueDate = tx.TransactionDate,
             Purpose = purpose,
@@ -301,6 +304,7 @@ public class InventoryService : IInventoryService
             TotalCost = tx.TotalCost,
             BatchNumber = tx.BatchNumber,
             SerialNumber = tx.SerialNumber,
+            SourceDocumentReference = tx.SourceDocumentId != Guid.Empty ? tx.SourceDocumentId.ToString() : null,
             CreatedAt = tx.CreatedAt
         };
     }
@@ -415,6 +419,15 @@ public class InventoryService : IInventoryService
             if (location.WarehouseId != request.WarehouseId)
                 throw new InvalidOperationException($"Location '{location.LocationCode}' does not belong to warehouse '{warehouse.WarehouseCode}'.");
 
+            if (product.TrackingMode == TrackingMode.None)
+            {
+                if (!string.IsNullOrWhiteSpace(line.BatchNumber))
+                    throw new InvalidOperationException($"Product '{product.ProductCode}' does not track batches. BatchNumber must be empty.");
+                if (!string.IsNullOrWhiteSpace(line.SerialNumber))
+                    throw new InvalidOperationException($"Product '{product.ProductCode}' does not track serial numbers. SerialNumber must be empty.");
+            }
+
+            // Batch tracking validation
             if (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial)
             {
                 if (string.IsNullOrWhiteSpace(line.BatchNumber))
@@ -422,6 +435,35 @@ public class InventoryService : IInventoryService
                     throw new InvalidOperationException($"Batch number is required for batch-tracked product '{product.ProductCode}'.");
                 }
             }
+
+            // Serial tracking validation
+            if (product.TrackingMode == TrackingMode.Serial || product.TrackingMode == TrackingMode.BatchAndSerial)
+            {
+                if (string.IsNullOrWhiteSpace(line.SerialNumber))
+                {
+                    throw new InvalidOperationException($"Serial number is required for serial-tracked product '{product.ProductCode}'.");
+                }
+                if (line.Quantity != 1)
+                {
+                    throw new InvalidOperationException($"Serial-tracked items must have quantity of 1. Specified: {line.Quantity} for product '{product.ProductCode}'.");
+                }
+            }
+        }
+
+        // Verify unique serial numbers across lines in this request
+        var serializedLines = request.Lines
+            .Where(l => products.TryGetValue(l.ProductId, out var p) && (p.TrackingMode == TrackingMode.Serial || p.TrackingMode == TrackingMode.BatchAndSerial))
+            .ToList();
+
+        var duplicateSerial = serializedLines
+            .GroupBy(l => (l.ProductId, SerialNumber: l.SerialNumber?.Trim().ToUpperInvariant() ?? string.Empty))
+            .FirstOrDefault(g => !string.IsNullOrEmpty(g.Key.SerialNumber) && g.Count() > 1);
+
+        if (duplicateSerial != null)
+        {
+            var p = products[duplicateSerial.Key.ProductId];
+            throw new InvalidOperationException(
+                $"Duplicate serial number '{duplicateSerial.Key.SerialNumber}' specified across multiple lines for product '{p.ProductCode}'. Each serial number can only be issued once.");
         }
 
         var issueDate = (request.IssueDate ?? DateTime.UtcNow).Date;
@@ -446,12 +488,29 @@ public class InventoryService : IInventoryService
         {
             if (!string.IsNullOrEmpty(demand.BatchNumber))
             {
-                var batch = await _inventoryRepository.GetBatchAsync(tenantId, demand.ProductId, demand.BatchNumber);
-                if (batch != null && batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < issueDate)
+                var batchInTenant = await _inventoryRepository.GetBatchByNumberAsync(tenantId, demand.BatchNumber);
+                if (batchInTenant != null && batchInTenant.ProductId != demand.ProductId)
                 {
-                    var prod = products[demand.ProductId];
                     throw new InvalidOperationException(
-                        $"Batch '{demand.BatchNumber}' for product '{prod.ProductCode}' expired on {batch.ExpiryDate.Value:yyyy-MM-dd} and cannot be issued.");
+                        $"Batch '{demand.BatchNumber}' is already associated with another product in this tenant. A batch number cannot be reused for a different product.");
+                }
+
+                var batch = await _inventoryRepository.GetBatchAsync(tenantId, demand.ProductId, demand.BatchNumber);
+                if (batch != null)
+                {
+                    if (!batch.IsActive)
+                    {
+                        var prod = products[demand.ProductId];
+                        throw new InvalidOperationException(
+                            $"Batch '{demand.BatchNumber}' for product '{prod.ProductCode}' is inactive and cannot be issued or dispatched.");
+                    }
+
+                    if (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < issueDate)
+                    {
+                        var prod = products[demand.ProductId];
+                        throw new InvalidOperationException(
+                            $"Batch '{demand.BatchNumber}' for product '{prod.ProductCode}' expired on {batch.ExpiryDate.Value:yyyy-MM-dd} and cannot be issued.");
+                    }
                 }
             }
 
@@ -510,6 +569,7 @@ public class InventoryService : IInventoryService
                     results.Add(new StockIssueDto
                     {
                         StockIssueId = tx.InventoryTransactionId,
+            StockIssueLineId = tx.SourceDocumentLineId != Guid.Empty ? tx.SourceDocumentLineId : null,
                         IssueNumber = tx.TransactionNumber,
                         IssueDate = tx.TransactionDate,
                         Purpose = request.Purpose,
@@ -534,7 +594,8 @@ public class InventoryService : IInventoryService
                         SerialNumber = tx.SerialNumber,
                         SourceDocumentReference = request.SourceDocumentReference,
                         Remarks = line.Remarks ?? request.Remarks,
-                        CreatedAt = tx.CreatedAt
+
+            CreatedAt = tx.CreatedAt
                     });
                 }
 
@@ -615,17 +676,40 @@ public class InventoryService : IInventoryService
             .Select(l => new { l.WarehouseLocationId, l.LocationCode, l.LocationName })
             .ToDictionaryAsync(l => l.WarehouseLocationId);
 
+        var batchNumbers = transactions
+            .Where(t => !string.IsNullOrEmpty(t.BatchNumber))
+            .Select(t => t.BatchNumber!)
+            .Distinct()
+            .ToList();
+
+        var batches = await _context.ProductBatches
+            .AsNoTracking()
+            .Where(b => b.TenantId == tenantId && productIds.Contains(b.ProductId) && batchNumbers.Contains(b.BatchNumber))
+            .Select(b => new { b.ProductId, b.BatchNumber, b.ManufacturingDate, b.ExpiryDate })
+            .ToListAsync();
+
+        var batchLookup = batches.ToDictionary(b => (b.ProductId, b.BatchNumber));
+
         return transactions.Select(t =>
         {
             products.TryGetValue(t.ProductId, out var product);
             warehouses.TryGetValue(t.WarehouseId, out var warehouse);
             locations.TryGetValue(t.WarehouseLocationId, out var location);
 
+            DateTime? mfgDate = null;
+            DateTime? expDate = t.ExpiryDate;
+            if (!string.IsNullOrEmpty(t.BatchNumber) && batchLookup.TryGetValue((t.ProductId, t.BatchNumber), out var bInfo))
+            {
+                mfgDate = bInfo.ManufacturingDate;
+                expDate ??= bInfo.ExpiryDate;
+            }
+
             var receiptReason = MapMovementTypeToReceiptReason(t.MovementType);
 
             return new StockReceiptDto
             {
                 StockReceiptId = t.InventoryTransactionId,
+                StockReceiptLineId = t.SourceDocumentLineId != Guid.Empty ? t.SourceDocumentLineId : null,
                 ReceiptNumber = t.TransactionNumber,
                 ReceiptDate = t.TransactionDate,
                 Reason = receiptReason,
@@ -648,6 +732,8 @@ public class InventoryService : IInventoryService
                 TotalCost = t.TotalCost,
                 BatchNumber = t.BatchNumber,
                 SerialNumber = t.SerialNumber,
+                ManufacturingDate = mfgDate,
+                ExpiryDate = expDate,
                 SourceDocumentReference = t.SourceDocumentId != Guid.Empty ? t.SourceDocumentId.ToString() : null,
                 CreatedAt = t.CreatedAt
             };
@@ -671,11 +757,25 @@ public class InventoryService : IInventoryService
         var location = await _context.WarehouseLocations.AsNoTracking()
             .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.WarehouseLocationId == t.WarehouseLocationId);
 
+        DateTime? mfgDate = null;
+        DateTime? expDate = t.ExpiryDate;
+        if (!string.IsNullOrEmpty(t.BatchNumber))
+        {
+            var batch = await _context.ProductBatches.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.TenantId == tenantId && b.ProductId == t.ProductId && b.BatchNumber == t.BatchNumber);
+            if (batch != null)
+            {
+                mfgDate = batch.ManufacturingDate;
+                expDate ??= batch.ExpiryDate;
+            }
+        }
+
         var receiptReason = MapMovementTypeToReceiptReason(t.MovementType);
 
         return new StockReceiptDto
         {
             StockReceiptId = t.InventoryTransactionId,
+            StockReceiptLineId = t.SourceDocumentLineId != Guid.Empty ? t.SourceDocumentLineId : null,
             ReceiptNumber = t.TransactionNumber,
             ReceiptDate = t.TransactionDate,
             Reason = receiptReason,
@@ -698,6 +798,8 @@ public class InventoryService : IInventoryService
             TotalCost = t.TotalCost,
             BatchNumber = t.BatchNumber,
             SerialNumber = t.SerialNumber,
+            ManufacturingDate = mfgDate,
+            ExpiryDate = expDate,
             SourceDocumentReference = t.SourceDocumentId != Guid.Empty ? t.SourceDocumentId.ToString() : null,
             CreatedAt = t.CreatedAt
         };
@@ -718,8 +820,6 @@ public class InventoryService : IInventoryService
             .FirstOrDefaultAsync(w => w.TenantId == tenantId && w.WarehouseId == request.WarehouseId && w.IsActive)
             ?? throw new KeyNotFoundException($"Warehouse '{request.WarehouseId}' not found or is inactive.");
 
-        Guid receiptBatchId = Guid.NewGuid();
-
         var movementType = request.Reason switch
         {
             StockReceiptReason.InternalProduction => InventoryMovementType.ProductionReceipt,
@@ -732,8 +832,52 @@ public class InventoryService : IInventoryService
             _ => SourceDocumentType.StockAdjustment
         };
 
-        var results = new List<StockReceiptDto>();
-        int sequence = 1;
+        Guid receiptBatchId;
+        if (request.StockReceiptId.HasValue && request.StockReceiptId.Value != Guid.Empty)
+        {
+            receiptBatchId = request.StockReceiptId.Value;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.SourceDocumentReference))
+        {
+            if (Guid.TryParse(request.SourceDocumentReference.Trim(), out var parsedRef))
+            {
+                receiptBatchId = parsedRef;
+            }
+            else
+            {
+                receiptBatchId = DeriveDeterministicGuid(tenantId, sourceDocType.ToString(), request.SourceDocumentReference.Trim());
+            }
+        }
+        else
+        {
+            receiptBatchId = Guid.NewGuid();
+        }
+
+        // Prevention of duplicate posting / repeated API requests
+        if (request.StockReceiptId.HasValue || !string.IsNullOrWhiteSpace(request.SourceDocumentReference))
+        {
+            bool alreadyPosted = await _context.InventoryTransactions.AsNoTracking().AnyAsync(t =>
+                t.TenantId == tenantId &&
+                t.SourceDocumentType == sourceDocType &&
+                t.SourceDocumentId == receiptBatchId);
+
+            if (alreadyPosted)
+            {
+                throw new InvalidOperationException($"Stock receipt '{receiptBatchId}' has already been posted.");
+            }
+        }
+
+        // Validate line inputs and collect entity metadata
+        var productIds = request.Lines.Select(l => l.ProductId).Distinct().ToList();
+        var locationIds = request.Lines.Select(l => l.WarehouseLocationId).Distinct().ToList();
+
+        var products = await _context.Products.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && productIds.Contains(p.ProductId) && p.IsActive)
+            .ToDictionaryAsync(p => p.ProductId);
+
+        var locations = await _context.WarehouseLocations.AsNoTracking()
+            .Where(l => l.TenantId == tenantId && locationIds.Contains(l.WarehouseLocationId) && l.IsActive)
+            .ToDictionaryAsync(l => l.WarehouseLocationId);
 
         foreach (var line in request.Lines)
         {
@@ -744,73 +888,145 @@ public class InventoryService : IInventoryService
             if (line.WarehouseLocationId == Guid.Empty)
                 throw new ArgumentException("Warehouse storage location is required for each line.");
 
-            var product = await _context.Products.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.ProductId == line.ProductId && p.IsActive)
-                ?? throw new KeyNotFoundException($"Product '{line.ProductId}' not found or is inactive.");
+            if (!products.TryGetValue(line.ProductId, out var product))
+                throw new KeyNotFoundException($"Product '{line.ProductId}' not found or is inactive.");
 
             if (!product.IsStockTracked)
                 throw new InvalidOperationException($"Product '{product.ProductCode}' is not a stock-tracked item.");
 
-            var location = await _context.WarehouseLocations.AsNoTracking()
-                .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.WarehouseLocationId == line.WarehouseLocationId && l.IsActive)
-                ?? throw new KeyNotFoundException($"Storage location '{line.WarehouseLocationId}' not found or is inactive.");
+            if (!locations.TryGetValue(line.WarehouseLocationId, out var location))
+                throw new KeyNotFoundException($"Storage location '{line.WarehouseLocationId}' not found or is inactive.");
 
             if (location.WarehouseId != request.WarehouseId)
                 throw new InvalidOperationException($"Location '{location.LocationCode}' does not belong to warehouse '{warehouse.WarehouseCode}'.");
 
-            decimal unitCost = line.UnitCost ?? product.StandardCost;
-
-            var postRequest = new PostInventoryMovementRequest
+            // Batch tracking validation
+            if (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial)
             {
-                MovementType = movementType,
-                SourceDocumentType = sourceDocType,
-                SourceDocumentId = receiptBatchId,
-                SourceDocumentLineId = Guid.NewGuid(),
-                MovementSequence = sequence++,
-                ProductId = line.ProductId,
-                WarehouseId = request.WarehouseId,
-                WarehouseLocationId = line.WarehouseLocationId,
-                Quantity = line.Quantity,
-                UnitCost = unitCost,
-                BatchNumber = line.BatchNumber,
-                SerialNumber = line.SerialNumber,
-                TransactionDate = request.ReceiptDate ?? DateTime.UtcNow
-            };
+                if (string.IsNullOrWhiteSpace(line.BatchNumber))
+                {
+                    throw new InvalidOperationException($"Batch number is required for batch-tracked product '{product.ProductCode}'.");
+                }
+            }
 
-            var tx = await _postingService.PostMovementAsync(tenantId, postRequest);
-
-            results.Add(new StockReceiptDto
+            // Serial tracking validation
+            if (product.TrackingMode == TrackingMode.Serial || product.TrackingMode == TrackingMode.BatchAndSerial)
             {
-                StockReceiptId = tx.InventoryTransactionId,
-                ReceiptNumber = tx.TransactionNumber,
-                ReceiptDate = tx.TransactionDate,
-                Reason = request.Reason,
-                ReasonName = GetReceiptReasonName(request.Reason),
-                MovementType = tx.MovementType.ToString(),
-                Status = StockReceiptStatus.Posted,
-                StatusName = "Posted",
-                WarehouseId = warehouse.WarehouseId,
-                WarehouseCode = warehouse.WarehouseCode,
-                WarehouseName = warehouse.WarehouseName,
-                WarehouseLocationId = location.WarehouseLocationId,
-                LocationCode = location.LocationCode,
-                LocationName = location.LocationName,
-                ProductId = product.ProductId,
-                ProductCode = product.ProductCode,
-                ProductName = product.ProductName,
-                UnitOfMeasure = product.UnitOfMeasure,
-                Quantity = tx.Quantity,
-                UnitCost = tx.UnitCost,
-                TotalCost = tx.TotalCost,
-                BatchNumber = tx.BatchNumber,
-                SerialNumber = tx.SerialNumber,
-                SourceDocumentReference = request.SourceDocumentReference,
-                Remarks = line.Remarks ?? request.Remarks,
-                CreatedAt = tx.CreatedAt
-            });
+                if (string.IsNullOrWhiteSpace(line.SerialNumber))
+                {
+                    throw new InvalidOperationException($"Serial number is required for serial-tracked product '{product.ProductCode}'.");
+                }
+                if (line.Quantity != 1)
+                {
+                    throw new InvalidOperationException($"Serial-tracked items must have quantity of 1. Specified: {line.Quantity} for product '{product.ProductCode}'.");
+                }
+            }
+
+            // Date validation
+            if (line.ManufacturingDate.HasValue && line.ExpiryDate.HasValue && line.ExpiryDate.Value.Date < line.ManufacturingDate.Value.Date)
+            {
+                throw new InvalidOperationException(
+                    $"Expiry date ({line.ExpiryDate.Value:yyyy-MM-dd}) cannot be earlier than manufacturing date ({line.ManufacturingDate.Value:yyyy-MM-dd}).");
+            }
         }
 
-        return results;
+        // Execute all line postings inside a single ambient database transaction
+        var executionStrategy = _context.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteAsync(async () =>
+        {
+            var existingTx = _context.Database.CurrentTransaction;
+            var dbTransaction = existingTx == null ? await _context.Database.BeginTransactionAsync() : null;
+            try
+            {
+                var results = new List<StockReceiptDto>();
+                int sequence = 1;
+
+                foreach (var line in request.Lines)
+                {
+                    Guid lineId = line.StockReceiptLineId ?? DeriveDeterministicGuid(tenantId, receiptBatchId.ToString(), $"line_{sequence}");
+                    var product = products[line.ProductId];
+                    var location = locations[line.WarehouseLocationId];
+                    decimal unitCost = line.UnitCost ?? product.StandardCost;
+
+                    var postRequest = new PostInventoryMovementRequest
+                    {
+                        MovementType = movementType,
+                        SourceDocumentType = sourceDocType,
+                        SourceDocumentId = receiptBatchId,
+                        SourceDocumentLineId = lineId,
+                        MovementSequence = sequence++,
+                        ProductId = line.ProductId,
+                        WarehouseId = request.WarehouseId,
+                        WarehouseLocationId = line.WarehouseLocationId,
+                        Quantity = line.Quantity,
+                        UnitCost = unitCost,
+                        BatchNumber = line.BatchNumber?.Trim(),
+                        SerialNumber = line.SerialNumber?.Trim(),
+                        ManufacturingDate = line.ManufacturingDate,
+                        ExpiryDate = line.ExpiryDate,
+                        TransactionDate = request.ReceiptDate ?? DateTime.UtcNow
+                    };
+
+                    var tx = await _postingService.PostMovementAsync(tenantId, postRequest);
+
+                    results.Add(new StockReceiptDto
+                    {
+                        StockReceiptId = tx.InventoryTransactionId,
+                        StockReceiptLineId = lineId,
+                        ReceiptNumber = tx.TransactionNumber,
+                        ReceiptDate = tx.TransactionDate,
+                        Reason = request.Reason,
+                        ReasonName = GetReceiptReasonName(request.Reason),
+                        MovementType = tx.MovementType.ToString(),
+                        Status = StockReceiptStatus.Posted,
+                        StatusName = "Posted",
+                        WarehouseId = warehouse.WarehouseId,
+                        WarehouseCode = warehouse.WarehouseCode,
+                        WarehouseName = warehouse.WarehouseName,
+                        WarehouseLocationId = location.WarehouseLocationId,
+                        LocationCode = location.LocationCode,
+                        LocationName = location.LocationName,
+                        ProductId = product.ProductId,
+                        ProductCode = product.ProductCode,
+                        ProductName = product.ProductName,
+                        UnitOfMeasure = product.UnitOfMeasure,
+                        Quantity = tx.Quantity,
+                        UnitCost = tx.UnitCost,
+                        TotalCost = tx.TotalCost,
+                        BatchNumber = tx.BatchNumber,
+                        SerialNumber = tx.SerialNumber,
+                        ManufacturingDate = postRequest.ManufacturingDate,
+                        ExpiryDate = tx.ExpiryDate ?? postRequest.ExpiryDate,
+                        SourceDocumentReference = request.SourceDocumentReference,
+                        Remarks = line.Remarks ?? request.Remarks,
+
+            CreatedAt = tx.CreatedAt
+                    });
+                }
+
+                if (dbTransaction != null)
+                {
+                    await dbTransaction.CommitAsync();
+                }
+
+                return results;
+            }
+            catch (Exception)
+            {
+                if (dbTransaction != null)
+                {
+                    await dbTransaction.RollbackAsync();
+                }
+                throw;
+            }
+            finally
+            {
+                if (dbTransaction != null)
+                {
+                    await dbTransaction.DisposeAsync();
+                }
+            }
+        });
     }
 
     public static string GetPurposeName(StockIssuePurpose purpose) => purpose switch

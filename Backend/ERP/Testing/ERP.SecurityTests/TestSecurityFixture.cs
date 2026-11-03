@@ -60,7 +60,7 @@ public class TestSecurityFixture : WebApplicationFactory<API.Program>
                 ["ConnectionStrings:SecurityDatabase"] = TestConstants.SecurityDbTest,
                 ["ConnectionStrings:DomainDatabase"] = TestConstants.DomainDbTest,
                 ["ConnectionStrings:AIDatabase"] = TestConstants.AIDbTest,
-                ["Migrations:TargetPlatformMigration"] = "20261029052257_AddSpecialUomConversionSetting"
+                ["Migrations:TargetPlatformMigration"] = "20261102110810_AddTenantDomainModel"
             };
 
             config.AddInMemoryCollection(testSettings);
