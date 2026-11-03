@@ -565,9 +565,10 @@ public class SubscriptionLifecyclePersistenceTests : IAsyncLifetime
         var subscriptionRepo = new SaaS.Infrastructure.Repositories.SubscriptionRepository(db);
         var usageRepo = new SaaS.Infrastructure.Repositories.SubscriptionUsageRepository(db);
         var tenantRepo = new SaaS.Infrastructure.Repositories.TenantRepository(db);
+        var tenantDomainRepo = new SaaS.Infrastructure.Repositories.TenantDomainRepository(db);
         var subscriptionService = new SubscriptionService(db);
         var usageService = new SubscriptionUsageService(subscriptionRepo, usageRepo);
-        var tenantService = new TenantService(subscriptionService, tenantRepo, usageService);
+        var tenantService = new TenantService(subscriptionService, tenantRepo, usageService, tenantDomainRepo);
 
         var freePlanId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var request = new SaaS.Application.DTOs.CreateTenantRequest
@@ -601,6 +602,8 @@ public class SubscriptionLifecyclePersistenceTests : IAsyncLifetime
         Assert.All(usages, u => Assert.Equal(0, u.UsageValue));
 
         // Clean up newly registered tenant and associated rows
+        var domains = await verifyDb.TenantDomains.Where(d => d.TenantId == result.Tenant.Id).ToListAsync();
+        verifyDb.TenantDomains.RemoveRange(domains);
         verifyDb.SubscriptionUsages.RemoveRange(usages);
         verifyDb.Subscriptions.Remove(reloadedSub);
         verifyDb.Tenants.Remove(reloadedTenant);

@@ -87,6 +87,12 @@ public class TenantDomainRepository : ITenantDomainRepository
         await _context.TenantDomains.AddAsync(tenantDomain);
     }
 
+    public Task DeleteAsync(TenantDomain tenantDomain)
+    {
+        _context.TenantDomains.Remove(tenantDomain);
+        return Task.CompletedTask;
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Domain.Features.MasterData.Currency;
 
 namespace Domain.Features.Sales.Invoice;
 
@@ -63,6 +64,12 @@ public class ConfirmSalesInvoiceRequest
     public string? Notes { get; set; }
 }
 
+public class RefreshSalesInvoiceCurrencyRequest
+{
+    public DateTime? InvoiceDate { get; set; }
+    public Guid? TransactionCurrencyId { get; set; }
+}
+
 public class SalesInvoiceDto
 {
     public Guid Id { get; set; }
@@ -94,6 +101,30 @@ public class SalesInvoiceDto
     public SalesInvoiceStatus Status { get; set; }
 
     public string Currency { get; set; } = "USD";
+
+    public Guid? TransactionCurrencyId { get; set; }
+
+    public Guid? BaseCurrencyId { get; set; }
+
+    public string? BaseCurrencyCode { get; set; }
+
+    public int? BaseCurrencyDecimalPlaces { get; set; }
+
+    public decimal? AppliedExchangeRate { get; set; }
+
+    public ExchangeRateSource? ExchangeRateSource { get; set; }
+
+    public Guid? ExchangeRateId { get; set; }
+
+    public DateTime? ExchangeRateEffectiveDate { get; set; }
+
+    public decimal? BaseSubTotal { get; set; }
+
+    public decimal? BaseDiscountAmount { get; set; }
+
+    public decimal? BaseTaxAmount { get; set; }
+
+    public decimal? BaseTotalAmount { get; set; }
 
     public string? PaymentTerms { get; set; }
 

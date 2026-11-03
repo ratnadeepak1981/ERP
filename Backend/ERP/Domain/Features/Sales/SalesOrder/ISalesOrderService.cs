@@ -59,6 +59,13 @@ public interface ISalesOrderService
         string actorUserName,
         string remarks);
 
+    Task<SalesOrderDto> RefreshCurrencyAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        RefreshSalesOrderCurrencyRequest request);
+
     Task<SalesOrderDto> CancelOrderAsync(
         Guid tenantId,
         Guid companyId,

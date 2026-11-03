@@ -1,6 +1,7 @@
 export interface CreateTenantRequest {
   name: string;
   subscriptionPlanId: string;
+  subdomain?: string;
 }
 
 export interface TenantSummary {
@@ -22,7 +23,19 @@ export interface SubscriptionSummary {
   isActive: boolean;
 }
 
+export interface TenantDomainSummary {
+  id: string;
+  hostname: string;
+  subdomain: string;
+  domainType?: string;
+  isPrimary: boolean;
+  isVerified: boolean;
+}
+
 export interface TenantRegistrationResult {
   tenant: TenantSummary;
   subscription: SubscriptionSummary;
+  domain?: TenantDomainSummary | null;
+  hostname?: string | null;
+  subdomain?: string | null;
 }

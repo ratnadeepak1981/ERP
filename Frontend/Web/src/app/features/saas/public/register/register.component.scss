@@ -280,6 +280,13 @@
       .required-star {
         color: #ef4444;
       }
+
+      .optional-label {
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--erp-text-secondary);
+        margin-left: var(--erp-space-1);
+      }
     }
 
     &.has-error {
@@ -292,6 +299,29 @@
       font-size: 12px;
       color: #ef4444;
       margin-top: 2px;
+    }
+
+    .subdomain-preview-hint {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2);
+      font-size: 12px;
+      margin-top: 4px;
+
+      .preview-tag {
+        color: var(--erp-text-secondary);
+        font-weight: 500;
+      }
+
+      .preview-url {
+        font-family: var(--erp-font-mono, monospace);
+        background: var(--erp-bg-app, #f1f5f9);
+        color: var(--erp-primary);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+      }
     }
   }
 
@@ -425,6 +455,20 @@
           background: var(--erp-primary-light);
           padding: 2px 8px;
           border-radius: 4px;
+        }
+      }
+
+      .workspace-url-link {
+        font-family: var(--erp-font-mono, monospace);
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--erp-primary);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+
+        &:hover {
+          text-decoration: underline;
         }
       }
     }

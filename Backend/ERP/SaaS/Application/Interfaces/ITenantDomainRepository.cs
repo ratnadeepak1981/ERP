@@ -19,5 +19,7 @@ public interface ITenantDomainRepository
 
     Task AddAsync(TenantDomain tenantDomain);
 
+    Task DeleteAsync(TenantDomain tenantDomain);
+
     Task SaveChangesAsync();
 }

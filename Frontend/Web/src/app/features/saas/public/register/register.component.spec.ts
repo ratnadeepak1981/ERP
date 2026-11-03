@@ -219,4 +219,119 @@ describe('RegisterComponent', () => {
     expect(compiled.textContent).toContain('Free Manufacturing');
     expect(compiled.textContent).toContain('Phase 1 Complete');
   });
+
+  it('should auto-derive subdomain slug from tenant name when untouched', () => {
+    component.tenantName = 'Acme Precision Tools Ltd';
+    component.onTenantNameChange();
+
+    expect(component.subdomain).toBe('acme-precision-tools-ltd');
+    expect(component.previewHostname()).toBe('acme-precision-tools-ltd.localhost:4200');
+  });
+
+  it('should not overwrite custom subdomain once touched by user', () => {
+    component.subdomain = 'custom-acme';
+    component.onSubdomainInput();
+
+    component.tenantName = 'Different Organization Name';
+    component.onTenantNameChange();
+
+    expect(component.subdomain).toBe('custom-acme');
+    expect(component.previewHostname()).toBe('custom-acme.localhost:4200');
+  });
+
+  it('should reject reserved subdomains during validation', () => {
+    component.subdomain = 'admin';
+    const valid = component.validateSubdomain();
+
+    expect(valid).toBe(false);
+    expect(component.subdomainError()).toContain('reserved subdomain');
+  });
+
+  it('should reject subdomains shorter than 3 characters or with invalid characters', () => {
+    component.subdomain = 'ab';
+    expect(component.validateSubdomain()).toBe(false);
+    expect(component.subdomainError()).toContain('at least 3 characters');
+
+    component.subdomain = '-invalid-start';
+    expect(component.validateSubdomain()).toBe(false);
+    expect(component.subdomainError()).toContain('lowercase letters, numbers, and hyphens');
+  });
+
+  it('should include custom subdomain in registration payload when valid', () => {
+    const registerSpy = vi.spyOn(registrationService, 'registerTenant').mockReturnValue(of({
+      succeeded: true,
+      message: 'OK',
+      data: {
+        tenant: { id: 't1', name: 'Acme', code: 'TEN-1', isActive: true },
+        subscription: { id: 's1', tenantId: 't1', subscriptionPlanId: validPlanId, subscriptionName: 'Plan', subscriptionType: 1, storageMode: 1, startDate: '2026-01-01', endDate: null, isActive: true },
+        domain: { id: 'd1', hostname: 'my-custom-sub.localhost', subdomain: 'my-custom-sub', isPrimary: true, isVerified: true },
+        hostname: 'my-custom-sub.localhost',
+        subdomain: 'my-custom-sub'
+      },
+      errors: []
+    }));
+
+    component.tenantName = 'Acme Corp';
+    component.subdomain = 'my-custom-sub';
+    component.adminFullName = 'John Admin';
+    component.adminEmail = 'admin@acme.com';
+
+    component.onRegister();
+
+    expect(registerSpy).toHaveBeenCalledWith({
+      name: 'Acme Corp',
+      subscriptionPlanId: validPlanId,
+      subdomain: 'my-custom-sub'
+    });
+  });
+
+  it('should display assigned workspace domain details and link on successful registration', () => {
+    const mockResult: ApiResponse<TenantRegistrationResult> = {
+      succeeded: true,
+      message: 'Success',
+      data: {
+        tenant: {
+          id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          name: 'Acme Precision Ltd',
+          code: 'TEN-AAAA1111',
+          isActive: true
+        },
+        subscription: {
+          id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          tenantId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          subscriptionPlanId: validPlanId,
+          subscriptionName: 'Free Manufacturing',
+          subscriptionType: 1,
+          storageMode: 1,
+          startDate: '2026-10-15T00:00:00Z',
+          endDate: null,
+          isActive: true
+        },
+        domain: {
+          id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+          hostname: 'acme-precision.localhost',
+          subdomain: 'acme-precision',
+          isPrimary: true,
+          isVerified: true
+        },
+        hostname: 'acme-precision.localhost',
+        subdomain: 'acme-precision'
+      },
+      errors: []
+    };
+    vi.spyOn(registrationService, 'registerTenant').mockReturnValue(of(mockResult));
+
+    component.tenantName = 'Acme Precision Ltd';
+    component.adminFullName = 'John Admin';
+    component.adminEmail = 'admin@acme.com';
+
+    component.onRegister();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Dedicated Workspace Domain');
+    expect(compiled.textContent).toContain('acme-precision');
+    expect(compiled.textContent).toContain('acme-precision.localhost');
+    expect(compiled.textContent).toContain('http://acme-precision.localhost:4200');
+  });
 });
