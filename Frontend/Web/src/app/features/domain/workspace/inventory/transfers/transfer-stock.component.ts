@@ -96,7 +96,8 @@ export class TransferStockComponent implements OnInit, OnDestroy {
           r.productCode.toLowerCase().includes(term) ||
           r.productName.toLowerCase().includes(term) ||
           r.warehouseName.toLowerCase().includes(term) ||
-          (r.locationCode && r.locationCode.toLowerCase().includes(term))
+          (r.locationCode && r.locationCode.toLowerCase().includes(term)) ||
+          (r.batchNumber && r.batchNumber.toLowerCase().includes(term))
       );
     }
     return rows;

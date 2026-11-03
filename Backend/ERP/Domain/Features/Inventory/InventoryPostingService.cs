@@ -258,8 +258,20 @@ public class InventoryPostingService : IInventoryPostingService
         var srcLocation = await _warehouseRepository.GetLocationByIdAsync(tenantId, request.SourceLocationId)
             ?? throw new KeyNotFoundException("Source warehouse location not found.");
 
+        if (srcLocation.WarehouseId != request.SourceWarehouseId)
+        {
+            throw new InvalidOperationException(
+                $"Source location '{srcLocation.LocationCode}' does not belong to warehouse '{request.SourceWarehouseId}'.");
+        }
+
         var dstLocation = await _warehouseRepository.GetLocationByIdAsync(tenantId, request.DestinationLocationId)
             ?? throw new KeyNotFoundException("Destination warehouse location not found.");
+
+        if (dstLocation.WarehouseId != request.DestinationWarehouseId)
+        {
+            throw new InvalidOperationException(
+                $"Destination location '{dstLocation.LocationCode}' does not belong to warehouse '{request.DestinationWarehouseId}'.");
+        }
 
         if (dstLocation.LocationTypeId.HasValue)
         {
@@ -342,6 +354,15 @@ public class InventoryPostingService : IInventoryPostingService
                 request.ProductId,
                 normBatch,
                 normSerial);
+
+            if (product.TrackingMode == TrackingMode.Serial || product.TrackingMode == TrackingMode.BatchAndSerial)
+            {
+                if (dstBalance != null && dstBalance.QuantityOnHand > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Serial number '{normSerial}' already exists at destination location '{dstLocation.LocationCode}'.");
+                }
+            }
 
             if (dstBalance == null)
             {
@@ -865,6 +886,16 @@ public class InventoryPostingService : IInventoryPostingService
         {
             throw new InvalidOperationException(
                 $"Batch '{normBatch}' for product '{product.ProductCode}' is inactive and cannot be transferred.");
+        }
+
+        if (productBatch.ExpiryDate.HasValue)
+        {
+            var txDate = (request.TransactionDate ?? DateTime.UtcNow).Date;
+            if (productBatch.ExpiryDate.Value.Date < txDate)
+            {
+                throw new InvalidOperationException(
+                    $"Batch '{normBatch}' for product '{product.ProductCode}' expired on {productBatch.ExpiryDate.Value:yyyy-MM-dd} and cannot be transferred.");
+            }
         }
 
         if (request.ExpiryDate.HasValue && productBatch.ExpiryDate.HasValue &&
