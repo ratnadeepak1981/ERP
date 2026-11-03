@@ -289,7 +289,11 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       availableStock: 0,
       loadingStock: false,
       quantity: 1,
-      unitCost: this.isReceipt() ? 0 : null
+      unitCost: this.isReceipt() ? 0 : null,
+      batchNumber: '',
+      serialNumber: '',
+      manufacturingDate: null,
+      expiryDate: null
     };
   };
 
@@ -455,6 +459,51 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       }
     );
 
+    cols.push({
+      field: 'batchNumber',
+      header: 'Batch #',
+      editable: true,
+      editType: 'text',
+      width: '130px',
+      sortable: false,
+      filterable: false
+    });
+
+    if (isReceiptMode) {
+      cols.push(
+        {
+          field: 'manufacturingDate',
+          header: 'Mfg Date',
+          editable: true,
+          editType: 'date',
+          type: 'date',
+          width: '130px',
+          sortable: false,
+          filterable: false
+        },
+        {
+          field: 'expiryDate',
+          header: 'Exp Date',
+          editable: true,
+          editType: 'date',
+          type: 'date',
+          width: '130px',
+          sortable: false,
+          filterable: false
+        }
+      );
+    }
+
+    cols.push({
+      field: 'serialNumber',
+      header: 'Serial #',
+      editable: true,
+      editType: 'text',
+      width: '130px',
+      sortable: false,
+      filterable: false
+    });
+
     return cols;
   });
 
@@ -498,6 +547,20 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       this.onQuantityChange(row, value);
     } else if (field === 'unitCost') {
       this.onUnitCostChange(row, value);
+    } else if (field === 'batchNumber') {
+      row.batchNumber = value;
+      if (this.isIssue() && row.productId && row.warehouseLocationId) {
+        this.refreshAvailableStock(row);
+      }
+    } else if (field === 'serialNumber') {
+      row.serialNumber = value;
+      if (this.isIssue() && row.productId && row.warehouseLocationId) {
+        this.refreshAvailableStock(row);
+      }
+    } else if (field === 'manufacturingDate') {
+      row.manufacturingDate = value;
+    } else if (field === 'expiryDate') {
+      row.expiryDate = value;
     }
 
     this.lines.update(curr => curr.map(l => l.id === row.id ? { ...l, ...row } : l));
@@ -810,8 +873,11 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
           warehouseLocationId: l.warehouseLocationId,
           quantity: l.quantity,
           unitCost: l.unitCost ?? null,
-          batchNumber: l.batchNumber || null,
-          serialNumber: l.serialNumber || null,
+          manufacturingDate: l.manufacturingDate ? new Date(l.manufacturingDate).toISOString() : null,
+          expiryDate: l.expiryDate ? new Date(l.expiryDate).toISOString() : null,
+          batchNumber: l.batchNumber?.trim() || null,
+          serialNumber: l.serialNumber?.trim() || null,
+
           remarks: l.remarks || null
         }))
       };
@@ -846,8 +912,9 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
           productId: l.productId,
           warehouseLocationId: l.warehouseLocationId,
           quantity: l.quantity,
-          batchNumber: l.batchNumber || null,
-          serialNumber: l.serialNumber || null,
+          batchNumber: l.batchNumber?.trim() || null,
+          serialNumber: l.serialNumber?.trim() || null,
+
           remarks: l.remarks || null
         }))
       };

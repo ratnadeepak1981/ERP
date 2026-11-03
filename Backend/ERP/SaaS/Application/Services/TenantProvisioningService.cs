@@ -1,9 +1,12 @@
+using System;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using SaaS.Application.DTOs;
 using SaaS.Application.Interfaces;
 using SaaS.Application.Interfaces.Repositories;
 using SaaS.Core.Models;
-using System;
-using static System.Net.Mime.MediaTypeNames;
+using SaaS.Core.Rules;
 
 namespace SaaS.Application.Services;
 
@@ -15,20 +18,22 @@ public class TenantProvisioningService
     private readonly ITenantDatabaseRepository _tenantDatabaseRepository;
     private readonly ITenantConfigurationRepository _tenantConfigurationRepository;
     private readonly ITenantAdminProvisioningService _tenantAdminProvisioningService;
+    private readonly ITenantDomainRepository _tenantDomainRepository;
 
     public TenantProvisioningService(
         ITenantRepository tenantRepository,
         ISubscriptionRepository subscriptionRepository,
         ITenantDatabaseRepository tenantDatabaseRepository,
         ITenantConfigurationRepository tenantConfigurationRepository,
-        ITenantAdminProvisioningService tenantAdminProvisioningService)
+        ITenantAdminProvisioningService tenantAdminProvisioningService,
+        ITenantDomainRepository tenantDomainRepository)
     {
         _tenantRepository = tenantRepository;
         _subscriptionRepository = subscriptionRepository;
         _tenantDatabaseRepository = tenantDatabaseRepository;
         _tenantConfigurationRepository = tenantConfigurationRepository;
-        _tenantAdminProvisioningService =
-            tenantAdminProvisioningService;
+        _tenantAdminProvisioningService = tenantAdminProvisioningService;
+        _tenantDomainRepository = tenantDomainRepository;
     }
 
     public async Task<TenantProvisioningResult> ProvisionTenant(
@@ -75,6 +80,44 @@ public class TenantProvisioningService
                 "Only shared storage provisioning is currently supported.");
         }
 
+        // Verify or provision primary domain
+        var existingDomains = await _tenantDomainRepository.GetByTenantIdAsync(tenantId);
+        TenantDomain? primaryDomain = existingDomains.FirstOrDefault(x => x.IsPrimary && x.IsActive)
+            ?? existingDomains.FirstOrDefault(x => x.IsActive);
+        TenantDomain? newlyProvisionedDomain = null;
+
+        if (primaryDomain == null)
+        {
+            string candidateSubdomain = Regex.Replace(tenant.Code.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+            if (candidateSubdomain.Length < 3 || TenantDomainRules.IsReservedSubdomain(candidateSubdomain))
+            {
+                candidateSubdomain = $"tenant-{tenantId.ToString("N")[..6]}";
+            }
+
+            string chosenSubdomain = candidateSubdomain;
+            int counter = 1;
+            while (await _tenantDomainRepository.ExistsSubdomainAsync(chosenSubdomain) ||
+                   TenantDomainRules.IsReservedSubdomain(chosenSubdomain))
+            {
+                chosenSubdomain = $"{candidateSubdomain}-{counter++}";
+            }
+
+            newlyProvisionedDomain = new TenantDomain
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Hostname = TenantDomainRules.BuildLocalhostHostname(chosenSubdomain),
+                Subdomain = chosenSubdomain,
+                DomainType = TenantDomainType.Subdomain,
+                IsPrimary = true,
+                IsActive = true,
+                IsVerified = true
+            };
+
+            await _tenantDomainRepository.AddAsync(newlyProvisionedDomain);
+            primaryDomain = newlyProvisionedDomain;
+        }
+
         TenantDatabase tenantDatabase = new TenantDatabase
         {
             Id = Guid.NewGuid(),
@@ -117,6 +160,10 @@ public class TenantProvisioningService
             {
                 await _tenantDatabaseRepository.DeleteAsync(tenantDatabase);
                 await _tenantConfigurationRepository.DeleteAsync(tenantConfiguration);
+                if (newlyProvisionedDomain != null)
+                {
+                    await _tenantDomainRepository.DeleteAsync(newlyProvisionedDomain);
+                }
                 await _tenantDatabaseRepository.SaveChangesAsync();
             }
             catch
@@ -133,7 +180,10 @@ public class TenantProvisioningService
             DatabaseProvisioned = true,
             ConfigurationProvisioned = true,
             IsProvisioned = true,
-            StorageMode = subscription.StorageMode.ToString()
+            StorageMode = subscription.StorageMode.ToString(),
+            Hostname = primaryDomain?.Hostname,
+            Subdomain = primaryDomain?.Subdomain,
+            DomainProvisioned = primaryDomain != null
         };
     }
 }

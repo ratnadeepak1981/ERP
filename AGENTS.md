@@ -1,840 +1,628 @@
-\# ApexERP — Global Agent Instructions
+# ApexERP — Global Agent Instructions
 
+## 1. Purpose and Scope
 
+This document defines the global architecture, development standards, coding practices, security requirements, data-management rules and development workflow for ApexERP.
 
-\## 1. Purpose and Scope
+These instructions apply to:
 
-
-
-This file defines the global architecture, coding standards, UI conventions, security requirements, data-retention rules, and development workflow for ApexERP.
-
-
-
-These rules apply to:
-
-\- Backend: .NET 8 / ASP.NET Core / C#
-
-\- Web: Angular / TypeScript
-
-\- Mobile: Flutter / Dart
-
-\- Supporting AI and infrastructure projects, where applicable
-
-
+- Backend: .NET 8 / ASP.NET Core / C#
+- Web: Angular / TypeScript
+- Mobile: Flutter / Dart
+- AI and supporting infrastructure projects, where applicable.
 
 Before making changes:
 
-1\. Read this root `AGENTS.md`.
+1. Read this root `AGENTS.md`.
+2. Read the applicable project-level `AGENTS.md`.
+3. Inspect the actual repository and existing implementation.
+4. Reuse established patterns wherever possible.
+5. Make focused changes and test affected behaviour.
 
-2\. Read the applicable project-level `AGENTS.md`.
+Never assume that a documented component, endpoint, model, folder or feature exists without verifying it.
 
-3\. Inspect the actual repository and existing implementation.
+## 2. Architecture and Design Principles
 
-4\. Reuse established patterns wherever possible.
+ApexERP follows a layered, Domain-Driven, Modular Monolith architecture.
 
-5\. Make focused changes and test the affected behavior.
+The architecture must support independent business modules, multiple presentation clients, shared platform capabilities and future extensibility without unnecessary coupling.
 
+### 2.1 Core architectural principles
 
+- Separation of concerns.
+- Domain-Driven Design (DDD), where appropriate.
+- High cohesion and low coupling.
+- Single Responsibility Principle.
+- Dependency Inversion Principle.
+- Explicit ownership of business capabilities and data.
+- API-first integration.
+- Reusable shared infrastructure.
+- Configuration over unnecessary hardcoding.
+- Backward compatibility.
+- Evolutionary architecture.
 
-Do not assume that a documented component, endpoint, model, folder, or feature exists without verifying it.
+Do not introduce architectural patterns merely for theoretical completeness. Apply them where they solve an actual business or technical requirement.
 
+### 2.2 Layered architecture
 
+Maintain clear responsibilities between:
 
-\## 2. Architecture Boundaries
+1. Presentation Layer
+2. API / Application Layer
+3. Domain / Business Layer
+4. Infrastructure Layer
 
+The intended dependency direction must be respected.
 
+- Presentation depends on backend APIs.
+- API and application services coordinate business use cases.
+- Domain owns business rules and invariants.
+- Infrastructure implements persistence and external technical integrations.
+- Domain must not unnecessarily depend on database frameworks, UI frameworks or external infrastructure.
 
-ApexERP has separate Backend, Angular Web, and Flutter Mobile applications.
+### 2.3 Domain-Driven Design
 
+Where appropriate:
 
+- Model business entities around their identity and lifecycle.
+- Use value objects for concepts defined by their values.
+- Define aggregates around business invariants and transactional boundaries.
+- Use domain services when business logic does not naturally belong to an entity or aggregate.
+- Use application services to coordinate use cases.
+- Keep domain events focused on meaningful business occurrences.
+- Define clear ownership of domain data and business operations.
+- Avoid unnecessary abstractions, generic repositories and speculative domain models.
 
-\### 2.1 Backend responsibilities
+Do not force DDD patterns onto simple functionality where ordinary application logic is sufficient.
 
+## 3. Application and Layer Boundaries
 
+ApexERP has separate Backend, Angular Web and Flutter Mobile applications.
+
+### 3.1 Backend
 
 The backend owns:
 
-\- Business rules and calculations
+- Business rules and calculations.
+- API contracts and request validation.
+- Authentication and authorization.
+- Tenant and organisational scope enforcement.
+- Database persistence and transaction integrity.
+- Workflow status transitions and posting.
+- Concurrency and duplicate-operation protection.
+- Audit and data-retention rules.
 
-\- API contracts and request validation
-
-\- Authentication and authorization
-
-\- Tenant, company, branch, warehouse, and record-level access enforcement
-
-\- Database persistence and transaction integrity
-
-\- Workflow status transitions and transaction posting
-
-\- Concurrency handling and duplicate-operation protection
-
-\- Data-retention, deletion, restoration, and audit rules
-
-
-
-\### 2.2 Angular Web responsibilities
-
-
+### 3.2 Angular Web
 
 The Web application owns:
 
-\- Browser UI and navigation
+- Browser UI and navigation.
+- Reusable Angular components.
+- Client-side forms and presentation validation.
+- API integration.
+- Loading, error, success, empty and access-denied states.
+- Presentation of backend results.
 
-\- Reusable Angular components
+### 3.3 Flutter Mobile
 
-\- Client-side forms and presentation validation
+The Mobile application owns:
 
-\- API integration
+- Mobile-specific UI and navigation.
+- Reusable Flutter widgets.
+- Mobile state management.
+- API integration.
+- Mobile-specific interaction and error handling.
 
-\- Loading, error, success, empty, and access-denied states
+### 3.4 Shared principles
 
-\- Presentation of backend results
+- Web and Mobile must use backend APIs for business operations.
+- Keep authoritative business rules in the backend.
+- Do not independently implement conflicting business rules in different clients.
+- Client-side validation never replaces backend validation.
+- Maintain consistent business semantics across clients.
+- Avoid unnecessary cross-project dependencies.
 
+## 4. Business Module Ownership and Integration
 
+ApexERP initially follows a Modular Monolith approach.
 
-\### 2.3 Flutter Mobile responsibilities
+Current operational modules include:
 
+- Procurement
+- Inventory
+- Sales
 
+Future modules may include Manufacturing, Finance, HR and other business capabilities when approved.
 
-The Flutter application owns:
+### 4.1 Module ownership
 
-\- Mobile-specific UI and navigation
+- Each module owns its business capabilities, workflows and validation.
+- Define clear ownership of entities, aggregates and operational data.
+- Avoid accessing another module's internal repositories or implementation directly.
+- Communicate through established application interfaces or integration contracts.
+- Avoid circular dependencies.
+- Shared master data must have explicit ownership.
+- Cross-module operations must preserve business and transaction integrity.
 
-\- Reusable Flutter widgets
+### 4.2 Cross-module integration
 
-\- Mobile state management
+- Define the authoritative owner of every business operation.
+- Maintain source-document references throughout transaction lifecycles.
+- Validate cross-module operations through the responsible module.
+- Use appropriate transaction boundaries.
+- Apply idempotency and concurrency protection to important operations.
+- Consider transactional outbox or reliable messaging patterns when asynchronous integration is genuinely required.
 
-\- API integration
+Do not introduce microservices, distributed messaging or event-driven infrastructure unnecessarily.
 
-\- Mobile-specific interaction and error-handling patterns
+## 5. Database and Data Architecture
 
+Respect the existing separation between operational domain data, security, SaaS/platform management and AI infrastructure.
 
+Known contexts include:
 
-\### 2.4 Shared architecture principles
-
-
-
-\- Web and Flutter must use backend APIs for business operations.
-
-\- Keep authoritative business rules in the backend.
-
-\- Do not independently implement conflicting business rules in each frontend.
-
-\- Client-side validation improves usability but never replaces backend validation.
-
-\- Keep framework-specific implementations separate while maintaining consistent business semantics and API contracts.
-
-\- Do not introduce unnecessary cross-project dependencies.
-
-\- Do not assume a feature is implemented merely because it appears in the roadmap.
-
-
-
-\## 3. Backend and Database Boundaries
-
-
-
-Respect the existing separation between operational domain data, security, SaaS/platform management, and AI infrastructure.
-
-
-
-Known architectural contexts include:
-
-\- `DomainDbContext`: operational and master data
-
-\- `SecurityDbContext`: authentication, users, roles, and permissions
-
-\- `SaaSDbContext`: tenants, plans, subscriptions, limits, and usage
-
-\- `AIDbContext`: AI-related data where implemented
-
-
+- `DomainDbContext`: Operational and master data.
+- `SecurityDbContext`: Authentication, users, roles and permissions.
+- `SaaSDbContext`: Tenants, plans, subscriptions, limits and usage.
+- `AIDbContext`: AI-related data where implemented.
 
 Verify actual names and implementations before editing.
 
+### 5.1 Database ownership
 
+- Each database context owns its persistence responsibilities.
+- Do not introduce unsupported cross-database foreign keys.
+- Cross-context references must use stable identifiers and validated application-level relationships.
+- Do not bypass context ownership by directly manipulating another context's tables.
+- Keep Domain independent of SaaS, Security and AI infrastructure where appropriate.
+- Do not assume dedicated tenant databases are already implemented.
+- Design future database separation through appropriate abstractions where required.
 
-Rules:
+### 5.2 Migration discipline
 
-\- Do not introduce cross-database foreign keys where the architecture does not support them.
+- Inspect current database schema and migration history before creating migrations.
+- Follow established migration naming and execution conventions.
+- Do not modify an already-applied migration to introduce new schema changes.
+- Check migration dependencies and execution order.
+- Verify the resulting database schema after applying migrations.
+- Preserve existing migrations and persistent data.
+- Never drop, recreate or reseed databases without explicit approval.
+- Investigate migration failures before attempting corrective operations.
 
-\- Do not make the Domain layer unnecessarily dependent on SaaS, Security, or AI infrastructure.
+### 5.3 Data integrity
 
-\- Enforce tenant and organizational scope on the backend.
+- Respect primary keys, foreign keys, uniqueness constraints and indexes.
+- Validate relationships and business constraints.
+- Avoid unnecessary duplicated data.
+- Use historical snapshots where business requirements require original values to remain unchanged.
+- Preserve transaction history and referential integrity.
 
-\- Do not assume dedicated tenant databases are implemented unless the repository confirms this.
+## 6. Enterprise Features and Cross-Cutting Capabilities
 
-\- Preserve existing migrations and persistent data.
+Enterprise functionality must be implemented consistently across relevant modules.
 
-\- Do not reset databases, delete persistent data, or perform destructive schema operations without explicit approval.
+### 6.1 Multi-tenancy and organisation
 
-\- Follow established patterns for transactions, repositories, dependency injection, logging, and exception handling.
+Support applicable boundaries:
 
+- Tenant
+- Company
+- Branch
+- Warehouse
+- Location
+- User and organisational assignments
 
+Do not treat these boundaries as interchangeable.
 
-\## 4. Reusable Components and Code
+Enforce isolation and scope on the backend.
 
+### 6.2 Security
 
+Support the existing authentication, authorization, role, permission and scope mechanisms.
 
-\- Inspect existing shared components and working examples before creating new ones.
+### 6.3 Transaction management
 
-\- Prefer extending or configuring an existing component over creating a duplicate.
+Support applicable requirements:
 
-\- Keep reusable presentation components generic and configurable.
+- Draft persistence.
+- Submission and approval.
+- Posting and reversal.
+- Concurrency handling.
+- Duplicate-operation protection.
+- Transaction traceability.
 
-\- Keep business rules in the appropriate application or domain services.
+### 6.4 Financial and measurement consistency
 
-\- Avoid large rewrites and unrelated refactoring.
+Respect:
 
-\- Preserve working behavior unless a change is necessary and understood.
+- Company base currency.
+- Transaction currency.
+- Exchange rates.
+- Decimal precision.
+- Rounding rules.
+- Base and transaction units of measure.
+- Conversion ratios.
+- Historical price and tax snapshots where required.
 
-\- Use consistent naming, formatting, validation, logging, and error-handling conventions.
+Do not independently implement conflicting calculations across modules.
 
-\- Do not create duplicate components simply to provide the same behavior under another name.
+### 6.5 Auditability
 
+Important business and security operations must be traceable.
 
+Where applicable, record:
 
-\## 5. Popup and Modal Restrictions
+- Acting user.
+- Operation.
+- Timestamp.
+- Source transaction.
+- Previous and new state.
+- Reversal or correction reference.
 
+Keep permanent business audit history distinct from temporary application logs.
 
+### 6.6 Reliability and performance
 
-Avoid unnecessary popups, modal dialogs, and overlay-based forms.
+- Use appropriate database indexes.
+- Implement pagination for large datasets.
+- Avoid inefficient queries and unnecessary data loading.
+- Use asynchronous processing where appropriate.
+- Handle external service failures safely.
+- Apply retry policies only to operations that support safe retries.
+- Preserve transaction consistency during failures.
 
+## 7. Reusable Components and Code Standards
 
+- Inspect existing shared components and working examples before creating new ones.
+- Prefer extending or configuring existing components over creating duplicates.
+- Keep reusable presentation components generic and configurable.
+- Keep business rules in the appropriate application or domain services.
+- Avoid large rewrites and unrelated refactoring.
+- Preserve working behaviour unless a change is necessary and understood.
+- Follow established naming, formatting, validation, logging and exception-handling conventions.
+- Avoid unnecessary dependencies and competing frameworks.
+
+## 8. Popup, Modal and Interaction Restrictions
+
+Avoid unnecessary popups, modal dialogs and overlay-based forms.
 
 Do not use browser-native:
 
-\- `alert()`
-
-\- `confirm()`
-
-\- `prompt()`
-
-
+- `alert()`
+- `confirm()`
+- `prompt()`
 
 Prefer:
 
-\- Inline forms
+- Inline forms.
+- Dedicated create/edit pages.
+- Inline validation.
+- Contextual confirmation sections.
+- Existing shared notification and confirmation components.
+- Inline success and error feedback.
 
-\- Dedicated create/edit pages
+Use popups only where the interaction genuinely benefits from them and follows existing project patterns.
 
-\- Inline validation messages
+Do not introduce a new popup framework without a clear requirement.
 
-\- Contextual confirmation sections
+## 9. Reusable Buttons and Actions
 
-\- Existing shared notification or confirmation components
+Reuse existing shared button components and established action styles.
 
-\- Inline success and error feedback
+Common actions include:
 
-
-
-Use a popup or modal only when the interaction genuinely benefits from it and is consistent with established project patterns.
-
-
-
-Do not introduce a new popup framework or component without a clear requirement.
-
-
-
-\## 6. Reusable Buttons and Actions
-
-
-
-Reuse existing shared button components and established action styles throughout ApexERP.
-
-
-
-Common actions may include:
-
-\- New / Create
-
-\- Edit
-
-\- View
-
-\- Save
-
-\- Save Draft
-
-\- Update Draft
-
-\- Submit
-
-\- Approve / Reject
-
-\- Post
-
-\- Cancel
-
-\- Delete / Deactivate
-
-\- Restore / Reactivate
-
-\- Reverse
-
-\- Refresh
-
-\- Back / Close
-
-
-
-These are examples, not a requirement to display every action on every screen.
-
-
+- New / Create
+- Edit / View
+- Save / Save Draft
+- Update Draft
+- Submit
+- Approve / Reject
+- Post
+- Cancel
+- Delete / Deactivate
+- Restore / Reactivate
+- Reverse
+- Refresh
+- Back / Close
 
 Rules:
 
-\- Inspect existing shared button components before creating new ones.
-
-\- Keep labels, placement, icons, spacing, loading indicators, disabled states, and tooltips consistent.
-
-\- Display actions relevant to the screen, current record state, and effective permissions.
-
-\- Prevent repeated clicks from producing duplicate operations.
-
-\- Show clear feedback for successful and failed operations.
-
-\- Do not treat hiding or disabling a button as authorization.
-
-\- Enforce every protected action in the backend.
-
-\- Use accurate labels: for example, distinguish Deactivate from permanent Delete.
-
-
-
-\## 7. Transaction Draft Mode and Workflow
-
-
-
-Every applicable transaction must follow its implemented Draft workflow.
-
-
-
-Examples include:
-
-\- Purchase Orders
-
-\- Goods Receipts
-
-\- Stock Receipts
-
-\- Stock Issues
-
-\- Putaway transactions
-
-\- Sales Orders
-
-\- Dispatch Notes
-
-
-
-The exact workflow depends on the business requirements and existing backend implementation.
-
-
-
-\### 7.1 Draft rules
-
-
-
-\- New transactions should begin in Draft when that matches the established workflow.
-
-\- Allow incomplete drafts only where the business workflow permits them.
-
-\- Persist drafts through the backend when durable storage is required.
-
-\- Allow eligible drafts to be reopened and updated.
-
-\- Do not treat browser memory or local storage as the authoritative transaction record.
-
-\- Saving a draft must not accidentally submit, approve, or post a transaction.
-
-\- Validate required data and business rules before submission or posting.
-
-\- Restrict editing according to transaction status and permissions.
-
-\- Use only statuses and transitions supported by the actual workflow.
-
-\- Do not invent additional statuses without a requirement.
-
-
-
-\### 7.2 Posting and inventory rules
-
-
-
-\- Posting must invoke the appropriate backend operation.
-
-\- Saving a draft must not create inventory movements unless explicitly defined by the business process.
-
-\- Prevent duplicate posting and handle concurrency appropriately.
-
-\- Preserve transaction history and inventory movement traceability.
-
-\- Display the actual operation result and refresh related UI data consistently.
-
-\- Do not allow a frontend-only status change to substitute for backend posting.
-
-
-
-\## 8. Role-Based Access and Security
-
-
-
-Reuse the existing authentication, role, permission, and scope mechanisms.
-
-
-
-\- Do not hard-code role names throughout individual screens when the system supports permission-based checks.
-
-\- Do not assume that a role has a permission without checking the actual configuration.
-
-\- Do not grant permissions based on usernames, labels, frontend conditions, or user-selected values.
-
-\- Apply permissions independently to each protected action.
-
-\- Enforce tenant, company, branch, warehouse, and record-level restrictions on the backend where applicable.
-
-\- Respect approval restrictions and segregation-of-duties rules where implemented.
-
-\- Handle unauthenticated, expired-session, forbidden, and invalid-scope responses through standard application flows.
-
-\- Never expose secrets, tokens, credentials, or sensitive information in logs or UI messages.
-
-
-
-The backend remains the security authority, even when the frontend hides or disables an action.
-
-
-
-\## 9. Master Data and Transaction Rules
-
-
+- Display actions relevant to the screen, transaction state and effective permissions.
+- Keep labels, icons, placement, spacing, loading indicators and disabled states consistent.
+- Prevent repeated clicks from producing duplicate operations.
+- Provide clear success and failure feedback.
+- Hiding or disabling a button is not authorization.
+- Enforce protected operations in the backend.
+- Use accurate action labels.
+
+## 10. Transaction Draft Mode and Workflow
+
+Every applicable transaction must follow its established Draft workflow.
+
+Examples:
+
+- Purchase Orders
+- Goods Receipts
+- Stock Receipts
+- Stock Issues
+- Putaway transactions
+- Sales Orders
+- Dispatch Notes
+
+### 10.1 Draft rules
+
+- New transactions should begin in Draft where the established workflow requires it.
+- Allow incomplete drafts only where business requirements permit.
+- Persist drafts through the backend when durable storage is required.
+- Allow eligible drafts to be reopened and updated.
+- Do not treat browser memory or local storage as the authoritative transaction record.
+- Saving a draft must not accidentally submit, approve or post it.
+- Validate required data and business rules before submission or posting.
+- Restrict editing according to transaction status and permissions.
+- Use only statuses and transitions supported by the actual workflow.
+
+### 10.2 Posting and inventory rules
+
+- Posting must invoke the appropriate backend operation.
+- Saving a draft must not create inventory movements unless explicitly defined by the business process.
+- Prevent duplicate posting and handle concurrency.
+- Preserve transaction history and stock movement traceability.
+- Refresh related UI data after successful operations.
+- Frontend-only status changes must never substitute for backend posting.
+
+### 10.3 Posted transaction immutability
+
+- Posted transactions and their resulting inventory movements must not be physically deleted through ordinary CRUD operations.
+- Do not silently modify historical stock movements.
+- Use supported reversal, adjustment or correction workflows.
+- Preserve original transaction references and reversal history.
+- Maintain batch, serial, warehouse and source-document traceability.
+
+## 11. Master Data and Transaction Rules
 
 Keep master-data maintenance distinct from operational transaction processing.
 
-
-
-\- Inspect entity relationships, tenancy, uniqueness constraints, and deletion behavior before changing models.
-
-\- Respect the established scope of each entity.
-
-\- Do not add speculative tables, relationships, or abstractions without a confirmed requirement.
-
-\- Preserve historical transaction integrity.
-
-\- Use snapshots for historical business details when the design requires original values to remain unchanged after master-data edits.
-
-\- Validate stock availability, quantities, units, and transaction state on the backend where relevant.
-
-\- Create inventory movements at the correct business event, not merely because a user opened or saved a screen.
-
-\- Do not couple invoice creation to stock movements unless the approved business workflow explicitly requires it.
-
-
-
-\## 10. Soft Delete, Deactivation, Restoration, and Retention
-
-
-
-\### 10.1 General rules
-
-
-
-\- Prefer soft delete or deactivation for master data and business records when historical references, auditability, or business rules require records to be retained.
-
-\- Do not physically delete records by default.
-
-\- Do not assume every entity must use soft delete. Choose the appropriate behavior based on the entity's business purpose and retention requirements.
-
-\- Inspect existing models, relationships, foreign keys, transaction history, audit requirements, and delete behavior before implementing deletion.
-
-\- Physical deletion is permitted only when explicitly required, authorized, and safe under established retention rules.
-
-
-
-\### 10.2 Backend requirements
-
-
-
-\- Enforce deletion, deactivation, and restoration rules in the backend.
-
-\- Inspect and reuse existing deletion metadata and infrastructure, such as `IsDeleted`, `DeletedAt`, `DeletedBy`, or equivalent fields, if already supported.
-
-\- Do not add duplicate deletion fields or a new soft-delete framework without first inspecting the current implementation.
-
-\- Exclude soft-deleted records from normal queries by default where appropriate.
-
-\- Provide authorized access to deleted records for administration, auditing, or recovery when required.
-
-\- Prevent deleted or inactive records from being selected for new transactions when prohibited by business rules.
-
-\- Preserve historical transactions, audit records, and required relationships.
-
-\- Handle uniqueness constraints correctly so deleted records do not cause unexpected conflicts or permit invalid duplicate active records.
-
-\- Do not cascade soft deletion to related records without confirming the intended business behavior.
-
-\- Record the acting user and deletion time when required by the established audit design.
-
-\- Authorize restoration and validate uniqueness, relationships, and business rules before restoring a record.
-
-\- Ensure repeated deletion and restoration requests are handled safely.
-
-
-
-\### 10.3 Frontend requirements
-
-
-
-\- Use accurate action labels such as Deactivate, Delete, Restore, or Reactivate.
-
-\- Do not label a soft delete as permanent deletion.
-
-\- Hide or disable actions when the user lacks permission or the record state prohibits the operation.
-
-\- Prefer inline confirmation or an existing shared confirmation component when confirmation is required.
-
-\- Remove successfully deactivated records from active lists where appropriate.
-
-\- Display clear success and failure feedback.
-
-\- Provide deleted-record views or restoration actions only where required and authorized.
-
-
-
-\### 10.4 Transactions and inventory
-
-
-
-\- Do not physically delete posted transactions or inventory movement history through ordinary CRUD operations.
-
-\- Use supported cancellation, reversal, or correction workflows for posted transactions.
-
-\- Draft transactions may have different deletion rules, which must be explicitly defined and enforced by the backend.
-
-\- Preserve traceability for receipts, issues, putaway, dispatch, and other inventory movements.
-
-
-
-\### 10.5 Soft-delete testing
-
-
-
-Verify that:
-
-\- Deleted records are excluded from normal queries where appropriate.
-
-\- Historical references remain accessible.
-
-\- Deleted records cannot be used in prohibited new transactions.
-
-\- Uniqueness constraints behave correctly.
-
-\- Deletion and restoration require appropriate permissions.
-
-\- Repeated deletion requests are safe.
-
-\- Posted transactions and inventory history cannot be silently removed through ordinary CRUD operations.
-
-
-
-\## 11. Web and Mobile UI Standards
-
-
-
-\- Follow each project's existing theme, typography, spacing, navigation, and component conventions.
-
-\- Keep Web and Flutter consistent in business behavior, not necessarily identical in layout.
-
-\- Prefer reusable components over duplicated screen-specific implementations.
-
-\- Avoid unnecessary dependencies and competing design systems.
-
-\- Provide meaningful loading, empty, success, validation, network-error, conflict, and access-denied states.
-
-\- Preserve user input when safely handling recoverable errors.
-
-\- Prevent accidental data loss and duplicate submissions.
-
-\- Make disabled and read-only states clear.
-
-\- Consider accessibility, keyboard interaction, responsive layout, and mobile usability.
-
-
-
-\## 12. Reusable Forms, Grids, and Tabs
-
-
+- Inspect entity relationships, tenancy, uniqueness constraints and deletion behaviour before changing models.
+- Respect the established scope of each entity.
+- Do not introduce speculative tables, relationships or abstractions without confirmed requirements.
+- Preserve historical transaction integrity.
+- Use snapshots when original business values must remain unchanged.
+- Validate stock availability, quantities, units and transaction state on the backend.
+- Create inventory movements at the correct business event.
+- Do not couple invoice creation to stock movements unless the approved workflow explicitly requires it.
+- Prevent inactive or prohibited master records from being selected in new transactions.
+
+## 12. Soft Delete, Deactivation, Restoration and Retention
+
+### 12.1 General rules
+
+- Prefer soft delete or deactivation when historical references, auditability or business requirements require retention.
+- Do not physically delete records by default.
+- Do not assume every entity must use soft delete.
+- Inspect existing models, relationships, foreign keys and deletion behaviour first.
+- Physical deletion is permitted only when explicitly required, authorized and safe.
+
+### 12.2 Backend requirements
+
+- Enforce deletion, deactivation and restoration rules in the backend.
+- Reuse existing deletion metadata such as `IsDeleted`, `DeletedAt` and `DeletedBy`, where implemented.
+- Do not add duplicate deletion fields or frameworks.
+- Exclude deleted records from normal queries where appropriate.
+- Provide authorized access to deleted records where required.
+- Prevent inactive or deleted records from being selected in prohibited new transactions.
+- Handle uniqueness constraints correctly.
+- Do not cascade soft deletion without confirming the intended behaviour.
+- Record the acting user and deletion time where required.
+- Authorize restoration and validate uniqueness and relationships.
+- Ensure repeated deletion and restoration requests are safe.
+
+### 12.3 Frontend requirements
+
+- Use accurate labels such as Deactivate, Delete, Restore and Reactivate.
+- Hide or disable actions when permissions or record states prohibit them.
+- Prefer inline confirmation or established shared confirmation components.
+- Remove successfully deactivated records from active lists where appropriate.
+- Display clear success and failure feedback.
+- Provide deleted-record views and restoration actions only where required and authorized.
+
+### 12.4 Transaction retention
+
+- Never physically delete posted transactions or inventory movement history through ordinary CRUD operations.
+- Use supported cancellation, reversal or correction workflows.
+- Apply explicitly defined deletion rules to Draft transactions.
+- Preserve traceability across receipts, issues, putaway, dispatch and other inventory movements.
+
+## 13. Web and Mobile UI Standards
+
+- Follow each project's existing theme, typography, spacing, navigation and component conventions.
+- Keep Web and Flutter consistent in business behaviour, not necessarily identical in layout.
+- Prefer reusable components over duplicated screen-specific implementations.
+- Avoid unnecessary dependencies and competing design systems.
+- Provide meaningful loading, empty, success, validation, network-error, conflict and access-denied states.
+- Preserve user input when safely handling recoverable errors.
+- Prevent accidental data loss and duplicate submissions.
+- Make disabled and read-only states clear.
+- Consider accessibility, keyboard interaction, responsiveness and mobile usability.
+
+## 14. Reusable Forms, Grids and Tabs
 
 Use the established reusable form and grid architecture.
 
-
-
-\### 12.1 Grid modes
-
-
+### 14.1 Grid modes
 
 Support the appropriate existing patterns for:
 
-\- Editable Master
-
-\- Read-only Master
-
-\- Editable Transaction
-
-\- Read-only Transaction
-
-
+- Editable Master
+- Read-only Master
+- Editable Transaction
+- Read-only Transaction
 
 Reuse common features where implemented:
 
-\- Search and filtering
+- Search and filtering.
+- Sorting and paging.
+- Row selection.
+- Column visibility.
+- Table, list or card views.
+- Appropriate single-row and bulk actions.
 
-\- Sorting and paging
+### 14.2 Transaction screen structure
 
-\- Row selection
+Where applicable, reuse:
 
-\- Column visibility
+1. Page header with title, status and permitted actions.
+2. Transaction header form.
+3. Detail grid.
+4. Footer with totals, validation summary and action buttons.
+5. Tabs for logically distinct detail sections.
 
-\- Table, list, or card views
+### 14.3 Multiple grids and tabs
 
-\- Appropriate single-row and bulk actions
+- Use tabs when multiple logically distinct grids or sections belong to the same screen.
+- Keep each tab's state, data, permissions, loading and error handling appropriately independent.
+- Avoid duplicating grid implementations.
+- Keep transaction header data and detail rows consistent.
+- Validate the complete transaction on the backend before submission or posting.
 
+Do not create a new component for every screen when existing shared components can support the requirement.
 
-
-\### 12.2 Transaction screen structure
-
-
-
-Where applicable, reuse the established:
-
-1\. Page header with title, status, and permitted actions
-
-2\. Transaction header form
-
-3\. Detail grid
-
-4\. Footer with totals, validation summary, and action buttons
-
-5\. Tabs for logically distinct detail grids or sections
-
-
-
-\### 12.3 Multiple grids and tabs
-
-
-
-\- Use tabs when multiple logically distinct grids or detail sections belong to the same screen.
-
-\- Keep each tab's state, data, permissions, loading, and error handling appropriately independent.
-
-\- Avoid duplicating grid implementations when the shared grid can support the requirement through configuration.
-
-\- Keep transaction header data and detail rows consistent.
-
-\- Validate the complete transaction on the backend before submission or posting.
-
-
-
-Do not create a new component for every screen when existing shared components can be configured appropriately.
-
-
-
-\## 13. PrimeNG and UI Library Rules
-
-
+## 15. PrimeNG and UI Library Rules
 
 For Angular:
 
-\- Inspect the installed Angular and PrimeNG versions before implementation.
+- Inspect installed Angular and PrimeNG versions before implementation.
+- Follow the existing theme and design-token configuration.
+- Prefer established ApexERP shared components.
+- Use PrimeNG selectively.
+- Do not copy APIs from incompatible PrimeNG versions.
+- Do not replace the existing theme or introduce a competing design system without approval.
+- Isolate library-specific details where practical.
+- Do not add dependencies without a clear requirement.
+- Avoid unnecessary overlay-based forms and dialogs.
 
-\- Follow the existing theme and design-token configuration.
+Detailed Angular conventions belong in the Web project's own `AGENTS.md`.
 
-\- Prefer established ApexERP shared components when they meet the requirement.
+## 16. API and External Integration Standards
 
-\- Use PrimeNG selectively rather than introducing unnecessary library-specific widgets.
+- Follow existing API routes, request/response models, authentication headers and error conventions.
+- Do not invent endpoints or DTO properties without inspecting the backend.
+- Avoid exposing internal database entities directly as API contracts.
+- Treat backend responses as authoritative.
+- Maintain stable API contracts for Web, Mobile and external integrations.
+- Introduce API versioning when breaking changes become necessary.
+- Handle validation failures, unauthorized requests, forbidden requests, not-found responses, conflicts and network failures appropriately.
+- Use established API clients and authentication services.
+- Avoid duplicating API integration logic.
+- Refresh or reconcile displayed data after successful mutations.
+- Use safe retry behaviour only for operations that support it.
+- Prevent accidental repeated submission of non-idempotent operations.
+- Do not expose internal exceptions or sensitive infrastructure details.
 
-\- Do not copy APIs from an incompatible PrimeNG version.
+## 17. AI and External Service Architecture
 
-\- Do not replace the existing theme or introduce a competing design system without approval.
+AI and external services must remain isolated from authoritative operational business logic.
 
-\- Isolate library-specific details where practical.
+- AI must consume approved APIs and application services.
+- AI must not directly manipulate operational database tables.
+- AI-generated suggestions must not bypass backend validation or authorization.
+- Transaction creation, approval and posting must follow deterministic backend business rules.
+- Support interchangeable AI providers through appropriate abstractions where required.
+- Protect tenant data and prevent cross-tenant information leakage.
+- Do not expose secrets or API keys in frontend code or logs.
+- Handle external provider failures without corrupting operational transactions.
+- Users must retain control over consequential business operations.
 
-\- Do not add dependencies without a clear requirement.
+Do not introduce unnecessary AI infrastructure before an approved business requirement exists.
 
-\- Avoid unnecessary overlay-based forms, dialogs, and confirmation popups.
+## 18. Audit, Logging and Observability
 
+- Maintain audit records for important business and security operations.
+- Preserve transaction lifecycle and correction history.
+- Use structured logging.
+- Use correlation IDs for tracing related operations where supported.
+- Keep operational logs separate from permanent business audit history.
+- Never log passwords, access tokens, refresh tokens, API keys or sensitive credentials.
+- Do not expose internal exceptions or infrastructure details to end users.
+- Use established health-check and monitoring patterns where implemented.
 
+## 19. Development Workflow and Git Safety
 
-Detailed Angular-specific rules belong in the Web project's own `AGENTS.md`.
+### 19.1 Before editing
 
+1. Read root and applicable project-level instructions.
+2. Inspect repository structure and relevant implementation.
+3. Review relevant models, services, APIs, components, tests and configuration.
+4. Identify existing user changes and avoid overwriting them.
+5. Define the smallest appropriate implementation plan for substantial tasks.
 
+### 19.2 During implementation
 
-\## 14. API Integration and Error Handling
+- Make focused, incremental changes.
+- Preserve unrelated work.
+- Avoid speculative features and broad refactoring.
+- Do not replace working code wholesale when targeted changes are sufficient.
+- Do not modify unrelated configuration or dependencies.
+- Explain consequential architectural changes before proceeding.
 
-
-
-\- Follow existing API routes, request/response models, authentication headers, and error conventions.
-
-\- Do not invent endpoints or DTO properties without inspecting the backend.
-
-\- Treat backend responses as authoritative.
-
-\- Handle validation failures, unauthorized requests, forbidden requests, not-found responses, conflicts, and network failures appropriately.
-
-\- Use the established API client and authentication services.
-
-\- Avoid duplicating API integration logic across screens.
-
-\- Refresh or reconcile displayed data after successful mutations.
-
-\- Use safe retry behavior only for operations that support it.
-
-\- Prevent accidental repeated submission of non-idempotent operations.
-
-\- Do not expose internal exceptions or sensitive infrastructure details to end users.
-
-
-
-\## 15. Development Workflow and Git Safety
-
-
-
-\### 15.1 Before editing
-
-
-
-1\. Inspect the repository structure and relevant project instructions.
-
-2\. Check the current implementation and working examples.
-
-3\. Review relevant models, services, APIs, components, tests, and configuration.
-
-4\. Identify existing user changes and avoid overwriting them.
-
-5\. Define the smallest appropriate implementation plan for substantial tasks.
-
-
-
-\### 15.2 During implementation
-
-
-
-\- Make focused, incremental changes.
-
-\- Preserve unrelated work.
-
-\- Avoid speculative features and broad refactoring.
-
-\- Do not replace working code wholesale when a targeted change is sufficient.
-
-\- Do not modify unrelated configuration or dependencies.
-
-\- Explain consequential architectural changes before proceeding.
-
-
-
-\### 15.3 Git safety
-
-
+### 19.3 Git safety
 
 Do not perform the following unless explicitly instructed:
 
-\- Commit
-
-\- Push
-
-\- Pull
-
-\- Reset
-
-\- Rebase
-
-\- Force-push
-
-\- Switch or change branches
-
-\- Discard or overwrite user changes
-
-
+- Commit
+- Push
+- Pull
+- Reset
+- Rebase
+- Force-push
+- Switch or change branches
+- Discard or overwrite user changes
 
 Additional rules:
 
-\- Do not assume a remote, branch, or repository path without checking it.
+- Do not assume a remote, branch or repository path without checking.
+- Do not execute destructive Git commands.
+- Do not claim Git changes were completed unless actually performed with authorization.
+- Inspect the working tree before editing.
+- Review `git diff` after focused changes.
+- Report repository state honestly when relevant.
 
-\- Do not execute destructive Git commands.
+## 20. Testing and Completion Criteria
 
-\- Do not claim Git changes were completed unless they were actually performed with authorization.
-
-\- Report repository state honestly when relevant.
-
-
-
-\## 16. Testing and Completion Criteria
-
-
-
-Test the affected layers wherever the required environment is available.
-
-
+Test affected layers wherever the required environment is available.
 
 Depending on the task, verify:
 
-\- Backend build and relevant tests
+- Backend build and relevant tests.
+- API validation and authorization.
+- Database persistence and transaction behaviour.
+- Migration execution and resulting schema.
+- Angular build and relevant tests.
+- Flutter analysis and relevant tests.
+- Real browser workflows for Web UI changes.
+- End-to-end business workflows and regression behaviour.
 
-\- API validation and authorization
+For transaction workflows, verify Draft creation, persistence, reopening, updating, submission, approval, posting and cancellation where supported.
 
-\- Database persistence and transaction behavior
+For inventory workflows, verify stock balances, UOM conversion, batch and serial traceability, warehouse scope and reversal behaviour where applicable.
 
-\- Angular build and relevant tests
+For soft delete, verify filtering, retention, uniqueness, restoration, permissions and historical references.
 
-\- Flutter analysis and relevant tests
-
-\- Real browser workflows for Web UI changes
-
-\- End-to-end business workflows and regression behavior
-
-
-
-For transaction workflows, verify Draft creation, persistence, reopening, updating, submission, approval, posting, and cancellation where supported.
-
-
-
-For soft delete, verify filtering, retention, uniqueness, restoration, permissions, and historical references.
-
-
-
-For security changes, verify both frontend behavior and direct backend API enforcement.
-
-
+For security changes, verify frontend behaviour and direct backend API enforcement.
 
 Do not claim tests passed unless they were actually executed and passed. Identify tests not run and unresolved limitations.
 
-
-
-\## 17. Instructions for Coding Agents
-
-
+## 21. Instructions for Coding Agents
 
 At the beginning of every task:
 
+1. Read this root `AGENTS.md`.
+2. Read the relevant project-level `AGENTS.md`.
+3. Inspect the existing implementation before proposing or making changes.
+4. Identify reusable components, services and established patterns.
+5. Make only the changes needed for the requested task.
+6. Test the affected behaviour.
+7. Summarize changed files, actual test results and unresolved issues.
 
+These instructions do not authorize redesigning the application or expanding task scope.
 
-1\. Read this root `AGENTS.md`.
-
-2\. Read the relevant project-level `AGENTS.md`.
-
-3\. Inspect the existing implementation before proposing or making changes.
-
-4\. Identify reusable components, services, and established patterns.
-
-5\. Make only the changes needed for the requested task.
-
-6\. Test the affected behavior.
-
-7\. Summarize changed files, actual test results, and unresolved issues.
-
-
-
-These instructions do not authorize redesigning the application or expanding task scope. Ask before making consequential architectural changes that are not clearly required.
-
+Ask before making consequential architectural changes that are not clearly required.

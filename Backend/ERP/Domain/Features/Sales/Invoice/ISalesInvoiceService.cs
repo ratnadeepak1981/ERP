@@ -44,6 +44,13 @@ public interface ISalesInvoiceService
         Guid confirmedBy,
         string? notes = null);
 
+    Task<SalesInvoiceDto> RefreshCurrencyAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        RefreshSalesInvoiceCurrencyRequest request);
+
     Task<SalesInvoiceDto> CancelInvoiceAsync(
         Guid tenantId,
         Guid companyId,

@@ -59,6 +59,7 @@ public class InventoryRecentTransactionDto
 public class StockIssueDto
 {
     public Guid StockIssueId { get; set; }
+    public Guid? StockIssueLineId { get; set; }
     public string IssueNumber { get; set; } = string.Empty;
     public DateTime IssueDate { get; set; }
     public StockIssuePurpose Purpose { get; set; }
@@ -136,6 +137,7 @@ public enum StockReceiptStatus
 public class StockReceiptDto
 {
     public Guid StockReceiptId { get; set; }
+    public Guid? StockReceiptLineId { get; set; }
     public string ReceiptNumber { get; set; } = string.Empty;
     public DateTime ReceiptDate { get; set; }
     public StockReceiptReason Reason { get; set; }
@@ -158,6 +160,8 @@ public class StockReceiptDto
     public decimal TotalCost { get; set; }
     public string? BatchNumber { get; set; }
     public string? SerialNumber { get; set; }
+    public DateTime? ManufacturingDate { get; set; }
+    public DateTime? ExpiryDate { get; set; }
     public string? SourceDocumentReference { get; set; }
     public string? Remarks { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -165,6 +169,7 @@ public class StockReceiptDto
 
 public class CreateStockReceiptRequest
 {
+    public Guid? StockReceiptId { get; set; }
     public DateTime? ReceiptDate { get; set; }
     public StockReceiptReason Reason { get; set; } = StockReceiptReason.OpeningBalance;
     public Guid WarehouseId { get; set; }
@@ -175,11 +180,14 @@ public class CreateStockReceiptRequest
 
 public class CreateStockReceiptLineRequest
 {
+    public Guid? StockReceiptLineId { get; set; }
     public Guid ProductId { get; set; }
     public Guid WarehouseLocationId { get; set; }
     public decimal Quantity { get; set; }
     public decimal? UnitCost { get; set; }
     public string? BatchNumber { get; set; }
     public string? SerialNumber { get; set; }
+    public DateTime? ManufacturingDate { get; set; }
+    public DateTime? ExpiryDate { get; set; }
     public string? Remarks { get; set; }
 }

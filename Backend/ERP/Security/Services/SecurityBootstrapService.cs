@@ -69,6 +69,8 @@ public class SecurityBootstrapService
 
         await SalesShipmentPermissionSeed.SeedAsync(_repository);
 
+        await SalesInvoicePermissionSeed.SeedAsync(_repository);
+
         await TenantAdminRolePermissionSeed.SeedAsync(_repository);
     }
 

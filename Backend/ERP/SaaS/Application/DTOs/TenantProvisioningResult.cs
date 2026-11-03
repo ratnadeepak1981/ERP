@@ -1,4 +1,4 @@
-﻿namespace SaaS.Application.DTOs;
+namespace SaaS.Application.DTOs;
 
 public class TenantProvisioningResult
 {
@@ -11,4 +11,10 @@ public class TenantProvisioningResult
     public bool IsProvisioned { get; set; }
 
     public string StorageMode { get; set; } = string.Empty;
+
+    public string? Hostname { get; set; }
+
+    public string? Subdomain { get; set; }
+
+    public bool DomainProvisioned { get; set; }
 }
