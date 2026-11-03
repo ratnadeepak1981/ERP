@@ -45,6 +45,7 @@ public static class ServiceRegistration
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<ISessionService, SessionService>();
         services.AddScoped<ITenantService, TenantService>();
+        services.AddScoped<ITenantDomainService, TenantDomainService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
         services.AddScoped<IRolePermissionService, RolePermissionService>();
@@ -118,6 +119,7 @@ public static class ServiceRegistration
 
         services.AddHttpContextAccessor();
 
+        services.AddScoped<API.Common.TenantResolution.ITenantContext, API.Common.TenantResolution.TenantContext>();
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
         services.AddScoped<PasswordService>();

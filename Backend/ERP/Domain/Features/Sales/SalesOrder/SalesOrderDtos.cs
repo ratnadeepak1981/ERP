@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Domain.Features.MasterData.Currency;
 
 namespace Domain.Features.Sales.SalesOrder;
 
@@ -52,6 +53,12 @@ public class CreateSalesOrderRequest
 public class SalesOrderDecisionRequest
 {
     public string? Remarks { get; set; }
+}
+
+public class RefreshSalesOrderCurrencyRequest
+{
+    public DateTime? OrderDate { get; set; }
+    public Guid? TransactionCurrencyId { get; set; }
 }
 
 public class SalesOrderItemDto
@@ -110,6 +117,30 @@ public class SalesOrderDto
     public DateTime? DeliveryDate { get; set; }
 
     public string Currency { get; set; } = "USD";
+
+    public Guid? TransactionCurrencyId { get; set; }
+
+    public Guid? BaseCurrencyId { get; set; }
+
+    public string? BaseCurrencyCode { get; set; }
+
+    public int? BaseCurrencyDecimalPlaces { get; set; }
+
+    public decimal? AppliedExchangeRate { get; set; }
+
+    public ExchangeRateSource? ExchangeRateSource { get; set; }
+
+    public Guid? ExchangeRateId { get; set; }
+
+    public DateTime? ExchangeRateEffectiveDate { get; set; }
+
+    public decimal? BaseSubTotal { get; set; }
+
+    public decimal? BaseDiscountAmount { get; set; }
+
+    public decimal? BaseTaxAmount { get; set; }
+
+    public decimal? BaseTotalAmount { get; set; }
 
     public string? PaymentTerms { get; set; }
 

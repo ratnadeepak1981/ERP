@@ -7,7 +7,7 @@ import { ButtonModule } from 'primeng/button';
 import { TenantRegistrationService } from '../../../../core/services/tenant-registration.service';
 import { SubscriptionPlanService } from '../../../../core/services/subscription-plan.service';
 import { SubscriptionPlan } from '../../../../core/models/subscription-plan.model';
-import { TenantRegistrationResult } from '../../../../core/models/tenant-registration.model';
+import { CreateTenantRequest, TenantRegistrationResult } from '../../../../core/models/tenant-registration.model';
 
 @Component({
   selector: 'app-register',
@@ -17,6 +17,13 @@ import { TenantRegistrationResult } from '../../../../core/models/tenant-registr
   styleUrl: './register.component.scss'
 })
 export class RegisterComponent implements OnInit {
+  private static readonly ReservedSubdomains = new Set([
+    'admin', 'api', 'platform', 'app', 'www', 'mail', 'hangfire',
+    'swagger', 'auth', 'support', 'billing', 'login', 'root', 'dev', 'test'
+  ]);
+
+  private static readonly SubdomainRegex = /^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/;
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly registrationService = inject(TenantRegistrationService);
@@ -28,6 +35,8 @@ export class RegisterComponent implements OnInit {
 
   // Business Details
   tenantName = '';
+  subdomain = '';
+  subdomainTouched = false;
 
   // Administrator Details
   adminFullName = '';
@@ -36,9 +45,13 @@ export class RegisterComponent implements OnInit {
 
   // Validation Errors
   readonly tenantNameError = signal<string | null>(null);
+  readonly subdomainError = signal<string | null>(null);
   readonly adminFullNameError = signal<string | null>(null);
   readonly adminEmailError = signal<string | null>(null);
   readonly planIdError = signal<string | null>(null);
+
+  // Live URL Preview
+  readonly previewHostname = signal<string>('organization.localhost:4200');
 
   // API State
   readonly isSubmitting = signal<boolean>(false);
@@ -69,6 +82,61 @@ export class RegisterComponent implements OnInit {
     }
   }
 
+  onTenantNameChange(): void {
+    if (!this.subdomainTouched) {
+      const slug = this.tenantName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 30);
+      this.subdomain = slug;
+      this.updatePreviewHostname();
+    }
+  }
+
+  onSubdomainInput(): void {
+    this.subdomainTouched = true;
+    this.validateSubdomain();
+    this.updatePreviewHostname();
+  }
+
+  updatePreviewHostname(): void {
+    const raw = this.subdomain.trim().toLowerCase();
+    const host = raw ? `${raw}.localhost:4200` : 'organization.localhost:4200';
+    this.previewHostname.set(host);
+  }
+
+  validateSubdomain(): boolean {
+    const raw = this.subdomain.trim().toLowerCase();
+    if (!raw) {
+      this.subdomainError.set(null);
+      return true;
+    }
+
+    if (raw.length < 3) {
+      this.subdomainError.set('Subdomain must be at least 3 characters.');
+      return false;
+    }
+
+    if (raw.length > 63) {
+      this.subdomainError.set('Subdomain must not exceed 63 characters.');
+      return false;
+    }
+
+    if (!RegisterComponent.SubdomainRegex.test(raw)) {
+      this.subdomainError.set('Subdomain may only contain lowercase letters, numbers, and hyphens (cannot start or end with a hyphen).');
+      return false;
+    }
+
+    if (RegisterComponent.ReservedSubdomains.has(raw)) {
+      this.subdomainError.set(`'${raw}' is a reserved subdomain and cannot be used.`);
+      return false;
+    }
+
+    this.subdomainError.set(null);
+    return true;
+  }
+
   validateForm(): boolean {
     let isValid = true;
 
@@ -83,7 +151,12 @@ export class RegisterComponent implements OnInit {
       this.tenantNameError.set(null);
     }
 
-    // 2. Validate Selected Plan ID (required by backend contract)
+    // 2. Validate Subdomain (optional but if provided must meet rules)
+    if (!this.validateSubdomain()) {
+      isValid = false;
+    }
+
+    // 3. Validate Selected Plan ID (required by backend contract)
     if (!this.selectedPlanId() || !this.isValidGuid(this.selectedPlanId())) {
       this.planIdError.set('A valid subscription plan must be selected before registering.');
       isValid = false;
@@ -91,7 +164,7 @@ export class RegisterComponent implements OnInit {
       this.planIdError.set(null);
     }
 
-    // 3. Validate Administrator Full Name
+    // 4. Validate Administrator Full Name
     if (!this.adminFullName || !this.adminFullName.trim()) {
       this.adminFullNameError.set('Primary administrator name is required.');
       isValid = false;
@@ -99,7 +172,7 @@ export class RegisterComponent implements OnInit {
       this.adminFullNameError.set(null);
     }
 
-    // 4. Validate Administrator Email
+    // 5. Validate Administrator Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!this.adminEmail || !this.adminEmail.trim()) {
       this.adminEmailError.set('Administrator email address is required.');
@@ -129,10 +202,14 @@ export class RegisterComponent implements OnInit {
 
     this.isSubmitting.set(true);
 
-    const payload = {
+    const payload: CreateTenantRequest = {
       name: this.tenantName.trim(),
       subscriptionPlanId: this.selectedPlanId()
     };
+
+    if (this.subdomain && this.subdomain.trim()) {
+      payload.subdomain = this.subdomain.trim().toLowerCase();
+    }
 
     this.registrationService.registerTenant(payload).subscribe({
       next: (response) => {

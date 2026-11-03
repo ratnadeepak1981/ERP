@@ -787,14 +787,23 @@ public class InventoryPostingService : IInventoryPostingService
                 request.ManufacturingDate = productBatch.ManufacturingDate;
             }
 
-            // If outflow, strictly ensure batch is not expired
-            if (!isInflow && productBatch.ExpiryDate.HasValue)
+            // If outflow, strictly ensure batch is active and not expired
+            if (!isInflow)
             {
-                var txDate = (request.TransactionDate ?? DateTime.UtcNow).Date;
-                if (productBatch.ExpiryDate.Value.Date < txDate)
+                if (!productBatch.IsActive)
                 {
                     throw new InvalidOperationException(
-                        $"Batch '{normBatch}' for product '{product.ProductCode}' expired on {productBatch.ExpiryDate.Value:yyyy-MM-dd} and cannot be issued or dispatched.");
+                        $"Batch '{normBatch}' for product '{product.ProductCode}' is inactive and cannot be issued or dispatched.");
+                }
+
+                if (productBatch.ExpiryDate.HasValue)
+                {
+                    var txDate = (request.TransactionDate ?? DateTime.UtcNow).Date;
+                    if (productBatch.ExpiryDate.Value.Date < txDate)
+                    {
+                        throw new InvalidOperationException(
+                            $"Batch '{normBatch}' for product '{product.ProductCode}' expired on {productBatch.ExpiryDate.Value:yyyy-MM-dd} and cannot be issued or dispatched.");
+                    }
                 }
             }
         }
@@ -850,6 +859,12 @@ public class InventoryPostingService : IInventoryPostingService
         {
             throw new InvalidOperationException(
                 $"Batch '{normBatch}' does not exist for product '{product.ProductCode}'. Stock cannot be transferred from an unestablished batch.");
+        }
+
+        if (!productBatch.IsActive)
+        {
+            throw new InvalidOperationException(
+                $"Batch '{normBatch}' for product '{product.ProductCode}' is inactive and cannot be transferred.");
         }
 
         if (request.ExpiryDate.HasValue && productBatch.ExpiryDate.HasValue &&

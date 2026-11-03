@@ -22,6 +22,8 @@ export interface StockTransactionLineItem {
   unitCost?: number | null;
   batchNumber?: string;
   serialNumber?: string;
+  manufacturingDate?: string | Date | null;
+  expiryDate?: string | Date | null;
   remarks?: string;
 }
 

@@ -59,7 +59,18 @@ public class TenantController : BaseApiController
                     startDate = result.Subscription.StartDate,
                     endDate = result.Subscription.EndDate,
                     isActive = result.Subscription.IsActive
-                }
+                },
+                domain = result.PrimaryDomain != null ? new
+                {
+                    id = result.PrimaryDomain.Id,
+                    hostname = result.PrimaryDomain.Hostname,
+                    subdomain = result.PrimaryDomain.Subdomain,
+                    domainType = result.PrimaryDomain.DomainType.ToString(),
+                    isPrimary = result.PrimaryDomain.IsPrimary,
+                    isVerified = result.PrimaryDomain.IsVerified
+                } : null,
+                hostname = result.Hostname,
+                subdomain = result.Subdomain
             }, "Tenant registration use case completed");
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateException)

@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
+using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.Procurement.GoodsReceiptNote;
 using Domain.Features.Procurement.PurchaseOrder;
 using Domain.Infrastructure.Persistence;
@@ -357,7 +358,9 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
                     ProductId = productA.ProductId,
                     Quantity = 10m,
                     UnitPrice = 10m,
-                    LineTotal = 100m
+                    SubTotal = 100m,
+                    LineTotal = 100m,
+                    UnitOfMeasureId = productA.UnitOfMeasureId
                 }
             }
         };
@@ -452,7 +455,9 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
                     ProductId = product.ProductId,
                     Quantity = 20m,
                     UnitPrice = 25m,
-                    LineTotal = 500m
+                    SubTotal = 500m,
+                    LineTotal = 500m,
+                    UnitOfMeasureId = product.UnitOfMeasureId
                 }
             }
         };
@@ -518,7 +523,7 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
     private static async Task<Warehouse> CreateTestWarehouseAsync(DomainDbContext db, Guid tenantId)
     {
         string code = $"WH_{Guid.NewGuid():N}"[..18];
-        var wh = Warehouse.Create(tenantId, code, $"Warehouse_{code}", city: "Colombo");
+        var wh = Warehouse.Create(tenantId, code, $"Warehouse_{code}", companyId: TestConstants.CompanyAId, branchId: TestConstants.BranchA1Id, city: "Colombo");
         await db.Warehouses.AddAsync(wh);
         await db.SaveChangesAsync();
         return wh;
@@ -540,6 +545,14 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
 
     private static async Task<Product> CreateTestProductAsync(DomainDbContext db, Guid tenantId, TrackingMode trackingMode, string prefix = "PRD")
     {
+        var uom = await db.UnitsOfMeasure.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Code == "PCS");
+        if (uom == null)
+        {
+            uom = UnitOfMeasure.Create(tenantId, "PCS", "Pieces");
+            await db.UnitsOfMeasure.AddAsync(uom);
+            await db.SaveChangesAsync();
+        }
+
         string code = $"{prefix}_{Guid.NewGuid():N}"[..18];
         var prod = Product.Create(
             tenantId,
@@ -548,7 +561,8 @@ public class ProductBatchMasterAndReceiptTests : IClassFixture<TestSecurityFixtu
             TestConstants.CategoryAlphaId,
             unitOfMeasure: "PCS",
             trackingMode: trackingMode,
-            valuationMethod: ValuationMethod.FIFO);
+            valuationMethod: ValuationMethod.FIFO,
+            unitOfMeasureId: uom.UnitOfMeasureId);
         await db.Products.AddAsync(prod);
         await db.SaveChangesAsync();
         return prod;

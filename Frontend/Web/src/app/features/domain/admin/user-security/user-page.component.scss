@@ -1,3 +1,4 @@
+
 .user-page {
   padding: var(--erp-space-4);
   display: flex;
@@ -80,6 +81,7 @@
   padding: var(--erp-space-4);
   border-radius: var(--erp-radius-md);
   border: 1px solid var(--erp-border-color, #EDEBE9);
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   gap: var(--erp-space-4);
@@ -101,33 +103,332 @@
       align-items: center;
       justify-content: center;
       font-size: 18px;
+      flex-shrink: 0;
 
       &.shield {
-        background: #F3E5F5;
-        color: #7B1FA2;
+        background: #F0FDF4;
+        color: #16A34A;
       }
 
       &.sitemap {
-        background: #E8F5E9;
-        color: #2E7D32;
+        background: #FAF5FF;
+        color: #9333EA;
       }
+
+      &.key {
+        background: #FEF3C7;
+        color: #D97706;
+      }
+
+      &.compass {
+        background: #EFF6FC;
+        color: #2563EB;
+      }
+    }
+
+    .header-content {
+      flex: 1;
+    }
+
+    .header-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
 
     h3 {
       font-size: 15px;
       font-weight: 600;
-      color: var(--erp-text-primary, #323130);
+      color: #323130;
       margin: 0;
     }
 
     p {
       font-size: 12px;
-      color: var(--erp-text-secondary, #605E5C);
+      color: #605E5C;
       margin: 2px 0 0 0;
     }
   }
 }
 
+.btn-link-action {
+  background: none;
+  border: none;
+  color: #2563EB;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #EFF6FC;
+    color: #1D4ED8;
+    text-decoration: underline;
+  }
+}
+
+/* Assigned Role block matching recommended layout */
+.assigned-roles-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .role-item-card {
+    padding: 12px 16px;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    background: #F9FAFB;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    .role-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .role-name-line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        .role-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #111827;
+        }
+      }
+
+      .role-type-badge {
+        font-size: 12px;
+        color: #6B7280;
+      }
+
+      .role-description {
+        font-size: 13px;
+        color: #4B5563;
+        margin: 4px 0 0 0;
+      }
+    }
+  }
+}
+
+.role-inline-editor {
+  padding: 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .editor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    .fluent-select {
+      flex: 1;
+      min-width: 200px;
+    }
+  }
+}
+
+/* Diagnostic & Permissions Tables */
+.permissions-matrix-wrap, .diagnostic-wrap {
+  width: 100%;
+}
+
+.diagnostic-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    color: #6B7280;
+    border-bottom: 2px solid #E5E7EB;
+    background: #F9FAFB;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #F3F4F6;
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  .text-right {
+    text-align: right;
+  }
+
+  .perm-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .perm-display-name {
+      font-weight: 500;
+      color: #1F2937;
+    }
+
+    .perm-code-tag {
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      color: #6B7280;
+      background: #F3F4F6;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+  }
+
+  .dim-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      color: #111827;
+      font-size: 13px;
+    }
+
+    .dim-sub {
+      font-size: 11px;
+      color: #6B7280;
+    }
+  }
+}
+
+/* Pill Badges matching recommended screenshot */
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+
+  &.pill-badge-active, &.pill-badge-granted {
+    background: #D1FAE5;
+    color: #065F46;
+  }
+
+  &.pill-badge-danger {
+    background: #FEE2E2;
+    color: #B91C1C;
+  }
+
+  &.pill-badge-warning {
+    background: #FEF3C7;
+    color: #92400E;
+  }
+
+  &.pill-badge-missing {
+    background: #F3F4F6;
+    color: #6B7280;
+  }
+}
+
+.scope-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Diagnostic Verdict Box */
+.diagnostic-verdict-box {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+
+  .verdict-icon i {
+    font-size: 20px;
+    margin-top: 2px;
+  }
+
+  .verdict-text {
+    flex: 1;
+
+    strong {
+      font-size: 13px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    p {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+  }
+
+  &.verdict-pass {
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    color: #065F46;
+
+    .verdict-icon i {
+      color: #059669;
+    }
+  }
+
+  &.verdict-warn {
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    color: #92400E;
+
+    .verdict-icon i {
+      color: #D97706;
+    }
+  }
+
+  &.verdict-fail {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #991B1B;
+
+    .verdict-icon i {
+      color: #DC2626;
+    }
+  }
+}
+
+.diagnostic-footer-note {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #9CA3AF;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Standard form elements */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -136,73 +437,54 @@
   @media (min-width: 600px) {
     grid-template-columns: 1fr 1fr;
   }
-
-  .full-width {
-    grid-column: 1 / -1;
-  }
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+
+  &.full-width {
+    grid-column: 1 / -1;
+  }
 
   label {
     font-size: 12px;
     font-weight: 600;
-    color: var(--erp-text-primary, #323130);
+    color: #323130;
 
     .required {
       color: #D13438;
     }
   }
 
-  input {
-    height: 36px;
-    font-size: 13px;
-    border-radius: 4px;
-    border: 1px solid var(--erp-border-color, #EDEBE9);
-    padding: 0 10px;
-
-    &:disabled {
-      background: #F3F2F1;
-      color: #8A8886;
-      cursor: not-allowed;
-    }
-  }
-
-  .font-mono {
-    font-family: Consolas, monospace;
-    letter-spacing: 0.5px;
-  }
-
   .field-hint {
     font-size: 11px;
-    color: var(--erp-text-secondary, #605E5C);
+    color: #605E5C;
   }
 }
 
 .fluent-select {
-  height: 36px;
-  font-size: 13px;
+  padding: 8px 12px;
   border-radius: 4px;
-  border: 1px solid var(--erp-border-color, #EDEBE9);
-  padding: 0 10px;
-  background: #FFFFFF;
+  border: 1px solid #EDEBE9;
+  background: #ffffff;
+  font-size: 13px;
   color: #323130;
+  outline: none;
   width: 100%;
-  cursor: pointer;
 
   &:focus {
-    outline: none;
     border-color: #0F6CBD;
   }
 }
 
+/* Summary Card */
 .summary-card {
   padding: var(--erp-space-4);
   border-radius: var(--erp-radius-md);
   border: 1px solid var(--erp-border-color, #EDEBE9);
+  background: #ffffff;
 
   .summary-header {
     display: flex;
@@ -255,10 +537,12 @@
   }
 }
 
+/* Scopes Panel */
 .scopes-panel {
   padding: var(--erp-space-4);
   border-radius: var(--erp-radius-md);
   border: 1px solid var(--erp-border-color, #EDEBE9);
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   gap: var(--erp-space-3);
@@ -294,7 +578,6 @@
       font-size: 24px;
       margin-bottom: 6px;
       display: block;
-      color: #0F6CBD;
     }
   }
 
@@ -311,6 +594,11 @@
       background: #F8F9FA;
       border: 1px solid #EDEBE9;
       border-radius: 6px;
+
+      &.scope-revoked {
+        opacity: 0.6;
+        background: #FFF5F5;
+      }
 
       .scope-icon {
         width: 32px;

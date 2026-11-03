@@ -1038,6 +1038,62 @@ namespace SaaS.Migrations
                     b.ToTable("TenantDatabases", (string)null);
                 });
 
+            modelBuilder.Entity("SaaS.Core.Models.TenantDomain", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DomainType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Hostname")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Subdomain")
+                        .HasMaxLength(63)
+                        .HasColumnType("nvarchar(63)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hostname")
+                        .IsUnique();
+
+                    b.HasIndex("Subdomain")
+                        .IsUnique()
+                        .HasFilter("[Subdomain] IS NOT NULL");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("TenantDomains", (string)null);
+                });
+
             modelBuilder.Entity("SaaS.Infrastructure.Persistence.Auditing.PlatformAuditRecord", b =>
                 {
                     b.Property<Guid>("AuditId")
@@ -1307,6 +1363,17 @@ namespace SaaS.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("SaaS.Core.Models.TenantDomain", b =>
+                {
+                    b.HasOne("SaaS.Core.Models.Tenant", "Tenant")
+                        .WithMany("Domains")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("SaaS.Core.Models.PaymentTransaction", b =>
                 {
                     b.Navigation("Allocations");
@@ -1350,6 +1417,11 @@ namespace SaaS.Migrations
             modelBuilder.Entity("SaaS.Core.Models.SubscriptionPlanParameter", b =>
                 {
                     b.Navigation("Usages");
+                });
+
+            modelBuilder.Entity("SaaS.Core.Models.Tenant", b =>
+                {
+                    b.Navigation("Domains");
                 });
 #pragma warning restore 612, 618
         }

@@ -252,7 +252,18 @@ export class AuthService {
     if (this.isTenantAdmin() || this.isPlatformAdmin()) {
       return true;
     }
-    return this.permissions().includes(permission);
+    const target = (permission || '').trim().toUpperCase();
+    const userPerms = this.permissions().map(p => (p || '').trim().toUpperCase());
+    if (userPerms.includes(target)) return true;
+
+    if (target.startsWith('PURCHASE_ORDER.')) {
+      const shortAlias = 'PO.' + target.substring('PURCHASE_ORDER.'.length);
+      if (userPerms.includes(shortAlias)) return true;
+    } else if (target.startsWith('PO.')) {
+      const fullAlias = 'PURCHASE_ORDER.' + target.substring('PO.'.length);
+      if (userPerms.includes(fullAlias)) return true;
+    }
+    return false;
   }
 
   checkProtectedTest(): Observable<ApiResponse<any>> {

@@ -651,6 +651,21 @@ public class SalesShipmentService : ISalesShipmentService
 
                 if (product.IsStockTracked)
                 {
+                    decimal movementQty = item.QuantityDispatched;
+                    Guid postUomId = product.UnitOfMeasureId ?? item.UnitOfMeasureId ?? Guid.Empty;
+
+                    if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                    {
+                        movementQty = await ConvertSalesQuantityAsync(
+                            tenantId,
+                            companyId,
+                            product.ProductId,
+                            item.UnitOfMeasureId.Value,
+                            product.UnitOfMeasureId.Value,
+                            item.QuantityDispatched);
+                        postUomId = product.UnitOfMeasureId.Value;
+                    }
+
                     var postReq = new PostInventoryMovementRequest
                     {
                         MovementType = InventoryMovementType.ShipmentDispatch,
@@ -661,8 +676,8 @@ public class SalesShipmentService : ISalesShipmentService
                         ProductId = item.ProductId,
                         WarehouseId = item.WarehouseId,
                         WarehouseLocationId = item.WarehouseLocationId,
-                        Quantity = item.QuantityDispatched,
-                        UnitOfMeasureId = item.UnitOfMeasureId,
+                        Quantity = movementQty,
+                        UnitOfMeasureId = postUomId,
                         BatchNumber = item.BatchNumber,
                         SerialNumber = item.SerialNumber,
                         TransactionDate = shipment.DispatchedAt ?? DateTime.UtcNow
@@ -810,6 +825,44 @@ public class SalesShipmentService : ISalesShipmentService
         }
     }
 
+    private Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService? GetUomService()
+    {
+        return _uomService ?? _serviceProvider?.GetService<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService>();
+    }
+
+    private async Task<decimal> ConvertSalesQuantityAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid productId,
+        Guid fromUnitOfMeasureId,
+        Guid toUnitOfMeasureId,
+        decimal quantity)
+    {
+        if (quantity <= 0)
+            throw new InvalidOperationException("Sales quantity must be greater than zero.");
+
+        if (fromUnitOfMeasureId == toUnitOfMeasureId)
+            return quantity;
+
+        var uomService = GetUomService()
+            ?? throw new InvalidOperationException("Unit of Measure service is required for sales dispatch UOM conversion.");
+
+        var result = await uomService.ConvertProductQuantityAsync(
+            tenantId,
+            productId,
+            fromUnitOfMeasureId,
+            toUnitOfMeasureId,
+            quantity,
+            Domain.Features.MasterData.UnitOfMeasure.ConversionContext.Sales,
+            companyId: companyId);
+
+        decimal convertedQuantity = Math.Round(result.ConvertedQuantity, 4, MidpointRounding.AwayFromZero);
+        if (convertedQuantity <= 0)
+            throw new InvalidOperationException("Converted sales quantity is below the supported four-decimal persistence precision.");
+
+        return convertedQuantity;
+    }
+
     public async Task<SalesOrderDispatchAvailabilityDto> GetOrderDispatchAvailabilityAsync(
         Guid tenantId,
         Guid companyId,
@@ -918,8 +971,52 @@ public class SalesShipmentService : ISalesShipmentService
                 }
             }
 
-            decimal shortage = Math.Max(0m, remaining - available);
-            bool canFulfil = available >= remaining;
+            decimal remainingBaseQty = remaining;
+            bool isConverted = product.IsStockTracked
+                && item.UnitOfMeasureId.HasValue
+                && product.UnitOfMeasureId.HasValue
+                && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value;
+
+            if (isConverted && item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue)
+            {
+                remainingBaseQty = await ConvertSalesQuantityAsync(
+                    tenantId,
+                    companyId,
+                    product.ProductId,
+                    item.UnitOfMeasureId.Value,
+                    product.UnitOfMeasureId.Value,
+                    remaining);
+            }
+
+            bool canFulfil = available >= remainingBaseQty;
+            decimal shortage = Math.Max(0m, remainingBaseQty - available);
+            decimal displayAvailable = available;
+
+            if (isConverted && item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && GetUomService() != null)
+            {
+                try
+                {
+                    var availTx = await GetUomService()!.ConvertProductQuantityAsync(
+                        tenantId,
+                        product.ProductId,
+                        product.UnitOfMeasureId.Value,
+                        item.UnitOfMeasureId.Value,
+                        available,
+                        Domain.Features.MasterData.UnitOfMeasure.ConversionContext.Sales,
+                        companyId: companyId);
+                    displayAvailable = Math.Round(availTx.ConvertedQuantity, 4, MidpointRounding.AwayFromZero);
+                    shortage = Math.Max(0m, remaining - displayAvailable);
+                }
+                catch
+                {
+                    displayAvailable = available;
+                    shortage = Math.Max(0m, remainingBaseQty - available);
+                }
+            }
+            else if (!isConverted)
+            {
+                shortage = Math.Max(0m, remaining - available);
+            }
 
             lineAvailabilities.Add(new SalesOrderDispatchLineAvailabilityDto
             {
@@ -930,7 +1027,7 @@ public class SalesShipmentService : ISalesShipmentService
                 OrderedQuantity = item.Quantity,
                 AlreadyDispatchedQuantity = alreadyDispatched,
                 RemainingQuantity = remaining,
-                AvailableQuantity = available,
+                AvailableQuantity = displayAvailable,
                 ShortageQuantity = shortage,
                 CanFulfil = canFulfil,
                 UnitOfMeasureId = item.UnitOfMeasureId
@@ -959,7 +1056,19 @@ public class SalesShipmentService : ISalesShipmentService
                     avail = remaining;
                 }
 
-                if (avail < remaining)
+                decimal reqQty = remaining;
+                if (product.IsStockTracked && item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                {
+                    reqQty = await ConvertSalesQuantityAsync(
+                        tenantId,
+                        companyId,
+                        product.ProductId,
+                        item.UnitOfMeasureId.Value,
+                        product.UnitOfMeasureId.Value,
+                        remaining);
+                }
+
+                if (avail < reqQty)
                 {
                     canLocFulfilAll = false;
                     break;
@@ -1092,10 +1201,22 @@ public class SalesShipmentService : ISalesShipmentService
                     isBatch,
                     dateAsOf);
 
-                if (available < remaining)
+                decimal requiredBaseQty = remaining;
+                if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                {
+                    requiredBaseQty = await ConvertSalesQuantityAsync(
+                        tenantId,
+                        companyId,
+                        product.ProductId,
+                        item.UnitOfMeasureId.Value,
+                        product.UnitOfMeasureId.Value,
+                        remaining);
+                }
+
+                if (available < requiredBaseQty)
                 {
                     throw new InvalidOperationException(
-                        $"Insufficient eligible stock at location for product '{product.ProductCode}'. Required: {remaining}, Available: {available}.");
+                        $"Insufficient eligible stock at location for product '{product.ProductCode}'. Required: {requiredBaseQty}, Available: {available}.");
                 }
             }
         }
@@ -1139,30 +1260,48 @@ public class SalesShipmentService : ISalesShipmentService
                     request.WarehouseLocationId,
                     dateAsOf);
 
-                decimal needed = remaining;
+                decimal unitFactor = 1m;
+                if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                {
+                    unitFactor = await ConvertSalesQuantityAsync(
+                        tenantId,
+                        companyId,
+                        product.ProductId,
+                        item.UnitOfMeasureId.Value,
+                        product.UnitOfMeasureId.Value,
+                        1m);
+                }
+
+                decimal neededInBase = Math.Round(remaining * unitFactor, 4, MidpointRounding.AwayFromZero);
                 foreach (var b in eligibleBatches)
                 {
-                    if (needed <= 0) break;
-                    decimal take = Math.Min(needed, b.QuantityAvailable);
+                    if (neededInBase <= 0) break;
+                    decimal takeInBase = Math.Min(neededInBase, b.QuantityAvailable);
+                    if (takeInBase <= 0) continue;
+
+                    decimal takeInTxUom = unitFactor == 1m
+                        ? takeInBase
+                        : Math.Round(takeInBase / unitFactor, 4, MidpointRounding.AwayFromZero);
+
                     var shipmentItem = SalesShipmentItem.Create(
                         shipment.Id,
                         item.Id,
                         product.ProductId,
                         request.WarehouseId,
                         request.WarehouseLocationId,
-                        take,
+                        takeInTxUom,
                         item.UnitOfMeasureId,
                         batchNumber: b.BatchNumber,
                         notes: request.Notes);
 
                     shipment.AddItem(shipmentItem);
-                    needed -= take;
+                    neededInBase -= takeInBase;
                 }
 
-                if (needed > 0)
+                if (neededInBase > 0)
                 {
                     throw new InvalidOperationException(
-                        $"Insufficient eligible batch stock at location for product '{product.ProductCode}'. Required: {remaining}, Shortage: {needed}.");
+                        $"Insufficient eligible batch stock at location for product '{product.ProductCode}'. Required: {remaining * unitFactor}, Shortage: {neededInBase}.");
                 }
             }
             else
@@ -1194,21 +1333,18 @@ public class SalesShipmentService : ISalesShipmentService
             if (product != null && product.IsStockTracked)
             {
                 decimal movementQty = item.QuantityDispatched;
+                Guid postUomId = product.UnitOfMeasureId ?? item.UnitOfMeasureId ?? Guid.Empty;
+
                 if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
                 {
-                    if (_uomService != null)
-                    {
-                        var converted = await _uomService.ConvertProductQuantityAsync(
-                            tenantId,
-                            product.ProductId,
-                            item.UnitOfMeasureId.Value,
-                            product.UnitOfMeasureId.Value,
-                            item.QuantityDispatched,
-                            Domain.Features.MasterData.UnitOfMeasure.ConversionContext.Sales,
-                            companyId: companyId
-                        );
-                        movementQty = converted.ConvertedQuantity;
-                    }
+                    movementQty = await ConvertSalesQuantityAsync(
+                        tenantId,
+                        companyId,
+                        product.ProductId,
+                        item.UnitOfMeasureId.Value,
+                        product.UnitOfMeasureId.Value,
+                        item.QuantityDispatched);
+                    postUomId = product.UnitOfMeasureId.Value;
                 }
 
                 var postReq = new PostInventoryMovementRequest
@@ -1222,7 +1358,7 @@ public class SalesShipmentService : ISalesShipmentService
                     WarehouseId = item.WarehouseId,
                     WarehouseLocationId = item.WarehouseLocationId,
                     Quantity = movementQty,
-                    UnitOfMeasureId = product.UnitOfMeasureId ?? item.UnitOfMeasureId,
+                    UnitOfMeasureId = postUomId,
                     BatchNumber = item.BatchNumber,
                     SerialNumber = item.SerialNumber,
                     TransactionDate = shipment.DispatchedAt ?? DateTime.UtcNow

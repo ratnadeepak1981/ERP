@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Domain.Features.MasterData.Currency;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.MasterData.TaxCode;
+using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,9 @@ public class SalesOrderService : ISalesOrderService
     private readonly IUnitOfMeasureRepository _uomRepository;
     private readonly global::Domain.Features.MasterData.Address.IAddressRepository? _addressRepository;
     private readonly ITaxCodeRepository? _taxCodeRepository;
+    private readonly ICurrencyRepository? _currencyRepository;
+    private readonly IExchangeRateService? _exchangeRateService;
+    private readonly DomainDbContext? _context;
 
     public SalesOrderService(
         ISalesOrderRepository repository,
@@ -25,7 +30,10 @@ public class SalesOrderService : ISalesOrderService
         IProductRepository productRepository,
         IUnitOfMeasureRepository uomRepository,
         global::Domain.Features.MasterData.Address.IAddressRepository? addressRepository = null,
-        ITaxCodeRepository? taxCodeRepository = null)
+        ITaxCodeRepository? taxCodeRepository = null,
+        ICurrencyRepository? currencyRepository = null,
+        IExchangeRateService? exchangeRateService = null,
+        DomainDbContext? context = null)
     {
         _repository = repository;
         _customerRepository = customerRepository;
@@ -33,6 +41,9 @@ public class SalesOrderService : ISalesOrderService
         _uomRepository = uomRepository;
         _addressRepository = addressRepository;
         _taxCodeRepository = taxCodeRepository;
+        _currencyRepository = currencyRepository;
+        _exchangeRateService = exchangeRateService;
+        _context = context;
     }
 
     public async Task<List<SalesOrderDto>> GetOrdersAsync(
@@ -126,6 +137,10 @@ public class SalesOrderService : ISalesOrderService
             }
         }
 
+        string currencyCode = !string.IsNullOrWhiteSpace(request.Currency)
+            ? request.Currency.Trim()
+            : (!string.IsNullOrWhiteSpace(customer.CurrencyCode) ? customer.CurrencyCode : "USD");
+
         var order = SalesOrder.Create(
             tenantId,
             companyId,
@@ -135,7 +150,7 @@ public class SalesOrderService : ISalesOrderService
             request.DocumentType,
             request.OrderDate,
             request.DeliveryDate,
-            request.Currency,
+            currencyCode,
             paymentTerms,
             request.Notes,
             actorUserId,
@@ -162,6 +177,8 @@ public class SalesOrderService : ISalesOrderService
                     itemReq.IsTaxInclusive);
             }
         }
+
+        await ApplyCurrencySnapshotAsync(order, currencyCode, order.OrderDate);
 
         try
         {
@@ -250,6 +267,7 @@ public class SalesOrderService : ISalesOrderService
         var order = await _repository.GetByIdAsync(tenantId, companyId, branchId, orderId)
             ?? throw new KeyNotFoundException("Sales order not found in authorized scope.");
 
+        await ValidateCurrencySnapshotAsync(order);
         order.Confirm();
         if (!string.IsNullOrWhiteSpace(remarks))
         {
@@ -258,6 +276,37 @@ public class SalesOrderService : ISalesOrderService
                 : $"{order.Notes} | [Confirmed] {remarks}";
         }
 
+        await _repository.SaveChangesAsync();
+
+        return MapToDto(order);
+    }
+
+    public async Task<SalesOrderDto> RefreshCurrencyAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid orderId,
+        RefreshSalesOrderCurrencyRequest request)
+    {
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
+        var order = await _repository.GetByIdAsync(tenantId, companyId, branchId, orderId)
+            ?? throw new KeyNotFoundException("Sales order was not found in the authorized branch/company scope.");
+
+        if (order.Status != SalesOrderStatus.Draft)
+            throw new InvalidOperationException("Only draft sales orders can have their exchange rate refreshed.");
+
+        string currencyCode = order.Currency;
+        if (request.TransactionCurrencyId.HasValue && _currencyRepository != null)
+        {
+            var requestedCurrency = await _currencyRepository.GetCurrencyByIdAsync(tenantId, request.TransactionCurrencyId.Value);
+            if (requestedCurrency == null || !requestedCurrency.IsActive)
+                throw new InvalidOperationException("The requested transaction currency was not found or is inactive.");
+            currencyCode = requestedCurrency.CurrencyCode;
+        }
+
+        await ApplyCurrencySnapshotAsync(order, currencyCode, request.OrderDate);
         await _repository.SaveChangesAsync();
 
         return MapToDto(order);
@@ -376,6 +425,18 @@ public class SalesOrderService : ISalesOrderService
             OrderDate = order.OrderDate,
             DeliveryDate = order.DeliveryDate,
             Currency = order.Currency,
+            TransactionCurrencyId = order.TransactionCurrencyId,
+            BaseCurrencyId = order.BaseCurrencyId,
+            BaseCurrencyCode = order.BaseCurrencyCode,
+            BaseCurrencyDecimalPlaces = order.BaseCurrencyDecimalPlaces,
+            AppliedExchangeRate = order.AppliedExchangeRate,
+            ExchangeRateSource = order.ExchangeRateSource,
+            ExchangeRateId = order.ExchangeRateId,
+            ExchangeRateEffectiveDate = order.ExchangeRateEffectiveDate,
+            BaseSubTotal = order.BaseSubTotal,
+            BaseDiscountAmount = order.BaseDiscountAmount,
+            BaseTaxAmount = order.BaseTaxAmount,
+            BaseTotalAmount = order.BaseTotalAmount,
             PaymentTerms = order.PaymentTerms,
             Status = order.Status,
             SubTotal = order.SubTotal,
@@ -452,5 +513,86 @@ public class SalesOrderService : ISalesOrderService
         }
 
         return explicitTaxRate;
+    }
+
+    private async Task<Currency> GetActiveCompanyBaseCurrencyAsync(Guid tenantId, Guid companyId)
+    {
+        if (_context == null)
+            throw new InvalidOperationException("Company base currency lookup is unavailable.");
+        var company = await _context.Companies
+            .Include(candidate => candidate.BaseCurrency)
+            .FirstOrDefaultAsync(candidate =>
+                candidate.TenantId == tenantId &&
+                candidate.Id == companyId &&
+                candidate.IsActive);
+        if (company?.BaseCurrency == null ||
+            company.BaseCurrency.TenantId != tenantId ||
+            !company.BaseCurrency.IsActive)
+            throw new InvalidOperationException("The selected company has no active base currency.");
+        return company.BaseCurrency;
+    }
+
+    private async Task ApplyCurrencySnapshotAsync(
+        SalesOrder order,
+        string transactionCurrencyCode,
+        DateTime? transactionDate = null)
+    {
+        if (_currencyRepository == null || _exchangeRateService == null || _context == null)
+            return;
+
+        var transactionCurrency = await _currencyRepository.GetCurrencyByCodeAsync(order.TenantId, transactionCurrencyCode);
+        if (transactionCurrency == null || !transactionCurrency.IsActive)
+            throw new InvalidOperationException($"The currency '{transactionCurrencyCode}' is not active for this tenant.");
+
+        var baseCurrency = await GetActiveCompanyBaseCurrencyAsync(order.TenantId, order.CompanyId);
+        var effectiveDate = transactionDate ?? order.OrderDate;
+        var rate = await _exchangeRateService.ResolveAsync(
+            order.TenantId,
+            transactionCurrency.CurrencyId,
+            baseCurrency.CurrencyId,
+            effectiveDate);
+
+        if (transactionDate.HasValue)
+            order.ChangeDraftOrderDate(transactionDate.Value);
+        order.SetCurrencySnapshot(
+            transactionCurrency.CurrencyId,
+            transactionCurrency.CurrencyCode,
+            baseCurrency.CurrencyId,
+            baseCurrency.CurrencyCode,
+            baseCurrency.DecimalPlaces,
+            rate);
+    }
+
+    private async Task ValidateCurrencySnapshotAsync(SalesOrder order)
+    {
+        if (_currencyRepository == null || _exchangeRateService == null || _context == null)
+            return;
+
+        if (!order.TransactionCurrencyId.HasValue ||
+            !order.BaseCurrencyId.HasValue ||
+            !order.AppliedExchangeRate.HasValue ||
+            !order.ExchangeRateSource.HasValue)
+            throw new InvalidOperationException("Sales order currency snapshot is incomplete; refresh the exchange rate while the order is a draft.");
+
+        var transactionCurrency = await _currencyRepository.GetCurrencyByIdAsync(order.TenantId, order.TransactionCurrencyId.Value);
+        if (transactionCurrency == null || !transactionCurrency.IsActive)
+            throw new InvalidOperationException("The order transaction currency is no longer active; refresh the currency snapshot.");
+
+        var baseCurrency = await GetActiveCompanyBaseCurrencyAsync(order.TenantId, order.CompanyId);
+        if (baseCurrency.CurrencyId != order.BaseCurrencyId.Value ||
+            !string.Equals(baseCurrency.CurrencyCode, order.BaseCurrencyCode, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Company base currency changed after this draft was created; refresh its currency snapshot before confirmation.");
+
+        var current = await _exchangeRateService.ResolveAsync(
+            order.TenantId,
+            transactionCurrency.CurrencyId,
+            baseCurrency.CurrencyId,
+            order.OrderDate);
+
+        if (current.Rate != order.AppliedExchangeRate.Value ||
+            current.Source != order.ExchangeRateSource.Value ||
+            current.ExchangeRateId != order.ExchangeRateId ||
+            current.EffectiveDate?.Date != order.ExchangeRateEffectiveDate?.Date)
+            throw new InvalidOperationException("The applicable exchange rate changed after this draft was saved; explicitly refresh the draft rate before confirmation.");
     }
 }

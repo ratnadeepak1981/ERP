@@ -91,5 +91,20 @@ public class PriceResolutionResult
     public string Currency { get; set; } = "USD";
     public decimal ExchangeRate { get; set; } = 1m;
     public string? Source { get; set; } // "PriceCard", "SupplierProductPrice", "ProductMaster"
+    public Guid? SourceRecordId { get; set; }
+    public Guid? PriceCardLineId { get; set; }
+    public Guid? SupplierProductPriceId { get; set; }
     public string? Message { get; set; }
+}
+
+public class ResolvePurchasePriceRequest
+{
+    public Guid? CompanyId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid? SupplierId { get; set; }
+    public Guid ProductId { get; set; }
+    public Guid? PriceCardId { get; set; }
+    public Guid? UnitOfMeasureId { get; set; }
+    public string? Currency { get; set; }
+    public DateTime? TransactionDate { get; set; }
 }

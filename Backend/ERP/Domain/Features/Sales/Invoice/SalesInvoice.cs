@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Domain.Features.MasterData.Currency;
 using ERP.Domain.Common;
 using ERP.Domain.Common.Scope;
 
@@ -31,6 +32,30 @@ public class SalesInvoice : Auditable, ITenantScopedEntity, ICompanyScopedEntity
     public SalesInvoiceStatus Status { get; set; } = SalesInvoiceStatus.Draft;
 
     public string Currency { get; set; } = "USD";
+
+    public Guid? TransactionCurrencyId { get; private set; }
+
+    public Guid? BaseCurrencyId { get; private set; }
+
+    public string? BaseCurrencyCode { get; private set; }
+
+    public int? BaseCurrencyDecimalPlaces { get; private set; }
+
+    public decimal? AppliedExchangeRate { get; private set; }
+
+    public ExchangeRateSource? ExchangeRateSource { get; private set; }
+
+    public Guid? ExchangeRateId { get; private set; }
+
+    public DateTime? ExchangeRateEffectiveDate { get; private set; }
+
+    public decimal? BaseSubTotal { get; private set; }
+
+    public decimal? BaseDiscountAmount { get; private set; }
+
+    public decimal? BaseTaxAmount { get; private set; }
+
+    public decimal? BaseTotalAmount { get; private set; }
 
     public string? PaymentTerms { get; set; }
 
@@ -100,6 +125,53 @@ public class SalesInvoice : Auditable, ITenantScopedEntity, ICompanyScopedEntity
         return item;
     }
 
+    public void SetCurrencySnapshot(
+        Guid transactionCurrencyId,
+        string transactionCurrencyCode,
+        Guid baseCurrencyId,
+        string baseCurrencyCode,
+        int baseCurrencyDecimalPlaces,
+        ResolvedExchangeRate exchangeRate)
+    {
+        if (Status != SalesInvoiceStatus.Draft)
+            throw new InvalidOperationException("Currency snapshots can only be changed on draft sales invoices.");
+        if (string.IsNullOrWhiteSpace(transactionCurrencyCode) || string.IsNullOrWhiteSpace(baseCurrencyCode))
+            throw new ArgumentException("Transaction and base currency codes are required.");
+        if (baseCurrencyDecimalPlaces is < 0 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(baseCurrencyDecimalPlaces));
+        if (exchangeRate.Rate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(exchangeRate), "Exchange rate must be greater than zero.");
+
+        TransactionCurrencyId = transactionCurrencyId;
+        Currency = transactionCurrencyCode.Trim().ToUpperInvariant();
+        BaseCurrencyId = baseCurrencyId;
+        BaseCurrencyCode = baseCurrencyCode.Trim().ToUpperInvariant();
+        BaseCurrencyDecimalPlaces = baseCurrencyDecimalPlaces;
+        AppliedExchangeRate = exchangeRate.Rate;
+        ExchangeRateSource = exchangeRate.Source;
+        ExchangeRateId = exchangeRate.ExchangeRateId;
+        ExchangeRateEffectiveDate = exchangeRate.EffectiveDate;
+        RecalculateBaseAmounts();
+    }
+
+    public void ChangeDraftInvoiceDate(DateTime invoiceDate)
+    {
+        if (Status != SalesInvoiceStatus.Draft)
+            throw new InvalidOperationException("Only draft sales invoices can change invoice date.");
+        InvoiceDate = invoiceDate;
+    }
+
+    private void RecalculateBaseAmounts()
+    {
+        if (!AppliedExchangeRate.HasValue || !BaseCurrencyDecimalPlaces.HasValue)
+            return;
+
+        BaseSubTotal = Math.Round(Subtotal * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
+        BaseDiscountAmount = Math.Round(DiscountAmount * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
+        BaseTaxAmount = Math.Round(TaxAmount * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
+        BaseTotalAmount = Math.Round(TotalAmount * AppliedExchangeRate.Value, BaseCurrencyDecimalPlaces.Value, MidpointRounding.AwayFromZero);
+    }
+
     public void RecalculateTotals()
     {
         var activeItems = Items.Where(i => i.IsActive).ToList();
@@ -112,6 +184,7 @@ public class SalesInvoice : Auditable, ITenantScopedEntity, ICompanyScopedEntity
         DiscountAmount = Math.Round(activeItems.Sum(i => i.DiscountAmount), 4, MidpointRounding.AwayFromZero);
         TaxAmount = Math.Round(activeItems.Sum(i => i.TaxAmount), 4, MidpointRounding.AwayFromZero);
         TotalAmount = Math.Round(activeItems.Sum(i => i.LineTotal), 4, MidpointRounding.AwayFromZero);
+        RecalculateBaseAmounts();
     }
 
     public void MarkConfirmed(Guid confirmedBy)

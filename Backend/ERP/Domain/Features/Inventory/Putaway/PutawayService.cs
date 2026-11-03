@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.Procurement.GoodsReceiptNote;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.Inventory;
@@ -15,15 +16,18 @@ public class PutawayService : IPutawayService
     private readonly DomainDbContext _context;
     private readonly IPutawayRepository _putawayRepository;
     private readonly IInventoryPostingService _inventoryPostingService;
+    private readonly IUnitOfMeasureService? _unitOfMeasureService;
 
     public PutawayService(
         DomainDbContext context,
         IPutawayRepository putawayRepository,
-        IInventoryPostingService inventoryPostingService)
+        IInventoryPostingService inventoryPostingService,
+        IUnitOfMeasureService? unitOfMeasureService = null)
     {
         _context = context;
         _putawayRepository = putawayRepository;
         _inventoryPostingService = inventoryPostingService;
+        _unitOfMeasureService = unitOfMeasureService;
     }
 
     public async Task<List<PutawayDto>> GetPutawaysAsync(
@@ -85,7 +89,59 @@ public class PutawayService : IPutawayService
             if (!eligibleLines.Any()) continue;
 
             var putawayQuantities = await _putawayRepository.GetCompletedPutawayQuantitiesByReceiptLineAsync(tenantId, grn.GoodsReceiptNoteId);
-            decimal totalReceived = eligibleLines.Sum(l => l.QuantityReceived);
+
+            var grnTxns = await _context.InventoryTransactions
+                .AsNoTracking()
+                .Where(t => t.TenantId == tenantId &&
+                            t.SourceDocumentId == grn.GoodsReceiptNoteId &&
+                            t.MovementType == InventoryMovementType.GoodsReceipt)
+                .ToListAsync();
+
+            decimal totalReceived = 0m;
+            foreach (var l in eligibleLines)
+            {
+                var txn = grnTxns.FirstOrDefault(t => t.SourceDocumentLineId == l.GoodsReceiptNoteLineId)
+                       ?? grnTxns.FirstOrDefault(t => t.ProductId == l.ProductId &&
+                                                      ((string.IsNullOrEmpty(t.BatchNumber) && string.IsNullOrEmpty(l.BatchNumber)) ||
+                                                       string.Equals(t.BatchNumber, l.BatchNumber, StringComparison.OrdinalIgnoreCase)));
+
+                if (txn != null)
+                {
+                    totalReceived += txn.Quantity;
+                }
+                else
+                {
+                    var prod = await _context.Products.FindAsync(l.ProductId);
+                    decimal lineBaseQty = l.QuantityReceived;
+                    if (l.UnitOfMeasureId.HasValue && prod?.UnitOfMeasureId.HasValue == true && l.UnitOfMeasureId.Value != prod.UnitOfMeasureId.Value)
+                    {
+                        if (_unitOfMeasureService == null)
+                        {
+                            throw new InvalidOperationException(
+                                $"Cannot determine base received quantity for product '{prod?.ProductCode ?? l.ProductId.ToString()}': no inbound inventory transaction was found and UOM conversion service is unavailable.");
+                        }
+
+                        try
+                        {
+                            var conv = await _unitOfMeasureService.ConvertProductQuantityAsync(
+                                tenantId,
+                                l.ProductId,
+                                l.UnitOfMeasureId.Value,
+                                prod.UnitOfMeasureId.Value,
+                                l.QuantityReceived,
+                                ConversionContext.Purchase);
+                            lineBaseQty = conv.ConvertedQuantity;
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new InvalidOperationException(
+                                $"Failed to convert received quantity from purchase UOM to base UOM for product '{prod?.ProductCode ?? l.ProductId.ToString()}': {ex.Message}", ex);
+                        }
+                    }
+                    totalReceived += lineBaseQty;
+                }
+            }
+
             decimal totalPutaway = eligibleLines.Sum(l => putawayQuantities.GetValueOrDefault(l.GoodsReceiptNoteLineId, 0m));
             decimal outstanding = Math.Max(0m, totalReceived - totalPutaway);
 
@@ -190,16 +246,69 @@ public class PutawayService : IPutawayService
 
             var putawayQuantities = await _putawayRepository.GetCompletedPutawayQuantitiesByReceiptLineAsync(tenantId, sourceDocId);
 
+            var grnTxns = await _context.InventoryTransactions
+                .AsNoTracking()
+                .Where(t => t.TenantId == tenantId &&
+                            t.SourceDocumentId == sourceDocId &&
+                            t.MovementType == InventoryMovementType.GoodsReceipt)
+                .ToListAsync();
+
             foreach (var grnLine in grn.Lines)
             {
                 var product = await _context.Products.FindAsync(grnLine.ProductId);
                 if (product != null && !product.IsStockTracked) continue;
 
+                var txn = grnTxns.FirstOrDefault(t => t.SourceDocumentLineId == grnLine.GoodsReceiptNoteLineId)
+                       ?? grnTxns.FirstOrDefault(t => t.ProductId == grnLine.ProductId &&
+                                                      ((string.IsNullOrEmpty(t.BatchNumber) && string.IsNullOrEmpty(grnLine.BatchNumber)) ||
+                                                       string.Equals(t.BatchNumber, grnLine.BatchNumber, StringComparison.OrdinalIgnoreCase)));
+
+                decimal receivedBaseQty;
+                Guid? baseUomId;
+
+                if (txn != null)
+                {
+                    receivedBaseQty = txn.Quantity;
+                    baseUomId = txn.UnitOfMeasureId ?? product?.UnitOfMeasureId ?? grnLine.UnitOfMeasureId;
+                }
+                else
+                {
+                    receivedBaseQty = grnLine.QuantityReceived;
+                    baseUomId = product?.UnitOfMeasureId ?? grnLine.UnitOfMeasureId;
+
+                    if (grnLine.UnitOfMeasureId.HasValue && product?.UnitOfMeasureId.HasValue == true && grnLine.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                    {
+                        if (_unitOfMeasureService == null)
+                        {
+                            throw new InvalidOperationException(
+                                $"Cannot determine base received quantity for product '{product?.ProductCode ?? grnLine.ProductId.ToString()}': no inbound inventory transaction was found and UOM conversion service is unavailable.");
+                        }
+
+                        try
+                        {
+                            var conv = await _unitOfMeasureService.ConvertProductQuantityAsync(
+                                tenantId,
+                                grnLine.ProductId,
+                                grnLine.UnitOfMeasureId.Value,
+                                product.UnitOfMeasureId.Value,
+                                grnLine.QuantityReceived,
+                                ConversionContext.Purchase);
+                            receivedBaseQty = conv.ConvertedQuantity;
+                            baseUomId = product.UnitOfMeasureId.Value;
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new InvalidOperationException(
+                                $"Failed to convert received quantity from purchase UOM to base UOM for product '{product?.ProductCode ?? grnLine.ProductId.ToString()}': {ex.Message}", ex);
+                        }
+                    }
+                }
+
                 decimal alreadyPut = putawayQuantities.GetValueOrDefault(grnLine.GoodsReceiptNoteLineId, 0m);
-                decimal outstanding = Math.Max(0m, grnLine.QuantityReceived - alreadyPut);
+                decimal outstanding = Math.Max(0m, receivedBaseQty - alreadyPut);
 
                 var location = await _context.WarehouseLocations.FindAsync(grnLine.WarehouseLocationId);
-                var uom = grnLine.UnitOfMeasureId.HasValue ? await _context.UnitsOfMeasure.FindAsync(grnLine.UnitOfMeasureId.Value) : null;
+                var uom = baseUomId.HasValue ? await _context.UnitsOfMeasure.FindAsync(baseUomId.Value) : null;
 
                 lines.Add(new EligibleSourceReceiptLineDto
                 {
@@ -207,12 +316,12 @@ public class PutawayService : IPutawayService
                     ProductId = grnLine.ProductId,
                     ProductCode = product?.ProductCode ?? "",
                     ProductName = product?.ProductName ?? "",
-                    UnitOfMeasureId = grnLine.UnitOfMeasureId ?? product?.UnitOfMeasureId,
+                    UnitOfMeasureId = baseUomId,
                     UnitOfMeasure = uom?.Code ?? product?.UnitOfMeasure ?? "EA",
                     SourceWarehouseLocationId = grnLine.WarehouseLocationId,
                     SourceLocationCode = location?.LocationCode ?? "",
                     SourceLocationName = location?.LocationName ?? "",
-                    ReceivedQuantity = grnLine.QuantityReceived,
+                    ReceivedQuantity = receivedBaseQty,
                     PreviouslyPutawayQuantity = alreadyPut,
                     OutstandingQuantity = outstanding,
                     BatchNumber = grnLine.BatchNumber,
@@ -348,7 +457,7 @@ public class PutawayService : IPutawayService
                 matchedEligible.PreviouslyPutawayQuantity,
                 matchedEligible.OutstandingQuantity,
                 lineReq.PutawayQuantity,
-                lineReq.UnitOfMeasureId ?? matchedEligible.UnitOfMeasureId,
+                matchedEligible.UnitOfMeasureId ?? lineReq.UnitOfMeasureId,
                 lineReq.BatchNumber ?? matchedEligible.BatchNumber,
                 lineReq.SerialNumber ?? matchedEligible.SerialNumber,
                 lineReq.ExpiryDate ?? matchedEligible.ExpiryDate,
@@ -452,7 +561,7 @@ public class PutawayService : IPutawayService
                     matchedEligible.PreviouslyPutawayQuantity,
                     matchedEligible.OutstandingQuantity,
                     lineReq.PutawayQuantity,
-                    lineReq.UnitOfMeasureId ?? matchedEligible.UnitOfMeasureId,
+                    matchedEligible.UnitOfMeasureId ?? lineReq.UnitOfMeasureId,
                     lineReq.BatchNumber ?? matchedEligible.BatchNumber,
                     lineReq.SerialNumber ?? matchedEligible.SerialNumber,
                     lineReq.ExpiryDate ?? matchedEligible.ExpiryDate,

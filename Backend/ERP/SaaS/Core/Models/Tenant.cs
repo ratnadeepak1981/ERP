@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,6 +15,8 @@ namespace SaaS.Core.Models
         public string Code { get; set; } = string.Empty;
 
         public bool IsActive { get; set; } = true;
+
+        public ICollection<TenantDomain> Domains { get; set; } = new List<TenantDomain>();
 
     }
 }

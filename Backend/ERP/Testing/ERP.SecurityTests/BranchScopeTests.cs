@@ -106,6 +106,28 @@ public class BranchScopeTests : IClassFixture<TestSecurityFixture>
         Assert.Equal(HttpStatusCode.Forbidden, resCrossTenant.StatusCode);
     }
 
+    [Fact]
+    public async Task GetBranches_OperationalUserWithoutBranchViewPermission_CanAccessAssignedBranchWorkspace()
+    {
+        // Arrange: User with only Purchase Order permissions and assigned Branch A1 (no BRANCH.VIEW)
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Procurement Staff" },
+            new[] { "PURCHASE_ORDER.VIEW" });
+
+        // Act
+        var response = await client.GetAsync($"/api/companies/{TestConstants.CompanyAId}/branches");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var branches = await response.ReadApiResponseDataAsync<List<BranchDto>>();
+        Assert.NotNull(branches);
+        Assert.Contains(branches, b => b.Id == TestConstants.BranchA1Id);
+    }
+
     private class BranchDto
     {
         public Guid Id { get; set; }

@@ -16,6 +16,8 @@ public class SaaSDbContext : DbContext
     // Tenant
     // =========================
 
+    public DbSet<TenantDomain> TenantDomains => Set<TenantDomain>();
+
     public DbSet<Tenant> Tenants
         => Set<Tenant>();
 
