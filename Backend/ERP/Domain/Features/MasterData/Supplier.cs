@@ -53,7 +53,8 @@ public class Supplier : Auditable, ITenantScopedEntity
         string? creditTerms = null,
         string? paymentTerms = null,
         Guid? supplierId = null,
-        Guid? currencyId = null)
+        Guid? currencyId = null,
+        Guid? defaultPurchasePriceCardId = null)
     {
         return new Supplier
         {
@@ -73,6 +74,7 @@ public class Supplier : Auditable, ITenantScopedEntity
             CreditTerms = creditTerms,
             PaymentTerms = paymentTerms,
             CurrencyId = currencyId,
+            DefaultPurchasePriceCardId = defaultPurchasePriceCardId,
             IsActive = true
         };
     }
@@ -90,7 +92,8 @@ public class Supplier : Auditable, ITenantScopedEntity
         string? taxNumber,
         string? creditTerms,
         string? paymentTerms,
-        Guid? currencyId = null)
+        Guid? currencyId = null,
+        Guid? defaultPurchasePriceCardId = null)
     {
         SupplierName = supplierName;
         ContactPerson = contactPerson;
@@ -105,6 +108,12 @@ public class Supplier : Auditable, ITenantScopedEntity
         CreditTerms = creditTerms;
         PaymentTerms = paymentTerms;
         CurrencyId = currencyId;
+        DefaultPurchasePriceCardId = defaultPurchasePriceCardId;
+    }
+
+    public void SetDefaultPurchasePriceCard(Guid? priceCardId)
+    {
+        DefaultPurchasePriceCardId = priceCardId;
     }
 
     public void SetDefaultCurrency(Guid? currencyId)

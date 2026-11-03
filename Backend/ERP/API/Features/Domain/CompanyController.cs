@@ -29,7 +29,6 @@ public class UpdateCompanyRequest
 
 [ApiController]
 [Route("api/companies")]
-[RequirePermission("COMPANY.VIEW")]
 public class CompanyController : BaseApiController
 {
     private readonly ICompanyService _companyService;

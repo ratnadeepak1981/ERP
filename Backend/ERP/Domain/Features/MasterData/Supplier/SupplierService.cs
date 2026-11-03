@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Address;
 using Domain.Infrastructure.Persistence;
+using global::Domain.Features.MasterData.PriceCard;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Domain.Features.MasterData.Supplier;
@@ -64,6 +65,17 @@ public class SupplierService : ISupplierService
                 throw new InvalidOperationException("Selected default currency is inactive.");
         }
 
+        if (request.DefaultPurchasePriceCardId.HasValue)
+        {
+            var card = await _context.PriceCards.FirstOrDefaultAsync(pc => pc.TenantId == tenantId && pc.PriceCardId == request.DefaultPurchasePriceCardId.Value);
+            if (card == null)
+                throw new InvalidOperationException("Selected default purchase price card was not found or does not belong to this tenant.");
+            if (!card.IsActive)
+                throw new InvalidOperationException("Selected default purchase price card is inactive.");
+            if (card.PriceCardType != PriceCardType.Purchase)
+                throw new InvalidOperationException("Selected price card is not a purchase price card.");
+        }
+
         var supplier = Supplier.Create(
             tenantId,
             code,
@@ -80,7 +92,8 @@ public class SupplierService : ISupplierService
             request.CreditTerms?.Trim(),
             paymentTermsText,
             null,
-            request.CurrencyId);
+            request.CurrencyId,
+            request.DefaultPurchasePriceCardId);
 
         await _repository.AddSupplierAsync(supplier);
         await _repository.SaveChangesAsync();
@@ -191,6 +204,17 @@ public class SupplierService : ISupplierService
                 throw new InvalidOperationException("Selected default currency is inactive.");
         }
 
+        if (request.DefaultPurchasePriceCardId.HasValue)
+        {
+            var card = await _context.PriceCards.FirstOrDefaultAsync(pc => pc.TenantId == tenantId && pc.PriceCardId == request.DefaultPurchasePriceCardId.Value);
+            if (card == null)
+                throw new InvalidOperationException("Selected default purchase price card was not found or does not belong to this tenant.");
+            if (!card.IsActive && supplier.DefaultPurchasePriceCardId != request.DefaultPurchasePriceCardId.Value)
+                throw new InvalidOperationException("Selected default purchase price card is inactive.");
+            if (card.PriceCardType != PriceCardType.Purchase)
+                throw new InvalidOperationException("Selected price card is not a purchase price card.");
+        }
+
         supplier.Update(
             name,
             request.ContactPerson?.Trim(),
@@ -204,7 +228,8 @@ public class SupplierService : ISupplierService
             request.TaxNumber?.Trim(),
             request.CreditTerms?.Trim(),
             paymentTermsText,
-            request.CurrencyId);
+            request.CurrencyId,
+            request.DefaultPurchasePriceCardId);
 
         await _repository.SaveChangesAsync();
         return supplier;

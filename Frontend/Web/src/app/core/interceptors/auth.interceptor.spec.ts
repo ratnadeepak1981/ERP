@@ -137,11 +137,20 @@ describe('authInterceptor', () => {
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/login'], expect.anything());
   });
 
-  it('should not trigger refresh token flow when /api/Security/login returns 401', () => {
-    const req = new HttpRequest('POST', '/api/Security/login', { email: 'bad@user.com' });
+  it('should redirect to /access-denied when 403 Cross-tenant domain mismatch occurs', () => {
+    const req = new HttpRequest('GET', '/api/companies');
     const next = () => {
       return throwError(
-        () => new HttpErrorResponse({ status: 401, statusText: 'Unauthorized' })
+        () =>
+          new HttpErrorResponse({
+            status: 403,
+            statusText: 'Forbidden',
+            error: {
+              status: 403,
+              title: 'Forbidden',
+              detail: 'Cross-tenant domain mismatch. Authenticated tenant does not match the requested domain.'
+            }
+          })
       );
     };
 
@@ -153,7 +162,43 @@ describe('authInterceptor', () => {
     });
 
     expect(errorThrown).not.toBeNull();
-    expect(errorThrown.status).toBe(401);
-    expect(mockAuthService.refreshToken).not.toHaveBeenCalled();
+    expect(errorThrown.status).toBe(403);
+    expect(mockRouter.navigate).toHaveBeenCalledWith(
+      ['/access-denied'],
+      expect.objectContaining({
+        queryParams: expect.objectContaining({
+          reason: 'cross-tenant-mismatch'
+        })
+      })
+    );
+  });
+
+  it('should not redirect to /access-denied on regular 403 errors', () => {
+    const req = new HttpRequest('GET', '/api/companies');
+    const next = () => {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 403,
+            statusText: 'Forbidden',
+            error: {
+              status: 403,
+              title: 'Forbidden',
+              detail: 'User does not have required permissions.'
+            }
+          })
+      );
+    };
+
+    let errorThrown: any = null;
+    runInInjectionContext(injector, () => authInterceptor(req, next)).subscribe({
+      error: err => {
+        errorThrown = err;
+      }
+    });
+
+    expect(errorThrown).not.toBeNull();
+    expect(errorThrown.status).toBe(403);
+    expect(mockRouter.navigate).not.toHaveBeenCalled();
   });
 });

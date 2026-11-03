@@ -77,3 +77,32 @@ export interface PriceCardQueryParams {
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';
 }
+
+export interface ResolvePriceRequest {
+  companyId?: string | null;
+  branchId?: string | null;
+  supplierId?: string | null;
+  productId: string;
+  priceCardId?: string | null;
+  unitOfMeasureId?: string | null;
+  currency?: string | null;
+  transactionDate?: string | null;
+}
+
+export interface PriceResolutionResult {
+  found: boolean;
+  priceCardId?: string | null;
+  priceCardCode?: string | null;
+  priceCardName?: string | null;
+  priceCardType?: PriceCardType | null;
+  productId: string;
+  resolvedUomId?: string | null;
+  unitPrice: number;
+  currency: string;
+  exchangeRate: number;
+  source?: string | null;
+  sourceRecordId?: string | null;
+  priceCardLineId?: string | null;
+  supplierProductPriceId?: string | null;
+  message?: string | null;
+}

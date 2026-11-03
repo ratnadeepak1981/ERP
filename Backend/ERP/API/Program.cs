@@ -31,7 +31,11 @@ public class Program
         {
             options.AddDefaultPolicy(policy =>
             {
-                policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
+                policy.SetIsOriginAllowed(origin =>
+                {
+                    var host = new Uri(origin).Host;
+                    return host == "localhost" || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase);
+                })
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
@@ -268,7 +272,11 @@ public class Program
             app.UseHttpsRedirection();
         }
 
+        app.UseMiddleware<API.Common.TenantResolution.TenantResolutionMiddleware>();
+
         app.UseAuthentication();
+
+        app.UseMiddleware<API.Common.TenantResolution.TenantHostConsistencyMiddleware>();
         app.UseAuthorization();
 
         // Hangfire Dashboard (Secured with PlatformAdmin / SecurityManager role authorization)

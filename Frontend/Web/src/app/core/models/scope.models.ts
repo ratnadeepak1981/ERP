@@ -336,6 +336,7 @@ export interface CreateSupplierDto {
   paymentTerms?: string;
   leadTimeDays?: number;
   currencyId?: string | null;
+  defaultPurchasePriceCardId?: string | null;
   isActive?: boolean;
 }
 

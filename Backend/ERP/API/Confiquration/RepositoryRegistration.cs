@@ -24,6 +24,7 @@ public static class RepositoryRegistration
 
         // SaaS
         services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<ITenantDomainRepository, TenantDomainRepository>();
         services.AddScoped<ITenantDatabaseRepository, TenantDatabaseRepository>();
         services.AddScoped<ITenantConfigurationRepository, TenantConfigurationRepository>();
 

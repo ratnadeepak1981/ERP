@@ -59,7 +59,8 @@ export class UserRegisterComponent implements OnInit {
     { field: 'email', header: 'Email Address', sortable: true, filterable: true },
     { field: 'roleName', header: 'Assigned Role', sortable: true, filterable: true },
     { field: 'primaryScope', header: 'Primary Facility Scope', sortable: true },
-    { field: 'accountStatus', header: 'Account Status', sortable: true, filterable: true }
+    { field: 'accountStatus', header: 'Account Status', sortable: true, filterable: true },
+    { field: 'id', header: 'Actions', type: 'actions', width: '260px' }
   ];
 
   readonly activeUsersCount = computed(() => this.users().filter(u => u.accountStatus === 'Active').length);

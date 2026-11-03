@@ -19,6 +19,7 @@ public class CreateSupplierRequest
     public string? CreditTerms { get; set; }
     public string? PaymentTerms { get; set; }
     public Guid? CurrencyId { get; set; }
+    public Guid? DefaultPurchasePriceCardId { get; set; }
 }
 
 public class UpdateSupplierRequest
@@ -36,6 +37,7 @@ public class UpdateSupplierRequest
     public string? CreditTerms { get; set; }
     public string? PaymentTerms { get; set; }
     public Guid? CurrencyId { get; set; }
+    public Guid? DefaultPurchasePriceCardId { get; set; }
 }
 
 public class SupplierAddressLinkRequest

@@ -157,6 +157,29 @@ public class CompanyScopeTests : IClassFixture<TestSecurityFixture>
             $"Expected Forbidden or NotFound for Company C, got {response.StatusCode}");
     }
 
+    [Fact]
+    public async Task GetCompanies_OperationalUserWithoutCompanyViewPermission_CanAccessAssignedCompanyWorkspace()
+    {
+        // Arrange: User with only Purchase Order permissions and assigned Company A scope (no COMPANY.VIEW)
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.CompanyUserAId,
+            "compuser_a",
+            TestConstants.TenantAlphaId,
+            new[] { "Procurement Staff" },
+            new[] { "PURCHASE_ORDER.VIEW", "PURCHASE_ORDER.CREATE" });
+
+        // Act: Operational listing of companies for workspace scope
+        var response = await client.GetAsync("/api/companies");
+
+        // Assert: Must succeed and return assigned Company A without requiring COMPANY.VIEW
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var companies = await response.ReadApiResponseDataAsync<List<CompanyDto>>();
+        Assert.NotNull(companies);
+        Assert.Contains(companies, c => c.Id == TestConstants.CompanyAId);
+        Assert.DoesNotContain(companies, c => c.Id == TestConstants.CompanyBId);
+    }
+
     private class CompanyDto
     {
         public Guid Id { get; set; }

@@ -6,6 +6,12 @@
       </div>
       <h2>Tenant Sign In</h2>
       <p>Access your ApexERP platform or tenant workspace.</p>
+      @if (tenantHostService.isTenantSpecific()) {
+        <div class="login-tenant-badge" style="margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; color: var(--erp-text-secondary, #64748b);">
+          <i class="pi pi-building"></i>
+          <span>Workspace: <strong style="color: var(--erp-text-primary, #0f172a);">{{ tenantHostService.currentSubdomain() || tenantHostService.currentHostname() }}</strong></span>
+        </div>
+      }
     </div>
 
     @if (returnUrl()) {
