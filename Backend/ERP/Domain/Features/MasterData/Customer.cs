@@ -19,7 +19,7 @@ public class Customer : Auditable, ITenantScopedEntity
 
     public string? AddressLine1 { get; private set; }
     public string? AddressLine2 { get; private set; }
-    public string City { get; private set; } = string.Empty;
+    public string? City { get; private set; } = string.Empty;
     public string? PostalCode { get; private set; }
     public string? Country { get; private set; }
 

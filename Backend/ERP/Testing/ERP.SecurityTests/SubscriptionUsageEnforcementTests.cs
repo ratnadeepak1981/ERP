@@ -360,15 +360,19 @@ public class SubscriptionUsageEnforcementTests : IAsyncLifetime
 
         var usageService = new SubscriptionUsageService(platformDb);
         var productRepo = new ProductRepository(domainDb);
-        var productService = new ProductService(productRepo, usageService);
+        var productService = new ProductService(productRepo, null);
 
         // 1. Below limit: 1st product (0 -> 1)
-        var p1 = await productService.CreateProductAsync(TenantAId, new CreateProductRequest
-        {
-            ProductCode = "PRD-A-01",
-            ProductName = "Product Alpha 1",
-            CategoryId = CategoryAId
-        });
+        var p1 = await usageService.ExecuteWithUsageLimitAsync(
+            TenantAId,
+            "MASTER_DATA",
+            1m,
+            () => productService.CreateProductAsync(TenantAId, new CreateProductRequest
+            {
+                ProductCode = "PRD-A-01",
+                ProductName = "Product Alpha 1",
+                CategoryId = CategoryAId
+            }));
         Assert.NotNull(p1);
 
         var subA = await platformDb.Subscriptions.FirstAsync(s => s.TenantId == TenantAId);
@@ -377,12 +381,16 @@ public class SubscriptionUsageEnforcementTests : IAsyncLifetime
         Assert.Equal(1m, usage.UsageValue);
 
         // 2. At limit: 2nd product (1 -> 2)
-        var p2 = await productService.CreateProductAsync(TenantAId, new CreateProductRequest
-        {
-            ProductCode = "PRD-A-02",
-            ProductName = "Product Alpha 2",
-            CategoryId = CategoryAId
-        });
+        var p2 = await usageService.ExecuteWithUsageLimitAsync(
+            TenantAId,
+            "MASTER_DATA",
+            1m,
+            () => productService.CreateProductAsync(TenantAId, new CreateProductRequest
+            {
+                ProductCode = "PRD-A-02",
+                ProductName = "Product Alpha 2",
+                CategoryId = CategoryAId
+            }));
         Assert.NotNull(p2);
 
         usage = await platformDb.SubscriptionUsages
@@ -391,12 +399,16 @@ public class SubscriptionUsageEnforcementTests : IAsyncLifetime
 
         // 3. Above limit: 3rd product (2 + 1 > 2) -> rejected
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            productService.CreateProductAsync(TenantAId, new CreateProductRequest
-            {
-                ProductCode = "PRD-A-03",
-                ProductName = "Product Alpha 3",
-                CategoryId = CategoryAId
-            }));
+            usageService.ExecuteWithUsageLimitAsync(
+                TenantAId,
+                "MASTER_DATA",
+                1m,
+                () => productService.CreateProductAsync(TenantAId, new CreateProductRequest
+                {
+                    ProductCode = "PRD-A-03",
+                    ProductName = "Product Alpha 3",
+                    CategoryId = CategoryAId
+                })));
         Assert.Contains("Subscription limit exceeded for 'MASTER_DATA'", ex.Message);
 
         // Verify usage was not incremented
@@ -504,15 +516,19 @@ public class SubscriptionUsageEnforcementTests : IAsyncLifetime
 
         var usageService = new SubscriptionUsageService(platformDb);
         var productRepo = new ProductRepository(domainDb);
-        var productService = new ProductService(productRepo, usageService);
+        var productService = new ProductService(productRepo, null);
 
         // 1. First product succeeds -> usage is 1
-        var p1 = await productService.CreateProductAsync(TenantAId, new CreateProductRequest
-        {
-            ProductCode = "DUP-CODE-01",
-            ProductName = "Unique Name 1",
-            CategoryId = CategoryAId
-        });
+        var p1 = await usageService.ExecuteWithUsageLimitAsync(
+            TenantAId,
+            "MASTER_DATA",
+            1m,
+            () => productService.CreateProductAsync(TenantAId, new CreateProductRequest
+            {
+                ProductCode = "DUP-CODE-01",
+                ProductName = "Unique Name 1",
+                CategoryId = CategoryAId
+            }));
         Assert.NotNull(p1);
 
         var subA = await platformDb.Subscriptions.FirstAsync(s => s.TenantId == TenantAId);
@@ -522,16 +538,21 @@ public class SubscriptionUsageEnforcementTests : IAsyncLifetime
 
         // 2. Duplicate product code fails
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            productService.CreateProductAsync(TenantAId, new CreateProductRequest
-            {
-                ProductCode = "DUP-CODE-01",
-                ProductName = "Unique Name 2",
-                CategoryId = CategoryAId
-            }));
+            usageService.ExecuteWithUsageLimitAsync(
+                TenantAId,
+                "MASTER_DATA",
+                1m,
+                () => productService.CreateProductAsync(TenantAId, new CreateProductRequest
+                {
+                    ProductCode = "DUP-CODE-01",
+                    ProductName = "Unique Name 2",
+                    CategoryId = CategoryAId
+                })));
         Assert.Contains("already exists", ex.Message);
 
         // 3. Usage remains 1
-        usage = await platformDb.SubscriptionUsages
+        using var verifyPlatformDb = CreatePlatformDb();
+        usage = await verifyPlatformDb.SubscriptionUsages
             .FirstAsync(u => u.SubscriptionId == subA.Id && u.SubscriptionPlanParameterId == FiniteMasterDataPlanParamId);
         Assert.Equal(1m, usage.UsageValue);
     }

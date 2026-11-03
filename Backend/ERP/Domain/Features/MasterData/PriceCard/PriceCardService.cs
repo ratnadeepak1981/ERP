@@ -395,7 +395,9 @@ public class PriceCardService : IPriceCardService
             UnitPrice = resolvedPrice,
             Currency = card.Currency,
             ExchangeRate = 1m,
-            Source = "PriceCard"
+            Source = "PriceCard",
+            SourceRecordId = line.PriceCardLineId,
+            PriceCardLineId = line.PriceCardLineId
         };
     }
 

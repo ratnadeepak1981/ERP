@@ -29,6 +29,7 @@ import {
   PaymentTermItem,
   CurrencyItem
 } from '../../../../../core/models/scope.models';
+import { PriceCardItem, PriceCardType } from '../../../../../core/models/price-card.models';
 
 export type SupplierPageMode = 'create' | 'edit' | 'view';
 
@@ -106,6 +107,20 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
     return opts;
   });
 
+  // Price Cards
+  readonly priceCardsList = signal<PriceCardItem[]>([]);
+  readonly priceCardOptions = computed(() => {
+    const list = this.priceCardsList();
+    const opts = [{ label: '-- None (No default price card) --', value: '' }];
+    list.forEach(c => {
+      opts.push({
+        label: `${c.priceCardCode} - ${c.priceCardName} (${c.currency})`,
+        value: c.priceCardId
+      });
+    });
+    return opts;
+  });
+
   // Reactive Form
   readonly supplierForm = new FormGroup({
     supplierCode: new FormControl<string>('', {
@@ -129,6 +144,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
       validators: [Validators.required]
     }),
     currencyId: new FormControl<string>('', { nonNullable: true }),
+    defaultPurchasePriceCardId: new FormControl<string>('', { nonNullable: true }),
     leadTimeDays: new FormControl<number>(7, {
       nonNullable: true,
       validators: [Validators.min(0)]
@@ -283,6 +299,15 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
         colSpan: 1
       },
       {
+        name: 'defaultPurchasePriceCardId',
+        label: 'Default Purchase Price Card',
+        type: 'select',
+        placeholder: '-- Select Default Price Card (Optional) --',
+        options: this.priceCardOptions(),
+        disabled: isView,
+        colSpan: 1
+      },
+      {
         name: 'leadTimeDays',
         label: 'Standard Lead Time (Days)',
         type: 'number',
@@ -307,6 +332,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
     this.detectRoute();
     this.loadPaymentTerms();
     this.loadCurrencies();
+    this.loadPriceCards();
 
     this.subs.add(
       this.route.paramMap.subscribe(() => {
@@ -329,6 +355,16 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
   private loadCurrencies(): void {
     this.masterDataService.getCurrencies().subscribe({
       next: list => this.currenciesList.set(list.filter(c => c.isActive)),
+      error: () => {}
+    });
+  }
+
+  private loadPriceCards(): void {
+    this.masterDataService.getPriceCards({ type: PriceCardType.Purchase, isActive: true, pageSize: 100 }).subscribe({
+      next: res => {
+        const items = res?.items || (Array.isArray(res) ? (res as any) : []);
+        this.priceCardsList.set(items.filter((c: PriceCardItem) => c.isActive && c.priceCardType === PriceCardType.Purchase));
+      },
       error: () => {}
     });
   }
@@ -356,6 +392,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
         country: 'Sri Lanka',
         paymentTerms: 'Net 30',
         currencyId: '',
+        defaultPurchasePriceCardId: '',
         leadTimeDays: 7,
         isActive: true
       });
@@ -426,6 +463,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
       country: sup.country || 'Sri Lanka',
       paymentTerms: sup.paymentTerms || 'Net 30',
       currencyId: sup.currencyId || '',
+      defaultPurchasePriceCardId: sup.defaultPurchasePriceCardId || '',
       leadTimeDays: Number(sup.leadTimeDays) || 7,
       isActive: sup.isActive !== false
     });
@@ -557,6 +595,7 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
       country: val.country?.trim() || undefined,
       paymentTerms: val.paymentTerms?.trim() || undefined,
       currencyId: val.currencyId ? val.currencyId : null,
+      defaultPurchasePriceCardId: val.defaultPurchasePriceCardId ? val.defaultPurchasePriceCardId : null,
       leadTimeDays: Number(val.leadTimeDays) || 0,
       isActive: !!val.isActive
     };

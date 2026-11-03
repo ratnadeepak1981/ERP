@@ -244,6 +244,23 @@
     color: #0F6CBD;
     font-size: 11px;
   }
+
+  &.clickable {
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #EFF6FC;
+      border-color: #0F6CBD;
+      color: #0F6CBD;
+    }
+
+    .edit-icon {
+      font-size: 10px;
+      margin-left: 2px;
+      opacity: 0.6;
+    }
+  }
 }
 
 .scope-cell {

@@ -192,6 +192,11 @@ public class SubscriptionUsageService : ISubscriptionUsageService
                 {
                     await transaction.RollbackAsync(cancellationToken);
                 }
+                else
+                {
+                    usage.UsageValue -= increment;
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
                 throw;
             }
 

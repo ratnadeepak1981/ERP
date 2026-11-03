@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { buildApiUrl } from '../utils/api-url.util';
 import { ApiResponse } from '../models/auth.models';
+import { ResolvePriceRequest, PriceResolutionResult } from '../models/price-card.models';
 import {
   PurchaseOrderDto,
   PurchaseOrderItemDto,
@@ -150,5 +151,15 @@ export class PurchaseOrderService {
     return this.http
       .get<ApiResponse<PurchaseOrderHistoryDto[]>>(this.buildPath(companyId, branchId, `/${orderId}/approval-history`))
       .pipe(map(res => res?.data ?? []));
+  }
+
+  resolvePrice(
+    companyId: string,
+    branchId: string | null | undefined,
+    request: ResolvePriceRequest
+  ): Observable<PriceResolutionResult> {
+    return this.http
+      .post<ApiResponse<PriceResolutionResult>>(this.buildPath(companyId, branchId, '/resolve-price'), request)
+      .pipe(map(res => res.data));
   }
 }

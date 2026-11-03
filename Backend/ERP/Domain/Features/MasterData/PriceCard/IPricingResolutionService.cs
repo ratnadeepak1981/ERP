@@ -11,7 +11,8 @@ public interface IPricingResolutionService
         Guid productId,
         Guid? requestedUomId,
         DateTime? transactionDate = null,
-        Guid? overridePriceCardId = null);
+        Guid? overridePriceCardId = null,
+        string? expectedCurrency = null);
 
     Task<PriceResolutionResult> ResolveSalesPriceAsync(
         Guid tenantId,

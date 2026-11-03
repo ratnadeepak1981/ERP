@@ -16,6 +16,7 @@ namespace API.Features.MasterData.PriceCard;
 public class PriceCardController : BaseApiController
 {
     private readonly IPriceCardService _priceCardService;
+    private readonly IPricingResolutionService _pricingResolutionService;
     private readonly ICurrentUserContext _currentUserContext;
 
     private static readonly SortMapping<PriceCardDto> _sortMapping =
@@ -34,9 +35,11 @@ public class PriceCardController : BaseApiController
 
     public PriceCardController(
         IPriceCardService priceCardService,
+        IPricingResolutionService pricingResolutionService,
         ICurrentUserContext currentUserContext)
     {
         _priceCardService = priceCardService;
+        _pricingResolutionService = pricingResolutionService;
         _currentUserContext = currentUserContext;
     }
 
@@ -152,5 +155,31 @@ public class PriceCardController : BaseApiController
         {
             return HandleDomainException(ex);
         }
+    }
+
+    [HttpPost("resolve-purchase-price")]
+    public async Task<IActionResult> ResolvePurchasePrice([FromBody] ResolvePurchasePriceRequest request)
+    {
+        if (_currentUserContext.IsPlatformUser) return Forbid();
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+
+        if (request == null)
+            return BadRequestResponse("Price resolution request is required.");
+
+        if (request.ProductId == Guid.Empty)
+            return BadRequestResponse("ProductId is required.");
+
+        var result = await _pricingResolutionService.ResolvePurchasePriceAsync(
+            tenantId.Value,
+            request.SupplierId,
+            request.ProductId,
+            request.UnitOfMeasureId,
+            request.TransactionDate,
+            request.PriceCardId,
+            request.Currency);
+
+        return SuccessResponse(result);
     }
 }

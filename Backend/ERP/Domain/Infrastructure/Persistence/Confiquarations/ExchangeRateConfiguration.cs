@@ -35,7 +35,7 @@ public class ExchangeRateConfiguration : IEntityTypeConfiguration<ExchangeRate>
             rate.EffectiveDate
         });
 
-        builder.HasIndex(rate => new { rate.TenantId, rate.ExchangeRateId }).IsUnique();
+        builder.HasAlternateKey(rate => new { rate.TenantId, rate.ExchangeRateId });
 
         builder.HasOne(rate => rate.FromCurrency)
             .WithMany()
