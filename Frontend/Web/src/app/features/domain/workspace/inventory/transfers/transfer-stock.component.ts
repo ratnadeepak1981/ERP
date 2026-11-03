@@ -22,6 +22,7 @@ import { AccessDeniedComponent } from '../../../../../shared/components/access-d
 import { InventoryService } from '../../../../../core/services/inventory.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
+import { isForbiddenError, toUserFacingErrorMessage } from '../../../../../core/utils/http-error.util';
 import {
   InventoryRecentTransactionDto,
   getMovementTypeDisplayName,
@@ -170,12 +171,14 @@ export class TransferStockComponent implements OnInit, OnDestroy {
 
   loadData(): void {
     if (!this.canView()) {
+      this.loading.set(false);
       this.isAccessDenied.set(true);
       return;
     }
 
     this.loading.set(true);
     this.error.set(null);
+    this.isAccessDenied.set(false);
 
     this.inventoryService.getRecentTransactions(50).subscribe({
       next: txs => {
@@ -184,10 +187,10 @@ export class TransferStockComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.loading.set(false);
-        if (err?.status === 403) {
+        if (isForbiddenError(err)) {
           this.isAccessDenied.set(true);
         } else {
-          this.error.set(err?.message || 'Failed to load transfer movements.');
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load transfer movements.'));
         }
       }
     });

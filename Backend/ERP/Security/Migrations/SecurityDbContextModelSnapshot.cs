@@ -28,6 +28,13 @@ namespace Security.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Tenant");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -63,10 +70,17 @@ namespace Security.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
                         .IsUnique();
+
+                    b.HasIndex("Category", "Module");
 
                     b.ToTable("Permissions", (string)null);
                 });
@@ -90,6 +104,7 @@ namespace Security.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsConsumed")
+                        .IsConcurrencyToken()
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsRevoked")
@@ -174,6 +189,13 @@ namespace Security.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("TemplateKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("TemplateVersion")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -184,6 +206,8 @@ namespace Security.Migrations
                     b.HasIndex("TenantId", "Name")
                         .IsUnique()
                         .HasFilter("[TenantId] IS NOT NULL");
+
+                    b.HasIndex("TenantId", "TemplateKey");
 
                     b.ToTable("Roles", (string)null);
                 });

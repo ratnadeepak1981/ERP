@@ -50,6 +50,11 @@
       background: #DFF6DD;
       color: #107C41;
     }
+
+    &.warning {
+      background: #FFF4CE;
+      color: #8A6D00;
+    }
   }
 
   .metric-info {
@@ -265,6 +270,16 @@
           text-transform: uppercase;
           background: #E8F5E9;
           color: #2E7D32;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .standard-badge {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          background: #FFF4CE;
+          color: #8A6D00;
           padding: 2px 6px;
           border-radius: 4px;
         }

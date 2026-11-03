@@ -14,7 +14,7 @@
         routerLink="/app/inventory/store-putaway"
       ></p-button>
 
-      @if (!isReadOnlyMode()) {
+      @if (!isReadOnlyMode() && !isAccessDenied()) {
         <p-button
           label="Save Draft"
           icon="pi pi-save"
@@ -79,6 +79,7 @@
     *ngIf="error() && !loading() && !isAccessDenied()"
     title="Putaway Error"
     [message]="error()!"
+    (retry)="initModeAndData()"
   ></app-error-state>
 
   <!-- Form Content -->

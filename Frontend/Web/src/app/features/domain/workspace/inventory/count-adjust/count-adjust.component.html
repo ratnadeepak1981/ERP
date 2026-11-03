@@ -4,7 +4,7 @@
     subtitle="Physical cycle counting, stock variance audit, reorder level tracking, and ledger adjustments"
     [breadcrumbs]="breadcrumbs"
   >
-    <div actions header-actions class="header-action-group">
+    <div actions header-actions class="header-action-group" *ngIf="!isAccessDenied()">
       <p-button
         label="Refresh"
         icon="pi pi-refresh"

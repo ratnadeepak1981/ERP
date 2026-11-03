@@ -69,8 +69,16 @@
     (retry)="recordId ? loadRecordDetails(recordId) : null"
   ></app-error-state>
 
+  <!-- Error State (Create Mode Master Data) -->
+  <app-error-state
+    *ngIf="loadError() && !loading() && !isAccessDenied() && mode === 'create'"
+    title="Unable to Load Form Data"
+    [message]="loadError()!"
+    (retry)="loadMasterData()"
+  ></app-error-state>
+
   <!-- CREATE MODE FORM -->
-  <div *ngIf="mode === 'create' && !loading() && !isAccessDenied()" class="page-body">
+  <div *ngIf="mode === 'create' && !loading() && !isAccessDenied() && !loadError()" class="page-body">
     <!-- Mutation error alert -->
     <div *ngIf="error()" class="alert-banner alert-danger">
       <i class="pi pi-exclamation-triangle"></i>

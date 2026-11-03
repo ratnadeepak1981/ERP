@@ -22,6 +22,10 @@ import { AccessDeniedComponent } from '../../../../../shared/components/access-d
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
+import {
+  isForbiddenError,
+  toUserFacingErrorMessage
+} from '../../../../../core/utils/http-error.util';
 import { WarehouseItem, WarehouseLocationItem } from '../../../../../core/models/scope.models';
 import { DataTableColumn, DataTableAction } from '../../../../../shared/models/data-table-config.model';
 
@@ -181,12 +185,14 @@ export class StorePutawayComponent implements OnInit, OnDestroy {
 
   loadData(): void {
     if (!this.canView()) {
+      this.loading.set(false);
       this.isAccessDenied.set(true);
       return;
     }
 
     this.loading.set(true);
     this.error.set(null);
+    this.isAccessDenied.set(false);
 
     this.masterDataService.getWarehouses().subscribe({
       next: whs => {
@@ -223,8 +229,11 @@ export class StorePutawayComponent implements OnInit, OnDestroy {
                 this.loading.set(false);
               }
             },
-            error: () => {
+            error: err => {
               completed++;
+              if (isForbiddenError(err)) {
+                this.isAccessDenied.set(true);
+              }
               if (completed === activeWhs.length) {
                 this.locationRows.set(rows);
                 this.loading.set(false);
@@ -235,10 +244,10 @@ export class StorePutawayComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.loading.set(false);
-        if (err?.status === 403) {
+        if (isForbiddenError(err)) {
           this.isAccessDenied.set(true);
         } else {
-          this.error.set(err?.message || 'Failed to load warehouse storage data.');
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load warehouse storage data.'));
         }
       }
     });

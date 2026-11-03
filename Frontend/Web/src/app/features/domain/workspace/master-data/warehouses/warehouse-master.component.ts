@@ -10,9 +10,14 @@ import { AppStatusBadgeComponent } from '../../../../../shared/components/status
 import { AppLoadingStateComponent } from '../../../../../shared/components/loading-state/loading-state.component';
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
+import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
+import {
+  isForbiddenError,
+  toUserFacingErrorMessage
+} from '../../../../../core/utils/http-error.util';
 import {
   WarehouseItem,
   WarehouseZoneItem,
@@ -37,7 +42,8 @@ import {
     AppStatusBadgeComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
-    AppEmptyStateComponent
+    AppEmptyStateComponent,
+    AccessDeniedComponent
   ],
   templateUrl: './warehouse-master.component.html',
   styleUrl: './warehouse-master.component.scss',
@@ -54,6 +60,7 @@ export class WarehouseMasterComponent implements OnInit {
   readonly loading = signal<boolean>(true);
   readonly locationsLoading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+  readonly isAccessDenied = signal<boolean>(false);
   readonly actionError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
 
@@ -218,6 +225,7 @@ export class WarehouseMasterComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     this.actionError.set(null);
+    this.isAccessDenied.set(false);
 
     this.masterDataService.getWarehouses().subscribe({
       next: (whs) => {
@@ -236,8 +244,12 @@ export class WarehouseMasterComponent implements OnInit {
         }
       },
       error: (err) => {
-        this.error.set(err?.error?.message || 'Failed to load warehouses from backend.');
         this.loading.set(false);
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load warehouses from backend.'));
+        }
       }
     });
 
@@ -271,7 +283,9 @@ export class WarehouseMasterComponent implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        this.actionError.set(err?.error?.message || 'Failed to load storage locations for warehouse.');
+        this.actionError.set(
+          toUserFacingErrorMessage(err, 'Failed to load storage locations for warehouse.')
+        );
         this.locationsLoading.set(false);
         this.loading.set(false);
       }
