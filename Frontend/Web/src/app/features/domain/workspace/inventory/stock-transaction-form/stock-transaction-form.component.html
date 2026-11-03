@@ -328,6 +328,30 @@
           <span class="detail-value">{{ activeCurrency() }} {{ viewReceipt()!.unitCost | number:'1.2-2' }}</span>
         </div>
 
+        <div class="detail-item" *ngIf="viewReceipt()!.batchNumber">
+          <span class="detail-label">Batch / Lot Number</span>
+          <span class="detail-value">
+            <strong>{{ viewReceipt()!.batchNumber }}</strong>
+          </span>
+        </div>
+
+        <div class="detail-item" *ngIf="viewReceipt()!.manufacturingDate">
+          <span class="detail-label">Manufacturing Date</span>
+          <span class="detail-value">{{ viewReceipt()!.manufacturingDate | date:'mediumDate' }}</span>
+        </div>
+
+        <div class="detail-item" *ngIf="viewReceipt()!.expiryDate">
+          <span class="detail-label">Expiry Date</span>
+          <span class="detail-value">{{ viewReceipt()!.expiryDate | date:'mediumDate' }}</span>
+        </div>
+
+        <div class="detail-item" *ngIf="viewReceipt()!.serialNumber">
+          <span class="detail-label">Serial Number</span>
+          <span class="detail-value">
+            <strong>{{ viewReceipt()!.serialNumber }}</strong>
+          </span>
+        </div>
+
         <div class="detail-item">
           <span class="detail-label">Total Cost Inflow</span>
           <span class="detail-value highlight-cost">
@@ -393,6 +417,20 @@
         <div class="detail-item">
           <span class="detail-label">Unit Cost</span>
           <span class="detail-value">{{ activeCurrency() }} {{ viewIssue()!.unitCost | number:'1.2-2' }}</span>
+        </div>
+
+        <div class="detail-item" *ngIf="viewIssue()!.batchNumber">
+          <span class="detail-label">Batch / Lot Number</span>
+          <span class="detail-value">
+            <strong>{{ viewIssue()!.batchNumber }}</strong>
+          </span>
+        </div>
+
+        <div class="detail-item" *ngIf="viewIssue()!.serialNumber">
+          <span class="detail-label">Serial Number</span>
+          <span class="detail-value">
+            <strong>{{ viewIssue()!.serialNumber }}</strong>
+          </span>
         </div>
 
         <div class="detail-item">

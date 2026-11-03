@@ -116,12 +116,14 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
         const name = (r.productName || '').toLowerCase();
         const wh = (r.warehouseName || '').toLowerCase();
         const ref = (r.sourceDocumentReference || '').toLowerCase();
+        const batch = (r.batchNumber || '').toLowerCase();
         return (
           num.includes(term) ||
           code.includes(term) ||
           name.includes(term) ||
           wh.includes(term) ||
-          ref.includes(term)
+          ref.includes(term) ||
+          batch.includes(term)
         );
       });
     }
@@ -164,6 +166,12 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
       header: 'WAREHOUSE / BIN',
       sortable: true,
       format: (_, row) => `${row.warehouseName}${row.locationCode ? ' / ' + row.locationCode : ''}`
+    },
+    {
+      field: 'batchNumber',
+      header: 'BATCH / LOT',
+      sortable: true,
+      format: val => val || '—'
     },
     {
       field: 'quantity',

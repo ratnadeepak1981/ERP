@@ -383,7 +383,7 @@ public class FEFOPickingAndExpiryDispatchTests : IClassFixture<TestSecurityFixtu
         await db.SaveChangesAsync();
 
         var product = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "QC_PRD");
-        string batchQ = $"Q-BATCH-{Guid.NewGuid():N}"[..10].ToUpperInvariant();
+        string batchQ = $"Q-BATCH-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
         var now = DateTime.UtcNow.Date;
 
         // Inflow stock into quarantine location
@@ -556,7 +556,7 @@ public class FEFOPickingAndExpiryDispatchTests : IClassFixture<TestSecurityFixtu
             CompanyId = companyId,
             BranchId = branchId,
             CustomerId = TestConstants.CustomerAlphaId,
-            OrderNumber = $"SO-FEFO-{Guid.NewGuid():N}"[..12].ToUpperInvariant(),
+            OrderNumber = $"SO-FEFO-{Guid.NewGuid():N}"[..24].ToUpperInvariant(),
             OrderDate = DateTime.UtcNow,
             Status = SalesOrderStatus.Confirmed,
             TotalAmount = quantity * 20m,

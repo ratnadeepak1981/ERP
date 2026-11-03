@@ -49,6 +49,7 @@ export enum StockIssueStatus {
 
 export interface StockIssueDto {
   stockIssueId: string;
+  stockIssueLineId?: string | null;
   issueNumber: string;
   issueDate: string;
   purpose: StockIssuePurpose;
@@ -212,6 +213,7 @@ export enum StockReceiptStatus {
 
 export interface StockReceiptDto {
   stockReceiptId: string;
+  stockReceiptLineId?: string | null;
   receiptNumber: string;
   receiptDate: string;
   reason: StockReceiptReason;
@@ -234,12 +236,15 @@ export interface StockReceiptDto {
   totalCost: number;
   batchNumber?: string | null;
   serialNumber?: string | null;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
   sourceDocumentReference?: string | null;
   remarks?: string | null;
   createdAt: string;
 }
 
 export interface CreateStockReceiptRequest {
+  stockReceiptId?: string | null;
   receiptDate?: string | null;
   reason: StockReceiptReason;
   warehouseId: string;
@@ -249,12 +254,15 @@ export interface CreateStockReceiptRequest {
 }
 
 export interface CreateStockReceiptLineRequest {
+  stockReceiptLineId?: string | null;
   productId: string;
   warehouseLocationId: string;
   quantity: number;
   unitCost?: number | null;
   batchNumber?: string | null;
   serialNumber?: string | null;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
   remarks?: string | null;
 }
 
