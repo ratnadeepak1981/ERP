@@ -113,9 +113,9 @@ public static class ServiceRegistration
         services.AddScoped<ERP.Domain.Features.CRM.ICrmActivityService, ERP.Domain.Features.CRM.CrmActivityService>();
 
         // Sales
-        services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderService, Domain.Features.Sales.SalesOrder.SalesOrderService>();
-        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentService, Domain.Features.Sales.Shipment.SalesShipmentService>();
-        services.AddScoped<Domain.Features.Sales.Invoice.ISalesInvoiceService, Domain.Features.Sales.Invoice.SalesInvoiceService>();
+        services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderService, ERP.Application.Features.Sales.SalesOrder.SalesOrderService>();
+        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentService, ERP.Application.Features.Sales.Shipment.SalesShipmentService>();
+        services.AddScoped<Domain.Features.Sales.Invoice.ISalesInvoiceService, ERP.Application.Features.Sales.Invoice.SalesInvoiceService>();
 
         services.AddHttpContextAccessor();
 

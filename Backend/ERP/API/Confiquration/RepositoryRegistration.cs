@@ -68,9 +68,10 @@ public static class RepositoryRegistration
         services.AddScoped<ERP.Domain.Features.CRM.ICrmActivityRepository, ERP.Domain.Features.CRM.CrmActivityRepository>();
 
         // Sales
-        services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderRepository, Domain.Features.Sales.SalesOrder.SalesOrderRepository>();
-        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentRepository, Domain.Features.Sales.Shipment.SalesShipmentRepository>();
-        services.AddScoped<Domain.Features.Sales.Invoice.ISalesInvoiceRepository, Domain.Features.Sales.Invoice.SalesInvoiceRepository>();
+        services.AddScoped<ERP.Application.Features.Sales.ISalesPersistenceCoordinator, ERP.Infrastructure.Persistence.SalesPersistenceCoordinator>();
+        services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderRepository, ERP.Infrastructure.Repositories.Sales.SalesOrderRepository>();
+        services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentRepository, ERP.Infrastructure.Repositories.Sales.SalesShipmentRepository>();
+        services.AddScoped<Domain.Features.Sales.Invoice.ISalesInvoiceRepository, ERP.Infrastructure.Repositories.Sales.SalesInvoiceRepository>();
 
         return services;
     }
