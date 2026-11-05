@@ -57,8 +57,9 @@ public static class RepositoryRegistration
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceRepository, Domain.Features.MasterData.Supplier.SupplierProductPriceRepository>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalAuditRepository, ERP.Infrastructure.Repositories.Procurement.ApprovalAuditRepository>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionRepository, ERP.Infrastructure.Repositories.Procurement.PurchaseRequisitionRepository>();
-        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryRepository, ERP.Domain.Features.Inventory.InventoryRepository>();
-        services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayRepository, Domain.Features.Inventory.Putaway.PutawayRepository>();
+        services.AddScoped<ERP.Application.Features.Inventory.IInventoryPersistenceCoordinator, ERP.Infrastructure.Persistence.InventoryPersistenceCoordinator>();
+        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryRepository, ERP.Infrastructure.Repositories.Inventory.InventoryRepository>();
+        services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayRepository, ERP.Infrastructure.Repositories.Inventory.PutawayRepository>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteRepository, ERP.Infrastructure.Repositories.Procurement.GoodsReceiptNoteRepository>();
 
         // CRM

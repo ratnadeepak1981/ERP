@@ -94,19 +94,19 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, ERP.Application.Features.Procurement.Approval.ApprovalWorkflowService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, ERP.Application.Features.Procurement.PurchaseRequisitionFeature.PurchaseRequisitionService>();
-        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
-        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Domain.Features.Inventory.InventoryService>();
-        services.AddScoped<ERP.Domain.Features.Inventory.Planning.IInventoryPlanningService, ERP.Domain.Features.Inventory.Planning.InventoryPlanningService>();
-        services.AddScoped<ERP.Domain.Features.Inventory.Batch.IBatchService, ERP.Domain.Features.Inventory.Batch.BatchService>();
-        services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayService, Domain.Features.Inventory.Putaway.PutawayService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Application.Features.Inventory.InventoryPosting.InventoryPostingService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Application.Features.Inventory.Management.InventoryService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Planning.IInventoryPlanningService, ERP.Application.Features.Inventory.Planning.InventoryPlanningService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Batch.IBatchService, ERP.Application.Features.Inventory.Batch.BatchService>();
+        services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayService, ERP.Application.Features.Inventory.Putaway.PutawayService>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, ERP.Application.Features.Procurement.GoodsReceiptNoteFeature.GoodsReceiptNoteService>();
 
         // Inventory Valuation Strategies & Service
-        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.FifoValuationStrategy>();
-        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.LifoValuationStrategy>();
-        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.WeightedAverageValuationStrategy>();
-        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.StandardCostValuationStrategy>();
-        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationService, ERP.Domain.Features.Inventory.Valuation.InventoryValuationService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Application.Features.Inventory.Valuation.FifoValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Application.Features.Inventory.Valuation.LifoValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Application.Features.Inventory.Valuation.WeightedAverageValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Application.Features.Inventory.Valuation.StandardCostValuationStrategy>();
+        services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationService, ERP.Application.Features.Inventory.Valuation.InventoryValuationService>();
         services.AddScoped<ERP.Domain.Features.CRM.Deduplication.ICustomerDeduplicationService, ERP.Domain.Features.CRM.Deduplication.CustomerDeduplicationService>();
         services.AddScoped<ERP.Domain.Features.CRM.ILeadService, ERP.Domain.Features.CRM.LeadService>();
         services.AddScoped<ERP.Domain.Features.CRM.IOpportunityService, ERP.Domain.Features.CRM.OpportunityService>();
