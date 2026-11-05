@@ -74,7 +74,7 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.MasterData.Product.IProductPackagingService, Domain.Features.MasterData.Product.ProductPackagingService>();
         services.AddScoped<Domain.Features.MasterData.Product.IProductIdentifierService, Domain.Features.MasterData.Product.ProductIdentifierService>();
         services.AddScoped<IBranchService, BranchService>();
-        services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderService>();
+        services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, ERP.Application.Features.Procurement.PurchaseOrderFeature.PurchaseOrderService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryService, ERP.Domain.Features.MasterData.Category.CategoryService>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureService>();
         services.AddScoped<Domain.Features.MasterData.Currency.ICurrencyService, Domain.Features.MasterData.Currency.CurrencyService>();
@@ -92,14 +92,14 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceService, Domain.Features.MasterData.Supplier.SupplierProductPriceService>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.ISpecialUomConversionSettingsProvider, API.Services.SpecialUomConversionSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();
-        services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, Domain.Features.Procurement.Approval.ApprovalWorkflowService>();
-        services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionService>();
+        services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, ERP.Application.Features.Procurement.Approval.ApprovalWorkflowService>();
+        services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, ERP.Application.Features.Procurement.PurchaseRequisitionFeature.PurchaseRequisitionService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Domain.Features.Inventory.InventoryService>();
         services.AddScoped<ERP.Domain.Features.Inventory.Planning.IInventoryPlanningService, ERP.Domain.Features.Inventory.Planning.InventoryPlanningService>();
         services.AddScoped<ERP.Domain.Features.Inventory.Batch.IBatchService, ERP.Domain.Features.Inventory.Batch.BatchService>();
         services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayService, Domain.Features.Inventory.Putaway.PutawayService>();
-        services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteService>();
+        services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, ERP.Application.Features.Procurement.GoodsReceiptNoteFeature.GoodsReceiptNoteService>();
 
         // Inventory Valuation Strategies & Service
         services.AddScoped<ERP.Domain.Features.Inventory.Valuation.IInventoryValuationStrategy, ERP.Domain.Features.Inventory.Valuation.FifoValuationStrategy>();

@@ -40,7 +40,8 @@ public static class RepositoryRegistration
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductPackagingRepository, ProductPackagingRepository>();
         services.AddScoped<IBranchRepository, BranchRepository>();
-        services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderRepository, Domain.Features.Procurement.PurchaseOrder.PurchaseOrderRepository>();
+        services.AddScoped<ERP.Application.Features.Procurement.IProcurementPersistenceCoordinator, ERP.Infrastructure.Persistence.ProcurementPersistenceCoordinator>();
+        services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderRepository, ERP.Infrastructure.Repositories.Procurement.PurchaseOrderRepository>();
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryRepository, ERP.Domain.Features.MasterData.Category.CategoryRepository>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureRepository, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureRepository>();
         services.AddScoped<Domain.Features.MasterData.Currency.ICurrencyRepository, Domain.Features.MasterData.Currency.CurrencyRepository>();
@@ -54,11 +55,11 @@ public static class RepositoryRegistration
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseRepository, ERP.Domain.Features.MasterData.Warehouse.WarehouseRepository>();
         services.AddScoped<Domain.Features.MasterData.Address.IAddressRepository, Domain.Features.MasterData.Address.AddressRepository>();
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceRepository, Domain.Features.MasterData.Supplier.SupplierProductPriceRepository>();
-        services.AddScoped<Domain.Features.Procurement.Approval.IApprovalAuditRepository, Domain.Features.Procurement.Approval.ApprovalAuditRepository>();
-        services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionRepository, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionRepository>();
+        services.AddScoped<Domain.Features.Procurement.Approval.IApprovalAuditRepository, ERP.Infrastructure.Repositories.Procurement.ApprovalAuditRepository>();
+        services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionRepository, ERP.Infrastructure.Repositories.Procurement.PurchaseRequisitionRepository>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryRepository, ERP.Domain.Features.Inventory.InventoryRepository>();
         services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayRepository, Domain.Features.Inventory.Putaway.PutawayRepository>();
-        services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteRepository, Domain.Features.Procurement.GoodsReceiptNote.GoodsReceiptNoteRepository>();
+        services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteRepository, ERP.Infrastructure.Repositories.Procurement.GoodsReceiptNoteRepository>();
 
         // CRM
         services.AddScoped<ERP.Domain.Features.CRM.ILeadRepository, ERP.Domain.Features.CRM.LeadRepository>();
