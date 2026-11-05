@@ -1,0 +1,11 @@
+Correct. Master Data migration has 9 main steps, completed one at a time.
+Step	Master Data group	Risk
+1	Payment Terms + Tax Codes	Low
+2	Brand + Category	Low
+3	Currency + Exchange Rates	Medium
+4	Customer + Supplier	Medium–High
+5	UOM + Conversions	High
+6	Product + Packaging + Identifiers	Critical
+7	Price Cards + Pricing Resolution	Medium–High
+8	Company + Branch + Address + Contact	High
+9	Warehouse + Location Hierarchy	Critical

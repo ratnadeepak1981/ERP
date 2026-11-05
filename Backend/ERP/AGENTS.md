@@ -79,6 +79,18 @@ Before introducing or changing a project reference:
 Do not reorganise existing projects simply to make them match an ideal folder structure. Preserve working implementations while progressively maintaining the intended architectural boundaries.
 
 **Architecture acceptance condition:** A feature is not considered architecturally complete merely because it builds and passes tests. Its project references, dependency direction, business-rule ownership and infrastructure isolation must also be correct.
+
+### 2.4 Transitional Clean Architecture Implementation Status
+
+The following modules have been transitioned to Clean Architecture (`ERP.Application` and `ERP.Infrastructure`) while retaining authoritative entities and `DomainDbContext` in `ERP.Domain`:
+- **Procurement:** `PurchaseOrder`, `GoodsReceiptNote`, `PurchaseRequisition`, `ApprovalWorkflow` (Commit `8d63a34`).
+- **Inventory:** `InventoryPostingService`, `InventoryService`, `BatchService`, `PutawayService`, `InventoryPlanningService`, Valuation strategies (Commit `d99cede`).
+- **Sales:** `SalesOrderService`, `SalesShipmentService`, `SalesInvoiceService` (Commit `0660093`).
+- **Master Data (Group 1):** `PaymentTerm` and `TaxCode` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 2):** `Brand` and `Category` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 3):** `Currency` and `ExchangeRate` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 4):** `Customer` and `Supplier` application services in `ERP.Application`, repository implementations in `ERP.Infrastructure`, and dedicated persistence coordinators (`CustomerPersistenceCoordinator`, `SupplierPersistenceCoordinator`).
+
 ## 3. Database Context Boundaries
 
 Known database responsibilities include:
