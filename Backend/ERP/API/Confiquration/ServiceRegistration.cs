@@ -76,7 +76,7 @@ public static class ServiceRegistration
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, ERP.Application.Features.Procurement.PurchaseOrderFeature.PurchaseOrderService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryService, ERP.Application.Features.MasterData.Category.CategoryService>();
-        services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService, Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasureService>();
+        services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService, ERP.Application.Features.MasterData.UnitOfMeasure.UnitOfMeasureService>();
         services.AddScoped<Domain.Features.MasterData.Currency.ICurrencyService, ERP.Application.Features.MasterData.Currency.CurrencyService>();
         services.AddScoped<Domain.Features.MasterData.Currency.IExchangeRateService, ERP.Application.Features.MasterData.Currency.ExchangeRateService>();
         services.AddScoped<Domain.Features.MasterData.Brand.IBrandService, ERP.Application.Features.MasterData.Brand.BrandService>();
