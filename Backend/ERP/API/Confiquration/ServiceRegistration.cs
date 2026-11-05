@@ -70,8 +70,8 @@ public static class ServiceRegistration
         services.AddScoped<ICompanyService, CompanyService>();
         services.AddScoped<IUserScopeService, UserScopeService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
-        services.AddScoped<IProductService, ProductService>();
-        services.AddScoped<Domain.Features.MasterData.Product.IProductPackagingService, Domain.Features.MasterData.Product.ProductPackagingService>();
+        services.AddScoped<Domain.Features.MasterData.Product.IProductService, ERP.Application.Features.MasterData.Product.ProductService>();
+        services.AddScoped<Domain.Features.MasterData.Product.IProductPackagingService, ERP.Application.Features.MasterData.Product.ProductPackagingService>();
         services.AddScoped<Domain.Features.MasterData.Product.IProductIdentifierService, Domain.Features.MasterData.Product.ProductIdentifierService>();
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, ERP.Application.Features.Procurement.PurchaseOrderFeature.PurchaseOrderService>();

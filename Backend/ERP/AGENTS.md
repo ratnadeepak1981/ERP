@@ -91,6 +91,8 @@ The following modules have been transitioned to Clean Architecture (`ERP.Applica
 - **Master Data (Step 3):** `Currency` and `ExchangeRate` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
 - **Master Data (Step 4):** `Customer` and `Supplier` application services in `ERP.Application`, repository implementations in `ERP.Infrastructure`, and dedicated persistence coordinators (`CustomerPersistenceCoordinator`, `SupplierPersistenceCoordinator`).
 - **Master Data (Step 5):** `UnitOfMeasure` standard CRUD, standard conversion, and product-specific packaging conversion application services in `ERP.Application` and repository implementation in `ERP.Infrastructure`.
+- **Master Data (Step 6 Stage 1):** `Product` application service in `ERP.Application` and repository implementation in `ERP.Infrastructure`.
+- **Master Data (Step 6 Stage 2):** `ProductPackaging` application service in `ERP.Application` and repository implementation in `ERP.Infrastructure` integrated with Clean Architecture `UnitOfMeasureService`.
 
 ## 3. Database Context Boundaries
 
