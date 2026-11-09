@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Security.Application.DTOs;
 using Security.Common;
+using Security.Core.Models;
 using Security.Infrastructure.Persistence;
 using Security.Interfaces;
 
@@ -39,14 +40,17 @@ public class PermissionController : BaseApiController
         {
             var query = _dbContext.Permissions.Where(p => p.IsActive);
 
-            // Tenant administrators cannot view platform-only permissions (Tenant, Subscription)
+            // Tenant administrators cannot view platform-owned permissions.
             if (_currentUserContext.TenantId.HasValue)
             {
                 query = query.Where(p =>
+                    p.Category != PermissionCategory.Platform &&
                     p.Module != "Tenant" &&
                     p.Module != "Subscription" &&
+                    p.Module != "AI" &&
                     !p.Code.StartsWith("TENANT.") &&
-                    !p.Code.StartsWith("SUBSCRIPTION."));
+                    !p.Code.StartsWith("SUBSCRIPTION.") &&
+                    !p.Code.StartsWith("AI."));
             }
 
             if (!string.IsNullOrWhiteSpace(module))
@@ -56,7 +60,8 @@ public class PermissionController : BaseApiController
             }
 
             var permissions = await query
-                .OrderBy(p => p.Module)
+                .OrderBy(p => p.Category)
+                .ThenBy(p => p.Module)
                 .ThenBy(p => p.Code)
                 .Select(p => new
                 {
@@ -65,6 +70,8 @@ public class PermissionController : BaseApiController
                     name = p.Name,
                     description = p.Description,
                     module = p.Module,
+                    category = p.Category,
+                    operation = p.Operation,
                     isActive = p.IsActive
                 })
                 .ToListAsync();
@@ -96,6 +103,8 @@ public class PermissionController : BaseApiController
                 name = permission.Name,
                 description = permission.Description,
                 module = permission.Module,
+                category = permission.Category,
+                operation = permission.Operation,
                 isActive = permission.IsActive
             }, "Permission created successfully.");
         }

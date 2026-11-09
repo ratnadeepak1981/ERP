@@ -55,6 +55,10 @@ public class PermissionService : IPermissionService
             Name = name.Trim(),
             Description = description.Trim(),
             Module = module.Trim(),
+            Category = IsPlatformPermission(module.Trim(), code)
+                ? PermissionCategory.Platform
+                : PermissionCategory.Tenant,
+            Operation = PermissionOperation.FromCode(code),
             IsActive = true
         };
 
@@ -63,5 +67,17 @@ public class PermissionService : IPermissionService
         await _repository.SaveChangesAsync();
 
         return permission;
+    }
+
+    private static bool IsPlatformPermission(
+        string module,
+        string code)
+    {
+        return string.Equals(module, "Tenant", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(module, "Subscription", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(module, "AI", StringComparison.OrdinalIgnoreCase) ||
+               code.StartsWith("TENANT.", StringComparison.OrdinalIgnoreCase) ||
+               code.StartsWith("SUBSCRIPTION.", StringComparison.OrdinalIgnoreCase) ||
+               code.StartsWith("AI.", StringComparison.OrdinalIgnoreCase);
     }
 }

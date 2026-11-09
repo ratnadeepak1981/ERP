@@ -44,6 +44,7 @@ export class PermissionCatalogPageComponent implements OnInit {
 
   readonly searchQuery = signal<string>('');
   readonly selectedCategory = signal<string>('ALL');
+  readonly ownershipFilter = signal<'ALL' | 'Platform' | 'Tenant'>('ALL');
 
   readonly breadcrumbs: MenuItem[] = [
     { label: 'Tenant Administration', routerLink: '/tenant-admin' },
@@ -60,6 +61,8 @@ export class PermissionCatalogPageComponent implements OnInit {
 
   readonly totalCount = computed(() => this.permissions().length);
   readonly moduleCount = computed(() => this.categories().length);
+  readonly platformCount = computed(() => this.permissions().filter(p => p.ownership === 'Platform').length);
+  readonly tenantCount = computed(() => this.permissions().filter(p => p.ownership !== 'Platform').length);
 
   readonly filteredPermissions = computed(() => {
     let list = this.permissions();
@@ -68,13 +71,18 @@ export class PermissionCatalogPageComponent implements OnInit {
       list = list.filter(p => (p.category || 'General Capabilities') === this.selectedCategory());
     }
 
+    if (this.ownershipFilter() !== 'ALL') {
+      list = list.filter(p => (p.ownership || 'Tenant') === this.ownershipFilter());
+    }
+
     const q = this.searchQuery().trim().toLowerCase();
     if (q) {
       list = list.filter(p =>
         p.code.toLowerCase().includes(q) ||
         p.name.toLowerCase().includes(q) ||
         (p.description && p.description.toLowerCase().includes(q)) ||
-        (p.category && p.category.toLowerCase().includes(q))
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.operation && p.operation.toLowerCase().includes(q))
       );
     }
 

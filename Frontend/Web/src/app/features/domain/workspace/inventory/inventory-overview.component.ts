@@ -17,6 +17,7 @@ import { AppModuleOverviewComponent } from '../../../../shared/components/module
 import { InventoryService } from '../../../../core/services/inventory.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { isForbiddenError, toUserFacingErrorMessage } from '../../../../core/utils/http-error.util';
 import {
   InventorySummaryDto,
   InventoryRecentTransactionDto,
@@ -424,10 +425,11 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
       },
       error: err => {
         if (requestId !== this.activeRequestId) return;
-        if (err?.status === 403) {
+        this.loading.set(false);
+        if (isForbiddenError(err)) {
           this.isAccessDenied.set(true);
         } else {
-          this.error.set(err?.message || 'Failed to load inventory summary metrics.');
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load inventory summary metrics.'));
         }
       }
     });
@@ -441,10 +443,10 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
       error: err => {
         if (requestId !== this.activeRequestId) return;
         this.loading.set(false);
-        if (err?.status === 403) {
+        if (isForbiddenError(err)) {
           this.isAccessDenied.set(true);
         } else if (!this.error()) {
-          this.error.set(err?.message || 'Failed to load recent inventory movements.');
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load recent inventory movements.'));
         }
       }
     });

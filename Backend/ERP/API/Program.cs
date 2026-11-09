@@ -250,6 +250,10 @@ public class Program
 
             await securityBootstrap.EnsureDomainPermissionsAsync();
 
+            // Upgrade existing tenants to the standard role templates and
+            // migrate legacy global Tenant Admin assignments.
+            await securityBootstrap.UpgradeExistingTenantsAsync();
+
             // Domain DB
             var domainDb =
                 services.GetRequiredService<DomainDbContext>();

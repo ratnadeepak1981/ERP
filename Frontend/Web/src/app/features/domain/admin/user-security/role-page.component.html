@@ -82,6 +82,20 @@
       </div>
     }
 
+    @if (isTemplateRole()) {
+      <div class="template-role-banner">
+        <i class="pi pi-clone"></i>
+        <div>
+          <strong>Standard Role Template Copy</strong>
+          <p>
+            This role was provisioned from the central template
+            <code>{{ templateLabel() }}</code>. You may customise its permissions for this tenant.
+            Future template upgrades only add newly required permissions and never remove your customisations.
+          </p>
+        </div>
+      </div>
+    }
+
     <div class="role-page-grid">
       <!-- Card 1: Role Metadata -->
       <div class="erp-card metadata-card">

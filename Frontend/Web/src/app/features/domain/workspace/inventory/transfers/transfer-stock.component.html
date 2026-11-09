@@ -4,7 +4,7 @@
     subtitle="Internal warehouse stock movements, bin-to-bin relocations, and transfer ledger log"
     [breadcrumbs]="breadcrumbs"
   >
-    <div actions header-actions class="header-action-group">
+    <div actions header-actions class="header-action-group" *ngIf="!isAccessDenied()">
       <p-button
         label="Refresh"
         icon="pi pi-refresh"
@@ -124,7 +124,7 @@
             <input
               pInputText
               type="text"
-              placeholder="Search by transaction #, SKU, warehouse, or location..."
+              placeholder="Search by transaction #, SKU, warehouse, location, or batch..."
               [ngModel]="searchTerm()"
               (ngModelChange)="searchTerm.set($event)"
               class="search-input"

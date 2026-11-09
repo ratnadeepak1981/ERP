@@ -723,30 +723,47 @@ public static class TestSeeder
 
     private static void SeedSecurity(SecurityDbContext db)
     {
-        // Ensure Roles
-        var tenantAdminRole = db.Roles.FirstOrDefault(x => x.Name == "Tenant Admin")
-            ?? new Role { Id = Guid.NewGuid(), Name = "Tenant Admin", Description = "Tenant Administrator", IsActive = true };
+        var repository =
+            new Security.Infrastructure.Persistence.Repositories.SecurityBootstrapRepository(db);
 
-        var tenantUserRole = db.Roles.FirstOrDefault(x => x.Name == "Tenant User")
-            ?? new Role { Id = Guid.NewGuid(), Name = "Tenant User", Description = "General Tenant User", IsActive = true };
+        // Ensure the catalogue exists before tenant role templates are applied.
+        Security.Bootstrap.Permissions.PermissionCatalogueSeeder
+            .SeedAsync(repository)
+            .GetAwaiter().GetResult();
 
-        var branchUserRole = db.Roles.FirstOrDefault(x => x.Name == "Branch User")
-            ?? new Role { Id = Guid.NewGuid(), Name = "Branch User", Description = "Branch User", IsActive = true };
+        // Provision tenant-owned standard role copies (including each tenant's
+        // own Tenant Admin role). This mirrors production tenant provisioning.
+        var bootstrap = new SecurityBootstrapService(
+            repository,
+            new PasswordService());
 
-        var viewerRole = db.Roles.FirstOrDefault(x => x.Name == "Viewer")
-            ?? new Role { Id = Guid.NewGuid(), Name = "Viewer", Description = "Read-Only Viewer", IsActive = true };
+        bootstrap.EnsureTenantStandardRolesAsync(TestConstants.TenantAlphaId)
+            .GetAwaiter().GetResult();
+        bootstrap.EnsureTenantStandardRolesAsync(TestConstants.TenantBetaId)
+            .GetAwaiter().GetResult();
 
-        if (tenantAdminRole.Id != Guid.Empty && !db.Roles.Any(x => x.Id == tenantAdminRole.Id)) db.Roles.Add(tenantAdminRole);
-        if (tenantUserRole.Id != Guid.Empty && !db.Roles.Any(x => x.Id == tenantUserRole.Id)) db.Roles.Add(tenantUserRole);
-        if (branchUserRole.Id != Guid.Empty && !db.Roles.Any(x => x.Id == branchUserRole.Id)) db.Roles.Add(branchUserRole);
-        if (viewerRole.Id != Guid.Empty && !db.Roles.Any(x => x.Id == viewerRole.Id)) db.Roles.Add(viewerRole);
+        var tenantAdminAlpha = db.Roles.First(x =>
+            x.TenantId == TestConstants.TenantAlphaId &&
+            x.TemplateKey == Security.Bootstrap.Roles.StandardRoleTemplates.TenantAdminKey);
+
+        var tenantAdminBeta = db.Roles.First(x =>
+            x.TenantId == TestConstants.TenantBetaId &&
+            x.TemplateKey == Security.Bootstrap.Roles.StandardRoleTemplates.TenantAdminKey);
+
+        // Supporting tenant-scoped roles used by existing workflow/scope tests.
+        var tenantUserRole = GetOrCreateTenantRole(
+            db, TestConstants.TenantAlphaId, "Tenant User", "General Tenant User");
+        var branchUserRole = GetOrCreateTenantRole(
+            db, TestConstants.TenantAlphaId, "Branch User", "Branch User");
+        var viewerRole = GetOrCreateTenantRole(
+            db, TestConstants.TenantAlphaId, "Viewer", "Read-Only Viewer");
 
         db.SaveChanges();
 
         // Seed Users
         SeedUserWithRole(db, TestConstants.PlatformAdminId, null, "platformadmin", "platform@platform.local");
-        SeedUserWithRole(db, TestConstants.TenantAdminAlphaId, TestConstants.TenantAlphaId, "tenantadmin_a", "admin_a@tenant.local", tenantAdminRole);
-        SeedUserWithRole(db, TestConstants.TenantAdminBetaId, TestConstants.TenantBetaId, "tenantadmin_b", "admin_b@tenant.local", tenantAdminRole);
+        SeedUserWithRole(db, TestConstants.TenantAdminAlphaId, TestConstants.TenantAlphaId, "tenantadmin_a", "admin_a@tenant.local", tenantAdminAlpha);
+        SeedUserWithRole(db, TestConstants.TenantAdminBetaId, TestConstants.TenantBetaId, "tenantadmin_b", "admin_b@tenant.local", tenantAdminBeta);
 
         SeedUserWithRole(db, TestConstants.TenantUserAlphaId, TestConstants.TenantAlphaId, "tenantuser_a", "user_a@tenant.local", tenantUserRole);
         
@@ -772,6 +789,34 @@ public static class TestSeeder
         EnsureScope(db, multiCompUser, TestConstants.CompanyBId, null);
 
         db.SaveChanges();
+    }
+
+    private static Role GetOrCreateTenantRole(
+        SecurityDbContext db,
+        Guid tenantId,
+        string name,
+        string description)
+    {
+        var role = db.Roles.FirstOrDefault(x =>
+            x.TenantId == tenantId &&
+            x.Name == name);
+
+        if (role == null)
+        {
+            role = new Role
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = name,
+                Description = description,
+                IsSystemRole = false,
+                IsActive = true
+            };
+
+            db.Roles.Add(role);
+        }
+
+        return role;
     }
 
     private static UserRole SeedUserWithRole(

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, ActivatedRoute, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -206,5 +206,64 @@ describe('StorePutawayPageComponent', () => {
     component.confirmPutaway();
     expect(createSpy).toHaveBeenCalledWith(expect.anything(), false);
     expect(component.feedbackMessage()?.type).toBe('success');
+  });
+
+  describe('F2 authorization and error states', () => {
+    it('should block the create form with Access Denied when warehouses return 403', () => {
+      vi.spyOn(masterDataService, 'getWarehouses').mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, statusText: 'Forbidden' }))
+      );
+
+      fixture.detectChanges();
+
+      expect(component.isAccessDenied()).toBe(true);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Access Restricted');
+      expect(compiled.textContent).not.toContain('Http failure response');
+      // The transaction form must not render against empty warehouse master data.
+      expect(compiled.querySelector('.putaway-content-container')).toBeNull();
+    });
+
+    it('should show a safe retryable error instead of raw transport text for a 500', () => {
+      vi.spyOn(masterDataService, 'getWarehouses').mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 500,
+              statusText: 'Internal Server Error',
+              url: 'http://localhost:4200/api/warehouses'
+            })
+        )
+      );
+
+      fixture.detectChanges();
+
+      expect(component.isAccessDenied()).toBe(false);
+      expect(component.error()).toBeTruthy();
+      expect(component.error()).not.toMatch(/http failure response/i);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Retry');
+      expect(compiled.textContent).not.toContain('Http failure response');
+    });
+
+    it('should re-invoke warehouse loading when retried after failure', () => {
+      const warehouseSpy = vi
+        .spyOn(masterDataService, 'getWarehouses')
+        .mockReturnValue(
+          throwError(() => new HttpErrorResponse({ status: 0, statusText: 'Unknown Error' }))
+        );
+
+      fixture.detectChanges();
+      expect(component.error()).toBeTruthy();
+
+      warehouseSpy.mockReturnValue(of([mockWarehouse]));
+      component.initModeAndData();
+
+      expect(warehouseSpy).toHaveBeenCalledTimes(2);
+      expect(component.error()).toBeNull();
+      expect(component.warehouses().length).toBe(1);
+    });
   });
 });

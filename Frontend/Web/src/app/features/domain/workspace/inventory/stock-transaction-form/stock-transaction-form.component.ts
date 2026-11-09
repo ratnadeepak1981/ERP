@@ -30,6 +30,10 @@ import { MasterDataService } from '../../../../../core/services/master-data.serv
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
 import {
+  isForbiddenError,
+  toUserFacingErrorMessage
+} from '../../../../../core/utils/http-error.util';
+import {
   StockIssueDto,
   StockIssuePurpose,
   StockReceiptDto,
@@ -97,6 +101,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
   readonly loading = signal<boolean>(false);
   readonly saving = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+  readonly loadError = signal<string | null>(null);
   readonly isAccessDenied = signal<boolean>(false);
   readonly accessDeniedMessage = signal<string>(
     "You don't have permission to record or view inventory stock transactions."
@@ -596,6 +601,9 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
 
   loadMasterData(): void {
     this.loading.set(true);
+    this.loadError.set(null);
+    this.error.set(null);
+    this.isAccessDenied.set(false);
 
     this.masterDataService.getWarehouses().subscribe({
       next: whs => {
@@ -609,7 +617,11 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.loading.set(false);
-        this.error.set(err?.message || 'Failed to load warehouses.');
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.loadError.set(toUserFacingErrorMessage(err, 'Failed to load warehouse master data.'));
+        }
       }
     });
 
@@ -618,7 +630,11 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
         const stockTracked = (prods || []).filter(p => p.isActive && p.isStockTracked);
         this.products.set(stockTracked);
       },
-      error: () => {}
+      error: err => {
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        }
+      }
     });
   }
 
@@ -667,11 +683,15 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
         }));
         if (callback) callback();
       },
-      error: () => {
+      error: err => {
         this.locationsMap.update(map => ({
           ...map,
           [warehouseId]: []
         }));
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+          return;
+        }
         if (callback) callback();
       }
     });
@@ -826,10 +846,10 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.loading.set(false);
-          if (err?.status === 403) {
+          if (isForbiddenError(err)) {
             this.isAccessDenied.set(true);
           } else {
-            this.error.set(err?.message || 'Failed to load stock receipt details.');
+            this.error.set(toUserFacingErrorMessage(err, 'Failed to load stock receipt details.'));
           }
         }
       });
@@ -845,10 +865,10 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.loading.set(false);
-          if (err?.status === 403) {
+          if (isForbiddenError(err)) {
             this.isAccessDenied.set(true);
           } else {
-            this.error.set(err?.message || 'Failed to load stock issue details.');
+            this.error.set(toUserFacingErrorMessage(err, 'Failed to load stock issue details.'));
           }
         }
       });
@@ -894,10 +914,10 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.saving.set(false);
-          if (err?.status === 403) {
+          if (isForbiddenError(err)) {
             this.isAccessDenied.set(true);
           } else {
-            this.error.set(err?.error?.message || err?.message || 'Failed to post stock receipt.');
+            this.error.set(toUserFacingErrorMessage(err, 'Failed to post stock receipt.'));
           }
         }
       });
@@ -931,10 +951,10 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.saving.set(false);
-          if (err?.status === 403) {
+          if (isForbiddenError(err)) {
             this.isAccessDenied.set(true);
           } else {
-            this.error.set(err?.error?.message || err?.message || 'Failed to post stock issue.');
+            this.error.set(toUserFacingErrorMessage(err, 'Failed to post stock issue.'));
           }
         }
       });
