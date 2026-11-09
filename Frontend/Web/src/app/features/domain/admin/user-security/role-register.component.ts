@@ -47,10 +47,11 @@ export class RoleRegisterComponent implements OnInit {
 
   readonly roles = signal<RoleDefinition[]>([]);
   readonly searchQuery = signal<string>('');
-  readonly typeFilter = signal<'all' | 'custom' | 'system'>('all');
+  readonly typeFilter = signal<'all' | 'standard' | 'custom' | 'system'>('all');
 
   readonly systemRolesCount = computed(() => this.roles().filter(r => r.isSystem).length);
-  readonly customRolesCount = computed(() => this.roles().filter(r => !r.isSystem).length);
+  readonly standardRolesCount = computed(() => this.roles().filter(r => !r.isSystem && !!r.isTemplate).length);
+  readonly customRolesCount = computed(() => this.roles().filter(r => !r.isSystem && !r.isTemplate).length);
 
   readonly displayedRoles = computed(() => {
     const q = this.searchQuery().toLowerCase().trim();
@@ -59,8 +60,10 @@ export class RoleRegisterComponent implements OnInit {
 
     if (type === 'system') {
       list = list.filter(r => r.isSystem);
+    } else if (type === 'standard') {
+      list = list.filter(r => !r.isSystem && !!r.isTemplate);
     } else if (type === 'custom') {
-      list = list.filter(r => !r.isSystem);
+      list = list.filter(r => !r.isSystem && !r.isTemplate);
     }
 
     if (!q) return list;

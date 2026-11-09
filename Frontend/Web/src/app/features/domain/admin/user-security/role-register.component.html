@@ -47,6 +47,16 @@
     </div>
 
     <div class="metric-card erp-card">
+      <div class="metric-icon-wrap warning">
+        <i class="pi pi-clone"></i>
+      </div>
+      <div class="metric-info">
+        <span class="metric-label">Standard Role Templates</span>
+        <strong class="metric-value">{{ standardRolesCount() }}</strong>
+      </div>
+    </div>
+
+    <div class="metric-card erp-card">
       <div class="metric-icon-wrap success">
         <i class="pi pi-sliders-h"></i>
       </div>
@@ -94,6 +104,14 @@
           (click)="typeFilter.set('all')"
         >
           All Roles ({{ roles().length }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="typeFilter() === 'standard'"
+          (click)="typeFilter.set('standard')"
+        >
+          Standard Roles ({{ standardRolesCount() }})
         </button>
         <button
           type="button"
@@ -146,6 +164,8 @@
                   <div class="tags-row">
                     @if (role.isSystem) {
                       <span class="system-badge">System Defined</span>
+                    } @else if (role.isTemplate) {
+                      <span class="standard-badge">Standard Template</span>
                     } @else {
                       <span class="custom-badge">Custom Role</span>
                     }

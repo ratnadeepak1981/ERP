@@ -40,7 +40,16 @@
     </div>
   }
 
-  @if (loading()) {
+  @if (isAccessDenied()) {
+    <div class="erp-card state-card">
+      <app-access-denied
+        title="Access Restricted"
+        message="You do not have permission to view warehouse facilities and storage locations."
+        [showBackAction]="true"
+        [showHomeAction]="true"
+      ></app-access-denied>
+    </div>
+  } @else if (loading()) {
     <div class="erp-card state-card">
       <app-loading-state message="Loading warehouse facilities from server..."></app-loading-state>
     </div>

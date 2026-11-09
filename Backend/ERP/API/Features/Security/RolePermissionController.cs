@@ -59,15 +59,33 @@ public class RolePermissionController : BaseApiController
                 }
             }
 
-            var permissions = await _dbContext.RolePermissions
-                .Where(rp => rp.RoleId == roleId && rp.Permission.IsActive)
+            var permissionsQuery = _dbContext.RolePermissions
+                .Where(rp => rp.RoleId == roleId && rp.Permission.IsActive);
+
+            if (tenantId.HasValue)
+            {
+                // Defence in depth: never expose platform-owned permissions to
+                // a tenant administrator, even if a legacy assignment exists.
+                permissionsQuery = permissionsQuery.Where(rp =>
+                    rp.Permission.Category != PermissionCategory.Platform &&
+                    rp.Permission.Module != "Tenant" &&
+                    rp.Permission.Module != "Subscription" &&
+                    rp.Permission.Module != "AI" &&
+                    !rp.Permission.Code.StartsWith("TENANT.") &&
+                    !rp.Permission.Code.StartsWith("SUBSCRIPTION.") &&
+                    !rp.Permission.Code.StartsWith("AI."));
+            }
+
+            var permissions = await permissionsQuery
                 .Select(rp => new
                 {
                     id = rp.Permission.Id,
                     code = rp.Permission.Code,
                     name = rp.Permission.Name,
                     description = rp.Permission.Description,
-                    module = rp.Permission.Module
+                    module = rp.Permission.Module,
+                    category = rp.Permission.Category,
+                    operation = rp.Permission.Operation
                 })
                 .OrderBy(p => p.module)
                 .ThenBy(p => p.code)
@@ -110,17 +128,25 @@ public class RolePermissionController : BaseApiController
                 {
                     return ForbiddenResponse("You do not have permission to modify roles belonging to another tenant.");
                 }
+            }
 
-                var permission = await _dbContext.Permissions.FirstOrDefaultAsync(p => p.Id == request.PermissionId);
-                if (permission == null)
-                {
-                    return NotFoundResponse("Permission not found.");
-                }
+            var permission = await _dbContext.Permissions
+                .FirstOrDefaultAsync(p => p.Id == request.PermissionId);
 
-                if (PlatformSecurityConstants.IsPlatformOnlyPermission(permission.Module, permission.Code))
-                {
-                    return ForbiddenResponse("Tenant administrators cannot assign platform-only permissions.");
-                }
+            if (permission == null)
+            {
+                return NotFoundResponse("Permission not found.");
+            }
+
+            // Tenant-owned roles must never receive platform permissions,
+            // regardless of who is performing the assignment.
+            if (role.TenantId.HasValue &&
+                PlatformSecurityConstants.IsPlatformOnlyPermission(
+                    permission.Category,
+                    permission.Module,
+                    permission.Code))
+            {
+                return ForbiddenResponse("Tenant roles cannot be granted platform-only permissions.");
             }
 
             await _rolePermissionService.AssignPermissionToRoleAsync(
@@ -280,20 +306,24 @@ public class RolePermissionController : BaseApiController
                 }
             }
 
-            // Verify none of the resolved permissions are platform-only if requested by Tenant Admin
-            if (tenantId.HasValue && targetPermissionIds.Count > 0)
+            // Verify none of the resolved permissions are platform-owned when
+            // the role belongs to a tenant.
+            if (role.TenantId.HasValue && targetPermissionIds.Count > 0)
             {
                 var targetPermissions = await _dbContext.Permissions
                     .Where(p => targetPermissionIds.Contains(p.Id))
                     .ToListAsync();
 
                 var unauthorized = targetPermissions
-                    .Where(p => PlatformSecurityConstants.IsPlatformOnlyPermission(p.Module, p.Code))
+                    .Where(p => PlatformSecurityConstants.IsPlatformOnlyPermission(
+                        p.Category,
+                        p.Module,
+                        p.Code))
                     .ToList();
 
                 if (unauthorized.Count > 0)
                 {
-                    return ForbiddenResponse("Tenant administrators cannot assign platform-only permissions.");
+                    return ForbiddenResponse("Tenant roles cannot be granted platform-only permissions.");
                 }
             }
 
@@ -336,7 +366,9 @@ public class RolePermissionController : BaseApiController
                     id = rp.Permission.Id,
                     code = rp.Permission.Code,
                     name = rp.Permission.Name,
-                    module = rp.Permission.Module
+                    module = rp.Permission.Module,
+                    category = rp.Permission.Category,
+                    operation = rp.Permission.Operation
                 })
                 .OrderBy(p => p.module)
                 .ThenBy(p => p.code)

@@ -168,6 +168,12 @@ public class DomainDbContext : DbContext
     public DbSet<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance> ProductValuationBalances
         => Set<ERP.Domain.Features.Inventory.Valuation.ProductValuationBalance>();
 
+    public DbSet<ERP.Domain.Features.Inventory.StockCount.StockCount> StockCounts
+        => Set<ERP.Domain.Features.Inventory.StockCount.StockCount>();
+
+    public DbSet<ERP.Domain.Features.Inventory.StockCount.StockCountLine> StockCountLines
+        => Set<ERP.Domain.Features.Inventory.StockCount.StockCountLine>();
+
     public DbSet<ERP.Domain.Features.CRM.Lead> Leads
         => Set<ERP.Domain.Features.CRM.Lead>();
 

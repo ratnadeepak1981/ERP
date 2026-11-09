@@ -18,7 +18,12 @@ import { AppStatusBadgeComponent } from '../../../../../shared/components/status
 import { AppLoadingStateComponent } from '../../../../../shared/components/loading-state/loading-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
+import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
+import {
+  isForbiddenError,
+  toUserFacingErrorMessage
+} from '../../../../../core/utils/http-error.util';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import {
   ProductItem,
@@ -58,7 +63,8 @@ export interface CategoryNodeState {
     AppStatusBadgeComponent,
     AppLoadingStateComponent,
     AppEmptyStateComponent,
-    AppErrorStateComponent
+    AppErrorStateComponent,
+    AccessDeniedComponent
   ],
   templateUrl: './product-master.component.html',
   styleUrl: './product-master.component.scss',
@@ -74,6 +80,7 @@ export class ProductMasterComponent implements OnInit {
   readonly units = signal<UnitOfMeasureItem[]>([]);
   readonly loading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+  readonly isAccessDenied = signal<boolean>(false);
 
   // Filters & Search
   readonly searchTerm = signal<string>('');
@@ -147,6 +154,7 @@ export class ProductMasterComponent implements OnInit {
   loadData(): void {
     this.loading.set(true);
     this.error.set(null);
+    this.isAccessDenied.set(false);
 
     this.masterDataService.getProducts().subscribe({
       next: (prods) => {
@@ -155,7 +163,11 @@ export class ProductMasterComponent implements OnInit {
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err?.error?.message || 'Failed to retrieve products from server.');
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to retrieve products from server.'));
+        }
       }
     });
 
@@ -284,7 +296,7 @@ export class ProductMasterComponent implements OnInit {
       error: (err) => {
         this.rootsLoading.set(false);
         this.loadingMoreRoots.set(false);
-        this.rootsError.set(err?.error?.message || err?.message || 'Failed to load root categories.');
+        this.rootsError.set(toUserFacingErrorMessage(err, 'Failed to load root categories.'));
       }
     });
   }
@@ -344,7 +356,7 @@ export class ProductMasterComponent implements OnInit {
       error: (err) => {
         this.updateNodeState(categoryId, {
           childrenLoading: false,
-          childrenError: err?.error?.message || err?.message || 'Failed to load subcategories.'
+          childrenError: toUserFacingErrorMessage(err, 'Failed to load subcategories.')
         });
       }
     });
@@ -406,7 +418,7 @@ export class ProductMasterComponent implements OnInit {
       error: (err) => {
         this.updateNodeState(categoryId, {
           productsLoading: false,
-          productsError: err?.error?.message || err?.message || 'Failed to load products for category.'
+          productsError: toUserFacingErrorMessage(err, 'Failed to load products for category.')
         });
       }
     });
