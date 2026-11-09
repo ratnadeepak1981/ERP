@@ -84,12 +84,12 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.MasterData.TaxCode.ITaxCodeService, ERP.Application.Features.MasterData.TaxCode.TaxCodeService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Customer.ICustomerService, ERP.Application.Features.MasterData.Customer.CustomerService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Supplier.ISupplierService, ERP.Application.Features.MasterData.Supplier.SupplierService>();
-        services.AddScoped<Domain.Features.MasterData.PriceCard.IPriceCardService, Domain.Features.MasterData.PriceCard.PriceCardService>();
-        services.AddScoped<Domain.Features.MasterData.PriceCard.IPricingResolutionService, Domain.Features.MasterData.PriceCard.PricingResolutionService>();
+        services.AddScoped<Domain.Features.MasterData.PriceCard.IPriceCardService, ERP.Application.Features.MasterData.PriceCard.PriceCardService>();
+        services.AddScoped<Domain.Features.MasterData.PriceCard.IPricingResolutionService, ERP.Application.Features.MasterData.PriceCard.PricingResolutionService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseService, ERP.Domain.Features.MasterData.Warehouse.WarehouseService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.ILocationIdentifierService, ERP.Domain.Features.MasterData.Warehouse.LocationIdentifierService>();
         services.AddScoped<Domain.Features.MasterData.Address.IAddressService, Domain.Features.MasterData.Address.AddressService>();
-        services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceService, Domain.Features.MasterData.Supplier.SupplierProductPriceService>();
+        services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceService, ERP.Application.Features.MasterData.Supplier.SupplierProductPriceService>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.ISpecialUomConversionSettingsProvider, API.Services.SpecialUomConversionSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, ERP.Application.Features.Procurement.Approval.ApprovalWorkflowService>();
