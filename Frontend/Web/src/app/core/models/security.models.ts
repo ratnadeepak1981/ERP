@@ -39,7 +39,11 @@ export interface UpdateUserDto {
 
 export interface PermissionItem {
   id: string;
+  /** Display grouping (module) for the permission catalog. */
   category: string;
+  /** Backend ownership category: Platform or Tenant. */
+  ownership?: 'Platform' | 'Tenant';
+  operation?: string;
   code: string;
   name: string;
   description: string;
@@ -59,6 +63,9 @@ export interface RoleDefinition {
   description: string;
   assignmentMode: 'simple' | 'advanced';
   templateId?: string;
+  templateKey?: string | null;
+  templateVersion?: number | null;
+  isTemplate?: boolean;
   permissions: string[];
   usersCount: number;
   isSystem: boolean;

@@ -3235,6 +3235,183 @@ namespace Domain.Migrations
                     b.ToTable("InventoryTransactions", (string)null);
                 });
 
+            modelBuilder.Entity("ERP.Domain.Features.Inventory.StockCount.StockCount", b =>
+                {
+                    b.Property<Guid>("StockCountId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CancelledByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CountDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CountNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PostedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SnapshotFingerprint")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WarehouseLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("StockCountId");
+
+                    b.HasIndex("TenantId", "CompanyId", "CountNumber")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "WarehouseId", "WarehouseLocationId");
+
+                    b.ToTable("StockCounts", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.Inventory.StockCount.StockCountLine", b =>
+                {
+                    b.Property<Guid>("StockCountLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ExpectedQuantityBase")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ExpectedQuantityEntered")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ManufacturingDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("PhysicalQuantityBase")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("PhysicalQuantityEntered")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ProductCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("StockCountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("UnitOfMeasureCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("UnitOfMeasureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("VarianceQuantityBase")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("WarehouseLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("StockCountLineId");
+
+                    b.HasIndex("TenantId", "StockCountId");
+
+                    b.HasIndex("TenantId", "UnitOfMeasureId");
+
+                    b.HasIndex("TenantId", "ProductId", "WarehouseLocationId");
+
+                    b.HasIndex("TenantId", "StockCountId", "WarehouseLocationId");
+
+                    b.ToTable("StockCountLines", (string)null);
+                });
+
             modelBuilder.Entity("ERP.Domain.Features.Inventory.Valuation.InventoryCostLayer", b =>
                 {
                     b.Property<Guid>("CostLayerId")
@@ -4650,6 +4827,7 @@ namespace Domain.Migrations
                         .HasPrincipalKey("TenantId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
                 });
 
             modelBuilder.Entity("Domain.Features.Sales.Invoice.SalesInvoiceItem", b =>
@@ -4702,6 +4880,7 @@ namespace Domain.Migrations
                         .HasPrincipalKey("TenantId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
                 });
 
             modelBuilder.Entity("Domain.Features.Sales.SalesOrder.SalesOrderItem", b =>
@@ -4932,6 +5111,54 @@ namespace Domain.Migrations
                         .HasForeignKey("TenantId", "WarehouseId", "WarehouseLocationId")
                         .HasPrincipalKey("TenantId", "WarehouseId", "WarehouseLocationId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.Inventory.StockCount.StockCount", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Company.Company", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CompanyId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "WarehouseId")
+                        .HasPrincipalKey("TenantId", "WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.MasterData.Warehouse.WarehouseLocation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "WarehouseId", "WarehouseLocationId")
+                        .HasPrincipalKey("TenantId", "WarehouseId", "WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.Inventory.StockCount.StockCountLine", b =>
+                {
+                    b.HasOne("Domain.Features.MasterData.Product.Product", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProductId")
+                        .HasPrincipalKey("TenantId", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Features.MasterData.UnitOfMeasure.UnitOfMeasure", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "UnitOfMeasureId")
+                        .HasPrincipalKey("TenantId", "UnitOfMeasureId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ERP.Domain.Features.Inventory.StockCount.StockCount", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("TenantId", "StockCountId", "WarehouseLocationId")
+                        .HasPrincipalKey("TenantId", "StockCountId", "WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -5243,6 +5470,11 @@ namespace Domain.Migrations
             modelBuilder.Entity("Domain.Features.Sales.Shipment.SalesShipment", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ERP.Domain.Features.Inventory.StockCount.StockCount", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("ERP.Domain.Features.MasterData.Category.Category", b =>

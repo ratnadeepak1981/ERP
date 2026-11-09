@@ -28,7 +28,18 @@ public class RoleConfiguration
         builder.Property(x => x.IsActive)
             .IsRequired();
 
+        builder.Property(x => x.TemplateKey)
+            .HasMaxLength(100);
+
+        builder.Property(x => x.TemplateVersion);
+
         builder.HasIndex(x => x.TenantId);
+
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.TemplateKey
+        });
 
         builder.HasIndex(x => new
         {

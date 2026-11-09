@@ -27,6 +27,10 @@ import { MasterDataService } from '../../../../../core/services/master-data.serv
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
 import {
+  isForbiddenError,
+  toUserFacingErrorMessage
+} from '../../../../../core/utils/http-error.util';
+import {
   PutawayRecordDto,
   PutawayLineDto,
   PutawayStatus,
@@ -271,12 +275,14 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
     this.subs.unsubscribe();
   }
 
-  private initModeAndData(): void {
+  initModeAndData(): void {
     if (!this.canView()) {
       this.isAccessDenied.set(true);
       return;
     }
 
+    this.error.set(null);
+    this.isAccessDenied.set(false);
     this.loadWarehouses();
     this.loadAvailableReceipts();
   }
@@ -335,7 +341,11 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.loading.set(false);
-        this.error.set(err?.message || 'Failed to load putaway details.');
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load putaway details.'));
+        }
       }
     });
   }
@@ -348,6 +358,14 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
         if (active.length > 0 && !this.headerForm.controls.warehouseId.value) {
           this.headerForm.patchValue({ warehouseId: active[0].warehouseId });
           this.loadWarehouseLocations(active[0].warehouseId);
+        }
+      },
+      error: err => {
+        this.warehouses.set([]);
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load warehouse facilities.'));
         }
       }
     });
@@ -363,8 +381,11 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
       next: locs => {
         this.warehouseLocations.set(locs || []);
       },
-      error: () => {
+      error: err => {
         this.warehouseLocations.set([]);
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        }
       }
     });
   }
@@ -375,6 +396,14 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
         this.availableReceipts.set(list || []);
         if (preselectedId) {
           this.onSourceReceiptSelect(preselectedId, preselectedType);
+        }
+      },
+      error: err => {
+        this.availableReceipts.set([]);
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load available source receipts.'));
         }
       }
     });
@@ -524,7 +553,7 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
         this.saving.set(false);
         this.feedbackMessage.set({
           type: 'error',
-          text: err?.error?.message || err?.message || 'Failed to confirm putaway transaction.'
+          text: toUserFacingErrorMessage(err, 'Failed to confirm putaway transaction.')
         });
       }
     });
@@ -644,7 +673,7 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
         this.saving.set(false);
         this.feedbackMessage.set({
           type: 'error',
-          text: err?.error?.message || err?.message || 'Failed to process stores putaway.'
+          text: toUserFacingErrorMessage(err, 'Failed to process stores putaway.')
         });
       }
     });

@@ -45,10 +45,19 @@
     </div>
   }
 
-  @if (loading()) {
+  @if (isAccessDenied()) {
+    <div class="erp-card state-card">
+      <app-access-denied
+        title="Access Restricted"
+        message="You do not have permission to view currency configuration."
+        [showBackAction]="true"
+        [showHomeAction]="true"
+      ></app-access-denied>
+    </div>
+  } @else if (loading()) {
     <app-loading-state message="Loading currencies..."></app-loading-state>
   } @else if (error()) {
-    <app-error-state [message]="error()!" (retry)="loadData()"></app-error-state>
+    <app-error-state title="Failed to load currencies" [message]="error()!" (retry)="loadData()"></app-error-state>
   } @else {
     <div class="content-card erp-card">
       <!-- Toolbar -->

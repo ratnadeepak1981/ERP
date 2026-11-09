@@ -31,6 +31,10 @@ export class UserSecurityService {
     return user?.tenantId || user?.username || 'default_tenant';
   }
 
+  private normaliseOwnership(category?: string): 'Platform' | 'Tenant' {
+    return category === 'Platform' ? 'Platform' : 'Tenant';
+  }
+
   // --- Granular Permissions Catalog ---
   readonly systemPermissions: PermissionItem[] = [
     // Scope & Entities
@@ -161,6 +165,9 @@ export class UserSecurityService {
           permissions: this.resolvePermissionsForRole(r.name, r.permissions),
           usersCount: r.usersCount || 0,
           isSystem: !!r.isSystem,
+          templateKey: r.templateKey ?? null,
+          templateVersion: r.templateVersion ?? null,
+          isTemplate: !!r.isTemplate,
           createdAt: r.createdAt || new Date().toISOString()
         }));
       }),
@@ -427,6 +434,9 @@ export class UserSecurityService {
           usersCount: r.usersCount || 0,
           isSystem: !!r.isSystem,
           isActive: r.isActive !== false,
+          templateKey: r.templateKey ?? null,
+          templateVersion: r.templateVersion ?? null,
+          isTemplate: !!r.isTemplate,
           createdAt: r.createdAt || new Date().toISOString()
         };
       })
@@ -482,6 +492,8 @@ export class UserSecurityService {
         return list.map(p => ({
           id: p.id,
           category: p.module || 'General',
+          ownership: this.normaliseOwnership(p.category),
+          operation: p.operation || '',
           code: p.code,
           name: p.name,
           description: p.description || ''
@@ -499,6 +511,8 @@ export class UserSecurityService {
         return list.map(p => ({
           id: p.id,
           category: p.module || 'General',
+          ownership: this.normaliseOwnership(p.category),
+          operation: p.operation || '',
           code: p.code,
           name: p.name,
           description: p.description || ''
