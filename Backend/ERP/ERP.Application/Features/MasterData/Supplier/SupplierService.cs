@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Domain.Features.MasterData.Address;
 using Domain.Features.MasterData.PriceCard;
 using ERP.Domain.Features.MasterData.Supplier;
+using AddressEntity = Domain.Features.MasterData.Address.Address;
 
 namespace ERP.Application.Features.MasterData.Supplier;
 
@@ -127,7 +128,7 @@ public class SupplierService : ISupplierService
             }
         }
 
-        var address = Address.Create(
+        var address = AddressEntity.Create(
             tenantId,
             $"{supplier.SupplierName} - Default Address",
             request.AddressLine1!.Trim(),

@@ -94,6 +94,7 @@ The following modules have been transitioned to Clean Architecture (`ERP.Applica
 - **Master Data (Step 6 Stage 1):** `Product` application service in `ERP.Application` and repository implementation in `ERP.Infrastructure`.
 - **Master Data (Step 6 Stage 2):** `ProductPackaging` application service in `ERP.Application` and repository implementation in `ERP.Infrastructure` integrated with Clean Architecture `UnitOfMeasureService`.
 - **Master Data (Step 7):** `PriceCard`, `PricingResolution`, and `SupplierProductPrice` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 8):** `Company`, `Branch`, and `Address` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
 
 ## 3. Database Context Boundaries
 

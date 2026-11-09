@@ -67,13 +67,13 @@ public static class ServiceRegistration
         services.AddScoped<IRecurringBillingService, RecurringBillingService>();
         services.AddScoped<IBillingNotificationService, DummyBillingNotificationService>();
 
-        services.AddScoped<ICompanyService, CompanyService>();
+        services.AddScoped<Domain.Features.MasterData.Company.ICompanyService, ERP.Application.Features.MasterData.Company.CompanyService>();
         services.AddScoped<IUserScopeService, UserScopeService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<Domain.Features.MasterData.Product.IProductService, ERP.Application.Features.MasterData.Product.ProductService>();
         services.AddScoped<Domain.Features.MasterData.Product.IProductPackagingService, ERP.Application.Features.MasterData.Product.ProductPackagingService>();
         services.AddScoped<Domain.Features.MasterData.Product.IProductIdentifierService, Domain.Features.MasterData.Product.ProductIdentifierService>();
-        services.AddScoped<IBranchService, BranchService>();
+        services.AddScoped<Domain.Features.MasterData.Branch.IBranchService, ERP.Application.Features.MasterData.Branch.BranchService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseOrder.IPurchaseOrderService, ERP.Application.Features.Procurement.PurchaseOrderFeature.PurchaseOrderService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Category.ICategoryService, ERP.Application.Features.MasterData.Category.CategoryService>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.IUnitOfMeasureService, ERP.Application.Features.MasterData.UnitOfMeasure.UnitOfMeasureService>();
@@ -88,7 +88,7 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.MasterData.PriceCard.IPricingResolutionService, ERP.Application.Features.MasterData.PriceCard.PricingResolutionService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.IWarehouseService, ERP.Domain.Features.MasterData.Warehouse.WarehouseService>();
         services.AddScoped<ERP.Domain.Features.MasterData.Warehouse.ILocationIdentifierService, ERP.Domain.Features.MasterData.Warehouse.LocationIdentifierService>();
-        services.AddScoped<Domain.Features.MasterData.Address.IAddressService, Domain.Features.MasterData.Address.AddressService>();
+        services.AddScoped<Domain.Features.MasterData.Address.IAddressService, ERP.Application.Features.MasterData.Address.AddressService>();
         services.AddScoped<Domain.Features.MasterData.Supplier.ISupplierProductPriceService, ERP.Application.Features.MasterData.Supplier.SupplierProductPriceService>();
         services.AddScoped<Domain.Features.MasterData.UnitOfMeasure.ISpecialUomConversionSettingsProvider, API.Services.SpecialUomConversionSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();

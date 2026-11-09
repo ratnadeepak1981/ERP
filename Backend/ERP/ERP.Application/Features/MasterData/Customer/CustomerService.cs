@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Address;
 using ERP.Domain.Features.MasterData.Customer;
+using AddressEntity = Domain.Features.MasterData.Address.Address;
 
 namespace ERP.Application.Features.MasterData.Customer;
 
@@ -114,7 +115,7 @@ public class CustomerService : ICustomerService
             }
         }
 
-        var address = Address.Create(
+        var address = AddressEntity.Create(
             tenantId,
             $"{customer.CustomerName} - Default Address",
             request.AddressLine1!.Trim(),
