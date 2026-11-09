@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Security.Application.DTOs;
+using Security.Bootstrap.Roles;
 using Security.Common;
 using Security.Infrastructure.Persistence;
 using Security.Interfaces;
@@ -57,6 +58,9 @@ public class RoleController : BaseApiController
                     isSystem = r.IsSystemRole,
                     isActive = r.IsActive,
                     tenantId = r.TenantId.HasValue ? r.TenantId.Value.ToString() : null,
+                    templateKey = r.TemplateKey,
+                    templateVersion = r.TemplateVersion,
+                    isTemplate = r.TemplateKey != null,
                     usersCount = r.UserRoles.Count(),
                     permissionsCount = r.RolePermissions.Count(rp => rp.Permission.IsActive)
                 })
@@ -117,6 +121,9 @@ public class RoleController : BaseApiController
                 isSystem = role.IsSystemRole,
                 isActive = role.IsActive,
                 tenantId = role.TenantId.HasValue ? role.TenantId.Value.ToString() : null,
+                templateKey = role.TemplateKey,
+                templateVersion = role.TemplateVersion,
+                isTemplate = role.TemplateKey != null,
                 usersCount = role.UserRoles.Count(),
                 permissions = role.RolePermissions
                     .Where(rp => rp.Permission != null && rp.Permission.IsActive)
@@ -126,7 +133,9 @@ public class RoleController : BaseApiController
                         code = rp.Permission.Code,
                         name = rp.Permission.Name,
                         description = rp.Permission.Description,
-                        module = rp.Permission.Module
+                        module = rp.Permission.Module,
+                        category = rp.Permission.Category,
+                        operation = rp.Permission.Operation
                     })
                     .OrderBy(p => p.module)
                     .ThenBy(p => p.code)
@@ -152,8 +161,7 @@ public class RoleController : BaseApiController
 
             var trimmedName = request.Name.Trim();
 
-            if (PlatformSecurityConstants.IsPlatformRole(trimmedName) ||
-                trimmedName.Equals("Tenant Admin", StringComparison.OrdinalIgnoreCase))
+            if (IsReservedRoleName(trimmedName))
             {
                 return BadRequestResponse("Cannot create a role with a reserved platform or system role name.");
             }
@@ -215,8 +223,8 @@ public class RoleController : BaseApiController
             }
 
             var trimmedName = request.Name.Trim();
-            if (PlatformSecurityConstants.IsPlatformRole(trimmedName) ||
-                trimmedName.Equals("Tenant Admin", StringComparison.OrdinalIgnoreCase))
+            if (IsReservedRoleName(trimmedName) &&
+                !string.Equals(trimmedName, role.Name, StringComparison.OrdinalIgnoreCase))
             {
                 return BadRequestResponse("Cannot rename role to a reserved platform or system role name.");
             }
@@ -292,5 +300,17 @@ public class RoleController : BaseApiController
         {
             return HandleDomainException(ex);
         }
+    }
+
+    private static bool IsReservedRoleName(string name)
+    {
+        if (PlatformSecurityConstants.IsPlatformRole(name) ||
+            PlatformSecurityConstants.SystemTenantRoles.Contains(name))
+        {
+            return true;
+        }
+
+        return StandardRoleTemplates.All.Any(template =>
+            string.Equals(template.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 }

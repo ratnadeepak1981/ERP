@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ProductMasterComponent } from './product-master.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { ProductItem } from '../../../../../core/models/scope.models';
 
 describe('ProductMasterComponent', () => {
@@ -118,5 +118,73 @@ describe('ProductMasterComponent', () => {
     component.sellableOnly.set(true);
     expect(component.filteredProducts().length).toBe(1);
     expect(component.filteredProducts()[0].productCode).toBe('PRD-001');
+  });
+
+  describe('F2 authorization and error states', () => {
+    beforeEach(() => {
+      vi.spyOn(masterDataService, 'getCategories').mockReturnValue(of([]));
+      vi.spyOn(masterDataService, 'getUnitsOfMeasure').mockReturnValue(of([]));
+    });
+
+    it('should stop loading and show Access Denied when the products endpoint returns 403', () => {
+      vi.spyOn(masterDataService, 'getProducts').mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, statusText: 'Forbidden' }))
+      );
+
+      fixture.detectChanges();
+
+      expect(component.loading()).toBe(false);
+      expect(component.isAccessDenied()).toBe(true);
+      expect(component.error()).toBeNull();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Access Restricted');
+      expect(compiled.textContent).not.toContain('Failed to retrieve products');
+    });
+
+    it('should show a safe retryable error instead of raw transport text for a 500', () => {
+      vi.spyOn(masterDataService, 'getProducts').mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 500,
+              statusText: 'Internal Server Error',
+              url: 'http://localhost:4200/api/products'
+            })
+        )
+      );
+
+      fixture.detectChanges();
+
+      expect(component.loading()).toBe(false);
+      expect(component.isAccessDenied()).toBe(false);
+      expect(component.error()).not.toMatch(/http failure response/i);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Unable to Load Products');
+      expect(compiled.textContent).toContain('Retry');
+      expect(compiled.textContent).not.toContain('Http failure response');
+    });
+
+    it('should re-invoke the products lookup and clear the error when retried', () => {
+      const productSpy = vi
+        .spyOn(masterDataService, 'getProducts')
+        .mockReturnValue(
+          throwError(
+            () => new HttpErrorResponse({ status: 0, statusText: 'Unknown Error' })
+          )
+        );
+
+      fixture.detectChanges();
+      expect(component.error()).toBeTruthy();
+
+      productSpy.mockReturnValue(of(mockProducts));
+      component.loadData();
+
+      expect(productSpy).toHaveBeenCalledTimes(2);
+      expect(component.error()).toBeNull();
+      expect(component.products().length).toBe(2);
+      expect(component.isAccessDenied()).toBe(false);
+    });
   });
 });

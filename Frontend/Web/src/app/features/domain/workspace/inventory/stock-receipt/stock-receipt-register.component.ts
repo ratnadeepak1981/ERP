@@ -22,6 +22,7 @@ import { AccessDeniedComponent } from '../../../../../shared/components/access-d
 import { InventoryService } from '../../../../../core/services/inventory.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
+import { isForbiddenError, toUserFacingErrorMessage } from '../../../../../core/utils/http-error.util';
 import {
   StockReceiptDto,
   StockReceiptReason,
@@ -251,10 +252,10 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.loading.set(false);
-        if (err?.status === 403) {
+        if (isForbiddenError(err)) {
           this.isAccessDenied.set(true);
         } else {
-          this.error.set(err?.message || 'Failed to load stock receipt records.');
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load stock receipt records.'));
         }
       }
     });

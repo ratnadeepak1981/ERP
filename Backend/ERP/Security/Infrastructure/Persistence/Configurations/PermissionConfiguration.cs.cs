@@ -30,11 +30,26 @@ public class PermissionConfiguration
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(x => x.Category)
+            .IsRequired()
+            .HasMaxLength(20)
+            .HasDefaultValue(PermissionCategory.Tenant);
+
+        builder.Property(x => x.Operation)
+            .IsRequired()
+            .HasMaxLength(50);
+
         builder.Property(x => x.IsActive)
             .IsRequired();
 
         builder.HasIndex(x => x.Code)
             .IsUnique();
+
+        builder.HasIndex(x => new
+        {
+            x.Category,
+            x.Module
+        });
 
         builder.HasMany(x => x.RolePermissions)
             .WithOne(x => x.Permission)

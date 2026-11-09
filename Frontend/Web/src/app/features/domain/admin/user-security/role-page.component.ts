@@ -78,6 +78,12 @@ export class RolePageComponent implements OnInit {
   });
 
   readonly isSystemRole = computed(() => !!this.role()?.isSystem);
+  readonly isTemplateRole = computed(() => !this.role()?.isSystem && !!this.role()?.isTemplate);
+  readonly templateLabel = computed(() => {
+    const r = this.role();
+    if (!r?.templateKey) return '';
+    return `${r.templateKey} · v${r.templateVersion ?? 1}`;
+  });
 
   // Filtered available permissions
   readonly filteredAvailablePermissions = computed(() => {

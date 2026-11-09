@@ -15,6 +15,20 @@ public interface ISecurityBootstrapRepository
     Task<Role?> GetSystemRoleAsync(string name);
 
     // =========================
+    // Tenant Role Lookups
+    // =========================
+
+    Task<List<Role>> GetTenantRolesAsync(Guid tenantId);
+
+    Task<Role?> GetTenantRoleByTemplateKeyAsync(
+        Guid tenantId,
+        string templateKey);
+
+    Task<Role?> GetTenantRoleByNameAsync(
+        Guid tenantId,
+        string name);
+
+    // =========================
     // User Lookups
     // =========================
 
@@ -34,13 +48,26 @@ public interface ISecurityBootstrapRepository
     Task<Permission?> GetPermissionByCodeAsync(
         string code);
 
+    Task<List<Permission>> GetPermissionsAsync();
+
     Task<RolePermission?> GetRolePermissionAsync(
         Guid roleId,
         Guid permissionId);
 
+    Task<List<RolePermission>> GetRolePermissionsAsync(
+        Guid roleId);
+
+    Task<List<UserRole>> GetUserRolesByRoleIdAsync(
+        Guid roleId);
+
+    Task<List<UserRoleScope>> GetUserRoleScopesAsync(
+        Guid userRoleId);
+
     Task<UserRole?> GetUserRoleAsync(
         Guid userId,
         Guid roleId);
+
+    Task<List<Guid>> GetTenantIdsAsync();
 
     // =========================
     // Inserts
@@ -56,6 +83,15 @@ public interface ISecurityBootstrapRepository
 
     Task AddRolePermissionAsync(
         RolePermission rolePermission);
+
+    Task AddUserRoleScopeAsync(
+        UserRoleScope userRoleScope);
+
+    Task RemoveRolePermissionAsync(
+        RolePermission rolePermission);
+
+    Task RemoveUserRoleAsync(
+        UserRole userRole);
 
     // =========================
     // Persistence

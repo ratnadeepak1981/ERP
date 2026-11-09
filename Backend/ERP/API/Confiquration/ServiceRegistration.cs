@@ -96,6 +96,7 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Domain.Features.Inventory.InventoryPostingService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Domain.Features.Inventory.InventoryService>();
+        services.AddScoped<ERP.Domain.Features.Inventory.StockCount.IStockCountService, ERP.Domain.Features.Inventory.StockCount.StockCountService>();
         services.AddScoped<ERP.Domain.Features.Inventory.Planning.IInventoryPlanningService, ERP.Domain.Features.Inventory.Planning.InventoryPlanningService>();
         services.AddScoped<ERP.Domain.Features.Inventory.Batch.IBatchService, ERP.Domain.Features.Inventory.Batch.BatchService>();
         services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayService, Domain.Features.Inventory.Putaway.PutawayService>();

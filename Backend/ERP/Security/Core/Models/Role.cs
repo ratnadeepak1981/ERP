@@ -16,6 +16,13 @@ public class Role : Auditable
 
     public bool IsActive { get; set; } = true;
 
+    // Stable identifier of the centrally-defined role template this role was
+    // provisioned from. Null for platform roles and tenant-authored custom roles.
+    public string? TemplateKey { get; set; }
+
+    // Version of the template this tenant copy was last synchronised with.
+    public int? TemplateVersion { get; set; }
+
     public ICollection<UserRole> UserRoles { get; set; }
         = new List<UserRole>();
 

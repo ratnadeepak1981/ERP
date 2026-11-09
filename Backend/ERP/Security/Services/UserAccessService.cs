@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Security.Bootstrap.Roles;
 using Security.Interfaces;
 using Security.Infrastructure.Persistence;
 
@@ -33,7 +34,13 @@ public class UserAccessService : IUserAccessService
         var isTenantAdmin = await _context.UserRoles
             .AnyAsync(x =>
                 x.UserId == userId &&
-                x.Role.Name == "Tenant Admin");
+                x.Role.IsActive &&
+                ((x.Role.TemplateKey == StandardRoleTemplates.TenantAdminKey &&
+                  x.Role.TenantId == tenantId) ||
+                 (x.Role.TenantId == tenantId &&
+                  x.Role.Name == "Tenant Admin") ||
+                 (x.Role.TenantId == null &&
+                  x.Role.Name == "Tenant Admin")));
 
         if (isTenantAdmin)
             return true;
@@ -65,7 +72,13 @@ public class UserAccessService : IUserAccessService
         var isTenantAdmin = await _context.UserRoles
             .AnyAsync(x =>
                 x.UserId == userId &&
-                x.Role.Name == "Tenant Admin");
+                x.Role.IsActive &&
+                ((x.Role.TemplateKey == StandardRoleTemplates.TenantAdminKey &&
+                  x.Role.TenantId == tenantId) ||
+                 (x.Role.TenantId == tenantId &&
+                  x.Role.Name == "Tenant Admin") ||
+                 (x.Role.TenantId == null &&
+                  x.Role.Name == "Tenant Admin")));
 
         if (isTenantAdmin)
             return true;
