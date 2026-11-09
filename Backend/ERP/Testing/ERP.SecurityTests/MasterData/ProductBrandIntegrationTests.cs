@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -384,5 +385,28 @@ public class ProductBrandIntegrationTests : IClassFixture<TestSecurityFixture>
         {
             Assert.Equal(brandIdX, p.GetProperty("brandId").GetGuid());
         }
+    }
+
+    [Fact]
+    public void DependencyInjection_ResolvesCleanArchitectureImplementations()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+
+        var productService = sp.GetRequiredService<IProductService>();
+        Assert.NotNull(productService);
+        Assert.IsType<ERP.Application.Features.MasterData.Product.ProductService>(productService);
+
+        var productRepository = sp.GetRequiredService<IProductRepository>();
+        Assert.NotNull(productRepository);
+        Assert.IsType<ERP.Infrastructure.Repositories.MasterData.ProductRepository>(productRepository);
+
+        var packagingService = sp.GetRequiredService<IProductPackagingService>();
+        Assert.NotNull(packagingService);
+        Assert.IsType<ERP.Application.Features.MasterData.Product.ProductPackagingService>(packagingService);
+
+        var packagingRepository = sp.GetRequiredService<IProductPackagingRepository>();
+        Assert.NotNull(packagingRepository);
+        Assert.IsType<ERP.Infrastructure.Repositories.MasterData.ProductPackagingRepository>(packagingRepository);
     }
 }
