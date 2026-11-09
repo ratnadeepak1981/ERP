@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -648,6 +648,82 @@ describe('StockTransactionFormComponent', () => {
           ])
         })
       );
+    });
+  });
+
+  describe('F2 authorization and error states', () => {
+    beforeEach(() => {
+      component.transactionType = 'receipt';
+    });
+
+    it('should stop loading and show Access Denied when warehouse lookup returns 403', () => {
+      vi.spyOn(masterDataService, 'getWarehouses').mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, statusText: 'Forbidden' }))
+      );
+
+      fixture.detectChanges();
+
+      expect(component.loading()).toBe(false);
+      expect(component.isAccessDenied()).toBe(true);
+      expect(component.loadError()).toBeNull();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Access Restricted');
+    });
+
+    it('should show Access Denied when product lookup returns 403', () => {
+      vi.spyOn(masterDataService, 'getProducts').mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, statusText: 'Forbidden' }))
+      );
+
+      fixture.detectChanges();
+
+      expect(component.loading()).toBe(false);
+      expect(component.isAccessDenied()).toBe(true);
+    });
+
+    it('should show a safe retryable error instead of raw transport text for a 500', () => {
+      vi.spyOn(masterDataService, 'getWarehouses').mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 500,
+              statusText: 'Internal Server Error',
+              url: 'http://localhost:4200/api/warehouses'
+            })
+        )
+      );
+
+      fixture.detectChanges();
+
+      expect(component.loading()).toBe(false);
+      expect(component.isAccessDenied()).toBe(false);
+      expect(component.loadError()).toBeTruthy();
+      expect(component.loadError()).not.toMatch(/http failure response/i);
+      expect(component.loadError()).not.toMatch(/localhost/);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).not.toContain('Http failure response');
+      expect(compiled.textContent).toContain('Retry');
+    });
+
+    it('should re-invoke the lookup and clear the error when loading is retried', () => {
+      const warehouseSpy = vi
+        .spyOn(masterDataService, 'getWarehouses')
+        .mockReturnValue(
+          throwError(() => new HttpErrorResponse({ status: 500, statusText: 'Internal Server Error' }))
+        );
+
+      fixture.detectChanges();
+      expect(component.loadError()).toBeTruthy();
+
+      warehouseSpy.mockReturnValue(of(mockWarehouses));
+      component.loadMasterData();
+
+      expect(warehouseSpy).toHaveBeenCalledTimes(2);
+      expect(component.loadError()).toBeNull();
+      expect(component.warehouses().length).toBe(1);
+      expect(component.isAccessDenied()).toBe(false);
     });
   });
 });

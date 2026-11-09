@@ -23,6 +23,7 @@ import { MasterDataService } from '../../../../../core/services/master-data.serv
 import { InventoryService } from '../../../../../core/services/inventory.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
+import { isForbiddenError, toUserFacingErrorMessage } from '../../../../../core/utils/http-error.util';
 import { ProductItem } from '../../../../../core/models/scope.models';
 import { DataTableColumn, DataTableAction } from '../../../../../shared/models/data-table-config.model';
 
@@ -175,12 +176,14 @@ export class CountAdjustComponent implements OnInit, OnDestroy {
 
   loadData(): void {
     if (!this.canView()) {
+      this.loading.set(false);
       this.isAccessDenied.set(true);
       return;
     }
 
     this.loading.set(true);
     this.error.set(null);
+    this.isAccessDenied.set(false);
 
     this.masterDataService.getProducts().subscribe({
       next: prods => {
@@ -189,10 +192,10 @@ export class CountAdjustComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.loading.set(false);
-        if (err?.status === 403) {
+        if (isForbiddenError(err)) {
           this.isAccessDenied.set(true);
         } else {
-          this.error.set(err?.message || 'Failed to load stock count catalogue.');
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load stock count catalogue.'));
         }
       }
     });

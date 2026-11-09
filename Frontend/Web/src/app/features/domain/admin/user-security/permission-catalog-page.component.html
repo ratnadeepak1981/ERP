@@ -106,6 +106,36 @@
       </div>
     </div>
 
+    <div class="catalog-ownership-row">
+      <span class="ownership-label">Ownership</span>
+      <div class="ownership-filter-pills">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="ownershipFilter() === 'ALL'"
+          (click)="ownershipFilter.set('ALL')"
+        >
+          All ({{ totalCount() }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="ownershipFilter() === 'Tenant'"
+          (click)="ownershipFilter.set('Tenant')"
+        >
+          Tenant ({{ tenantCount() }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="ownershipFilter() === 'Platform'"
+          (click)="ownershipFilter.set('Platform')"
+        >
+          Platform ({{ platformCount() }})
+        </button>
+      </div>
+    </div>
+
     @if (loading()) {
       <div class="p-6">
         <app-loading-state message="Loading capability permissions from database..."></app-loading-state>
@@ -141,6 +171,15 @@
                       <span class="perm-category-tag">
                         <i class="pi pi-tag"></i> {{ grp.category }}
                       </span>
+                      @if (p.ownership) {
+                        <span class="perm-ownership-tag" [class.platform]="p.ownership === 'Platform'">
+                          <i class="pi" [ngClass]="p.ownership === 'Platform' ? 'pi-lock' : 'pi-building'"></i>
+                          {{ p.ownership }}
+                        </span>
+                      }
+                      @if (p.operation) {
+                        <span class="perm-operation-tag">{{ p.operation }}</span>
+                      }
                     </div>
                   </div>
                 }

@@ -7,8 +7,13 @@ import { AppStatusBadgeComponent } from '../../../../../shared/components/status
 import { AppLoadingStateComponent } from '../../../../../shared/components/loading-state/loading-state.component';
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
+import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
+import {
+  isForbiddenError,
+  toUserFacingErrorMessage
+} from '../../../../../core/utils/http-error.util';
 import { CurrencyItem, CreateCurrencyDto, UpdateCurrencyDto } from '../../../../../core/models/scope.models';
 
 @Component({
@@ -22,7 +27,8 @@ import { CurrencyItem, CreateCurrencyDto, UpdateCurrencyDto } from '../../../../
     AppStatusBadgeComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
-    AppEmptyStateComponent
+    AppEmptyStateComponent,
+    AccessDeniedComponent
   ],
   templateUrl: './currency-master.component.html',
   styleUrl: './currency-master.component.scss'
@@ -33,6 +39,7 @@ export class CurrencyMasterComponent implements OnInit {
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
+  readonly isAccessDenied = signal<boolean>(false);
   readonly message = signal<{ text: string; severity: 'success' | 'warn' | 'error' } | null>(null);
 
   readonly currencies = signal<CurrencyItem[]>([]);
@@ -115,6 +122,7 @@ export class CurrencyMasterComponent implements OnInit {
   loadData(): void {
     this.loading.set(true);
     this.error.set(null);
+    this.isAccessDenied.set(false);
 
     this.masterDataService.getCurrencies().subscribe({
       next: (items) => {
@@ -122,8 +130,12 @@ export class CurrencyMasterComponent implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(err?.error?.message || err?.message || 'Failed to load currencies.');
         this.loading.set(false);
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load currencies.'));
+        }
       }
     });
   }
@@ -192,7 +204,7 @@ export class CurrencyMasterComponent implements OnInit {
         },
         error: (err) => {
           this.message.set({
-            text: err?.error?.message || err?.message || 'Failed to update currency.',
+            text: toUserFacingErrorMessage(err, 'Failed to update currency.'),
             severity: 'error'
           });
           this.formSaving.set(false);
@@ -215,7 +227,7 @@ export class CurrencyMasterComponent implements OnInit {
         },
         error: (err) => {
           this.message.set({
-            text: err?.error?.message || err?.message || 'Failed to create currency.',
+            text: toUserFacingErrorMessage(err, 'Failed to create currency.'),
             severity: 'error'
           });
           this.formSaving.set(false);
@@ -267,7 +279,7 @@ export class CurrencyMasterComponent implements OnInit {
         },
         error: (err) => {
           this.message.set({
-            text: err?.error?.message || err?.message || 'Failed to deactivate currency.',
+            text: toUserFacingErrorMessage(err, 'Failed to deactivate currency.'),
             severity: 'error'
           });
           this.pendingAction.set(null);
@@ -287,7 +299,7 @@ export class CurrencyMasterComponent implements OnInit {
         },
         error: (err) => {
           this.message.set({
-            text: err?.error?.message || err?.message || 'Failed to reactivate currency.',
+            text: toUserFacingErrorMessage(err, 'Failed to reactivate currency.'),
             severity: 'error'
           });
           this.pendingAction.set(null);

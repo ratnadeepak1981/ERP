@@ -46,6 +46,38 @@ public class SecurityBootstrapRepository
     }
 
     // =========================
+    // Tenant Role Lookups
+    // =========================
+
+    public Task<List<Role>> GetTenantRolesAsync(
+        Guid tenantId)
+    {
+        return _context.Roles
+            .Where(x => x.TenantId == tenantId)
+            .ToListAsync();
+    }
+
+    public Task<Role?> GetTenantRoleByTemplateKeyAsync(
+        Guid tenantId,
+        string templateKey)
+    {
+        return _context.Roles
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == tenantId &&
+                x.TemplateKey == templateKey);
+    }
+
+    public Task<Role?> GetTenantRoleByNameAsync(
+        Guid tenantId,
+        string name)
+    {
+        return _context.Roles
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == tenantId &&
+                x.Name == name);
+    }
+
+    // =========================
     // User Lookups
     // =========================
 
@@ -88,6 +120,11 @@ public class SecurityBootstrapRepository
                 x.Code == code);
     }
 
+    public Task<List<Permission>> GetPermissionsAsync()
+    {
+        return _context.Permissions.ToListAsync();
+    }
+
     public Task<RolePermission?> GetRolePermissionAsync(
         Guid roleId,
         Guid permissionId)
@@ -96,6 +133,47 @@ public class SecurityBootstrapRepository
             .FirstOrDefaultAsync(x =>
                 x.RoleId == roleId &&
                 x.PermissionId == permissionId);
+    }
+
+    public Task<List<RolePermission>> GetRolePermissionsAsync(
+        Guid roleId)
+    {
+        return _context.RolePermissions
+            .Where(x => x.RoleId == roleId)
+            .ToListAsync();
+    }
+
+    public Task<List<UserRole>> GetUserRolesByRoleIdAsync(
+        Guid roleId)
+    {
+        return _context.UserRoles
+            .Where(x => x.RoleId == roleId)
+            .Include(x => x.User)
+            .ToListAsync();
+    }
+
+    public Task<List<UserRoleScope>> GetUserRoleScopesAsync(
+        Guid userRoleId)
+    {
+        return _context.UserRoleScopes
+            .Where(x => x.UserRoleId == userRoleId)
+            .ToListAsync();
+    }
+
+    public Task<List<Guid>> GetTenantIdsAsync()
+    {
+        var fromUsers = _context.Users
+            .Where(x => x.TenantId.HasValue)
+            .Select(x => x.TenantId!.Value);
+
+        var fromRoles = _context.Roles
+            .Where(x => x.TenantId.HasValue)
+            .Select(x => x.TenantId!.Value);
+
+        return fromUsers
+            .Union(fromRoles)
+            .Distinct()
+            .ToListAsync();
     }
 
     public Task<UserRole?> GetUserRoleAsync(
@@ -139,6 +217,27 @@ public class SecurityBootstrapRepository
     {
         await _context.RolePermissions.AddAsync(
             rolePermission);
+    }
+
+    public async Task AddUserRoleScopeAsync(
+        UserRoleScope userRoleScope)
+    {
+        await _context.UserRoleScopes.AddAsync(
+            userRoleScope);
+    }
+
+    public async Task RemoveRolePermissionAsync(
+        RolePermission rolePermission)
+    {
+        _context.RolePermissions.Remove(rolePermission);
+        await Task.CompletedTask;
+    }
+
+    public async Task RemoveUserRoleAsync(
+        UserRole userRole)
+    {
+        _context.UserRoles.Remove(userRole);
+        await Task.CompletedTask;
     }
 
     // =========================

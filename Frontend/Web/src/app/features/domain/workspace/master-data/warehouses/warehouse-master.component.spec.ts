@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { WarehouseMasterComponent } from './warehouse-master.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
@@ -468,5 +468,65 @@ describe('WarehouseMasterComponent', () => {
     expect(component.canCreateWarehouse()).toBe(false);
     expect(component.canCreateLocation()).toBe(true);
     expect(component.canDeleteLocation()).toBe(false);
+  });
+
+  describe('F2 authorization and error states', () => {
+    it('should stop loading and show Access Denied when the warehouses endpoint returns 403', () => {
+      vi.spyOn(masterDataService, 'getWarehouses').mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, statusText: 'Forbidden' }))
+      );
+
+      fixture.detectChanges();
+
+      expect(component.loading()).toBe(false);
+      expect(component.isAccessDenied()).toBe(true);
+      expect(component.error()).toBeNull();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Access Restricted');
+      expect(compiled.textContent).not.toContain('Failed to load warehouses');
+    });
+
+    it('should show a safe retryable error instead of raw transport text for a 500', () => {
+      vi.spyOn(masterDataService, 'getWarehouses').mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 500,
+              statusText: 'Internal Server Error',
+              url: 'http://localhost:4200/api/warehouses'
+            })
+        )
+      );
+
+      fixture.detectChanges();
+
+      expect(component.loading()).toBe(false);
+      expect(component.isAccessDenied()).toBe(false);
+      expect(component.error()).not.toMatch(/http failure response/i);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Retry');
+      expect(compiled.textContent).not.toContain('Http failure response');
+    });
+
+    it('should re-invoke the warehouses lookup and clear the error when retried', () => {
+      const warehouseSpy = vi
+        .spyOn(masterDataService, 'getWarehouses')
+        .mockReturnValue(
+          throwError(() => new HttpErrorResponse({ status: 0, statusText: 'Unknown Error' }))
+        );
+
+      fixture.detectChanges();
+      expect(component.error()).toBeTruthy();
+
+      warehouseSpy.mockReturnValue(of(mockWarehouses));
+      component.loadData();
+
+      expect(warehouseSpy).toHaveBeenCalledTimes(2);
+      expect(component.error()).toBeNull();
+      expect(component.warehouses().length).toBe(2);
+      expect(component.isAccessDenied()).toBe(false);
+    });
   });
 });

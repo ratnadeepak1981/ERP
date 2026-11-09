@@ -9,8 +9,13 @@ import { AppStatusBadgeComponent } from '../../../../../shared/components/status
 import { AppLoadingStateComponent } from '../../../../../shared/components/loading-state/loading-state.component';
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
+import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import {
+  isForbiddenError,
+  toUserFacingErrorMessage
+} from '../../../../../core/utils/http-error.util';
 import { SupplierItem } from '../../../../../core/models/scope.models';
 
 @Component({
@@ -26,7 +31,8 @@ import { SupplierItem } from '../../../../../core/models/scope.models';
     AppStatusBadgeComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
-    AppEmptyStateComponent
+    AppEmptyStateComponent,
+    AccessDeniedComponent
   ],
   templateUrl: './supplier-master.component.html',
   styleUrl: './supplier-master.component.scss'
@@ -38,6 +44,7 @@ export class SupplierMasterComponent implements OnInit {
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
+  readonly isAccessDenied = signal<boolean>(false);
   readonly message = signal<{ text: string; severity: 'success' | 'warn' | 'error' } | null>(null);
 
   readonly suppliers = signal<SupplierItem[]>([]);
@@ -84,6 +91,7 @@ export class SupplierMasterComponent implements OnInit {
   loadSuppliers(): void {
     this.loading.set(true);
     this.error.set(null);
+    this.isAccessDenied.set(false);
 
     this.masterDataService.getSuppliers().subscribe({
       next: (sups) => {
@@ -92,7 +100,11 @@ export class SupplierMasterComponent implements OnInit {
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err?.error?.message || 'Failed to retrieve suppliers from server.');
+        if (isForbiddenError(err)) {
+          this.isAccessDenied.set(true);
+        } else {
+          this.error.set(toUserFacingErrorMessage(err, 'Failed to load suppliers.'));
+        }
       }
     });
   }
@@ -143,7 +155,7 @@ export class SupplierMasterComponent implements OnInit {
           this.message.set({ text: `Supplier "${action.name}" deactivated successfully.`, severity: 'success' });
         },
         error: (err) => {
-          this.message.set({ text: err?.error?.message || 'Failed to deactivate supplier.', severity: 'error' });
+          this.message.set({ text: toUserFacingErrorMessage(err, 'Failed to deactivate supplier.'), severity: 'error' });
         }
       });
     } else {
@@ -156,7 +168,7 @@ export class SupplierMasterComponent implements OnInit {
           this.message.set({ text: `Supplier "${action.name}" reactivated successfully.`, severity: 'success' });
         },
         error: (err) => {
-          this.message.set({ text: err?.error?.message || 'Failed to reactivate supplier.', severity: 'error' });
+          this.message.set({ text: toUserFacingErrorMessage(err, 'Failed to reactivate supplier.'), severity: 'error' });
         }
       });
     }

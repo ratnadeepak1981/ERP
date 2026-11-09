@@ -378,7 +378,8 @@ public class InventoryService : IInventoryService
             bool alreadyPosted = await _context.InventoryTransactions.AsNoTracking().AnyAsync(t =>
                 t.TenantId == tenantId &&
                 t.SourceDocumentType == sourceDocType &&
-                t.SourceDocumentId == issueBatchId);
+                t.SourceDocumentId == issueBatchId &&
+                t.MovementType == movementType);
 
             if (alreadyPosted)
             {
@@ -859,7 +860,8 @@ public class InventoryService : IInventoryService
             bool alreadyPosted = await _context.InventoryTransactions.AsNoTracking().AnyAsync(t =>
                 t.TenantId == tenantId &&
                 t.SourceDocumentType == sourceDocType &&
-                t.SourceDocumentId == receiptBatchId);
+                t.SourceDocumentId == receiptBatchId &&
+                t.MovementType == movementType);
 
             if (alreadyPosted)
             {
@@ -1067,6 +1069,7 @@ public class InventoryService : IInventoryService
     private static StockReceiptReason MapMovementTypeToReceiptReason(InventoryMovementType type) => type switch
     {
         InventoryMovementType.ProductionReceipt => StockReceiptReason.InternalProduction,
+        InventoryMovementType.StockAdjustmentIn => StockReceiptReason.Miscellaneous,
         _ => StockReceiptReason.OpeningBalance
     };
 }

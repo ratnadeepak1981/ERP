@@ -6,8 +6,19 @@
   >
   </app-page-header>
 
+  @if (isAccessDenied()) {
+    <div class="erp-card state-card">
+      <app-access-denied
+        title="Access Restricted"
+        message="You do not have permission to view the product master data."
+        [showBackAction]="true"
+        [showHomeAction]="true"
+      ></app-access-denied>
+    </div>
+  } @else {
+
   <!-- Error Alert Banner -->
-  @if (error()) {
+  @if (error() && products().length > 0) {
     <div class="p-message p-message-error mb-3" role="alert">
       <div class="p-message-wrapper">
         <i class="pi pi-times-circle p-message-icon"></i>
@@ -113,6 +124,12 @@
     @if (viewMode() === 'table') {
       @if (loading()) {
         <app-loading-state message="Loading products..."></app-loading-state>
+      } @else if (error() && products().length === 0) {
+        <app-error-state
+          title="Unable to Load Products"
+          [message]="error()!"
+          (retry)="loadData()"
+        ></app-error-state>
       } @else if (filteredProducts().length === 0) {
         <app-empty-state
           title="No Products Found"
@@ -275,6 +292,7 @@
       </div>
     }
   </div>
+  }
 </div>
 
 <!-- Recursive Category Node Template -->
