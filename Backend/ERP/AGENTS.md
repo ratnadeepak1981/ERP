@@ -79,6 +79,24 @@ Before introducing or changing a project reference:
 Do not reorganise existing projects simply to make them match an ideal folder structure. Preserve working implementations while progressively maintaining the intended architectural boundaries.
 
 **Architecture acceptance condition:** A feature is not considered architecturally complete merely because it builds and passes tests. Its project references, dependency direction, business-rule ownership and infrastructure isolation must also be correct.
+
+### 2.4 Transitional Clean Architecture Implementation Status
+
+The following modules have been transitioned to Clean Architecture (`ERP.Application` and `ERP.Infrastructure`) while retaining authoritative entities and `DomainDbContext` in `ERP.Domain`:
+- **Procurement:** `PurchaseOrder`, `GoodsReceiptNote`, `PurchaseRequisition`, `ApprovalWorkflow` (Commit `8d63a34`).
+- **Inventory:** `InventoryPostingService`, `InventoryService`, `BatchService`, `PutawayService`, `InventoryPlanningService`, Valuation strategies (Commit `d99cede`).
+- **Sales:** `SalesOrderService`, `SalesShipmentService`, `SalesInvoiceService` (Commit `0660093`).
+- **Master Data (Group 1):** `PaymentTerm` and `TaxCode` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 2):** `Brand` and `Category` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 3):** `Currency` and `ExchangeRate` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 4):** `Customer` and `Supplier` application services in `ERP.Application`, repository implementations in `ERP.Infrastructure`, and dedicated persistence coordinators (`CustomerPersistenceCoordinator`, `SupplierPersistenceCoordinator`).
+- **Master Data (Step 5):** `UnitOfMeasure` standard CRUD, standard conversion, and product-specific packaging conversion application services in `ERP.Application` and repository implementation in `ERP.Infrastructure`.
+- **Master Data (Step 6 Stage 1):** `Product` application service in `ERP.Application` and repository implementation in `ERP.Infrastructure`.
+- **Master Data (Step 6 Stage 2):** `ProductPackaging` application service in `ERP.Application` and repository implementation in `ERP.Infrastructure` integrated with Clean Architecture `UnitOfMeasureService`.
+- **Master Data (Step 7):** `PriceCard`, `PricingResolution`, and `SupplierProductPrice` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 8):** `Company`, `Branch`, and `Address` application services in `ERP.Application` and repository implementations in `ERP.Infrastructure`.
+- **Master Data (Step 9):** `Warehouse`, `WarehouseLocationHierarchy`, `LocationIdentifier`, and `ProductIdentifier` application services in `ERP.Application`, repository implementations in `ERP.Infrastructure`, and dedicated persistence coordinator (`WarehousePersistenceCoordinator`).
+
 ## 3. Database Context Boundaries
 
 Known database responsibilities include:
@@ -598,3 +616,27 @@ All backend coding agents must follow these principles:
 15. If an inspection reveals a significant architectural conflict or an unclear business rule, stop and ask before making a consequential change.
 
 **Priority rule:** Correctness, data integrity, security, traceability and preservation of existing working functionality take priority over implementation speed.
+
+## Legacy Code Protection Rules
+
+1. Legacy Domain implementations must be treated as reference
+   implementations during the Clean Architecture transition.
+
+2. Do not modify, delete, rename, or relocate legacy files
+   unless explicitly authorised.
+
+3. New business logic must be implemented in the designated
+   ERP.Application and ERP.Infrastructure projects.
+
+4. Before changing an existing service, repository, or interface,
+   identify whether it is the active implementation or a legacy
+   implementation.
+
+5. Reuse existing business rules. Do not create duplicate
+   implementations unnecessarily.
+
+6. Legacy cleanup is a separate approved task after migration,
+   regression testing, and dependency verification.
+
+7. If the active implementation is unclear, stop and report
+   the ambiguity before modifying files.
