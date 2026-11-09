@@ -616,3 +616,27 @@ All backend coding agents must follow these principles:
 15. If an inspection reveals a significant architectural conflict or an unclear business rule, stop and ask before making a consequential change.
 
 **Priority rule:** Correctness, data integrity, security, traceability and preservation of existing working functionality take priority over implementation speed.
+
+## Legacy Code Protection Rules
+
+1. Legacy Domain implementations must be treated as reference
+   implementations during the Clean Architecture transition.
+
+2. Do not modify, delete, rename, or relocate legacy files
+   unless explicitly authorised.
+
+3. New business logic must be implemented in the designated
+   ERP.Application and ERP.Infrastructure projects.
+
+4. Before changing an existing service, repository, or interface,
+   identify whether it is the active implementation or a legacy
+   implementation.
+
+5. Reuse existing business rules. Do not create duplicate
+   implementations unnecessarily.
+
+6. Legacy cleanup is a separate approved task after migration,
+   regression testing, and dependency verification.
+
+7. If the active implementation is unclear, stop and report
+   the ambiguity before modifying files.
