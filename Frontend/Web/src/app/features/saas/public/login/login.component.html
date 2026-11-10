@@ -4,8 +4,8 @@
       <div class="logo-box" aria-hidden="true">
         <i class="pi pi-box"></i>
       </div>
-      <h2>Tenant Sign In</h2>
-      <p>Access your ApexERP platform or tenant workspace.</p>
+      <h2>{{ tenantContext.isTenantDomain() ? (tenantContext.currentTenant()?.name || tenantContext.subdomain()) + ' Sign In' : 'Platform Sign In' }}</h2>
+      <p>{{ tenantContext.isTenantDomain() ? 'Access your ' + (tenantContext.currentTenant()?.name || 'organization') + ' workspace.' : 'Access your ApexERP platform or tenant workspace.' }}</p>
     </div>
 
     @if (returnUrl()) {

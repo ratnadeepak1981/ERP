@@ -6,6 +6,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { TenantContextService } from '../../../../core/services/tenant-context.service';
 import { sanitizeReturnUrl } from '../../../../core/utils/return-url.util';
 
 @Component({
@@ -19,6 +20,7 @@ export class LoginComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  readonly tenantContext = inject(TenantContextService);
 
   tenantCode = '';
   email = '';

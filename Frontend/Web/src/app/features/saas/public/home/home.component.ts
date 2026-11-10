@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { PublicNavService } from '../../../../core/services/public-nav.service';
+import { TenantContextService } from '../../../../core/services/tenant-context.service';
 
 export interface PlatformCapability {
   icon: string;
@@ -20,6 +21,7 @@ export interface PlatformCapability {
 })
 export class HomeComponent {
   readonly navService = inject(PublicNavService);
+  readonly tenantContext = inject(TenantContextService);
 
   readonly capabilities: PlatformCapability[] = [
     {

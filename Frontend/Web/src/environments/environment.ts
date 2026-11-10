@@ -5,7 +5,8 @@ export const environment = {
   apiBaseUrl: '/api',
   apiUrl: 'https://localhost:7202/api',
   allowHttpDevFallback: false,
-  httpFallbackUrl: 'http://localhost:5182/api'
+  httpFallbackUrl: 'http://localhost:5182/api',
+  tenantBaseDomain: 'localhost'
 } as const;
 
 validateEnvironmentConfig(environment);
