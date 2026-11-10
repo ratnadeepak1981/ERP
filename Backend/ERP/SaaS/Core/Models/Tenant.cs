@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,6 +13,20 @@ namespace SaaS.Core.Models
         public string Name { get; set; } = string.Empty;
 
         public string Code { get; set; } = string.Empty;
+
+        public string Subdomain { get; set; } = string.Empty;
+
+        public string? IndustryType { get; set; }
+
+        public string CompanyStructure { get; set; } = "Single";
+
+        public bool ECommerceEnabled { get; set; } = false;
+
+        public string? AdminFullName { get; set; }
+
+        public string? AdminEmail { get; set; }
+
+        public string? AdminPhone { get; set; }
 
         public bool IsActive { get; set; } = true;
 

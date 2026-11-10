@@ -22,12 +22,15 @@ public class TenantConfiguration : Auditable
 
     public bool SpecialUomConversionEnabled { get; private set; } = false;
 
+    public bool ECommerceEnabled { get; private set; } = false;
+
     private TenantConfiguration()
     {
     }
 
     public static TenantConfiguration CreateDefault(
-        Guid tenantId)
+        Guid tenantId,
+        bool eCommerceEnabled = false)
     {
         return new TenantConfiguration
         {
@@ -39,8 +42,14 @@ public class TenantConfiguration : Auditable
             WarehouseBinEnabled = true,
             ProcurementApprovalRequired = true,
             ProcurementApprovalMode = 1,
-            SpecialUomConversionEnabled = false
+            SpecialUomConversionEnabled = false,
+            ECommerceEnabled = eCommerceEnabled
         };
+    }
+
+    public void UpdateECommerce(bool enabled)
+    {
+        ECommerceEnabled = enabled;
     }
 
     public void UpdateSpecialUomConversion(bool enabled)

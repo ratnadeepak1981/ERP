@@ -85,7 +85,7 @@ public class TenantProvisioningService
         };
 
         TenantConfiguration tenantConfiguration =
-            TenantConfiguration.CreateDefault(tenantId);
+            TenantConfiguration.CreateDefault(tenantId, tenant.ECommerceEnabled);
 
         await _tenantDatabaseRepository.AddAsync(
             tenantDatabase);
@@ -101,12 +101,20 @@ public class TenantProvisioningService
             await _tenantAdminProvisioningService
                 .EnsureTenantAdminRoleAsync();
 
+            string adminEmail = !string.IsNullOrWhiteSpace(request.AdminEmail)
+                ? request.AdminEmail
+                : (tenant.AdminEmail ?? string.Empty);
+
+            string adminUserName = !string.IsNullOrWhiteSpace(request.AdminUserName)
+                ? request.AdminUserName
+                : (!string.IsNullOrWhiteSpace(tenant.AdminFullName) ? tenant.AdminFullName : adminEmail);
+
             // Create the Tenant Admin user for this tenant.
             await _tenantAdminProvisioningService
                 .EnsureTenantAdminAsync(
                     tenantId,
-                    request.AdminUserName,
-                    request.AdminEmail,
+                    adminUserName,
+                    adminEmail,
                     request.AdminPassword);
         }
         catch

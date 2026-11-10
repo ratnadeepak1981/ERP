@@ -11,6 +11,10 @@ public interface ITenantRepository
 
     Task<bool> ExistsByCodeAsync(string code);
 
+    Task<bool> ExistsBySubdomainAsync(string subdomain);
+
+    Task<Tenant?> GetBySubdomainAsync(string subdomain);
+
     Task SaveChangesAsync();
 
     Task<IDbContextTransaction> BeginTransactionAsync();

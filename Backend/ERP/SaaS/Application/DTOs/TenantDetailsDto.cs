@@ -10,6 +10,20 @@ public class TenantDetailsDto
 
     public string Code { get; set; } = string.Empty;
 
+    public string Subdomain { get; set; } = string.Empty;
+
+    public string? IndustryType { get; set; }
+
+    public string CompanyStructure { get; set; } = "Single";
+
+    public bool ECommerceEnabled { get; set; }
+
+    public string? AdminFullName { get; set; }
+
+    public string? AdminEmail { get; set; }
+
+    public string? AdminPhone { get; set; }
+
     public bool IsActive { get; set; }
 
     public DateTime CreatedAt { get; set; }

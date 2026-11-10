@@ -32,6 +32,20 @@ public class TenantRepository : ITenantRepository
             .AnyAsync(x => x.Code == code);
     }
 
+    public async Task<bool> ExistsBySubdomainAsync(string subdomain)
+    {
+        string normalized = subdomain.Trim().ToLowerInvariant();
+        return await _context.Tenants
+            .AnyAsync(x => x.Subdomain == normalized);
+    }
+
+    public async Task<Tenant?> GetBySubdomainAsync(string subdomain)
+    {
+        string normalized = subdomain.Trim().ToLowerInvariant();
+        return await _context.Tenants
+            .FirstOrDefaultAsync(x => x.Subdomain == normalized);
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();
@@ -71,6 +85,9 @@ public class TenantRepository : ITenantRepository
                           Id = tenant.Id,
                           Name = tenant.Name,
                           Code = tenant.Code,
+                          Subdomain = tenant.Subdomain,
+                          IndustryType = tenant.IndustryType,
+                          CompanyStructure = tenant.CompanyStructure,
                           IsActive = tenant.IsActive,
                           CreatedAt = tenant.CreatedAt,
                           PlanName = sub != null && !string.IsNullOrEmpty(sub.SubscriptionName) ? sub.SubscriptionName : "Manufacturing Cloud",
@@ -96,6 +113,13 @@ public class TenantRepository : ITenantRepository
             Id = tenant.Id,
             Name = tenant.Name,
             Code = tenant.Code,
+            Subdomain = tenant.Subdomain,
+            IndustryType = tenant.IndustryType,
+            CompanyStructure = tenant.CompanyStructure,
+            ECommerceEnabled = tenant.ECommerceEnabled,
+            AdminFullName = tenant.AdminFullName,
+            AdminEmail = tenant.AdminEmail,
+            AdminPhone = tenant.AdminPhone,
             IsActive = tenant.IsActive,
             CreatedAt = tenant.CreatedAt,
             ModifiedAt = tenant.ModifiedAt,

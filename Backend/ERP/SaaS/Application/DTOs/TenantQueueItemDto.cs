@@ -10,6 +10,12 @@ public class TenantQueueItemDto
 
     public string Code { get; set; } = string.Empty;
 
+    public string Subdomain { get; set; } = string.Empty;
+
+    public string? IndustryType { get; set; }
+
+    public string CompanyStructure { get; set; } = "Single";
+
     public bool IsActive { get; set; }
 
     public DateTime CreatedAt { get; set; }

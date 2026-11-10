@@ -48,6 +48,7 @@ public class TenantService : ITenantService
             Id = Guid.NewGuid(),
             Name = name.Trim(),
             Code = TenantRules.NormalizeCode(code),
+            Subdomain = TenantSlugRules.GenerateSlug(name),
             IsActive = true
         };
     }
@@ -74,6 +75,41 @@ public class TenantService : ITenantService
                 nameof(request.SubscriptionPlanId));
         }
 
+        // Subdomain generation / validation
+        string finalSubdomain;
+        if (!string.IsNullOrWhiteSpace(request.Subdomain))
+        {
+            string requestedSlug = TenantSlugRules.GenerateSlug(request.Subdomain);
+            TenantSlugRules.ValidateSubdomain(requestedSlug);
+
+            if (await _tenantRepository.ExistsBySubdomainAsync(requestedSlug))
+            {
+                throw new InvalidOperationException($"The subdomain '{requestedSlug}' is already taken.");
+            }
+
+            finalSubdomain = requestedSlug;
+        }
+        else
+        {
+            string baseSlug = TenantSlugRules.GenerateSlug(request.Name);
+            TenantSlugRules.ValidateSubdomain(baseSlug);
+
+            finalSubdomain = await TenantSlugRules.ResolveCollisionAsync(
+                baseSlug,
+                _tenantRepository.ExistsBySubdomainAsync);
+        }
+
+        // Company structure validation (Single or Multi)
+        string structure = string.IsNullOrWhiteSpace(request.CompanyStructure)
+            ? "Single"
+            : request.CompanyStructure.Trim();
+
+        if (!string.Equals(structure, "Single", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(structure, "Multi", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Company structure must be 'Single' or 'Multi'.", nameof(request.CompanyStructure));
+        }
+
         Guid tenantId = Guid.NewGuid();
 
         string tenantCode =
@@ -84,6 +120,13 @@ public class TenantService : ITenantService
             Id = tenantId,
             Name = request.Name.Trim(),
             Code = tenantCode,
+            Subdomain = finalSubdomain,
+            IndustryType = string.IsNullOrWhiteSpace(request.IndustryType) ? null : request.IndustryType.Trim(),
+            CompanyStructure = structure,
+            ECommerceEnabled = request.ECommerceEnabled,
+            AdminFullName = string.IsNullOrWhiteSpace(request.AdminFullName) ? null : request.AdminFullName.Trim(),
+            AdminEmail = string.IsNullOrWhiteSpace(request.AdminEmail) ? null : request.AdminEmail.Trim().ToLowerInvariant(),
+            AdminPhone = string.IsNullOrWhiteSpace(request.AdminPhone) ? null : request.AdminPhone.Trim(),
             IsActive = true
         };
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SaaS.Core.Models;
 
@@ -21,6 +21,30 @@ public class TenantEntityConfiguration
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(x => x.Subdomain)
+            .IsRequired()
+            .HasMaxLength(63);
+
+        builder.Property(x => x.IndustryType)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.CompanyStructure)
+            .HasMaxLength(50)
+            .HasDefaultValue("Single");
+
+        builder.Property(x => x.ECommerceEnabled)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.AdminFullName)
+            .HasMaxLength(150);
+
+        builder.Property(x => x.AdminEmail)
+            .HasMaxLength(150);
+
+        builder.Property(x => x.AdminPhone)
+            .HasMaxLength(50);
+
         builder.Property(x => x.IsActive)
             .IsRequired();
 
@@ -28,6 +52,9 @@ public class TenantEntityConfiguration
             .IsUnique();
 
         builder.HasIndex(x => x.Code)
+            .IsUnique();
+
+        builder.HasIndex(x => x.Subdomain)
             .IsUnique();
 
         builder.HasMany<Subscription>()
