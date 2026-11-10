@@ -273,6 +273,36 @@ export const workspaceRoutes: Routes = [
         pathMatch: 'full'
       },
       {
+        path: 'purchase-requisitions',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./procurement/purchase-requisition.component').then(m => m.PurchaseRequisitionComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./procurement/purchase-requisition-page.component').then(m => m.PurchaseRequisitionPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./procurement/purchase-requisition-page.component').then(m => m.PurchaseRequisitionPageComponent)
+          },
+          {
+            path: ':id/approve',
+            loadComponent: () =>
+              import('./procurement/purchase-requisition-page.component').then(m => m.PurchaseRequisitionPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./procurement/purchase-requisition-page.component').then(m => m.PurchaseRequisitionPageComponent)
+          }
+        ]
+      },
+      {
         path: 'purchase-orders',
         children: [
           {

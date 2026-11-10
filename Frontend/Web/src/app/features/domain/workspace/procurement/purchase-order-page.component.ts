@@ -30,6 +30,8 @@ import { MasterDataService } from '../../../../core/services/master-data.service
 import { PriceCardItem, PriceCardType, PriceResolutionResult, ResolvePriceRequest } from '../../../../core/models/price-card.models';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { PurchaseRequisitionService } from '../../../../core/services/purchase-requisition.service';
+import { PurchaseRequisitionDto, PurchaseRequisitionStatus } from '../../../../core/models/purchase-requisition.models';
 import {
   PurchaseOrderDto,
   PurchaseOrderItemDto,
@@ -64,6 +66,11 @@ export interface EditablePOLine {
   originalResolvedPrice?: number | null;
   pricingSource?: string | null;
   pricingSourceRecordId?: string | null;
+
+  notes?: string;
+  sourceRequisitionItemId?: string;
+  maxAllowedQuantity?: number;
+
 }
 
 @Component({
@@ -93,6 +100,8 @@ export interface EditablePOLine {
 })
 export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly poService = inject(PurchaseOrderService);
+  readonly prService = inject(PurchaseRequisitionService);
+  readonly sourceRequisition = signal<PurchaseRequisitionDto | null>(null);
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
@@ -795,6 +804,11 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       this.mode.set('create');
       this.orderId.set(null);
       this.initCreateForm();
+      const prId = this.route.snapshot?.queryParamMap?.get('purchaseRequisitionId') ||
+        (this.route.snapshot?.queryParams as any)?.['purchaseRequisitionId'];
+      if (prId) {
+        this.loadSourceRequisition(prId);
+      }
     } else if (id) {
       this.orderId.set(id);
       if (url.endsWith('/approve') || queryMode === 'approval' || queryMode === 'approve') {
@@ -811,6 +825,100 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  loadSourceRequisition(prId: string): void {
+    const comp = this.scopeService.selectedCompany();
+    const br = this.scopeService.selectedBranch();
+    if (!comp || !br) return;
+
+    this.prService.getRequisition(comp.id, br.id, prId).subscribe({
+      next: req => {
+        if (!req) return;
+        if (Number(req.status) !== PurchaseRequisitionStatus.Approved) {
+          this.showMessage(`Purchase Requisition ${req.requisitionNumber} is not approved and cannot be converted to a Purchase Order.`, 'warn');
+          return;
+        }
+
+        this.sourceRequisition.set(req);
+
+        if (req.notes) {
+          const supMatch = req.notes.match(/\[Preferred Supplier:\s*([^\]]+)\]/i);
+          if (supMatch) {
+            const supName = supMatch[1].trim().toLowerCase();
+            const sup = this.suppliers().find(s => s.supplierName.toLowerCase() === supName);
+            if (sup) {
+              this.headerForm.controls.supplierId.setValue(sup.supplierId);
+            }
+          }
+        }
+
+        this.poService.getOrders(comp.id, br.id).subscribe({
+          next: orders => {
+            const activeOrders = (orders || []).filter(o => {
+              const st = Number(o.status);
+              return st !== PurchaseOrderStatus.Cancelled && st !== PurchaseOrderStatus.Rejected;
+            });
+
+            const eligibleLines: EditablePOLine[] = [];
+            const reqNum = req.requisitionNumber;
+
+            for (const item of req.items || []) {
+              const itemId = item.id || '';
+              let ordered = 0;
+              for (const ord of activeOrders) {
+                for (const ordItem of ord.items || []) {
+                  const notes = (ordItem.notes || '').toLowerCase();
+                  if (
+                    notes.includes(`line: ${itemId.toLowerCase()}`) ||
+                    notes.includes(`line:${itemId.toLowerCase()}`) ||
+                    notes.includes(itemId.toLowerCase()) ||
+                    (notes.includes(reqNum.toLowerCase()) && ordItem.productId.toLowerCase() === item.productId.toLowerCase())
+                  ) {
+                    ordered += Number(ordItem.quantity) || 0;
+                  }
+                }
+              }
+
+              const remaining = Math.max(0, (Number(item.quantity) || 0) - ordered);
+              if (remaining > 0) {
+                const line: EditablePOLine = {
+                  lineId: 'line-' + Math.random().toString(36).substring(2, 9),
+                  productId: item.productId,
+                  productCode: item.productCode || '',
+                  productName: item.productName || '',
+                  unitOfMeasureId: item.unitOfMeasureId || null,
+                  quantity: remaining,
+                  unitCost: Number(item.estimatedUnitPrice) || 0,
+                  discountRate: 0,
+                  discountAmount: 0,
+                  taxCodeId: null,
+                  taxRate: 0,
+                  taxAmount: 0,
+                  subTotal: 0,
+                  lineTotal: 0,
+                  isTaxInclusive: false,
+                  notes: `[PR: ${reqNum} Line: ${itemId}]`,
+                  sourceRequisitionItemId: itemId,
+                  maxAllowedQuantity: remaining
+                };
+                this.calculateRow(line);
+                eligibleLines.push(line);
+              }
+            }
+
+            if (eligibleLines.length > 0) {
+              this.workingLines.set(eligibleLines);
+              this.headerForm.patchValue({
+                notes: `Created from Purchase Requisition: ${reqNum}` + (req.notes ? `\nRequisition Notes: ${req.notes}` : '')
+              });
+              this.showMessage(`Pre-populated ${eligibleLines.length} line item(s) from Requisition ${reqNum}. Quantities can be adjusted for partial ordering.`, 'info');
+            } else {
+              this.showMessage(`All items from Requisition ${reqNum} have already been fully ordered in existing Purchase Orders. Duplicate ordering is prevented.`, 'warn');
+            }
+          }
+        });
+      }
+    });
+  }
   // Initialize scope based on WorkspaceScopeService
   private initScope(): void {
     const comp = this.scopeService.selectedCompany();
@@ -1286,6 +1394,18 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     }
 
     // Create Mode: Create new purchase order
+    for (const l of validLines) {
+      if (l.maxAllowedQuantity !== undefined && l.maxAllowedQuantity !== null) {
+        if (Number(l.quantity) > l.maxAllowedQuantity) {
+          this.showMessage(
+            `Quantity for ${l.productName || l.productCode} (${l.quantity}) exceeds remaining approved requisition quantity (${l.maxAllowedQuantity}). Over-ordering is prevented.`,
+            'warn'
+          );
+          return;
+        }
+      }
+    }
+
     const items = validLines.map(l => ({
       productId: l.productId,
       unitOfMeasureId: l.unitOfMeasureId || null,
@@ -1293,7 +1413,8 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       unitPrice: Number(l.unitCost),
       discountRate: Number(l.discountRate) || 0,
       taxCodeId: l.taxCodeId || null,
-      isTaxInclusive: !!l.isTaxInclusive
+      isTaxInclusive: !!l.isTaxInclusive,
+      notes: l.notes || undefined
     }));
 
     const request: CreatePurchaseOrderRequest = {

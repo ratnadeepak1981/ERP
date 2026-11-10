@@ -220,11 +220,10 @@ export class ProcurementOverviewComponent implements OnInit, OnDestroy {
           icon: 'file-text',
           stageType: 'optional',
           isOptional: true,
-          status: 'upcoming',
-          statusLabel: 'Optional',
+          status: 'active',
+          statusLabel: 'Available',
           pathGroup: 'entry',
-          route: '/app/procurement/purchase-orders',
-          queryParams: { tab: 'requisitions' },
+          route: '/app/procurement/purchase-requisitions',
           requiredPermissions: ['PURCHASE_REQUISITION.VIEW']
         },
         {
