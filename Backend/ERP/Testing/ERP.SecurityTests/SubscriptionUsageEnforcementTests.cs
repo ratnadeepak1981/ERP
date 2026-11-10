@@ -360,7 +360,7 @@ public class SubscriptionUsageEnforcementTests : IAsyncLifetime
 
         var usageService = new SubscriptionUsageService(platformDb);
         var productRepo = new ProductRepository(domainDb);
-        var productService = new ProductService(productRepo, usageService);
+        var productService = new ProductService(productRepo, null);
 
         // 1. Below limit: 1st product (0 -> 1)
         var p1 = await productService.CreateProductAsync(TenantAId, new CreateProductRequest
@@ -504,7 +504,7 @@ public class SubscriptionUsageEnforcementTests : IAsyncLifetime
 
         var usageService = new SubscriptionUsageService(platformDb);
         var productRepo = new ProductRepository(domainDb);
-        var productService = new ProductService(productRepo, usageService);
+        var productService = new ProductService(productRepo, null);
 
         // 1. First product succeeds -> usage is 1
         var p1 = await productService.CreateProductAsync(TenantAId, new CreateProductRequest
