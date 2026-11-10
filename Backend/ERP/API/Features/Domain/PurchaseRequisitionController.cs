@@ -99,6 +99,60 @@ public class PurchaseRequisitionController : BaseApiController
         }
     }
 
+    [HttpPut("{id:guid}")]
+    [RequirePermission("PURCHASE_REQUISITION.EDIT")]
+    public async Task<IActionResult> UpdateRequisition(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        [FromBody] UpdatePurchaseRequisitionRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var requisition = await _requisitionService.UpdateRequisitionAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id,
+                request);
+
+            return SuccessResponse(requisition, "Purchase requisition updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    [RequirePermission("PURCHASE_REQUISITION.DELETE")]
+    public async Task<IActionResult> DeleteRequisition(
+        Guid companyId,
+        Guid branchId,
+        Guid id)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            await _requisitionService.DeleteRequisitionAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id);
+
+            return SuccessResponse("Purchase requisition deleted successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost("{requisitionId:guid}/items")]
     [RequirePermission("PURCHASE_REQUISITION.EDIT")]
     public async Task<IActionResult> AddItem(
@@ -120,6 +174,64 @@ public class PurchaseRequisitionController : BaseApiController
                 request);
 
             return SuccessResponse(item, "Item added to purchase requisition successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPut("{requisitionId:guid}/items/{itemId:guid}")]
+    [RequirePermission("PURCHASE_REQUISITION.EDIT")]
+    public async Task<IActionResult> UpdateItem(
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        Guid itemId,
+        [FromBody] UpdatePurchaseRequisitionItemRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var item = await _requisitionService.UpdateItemAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                requisitionId,
+                itemId,
+                request);
+
+            return SuccessResponse(item, "Purchase requisition item updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpDelete("{requisitionId:guid}/items/{itemId:guid}")]
+    [RequirePermission("PURCHASE_REQUISITION.EDIT")]
+    public async Task<IActionResult> DeleteItem(
+        Guid companyId,
+        Guid branchId,
+        Guid requisitionId,
+        Guid itemId)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            await _requisitionService.DeleteItemAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                requisitionId,
+                itemId);
+
+            return SuccessResponse("Purchase requisition item deleted successfully.");
         }
         catch (Exception ex)
         {

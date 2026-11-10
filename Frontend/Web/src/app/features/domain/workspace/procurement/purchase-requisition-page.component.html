@@ -1,0 +1,718 @@
+<div class="purchase-requisition-page">
+  <app-page-header
+    [title]="pageTitle()"
+    [subtitle]="pageSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <button
+        type="button"
+        class="erp-btn erp-btn-secondary erp-btn-sm"
+        (click)="navigateBack()"
+      >
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to Requisitions</span>
+      </button>
+
+      @if (currentRequisition()) {
+        <app-status-badge
+          [label]="getStatusName()"
+          [severity]="getStatusSeverity()"
+        ></app-status-badge>
+      }
+
+      @if (mode() === 'view' && currentRequisition()) {
+        @if (canCreatePurchaseOrder()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-primary erp-btn-sm"
+            (click)="navigateToCreatePurchaseOrder()"
+          >
+            <i class="pi pi-shopping-cart"></i>
+            <span>Create Purchase Order</span>
+          </button>
+        }
+
+        @if (canEdit()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary erp-btn-sm"
+            (click)="navigateToEdit()"
+          >
+            <i class="pi pi-pencil"></i>
+            <span>Edit</span>
+          </button>
+        }
+
+        @if (canSubmit()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-primary erp-btn-sm"
+            [disabled]="actionInProgress()"
+            (click)="submitFromView()"
+          >
+            <i class="pi pi-send"></i>
+            <span>Submit</span>
+          </button>
+        }
+
+        @if (canApprove()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-success erp-btn-sm"
+            [disabled]="actionInProgress()"
+            (click)="openDecision('approve')"
+          >
+            <i class="pi pi-check"></i>
+            <span>Approve</span>
+          </button>
+
+          <button
+            type="button"
+            class="erp-btn erp-btn-danger erp-btn-sm"
+            [disabled]="actionInProgress()"
+            (click)="openDecision('reject')"
+          >
+            <i class="pi pi-times"></i>
+            <span>Reject</span>
+          </button>
+        }
+
+        @if (canCancel()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary erp-btn-sm text-danger"
+            [disabled]="actionInProgress()"
+            (click)="openDecision('cancel')"
+          >
+            <i class="pi pi-ban"></i>
+            <span>Cancel</span>
+          </button>
+        }
+      }
+
+      @if (mode() === 'approval' && currentRequisition()) {
+        @if (canApprove()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-success erp-btn-sm"
+            [disabled]="actionInProgress()"
+            (click)="openDecision('approve')"
+          >
+            <i class="pi pi-check"></i>
+            <span>Approve Requisition</span>
+          </button>
+
+          <button
+            type="button"
+            class="erp-btn erp-btn-danger erp-btn-sm"
+            [disabled]="actionInProgress()"
+            (click)="openDecision('reject')"
+          >
+            <i class="pi pi-times"></i>
+            <span>Reject</span>
+          </button>
+        }
+      }
+
+      @if (mode() === 'create' || mode() === 'edit') {
+        <button
+          type="button"
+          class="erp-btn erp-btn-secondary erp-btn-sm"
+          [disabled]="actionInProgress()"
+          (click)="saveRequisition(false)"
+        >
+          <i class="pi pi-save"></i>
+          <span>Save as Draft</span>
+        </button>
+
+        <button
+          type="button"
+          class="erp-btn erp-btn-primary erp-btn-sm"
+          [disabled]="actionInProgress()"
+          (click)="saveRequisition(true)"
+        >
+          <i class="pi pi-send"></i>
+          <span>Submit for Approval</span>
+        </button>
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Global Banner Messages -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Segregation of Duties Warning Banner -->
+  @if (isSelfApprovalRestricted()) {
+    <div class="message-banner banner-warn">
+      <i class="pi pi-shield"></i>
+      <span class="message-text">
+        <strong>Segregation of Duties Enforced:</strong> You submitted this requisition ({{ currentRequisition()?.requisitionNumber }}). Requesters cannot approve their own requisitions. Another department manager or authorized officer must approve this request.
+      </span>
+    </div>
+  }
+
+  <!-- Approved Requisition Fulfillment Status Banner -->
+  @if (currentRequisition() && currentRequisition()!.status === 3) {
+    <div class="fulfillment-banner" [ngClass]="isFullyOrdered() ? 'fulfillment-complete' : (totalOrderedQuantity() > 0 ? 'fulfillment-partial' : 'fulfillment-pending')">
+      <div class="fulfillment-content">
+        <i class="pi" [ngClass]="isFullyOrdered() ? 'pi-check-circle' : (totalOrderedQuantity() > 0 ? 'pi-info-circle' : 'pi-clock')"></i>
+        <div class="fulfillment-details">
+          <div class="fulfillment-title">
+            @if (isFullyOrdered()) {
+              <span>Requisition Fully Fulfilled in Purchase Orders</span>
+            } @else if (totalOrderedQuantity() > 0) {
+              <span>Partially Ordered &bull; {{ totalRemainingQuantity() }} of {{ totalRequestedQuantity() }} units remaining to order</span>
+            } @else {
+              <span>Approved &bull; Ready for Purchase Order Creation ({{ totalRequestedQuantity() }} units total)</span>
+            }
+          </div>
+          <div class="fulfillment-subtitle">
+            Procurement can convert approved requisition lines into single or multiple Purchase Orders. Over-ordering is prevented.
+          </div>
+        </div>
+      </div>
+      @if (canCreatePurchaseOrder()) {
+        <button
+          type="button"
+          class="erp-btn erp-btn-primary erp-btn-sm"
+          (click)="navigateToCreatePurchaseOrder()"
+        >
+          <i class="pi pi-shopping-cart"></i>
+          <span>Create PO ({{ totalRemainingQuantity() }} Remaining)</span>
+        </button>
+      }
+    </div>
+  }
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="pr-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading purchase requisition..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state
+        title="Unable to load requisition"
+        [message]="error()!"
+        (retry)="loadExistingRequisition(requisitionId()!)"
+      ></app-error-state>
+    </div>
+  } @else {
+    <div class="pr-form-container">
+      <!-- Section 1: Operating Scope Hierarchy -->
+      <section class="erp-card scope-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 1</span>
+            <h2 class="section-title">Operating Scope</h2>
+          </div>
+          <span class="section-subtitle">
+            All procurement demand belongs strictly to an authorized operating company and branch.
+          </span>
+        </div>
+
+        <div class="scope-selectors-grid">
+          <div class="scope-field">
+            <label class="scope-label">Tenant Organization</label>
+            <div class="scope-static-value">
+              <i class="pi pi-shield"></i>
+              <span>{{ scopeService.activeTenantName() }}</span>
+            </div>
+          </div>
+
+          <div class="scope-field">
+            <label class="scope-label">Operating Company</label>
+            <div class="scope-static-value">
+              <i class="pi pi-building"></i>
+              <span>{{ scopeService.selectedCompany()?.name || 'Company Scope' }}</span>
+            </div>
+          </div>
+
+          <div class="scope-field">
+            <label class="scope-label">Operating Branch</label>
+            <div class="scope-static-value">
+              <i class="pi pi-map-pin"></i>
+              <span>{{ scopeService.selectedBranch()?.name || 'Branch Scope' }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Requisition Information Form -->
+      <section class="erp-card header-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 2</span>
+            <h2 class="section-title">Requisition Details</h2>
+          </div>
+          <span class="section-subtitle">
+            Mandatory: Requisition Number and Date &bull; Priority, Preferred Supplier, Required Date, and Notes are optional.
+          </span>
+        </div>
+
+        <form [formGroup]="headerForm" class="pr-header-form-grid">
+          <div class="form-field">
+            <label for="reqNumber" class="field-label">
+              Requisition Number <span class="required-star">*</span>
+            </label>
+            <input
+              id="reqNumber"
+              type="text"
+              class="erp-form-control"
+              formControlName="requisitionNumber"
+              placeholder="e.g. PR-2026-0001"
+              [readonly]="isReadOnlyMode()"
+            />
+            @if (headerForm.controls.requisitionNumber.touched && headerForm.controls.requisitionNumber.invalid) {
+              <span class="field-error">Requisition number is required.</span>
+            }
+          </div>
+
+          <div class="form-field">
+            <label for="reqDate" class="field-label">
+              Requisition Date <span class="required-star">*</span>
+            </label>
+            <input
+              id="reqDate"
+              type="date"
+              class="erp-form-control"
+              formControlName="requisitionDate"
+              [readonly]="isReadOnlyMode()"
+            />
+            @if (headerForm.controls.requisitionDate.touched && headerForm.controls.requisitionDate.invalid) {
+              <span class="field-error">Requisition date is required.</span>
+            }
+          </div>
+
+          <div class="form-field">
+            <label for="reqPriority" class="field-label">
+              Priority / Urgency <span class="optional-tag">(Optional)</span>
+            </label>
+            <select
+              id="reqPriority"
+              class="erp-form-control"
+              formControlName="priority"
+              [disabled]="isReadOnlyMode()"
+            >
+              @for (opt of priorityOptions; track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="reqRequiredDate" class="field-label">
+              Required By Date <span class="optional-tag">(Optional)</span>
+            </label>
+            <input
+              id="reqRequiredDate"
+              type="date"
+              class="erp-form-control"
+              formControlName="requiredDate"
+              [readonly]="isReadOnlyMode()"
+            />
+          </div>
+
+          <div class="form-field full-width">
+            <label for="reqPreferredSupplier" class="field-label">
+              Preferred Supplier <span class="optional-tag">(Optional suggestion for Procurement)</span>
+            </label>
+            <select
+              id="reqPreferredSupplier"
+              class="erp-form-control"
+              formControlName="preferredSupplierId"
+              [disabled]="isReadOnlyMode()"
+            >
+              @for (sup of supplierOptions(); track sup.value) {
+                <option [value]="sup.value">{{ sup.label }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field full-width">
+            <label for="reqNotes" class="field-label">
+              Business Justification / Remarks <span class="optional-tag">(Optional)</span>
+            </label>
+            <textarea
+              id="reqNotes"
+              class="erp-form-control erp-textarea"
+              rows="2"
+              formControlName="notes"
+              placeholder="State the purpose, remarks, or operational department justification for this demand..."
+              [readonly]="isReadOnlyMode()"
+            ></textarea>
+          </div>
+        </form>
+      </section>
+
+      <!-- Section 3: Line Items Requisition Grid -->
+      <section class="erp-card items-section">
+        <div class="section-header line-items-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 3</span>
+            <h2 class="section-title">Demand Line Items</h2>
+            <span class="item-count-pill">{{ workingLines().length }} {{ workingLines().length === 1 ? 'item' : 'items' }}</span>
+          </div>
+          @if (!isReadOnlyMode()) {
+            <span class="section-subtitle">
+              Mandatory: Product, Quantity, and UOM &bull; Unit price and remarks are optional &bull; Click 'Add Row' to insert items
+            </span>
+          }
+        </div>
+
+        <app-editable-data-table
+          [data]="workingLines()"
+          [columns]="editableItemColumns()"
+          rowKey="lineId"
+          [readonly]="isReadOnlyMode()"
+          [showActionBar]="!isReadOnlyMode()"
+          [allowAddRow]="!isReadOnlyMode()"
+          [allowDeleteRow]="!isReadOnlyMode()"
+          [defaultNewRow]="defaultNewRow"
+          [onRowCalculate]="calculateRow"
+          (dataChange)="onLinesChange($event)"
+          (cellValueChange)="onCellValueChange($event)"
+          subtotalField="estimatedLineTotal"
+          subtotalLabel="Total Estimated Demand"
+          [currencyCode]="scopeService.selectedCompany()?.baseCurrencyCode || 'USD'"
+          emptyTitle="No line items added"
+          emptyDescription="Click 'Add Row' to search and select products for this requisition."
+        ></app-editable-data-table>
+      </section>
+
+      <!-- Section 4: Summary Totals & Footer Toolbar -->
+      <section class="erp-card footer-summary-section">
+        <div class="summary-totals-grid">
+          <div class="summary-row">
+            <span class="summary-label">Line Items Count:</span>
+            <span class="summary-value">{{ workingLines().length }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Total Requested Quantity:</span>
+            <span class="summary-value">{{ totalRequestedQuantity() }}</span>
+          </div>
+          @if (currentRequisition() && currentRequisition()!.status === 3) {
+            <div class="summary-row">
+              <span class="summary-label">Total Ordered in POs:</span>
+              <span class="summary-value text-success font-semibold">{{ totalOrderedQuantity() }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Total Remaining to Order:</span>
+              <span class="summary-value" [ngClass]="totalRemainingQuantity() > 0 ? 'text-primary' : 'text-muted'">
+                {{ totalRemainingQuantity() }}
+              </span>
+            </div>
+          }
+          <div class="summary-row total-row">
+            <span class="summary-label">Estimated Total Demand:</span>
+            <span class="summary-value grand-total">
+              {{ totalAmount() | currency:(scopeService.selectedCompany()?.baseCurrencyCode || 'USD'):'symbol':'1.2-2' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="footer-actions-bar">
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary"
+            [disabled]="actionInProgress()"
+            (click)="navigateBack()"
+          >
+            Cancel / Back
+          </button>
+
+          @if (mode() === 'create' || mode() === 'edit') {
+            <button
+              type="button"
+              class="erp-btn erp-btn-secondary"
+              [disabled]="actionInProgress()"
+              (click)="saveRequisition(false)"
+            >
+              <i class="pi pi-save"></i>
+              <span>Save as Draft</span>
+            </button>
+
+            <button
+              type="button"
+              class="erp-btn erp-btn-primary"
+              [disabled]="actionInProgress()"
+              (click)="saveRequisition(true)"
+            >
+              @if (actionInProgress()) {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else {
+                <i class="pi pi-send"></i>
+              }
+              <span>Submit for Approval</span>
+            </button>
+          } @else if (mode() === 'view') {
+            @if (canCreatePurchaseOrder()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-primary"
+                (click)="navigateToCreatePurchaseOrder()"
+              >
+                <i class="pi pi-shopping-cart"></i>
+                <span>Create Purchase Order</span>
+              </button>
+            }
+            @if (canEdit()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-secondary"
+                (click)="navigateToEdit()"
+              >
+                <i class="pi pi-pencil"></i>
+                <span>Edit Requisition</span>
+              </button>
+            }
+            @if (canSubmit()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-primary"
+                [disabled]="actionInProgress()"
+                (click)="submitFromView()"
+              >
+                <i class="pi pi-send"></i>
+                <span>Submit for Approval</span>
+              </button>
+            }
+            @if (canApprove()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-success"
+                [disabled]="actionInProgress()"
+                (click)="openDecision('approve')"
+              >
+                <i class="pi pi-check"></i>
+                <span>Approve</span>
+              </button>
+              <button
+                type="button"
+                class="erp-btn erp-btn-danger"
+                [disabled]="actionInProgress()"
+                (click)="openDecision('reject')"
+              >
+                <i class="pi pi-times"></i>
+                <span>Reject</span>
+              </button>
+            }
+            @if (canDelete()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-danger"
+                [disabled]="actionInProgress()"
+                (click)="openDecision('delete')"
+              >
+                <i class="pi pi-trash"></i>
+                <span>Delete Draft</span>
+              </button>
+            }
+          } @else if (mode() === 'approval') {
+            @if (canApprove()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-danger"
+                [disabled]="actionInProgress()"
+                (click)="openDecision('reject')"
+              >
+                <i class="pi pi-times"></i>
+                <span>Reject</span>
+              </button>
+
+              <button
+                type="button"
+                class="erp-btn erp-btn-success"
+                [disabled]="actionInProgress()"
+                (click)="openDecision('approve')"
+              >
+                <i class="pi pi-check"></i>
+                <span>Approve Requisition</span>
+              </button>
+            }
+          }
+        </div>
+      </section>
+
+      <!-- Section 5: Approval History Audit Trail (View/Approval Mode Only) -->
+      @if (isReadOnlyMode() && approvalHistory().length > 0) {
+        <section class="erp-card history-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">Approval Workflow History</h2>
+              <span class="item-count-pill">{{ approvalHistory().length }} {{ approvalHistory().length === 1 ? 'event' : 'events' }}</span>
+            </div>
+            <span class="section-subtitle">
+              Audit trail of submission, authorizations, and status transitions for compliance.
+            </span>
+          </div>
+
+          <div class="history-timeline">
+            @for (item of approvalHistory(); track item.id) {
+              <div class="timeline-entry">
+                <div class="timeline-marker" [ngClass]="'marker-' + getDecisionBadgeSeverity(item.decision)"></div>
+                <div class="timeline-body">
+                  <div class="timeline-header">
+                    <span class="decision-badge" [ngClass]="'badge-' + getDecisionBadgeSeverity(item.decision)">
+                      {{ getDecisionName(item.decision) }}
+                    </span>
+                    <span class="actor-name">{{ item.actorUserName }}</span>
+                    <span class="timeline-date">{{ item.decisionDateUtc | date:'medium' }}</span>
+                  </div>
+                  @if (item.remarks) {
+                    <p class="timeline-remarks">"{{ item.remarks }}"</p>
+                  }
+                  @if (item.snapshotAmount !== null && item.snapshotAmount !== undefined) {
+                    <span class="timeline-snapshot">
+                      Amount Snapshot: {{ item.snapshotAmount | currency:(scopeService.selectedCompany()?.baseCurrencyCode || 'USD'):'symbol':'1.2-2' }}
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+
+  <!-- Semantic HTML Modal Dialog for Workflow Decisions (No PrimeNG) -->
+  @if (decisionAction()) {
+    <div class="pr-modal-backdrop" (click)="closeDecision()">
+      <div class="pr-modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+        <div class="pr-modal-header">
+          <h3 class="pr-modal-title">
+            @if (decisionAction() === 'approve') {
+              <i class="pi pi-check-circle text-success"></i>
+              <span>Approve Purchase Requisition</span>
+            } @else if (decisionAction() === 'reject') {
+              <i class="pi pi-times-circle text-danger"></i>
+              <span>Reject Purchase Requisition</span>
+            } @else if (decisionAction() === 'cancel') {
+              <i class="pi pi-ban text-danger"></i>
+              <span>Cancel Purchase Requisition</span>
+            } @else {
+              <i class="pi pi-trash text-danger"></i>
+              <span>Delete Draft Requisition</span>
+            }
+          </h3>
+          <button type="button" class="modal-close-btn" (click)="closeDecision()" aria-label="Close">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <div class="pr-modal-body">
+          @if (decisionError()) {
+            <div class="modal-error-banner">
+              <i class="pi pi-exclamation-triangle"></i>
+              <span>{{ decisionError() }}</span>
+            </div>
+          }
+
+          @if (decisionAction() === 'approve') {
+            <p class="decision-prompt">
+              Are you sure you want to authorize purchase requisition
+              <strong>{{ currentRequisition()?.requisitionNumber }}</strong>
+              for <strong>{{ totalAmount() | currency:(scopeService.selectedCompany()?.baseCurrencyCode || 'USD'):'symbol':'1.2-2' }}</strong>?
+            </p>
+            <div class="form-field">
+              <label for="approveRemarks" class="field-label">Approval Remarks <span class="optional-tag">(Optional)</span></label>
+              <textarea
+                id="approveRemarks"
+                class="erp-form-control erp-textarea"
+                rows="3"
+                [(ngModel)]="decisionRemarks"
+                placeholder="Add authorization remarks or special procurement instructions..."
+              ></textarea>
+            </div>
+          } @else if (decisionAction() === 'reject') {
+            <p class="decision-prompt">
+              Rejecting requisition <strong>{{ currentRequisition()?.requisitionNumber }}</strong> will return it to the requester.
+            </p>
+            <div class="form-field">
+              <label for="rejectRemarks" class="field-label">Reason for Rejection <span class="required-star">*</span></label>
+              <textarea
+                id="rejectRemarks"
+                class="erp-form-control erp-textarea"
+                rows="3"
+                [(ngModel)]="decisionRemarks"
+                placeholder="State the reason for rejecting this requisition (mandatory)..."
+              ></textarea>
+            </div>
+          } @else if (decisionAction() === 'cancel') {
+            <p class="decision-prompt">
+              Cancelling requisition <strong>{{ currentRequisition()?.requisitionNumber }}</strong> is permanent.
+            </p>
+            <div class="form-field">
+              <label for="cancelRemarks" class="field-label">Cancellation Remarks <span class="optional-tag">(Optional)</span></label>
+              <textarea
+                id="cancelRemarks"
+                class="erp-form-control erp-textarea"
+                rows="3"
+                [(ngModel)]="decisionRemarks"
+                placeholder="Optional notes regarding cancellation..."
+              ></textarea>
+            </div>
+          } @else if (decisionAction() === 'delete') {
+            <p class="decision-prompt text-danger">
+              Are you sure you want to delete draft requisition <strong>{{ currentRequisition()?.requisitionNumber }}</strong>?
+              This action cannot be undone.
+            </p>
+          }
+        </div>
+
+        <div class="pr-modal-footer">
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary"
+            [disabled]="actionInProgress()"
+            (click)="closeDecision()"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="erp-btn"
+            [ngClass]="decisionAction() === 'approve' ? 'erp-btn-success' : 'erp-btn-danger'"
+            [disabled]="actionInProgress()"
+            (click)="executeDecision()"
+          >
+            @if (actionInProgress()) {
+              <i class="pi pi-spin pi-spinner"></i>
+            }
+            <span>
+              {{ decisionAction() === 'approve' ? 'Confirm Approval' : decisionAction() === 'reject' ? 'Confirm Rejection' : decisionAction() === 'cancel' ? 'Confirm Cancellation' : 'Delete Draft' }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

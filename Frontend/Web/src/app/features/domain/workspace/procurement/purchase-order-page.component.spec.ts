@@ -10,7 +10,10 @@ import { MasterDataService } from '../../../../core/services/master-data.service
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { PurchaseOrderDto, PurchaseOrderStatus } from '../../../../core/models/purchase-order.models';
-import { SupplierItem, ProductItem, Company, Branch } from '../../../../core/models/scope.models';
+import { PurchaseRequisitionService } from '../../../../core/services/purchase-requisition.service';
+import { PurchaseRequisitionDto, PurchaseRequisitionStatus } from '../../../../core/models/purchase-requisition.models';
+import { SupplierItem, ProductItem, Company, Branch, CurrencyItem } from '../../../../core/models/scope.models';
+import { PriceCardItem, PriceCardType } from '../../../../core/models/price-card.models';
 
 describe('PurchaseOrderPageComponent', () => {
   let component: PurchaseOrderPageComponent;
@@ -659,6 +662,118 @@ describe('PurchaseOrderPageComponent', () => {
       );
       expect(component.rejectDialogVisible()).toBe(false);
       expect(component.currentOrder()?.status).toBe(PurchaseOrderStatus.Rejected);
+    });
+  });
+
+  describe('Optional PR-to-PO Integration and Standalone Independence', () => {
+    let prService: PurchaseRequisitionService;
+
+    beforeEach(() => {
+      prService = TestBed.inject(PurchaseRequisitionService);
+    });
+
+    it('should maintain 100% independence for direct standalone PO creation without PR', () => {
+      fixture.detectChanges();
+      expect(component.sourceRequisition()).toBeNull();
+      expect(component.workingLines().length).toBe(1);
+      expect(component.workingLines()[0].notes).toBeUndefined();
+      expect(component.workingLines()[0].maxAllowedQuantity).toBeUndefined();
+    });
+
+    it('should pre-populate remaining quantities when loading from approved purchase requisition', () => {
+      fixture.detectChanges();
+
+      const mockRequisition: PurchaseRequisitionDto = {
+        id: 'pr-999',
+        tenantId: 't1',
+        companyId: mockCompanyA.id,
+        branchId: mockBranchA.id,
+        requisitionNumber: 'PR-2026-0099',
+        requisitionDate: '2026-10-18T00:00:00Z',
+        requestorUserId: 'u1',
+        status: PurchaseRequisitionStatus.Approved,
+        notes: 'Priority: High',
+        totalAmount: 2000.0,
+        isActive: true,
+        items: [
+          {
+            id: 'pri-item-1',
+            purchaseRequisitionId: 'pr-999',
+            productId: 'p1',
+            productCode: 'RAW-001',
+            productName: 'Steel Sheet 2mm',
+            quantity: 100,
+            estimatedUnitPrice: 20.0,
+            estimatedLineTotal: 2000.0,
+            isActive: true
+          }
+        ]
+      };
+
+      const existingPOWithPartialOrder: PurchaseOrderDto = {
+        id: 'po-prev-1',
+        tenantId: 't1',
+        companyId: mockCompanyA.id,
+        branchId: mockBranchA.id,
+        supplierId: 's1',
+        supplierName: 'Industrial Metals Ltd',
+        orderNumber: 'PO-2026-PREV',
+        orderDate: '2026-10-19T00:00:00Z',
+        status: PurchaseOrderStatus.Draft,
+        totalAmount: 800.0,
+        isActive: true,
+        items: [
+          {
+            id: 'prev-poi-1',
+            purchaseOrderId: 'po-prev-1',
+            productId: 'p1',
+            productCode: 'RAW-001',
+            productName: 'Steel Sheet 2mm',
+            quantity: 40,
+            unitPrice: 20.0,
+            lineTotal: 800.0,
+            notes: '[PR: PR-2026-0099 Line: pri-item-1]',
+            isActive: true
+          }
+        ]
+      };
+
+      vi.spyOn(prService, 'getRequisition').mockReturnValue(of(mockRequisition));
+      vi.spyOn(poService, 'getOrders').mockReturnValue(of([existingPOWithPartialOrder]));
+
+      component.loadSourceRequisition('pr-999');
+
+      expect(component.sourceRequisition()).toBeTruthy();
+      expect(component.sourceRequisition()?.requisitionNumber).toBe('PR-2026-0099');
+      expect(component.workingLines().length).toBe(1);
+      const line = component.workingLines()[0];
+      expect(line.productId).toBe('p1');
+      expect(line.quantity).toBe(60);
+      expect(line.maxAllowedQuantity).toBe(60);
+      expect(line.notes).toBe('[PR: PR-2026-0099 Line: pri-item-1]');
+    });
+
+    it('should prevent over-ordering when PO line quantity exceeds remaining approved quantity', () => {
+      fixture.detectChanges();
+
+      component.workingLines.set([
+        {
+          lineId: 'line-over',
+          productId: 'p1',
+          productCode: 'RAW-001',
+          productName: 'Steel Sheet 2mm',
+          quantity: 75,
+          unitCost: 20,
+          lineTotal: 1500,
+          maxAllowedQuantity: 60,
+          notes: '[PR: PR-2026-0099 Line: pri-item-1]'
+        }
+      ]);
+
+      const createSpy = vi.spyOn(poService, 'createOrder');
+      component.saveOrder(false);
+
+      expect(createSpy).not.toHaveBeenCalled();
     });
   });
 });

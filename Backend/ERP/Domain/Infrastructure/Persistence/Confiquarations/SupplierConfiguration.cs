@@ -62,7 +62,7 @@ public class SupplierConfiguration
             .IsRequired();
 
         builder.HasOne(x => x.Currency)
-
+            .WithMany()
             .HasForeignKey(x => new { x.TenantId, x.CurrencyId })
             .HasPrincipalKey(x => new { x.TenantId, x.CurrencyId })
             .OnDelete(DeleteBehavior.Restrict);

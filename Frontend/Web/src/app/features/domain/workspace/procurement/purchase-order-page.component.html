@@ -147,6 +147,15 @@
     </div>
   }
 
+  <!-- Requisition Link Banner -->
+  @if (sourceRequisition()) {
+    <div class="message-banner banner-info pr-link-banner">
+      <i class="pi pi-link"></i>
+      <span class="message-text">
+        <strong>Linked to Purchase Requisition:</strong> {{ sourceRequisition()?.requisitionNumber }}. Line items pre-populated with remaining quantities. Adjust quantities for partial orders as needed; maximum approved quantities are enforced to prevent over-ordering.
+      </span>
+    </div>
+  }
   <!-- 403 Forbidden Access Restricted State -->
   @if (isAccessDenied()) {
     <div class="po-access-denied-wrapper erp-card">
