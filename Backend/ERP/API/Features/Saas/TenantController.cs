@@ -29,6 +29,36 @@ public class TenantController : BaseApiController
         _currentUserContext = currentUserContext;
     }
 
+    [HttpGet("context")]
+    [AllowAnonymous]
+    public IActionResult GetTenantContext([FromServices] ITenantContext tenantContext)
+    {
+        if (!tenantContext.IsTenantRequest)
+        {
+            return SuccessResponse(new
+            {
+                isTenant = false,
+                tenantId = (Guid?)null,
+                name = "ApexERP Platform",
+                subdomain = (string?)null,
+                industryType = (string?)null,
+                companyStructure = (string?)null,
+                eCommerceEnabled = false
+            }, "Platform context.");
+        }
+
+        return SuccessResponse(new
+        {
+            isTenant = true,
+            tenantId = tenantContext.TenantId,
+            name = tenantContext.TenantName,
+            subdomain = tenantContext.Subdomain,
+            industryType = tenantContext.IndustryType,
+            companyStructure = tenantContext.CompanyStructure,
+            eCommerceEnabled = tenantContext.ECommerceEnabled
+        }, "Tenant context resolved.");
+    }
+
     [HttpPost("tenant-registration-test")]
     [AllowAnonymous]
     public async Task<IActionResult> TenantRegistrationTest(
@@ -46,6 +76,13 @@ public class TenantController : BaseApiController
                     id = result.Tenant.Id,
                     name = result.Tenant.Name,
                     code = result.Tenant.Code,
+                    subdomain = result.Tenant.Subdomain,
+                    industryType = result.Tenant.IndustryType,
+                    companyStructure = result.Tenant.CompanyStructure,
+                    eCommerceEnabled = result.Tenant.ECommerceEnabled,
+                    adminFullName = result.Tenant.AdminFullName,
+                    adminEmail = result.Tenant.AdminEmail,
+                    adminPhone = result.Tenant.AdminPhone,
                     isActive = result.Tenant.IsActive
                 },
                 subscription = new

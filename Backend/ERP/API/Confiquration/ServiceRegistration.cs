@@ -45,6 +45,8 @@ public static class ServiceRegistration
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<ISessionService, SessionService>();
         services.AddScoped<ITenantService, TenantService>();
+        services.AddScoped<TenantContext>();
+        services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
         services.AddScoped<ISubscriptionService, SubscriptionService>();
 
         services.AddScoped<IRolePermissionService, RolePermissionService>();

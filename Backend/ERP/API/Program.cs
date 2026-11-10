@@ -31,10 +31,25 @@ public class Program
         {
             options.AddDefaultPolicy(policy =>
             {
-                policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
-                      .AllowAnyHeader()
-                      .AllowAnyMethod()
-                      .AllowCredentials();
+                policy.SetIsOriginAllowed(origin =>
+                {
+                    if (string.IsNullOrWhiteSpace(origin)) return false;
+                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+
+                    string host = uri.Host.ToLowerInvariant();
+                    string baseDomain = (builder.Configuration["Hosting:TenantBaseDomain"] ?? "localhost").ToLowerInvariant();
+
+                    if (host == "localhost" || host == "127.0.0.1") return true;
+                    if (host.EndsWith(".localhost")) return true;
+                    if (host == baseDomain || host.EndsWith("." + baseDomain)) return true;
+                    if (host.EndsWith(".nip.io") || host.EndsWith(".sslip.io")) return true;
+                    if (System.Net.IPAddress.TryParse(host, out _)) return true;
+
+                    return false;
+                })
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
             });
         });
 
@@ -262,6 +277,13 @@ public class Program
             app.UseSwaggerUI();
         }
 
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedHost |
+                               Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto |
+                               Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+        });
+
         app.UseCors();
         if (!app.Environment.IsDevelopment())
         {
@@ -269,6 +291,7 @@ public class Program
         }
 
         app.UseAuthentication();
+        app.UseMiddleware<API.Security.TenantResolutionMiddleware>();
         app.UseAuthorization();
 
         // Hangfire Dashboard (Secured with PlatformAdmin / SecurityManager role authorization)

@@ -54,7 +54,9 @@ public class SecurityController : BaseApiController
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] SecurityLoginRequest request)
+    public async Task<IActionResult> Login(
+        [FromBody] SecurityLoginRequest request,
+        [FromServices] ITenantContext tenantContext)
     {
         try
         {
@@ -74,6 +76,14 @@ public class SecurityController : BaseApiController
             }
 
             var result = await _userService.LoginAsync(request);
+
+            // Tenant Login Scope Validation:
+            // If authenticating from a tenant subdomain, the user must belong to that tenant.
+            if (tenantContext.IsTenantRequest && result.TenantId != tenantContext.TenantId)
+            {
+                return UnauthorizedResponse("Invalid credentials for this organization.");
+            }
+
             if (!string.IsNullOrWhiteSpace(result.RefreshToken))
             {
                 SetRefreshTokenCookie(result.RefreshToken, result.AccessTokenExpiresAt?.AddDays(7));
@@ -315,7 +325,8 @@ public class SecurityController : BaseApiController
         if (!string.IsNullOrWhiteSpace(origin) && Uri.TryCreate(origin, UriKind.Absolute, out var uri))
         {
             bool isAllowed = false;
-            if (_env.IsDevelopment() && (uri.Host == "localhost" || uri.Host == "127.0.0.1"))
+            string host = uri.Host.ToLowerInvariant();
+            if (_env.IsDevelopment() && (host == "localhost" || host == "127.0.0.1" || host.EndsWith(".localhost") || host.EndsWith(".nip.io") || host.EndsWith(".sslip.io")))
             {
                 isAllowed = true;
             }
