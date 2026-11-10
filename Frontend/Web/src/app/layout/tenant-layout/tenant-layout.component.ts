@@ -194,6 +194,9 @@ export class TenantLayoutComponent implements OnInit {
 
     if (this.canViewProcurement()) {
       items.push({ label: 'Procurement Overview', icon: 'pi pi-chart-line', route: '/app/procurement' });
+      if (this.canViewPurchaseRequisitions()) {
+        items.push({ label: 'Purchase Requisitions', icon: 'pi pi-file-edit', route: '/app/procurement/purchase-requisitions' });
+      }
       items.push({ label: 'Purchase Orders', icon: 'pi pi-shopping-cart', route: '/app/procurement/purchase-orders' });
     }
 
@@ -220,12 +223,23 @@ export class TenantLayoutComponent implements OnInit {
     return items;
   }
 
+  canViewPurchaseRequisitions(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('PURCHASE_REQUISITION.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
   canViewProcurement(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
     const perms = this.authService.permissions();
-    if (perms && perms.length > 0 && !perms.includes('PURCHASE_ORDER.VIEW') && !perms.includes('Product.Read')) {
+    if (perms && perms.length > 0 && !perms.includes('PURCHASE_ORDER.VIEW') && !perms.includes('PURCHASE_REQUISITION.VIEW') && !perms.includes('Product.Read')) {
       return false;
     }
     return true;

@@ -1,0 +1,262 @@
+<div class="purchase-requisitions-page">
+  <app-page-header
+    title="Purchase Requisitions"
+    subtitle="Raise internal purchase requests, specify quantities and estimated pricing, and route demand through authorization workflows."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <button
+        type="button"
+        class="erp-btn erp-btn-secondary erp-btn-sm"
+        [disabled]="loading()"
+        (click)="loadRequisitions()"
+        title="Reload requisitions list"
+      >
+        <i class="pi pi-refresh" [class.pi-spin]="loading()"></i>
+        <span>Refresh</span>
+      </button>
+
+      <button
+        type="button"
+        class="erp-btn erp-btn-primary erp-btn-sm"
+        [disabled]="!canCreateRequisition() || actionInProgress()"
+        [title]="!scopeService.hasCompany() ? 'Select an operating company first' : 'Create a new purchase requisition'"
+        (click)="navigateToCreate()"
+      >
+        <i class="pi pi-plus"></i>
+        <span>New Requisition</span>
+      </button>
+    </div>
+  </app-page-header>
+
+  <!-- Global Status / Notification Message -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- 403 Forbidden Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="pr-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (!scopeService.hasCompany()) {
+    <div class="scope-required-wrapper erp-card">
+      <app-empty-state
+        icon="pi pi-compass"
+        title="Operating Company and Branch Required"
+        description="Purchase requisitions require an operating company and branch scope. Please select them from the scope switcher in the navigation bar to proceed."
+      ></app-empty-state>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading purchase requisitions from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="loadRequisitions()"></app-error-state>
+    </div>
+  } @else {
+    <!-- Main Content Area: Search, Filter Pills & Data Table -->
+    <div class="pr-table-card erp-card">
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <!-- Quick Search -->
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="erp-search-field"
+              placeholder="Search PR # or justification..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <!-- Status Filter Pills -->
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'all'"
+              (click)="activeStatusFilter.set('all')"
+            >
+              All ({{ requisitions().length }})
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'draft'"
+              (click)="activeStatusFilter.set('draft')"
+            >
+              <i class="pi pi-pencil pill-icon"></i> Draft
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'submitted'"
+              (click)="activeStatusFilter.set('submitted')"
+            >
+              <i class="pi pi-clock pill-icon"></i> Submitted
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'approved'"
+              (click)="activeStatusFilter.set('approved')"
+            >
+              <i class="pi pi-check pill-icon"></i> Approved
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'rejected'"
+              (click)="activeStatusFilter.set('rejected')"
+            >
+              <i class="pi pi-times pill-icon"></i> Rejected
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'cancelled'"
+              (click)="activeStatusFilter.set('cancelled')"
+            >
+              <i class="pi pi-ban pill-icon"></i> Cancelled
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Badge Indicator -->
+        <div class="scope-info-pill" title="Current Transaction Scope">
+          <i class="pi pi-building"></i>
+          <span class="scope-text">
+            {{ scopeService.currentScopeDescription() }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Main Requisition List Data Table -->
+      <app-data-table
+        [data]="filteredRequisitions()"
+        [columns]="tableColumns()"
+        [rowActions]="tableActions"
+        rowKey="id"
+        [loading]="loading()"
+        emptyTitle="No purchase requisitions found"
+        emptyDescription="No purchase requisitions match your current filter or none exist for this operating branch yet."
+        [showGlobalSearch]="false"
+        [showColumnChooser]="true"
+        [showExport]="true"
+        [showViewSwitcher]="true"
+        cardTitleField="requisitionNumber"
+        cardSubtitleField="notes"
+        cardIcon="pi pi-file"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+      ></app-data-table>
+    </div>
+  }
+
+  <!-- Action Confirmation Modal (No PrimeNG) -->
+  @if (confirmModal()) {
+    <div class="erp-modal-backdrop" (click)="closeConfirmModal()">
+      <div class="erp-modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+        <div class="erp-modal-header">
+          <h3 class="erp-modal-title">
+            @if (confirmModal()!.type === 'submit') {
+              Submit Purchase Requisition
+            } @else if (confirmModal()!.type === 'delete') {
+              Delete Purchase Requisition Draft
+            } @else {
+              Cancel Purchase Requisition
+            }
+          </h3>
+          <button type="button" class="erp-modal-close" (click)="closeConfirmModal()" aria-label="Close">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <div class="erp-modal-body">
+          @if (confirmModal()!.error) {
+            <div class="modal-error-banner">
+              <i class="pi pi-times-circle"></i>
+              <span>{{ confirmModal()!.error }}</span>
+            </div>
+          }
+
+          @if (confirmModal()!.type === 'submit') {
+            <p>
+              Are you sure you want to submit requisition
+              <strong>{{ confirmModal()!.requisition.requisitionNumber }}</strong>
+              for management approval? Once submitted, line items cannot be modified until reviewed.
+            </p>
+          } @else if (confirmModal()!.type === 'delete') {
+            <p class="text-danger">
+              Are you sure you want to delete draft requisition
+              <strong>{{ confirmModal()!.requisition.requisitionNumber }}</strong>?
+              This draft will be permanently deactivated.
+            </p>
+          } @else if (confirmModal()!.type === 'cancel') {
+            <p>
+              Are you sure you want to cancel requisition
+              <strong>{{ confirmModal()!.requisition.requisitionNumber }}</strong>?
+            </p>
+            <div class="form-group">
+              <label for="cancelRemarks">Cancellation Reason (Optional)</label>
+              <textarea
+                id="cancelRemarks"
+                class="erp-textarea"
+                rows="3"
+                placeholder="Enter cancellation reason..."
+                [ngModel]="confirmModal()!.remarks"
+                (ngModelChange)="confirmModal()!.remarks = $event"
+              ></textarea>
+            </div>
+          }
+        </div>
+
+        <div class="erp-modal-footer">
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary"
+            [disabled]="actionInProgress()"
+            (click)="closeConfirmModal()"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="erp-btn"
+            [ngClass]="confirmModal()!.type === 'delete' || confirmModal()!.type === 'cancel' ? 'erp-btn-danger' : 'erp-btn-primary'"
+            [disabled]="actionInProgress()"
+            (click)="executeConfirmModal()"
+          >
+            @if (actionInProgress()) {
+              <i class="pi pi-spin pi-spinner"></i>
+            }
+            <span>Confirm</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
