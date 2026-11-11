@@ -221,6 +221,7 @@ export class UserSecurityService {
               const branchId = primaryScope?.branchId || '';
               const compName = compMap.get(compId) || (compId ? 'Primary Operating Company' : 'Assigned Company');
               const branchName = branchId ? 'Assigned Operating Branch' : 'All Facilities';
+              const primaryScopeText = compId ? `${compName}${branchId ? ' / ' + branchName : ''}` : 'Unassigned';
 
               return {
                 id: u.id || u.userId,
@@ -238,6 +239,7 @@ export class UserSecurityService {
                 primaryCompanyName: compName,
                 primaryBranchId: branchId,
                 primaryBranchName: branchName,
+                primaryScope: primaryScopeText,
                 createdAt: u.createdAt || new Date().toISOString()
               };
             });

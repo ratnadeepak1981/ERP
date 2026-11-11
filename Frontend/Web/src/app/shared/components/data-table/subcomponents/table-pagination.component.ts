@@ -1,11 +1,10 @@
 import {
   Component,
-  Input,
   Output,
   EventEmitter,
   ChangeDetectionStrategy,
   computed,
-  signal
+  input
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +17,7 @@ import { FormsModule } from '@angular/forms';
   template: `
     <div class="erp-pagination-container">
       <div class="pagination-info">
-        <span>Showing <strong>{{ startRecord() }}</strong> to <strong>{{ endRecord() }}</strong> of <strong>{{ totalRecords }}</strong> entries</span>
+        <span>Showing <strong>{{ startRecord() }}</strong> to <strong>{{ endRecord() }}</strong> of <strong>{{ totalRecords() }}</strong> entries</span>
       </div>
 
       <div class="pagination-controls">
@@ -28,11 +27,11 @@ import { FormsModule } from '@angular/forms';
           <select
             id="erp-page-size-select"
             class="page-size-select"
-            [ngModel]="rows"
+            [ngModel]="rows()"
             (ngModelChange)="onRowsChange($event)"
             aria-label="Rows per page"
           >
-            @for (opt of rowsPerPageOptions; track opt) {
+            @for (opt of rowsPerPageOptions(); track opt) {
               <option [value]="opt">{{ opt }}</option>
             }
           </select>
@@ -198,30 +197,34 @@ import { FormsModule } from '@angular/forms';
   `]
 })
 export class TablePaginationComponent {
-  @Input() first: number = 0;
-  @Input() rows: number = 10;
-  @Input() totalRecords: number = 0;
-  @Input() rowsPerPageOptions: number[] = [5, 10, 25, 50];
+  readonly first = input<number>(0);
+  readonly rows = input<number>(10);
+  readonly totalRecords = input<number>(0);
+  readonly rowsPerPageOptions = input<number[]>([5, 10, 25, 50]);
 
   @Output() pageChange = new EventEmitter<{ first: number; rows: number; page: number; pageCount: number }>();
 
   readonly currentPage = computed(() => {
-    if (this.rows <= 0) return 1;
-    return Math.floor(this.first / this.rows) + 1;
+    const r = this.rows();
+    if (r <= 0) return 1;
+    return Math.floor(this.first() / r) + 1;
   });
 
   readonly totalPages = computed(() => {
-    if (this.rows <= 0 || this.totalRecords <= 0) return 0;
-    return Math.ceil(this.totalRecords / this.rows);
+    const r = this.rows();
+    const tot = this.totalRecords();
+    if (r <= 0 || tot <= 0) return 0;
+    return Math.ceil(tot / r);
   });
 
   readonly startRecord = computed(() => {
-    if (this.totalRecords === 0) return 0;
-    return this.first + 1;
+    const tot = this.totalRecords();
+    if (tot === 0) return 0;
+    return this.first() + 1;
   });
 
   readonly endRecord = computed(() => {
-    return Math.min(this.first + this.rows, this.totalRecords);
+    return Math.min(this.first() + this.rows(), this.totalRecords());
   });
 
   readonly visiblePages = computed(() => {
@@ -248,10 +251,10 @@ export class TablePaginationComponent {
     if (page < 1 || page > this.totalPages() || page === this.currentPage()) {
       return;
     }
-    const newFirst = (page - 1) * this.rows;
+    const newFirst = (page - 1) * this.rows();
     this.pageChange.emit({
       first: newFirst,
-      rows: this.rows,
+      rows: this.rows(),
       page,
       pageCount: this.totalPages()
     });
@@ -263,7 +266,7 @@ export class TablePaginationComponent {
       first: 0,
       rows: rowsNum,
       page: 1,
-      pageCount: Math.ceil(this.totalRecords / rowsNum)
+      pageCount: Math.ceil(this.totalRecords() / rowsNum)
     });
   }
 }
