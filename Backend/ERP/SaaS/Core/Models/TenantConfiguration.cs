@@ -22,6 +22,12 @@ public class TenantConfiguration : Auditable
 
     public bool SpecialUomConversionEnabled { get; private set; } = false;
 
+    public string? IndustryType { get; private set; }
+
+    public string? CompanyStructure { get; private set; }
+
+    public bool ECommerceEnabled { get; private set; } = false;
+
     private TenantConfiguration()
     {
     }
@@ -62,5 +68,12 @@ public class TenantConfiguration : Auditable
 
         ProcurementApprovalRequired = approvalRequired;
         ProcurementApprovalMode = approvalMode;
+    }
+
+    public void UpdateIndustryAndStructure(string? industryType, string? companyStructure, bool eCommerceEnabled)
+    {
+        IndustryType = industryType;
+        CompanyStructure = companyStructure;
+        ECommerceEnabled = eCommerceEnabled;
     }
 }

@@ -1,4 +1,66 @@
 <div class="home-page">
+  @if (tenantContext.isTenantDomain()) {
+    <!-- TENANT-SPECIFIC LANDING PAGE -->
+    @if (tenantContext.isNotFound()) {
+      <section class="hero-section">
+        <div class="erp-container hero-inner">
+          <div class="hero-content">
+            <span class="hero-badge"><i class="pi pi-exclamation-triangle"></i> Organization Not Found</span>
+            <h1 class="hero-title">Tenant <span class="highlight-blue">Not Found</span></h1>
+            <p class="hero-subtitle">
+              The organization subdomain <code>{{ tenantContext.subdomain() }}</code> does not exist on this ApexERP platform.
+            </p>
+            <div class="hero-cta-group">
+              <a href="http://localhost:4200" pButton label="Go to ApexERP Platform Home" icon="pi pi-home" class="p-button-primary"></a>
+            </div>
+          </div>
+        </div>
+      </section>
+    } @else {
+      <section class="hero-section">
+        <div class="erp-container hero-inner">
+          <div class="hero-content">
+            <span class="hero-badge">
+              <i class="pi pi-building" aria-hidden="true"></i>
+              {{ tenantContext.currentTenant()?.industryType || 'Enterprise Workspace' }}
+            </span>
+            <h1 class="hero-title">{{ tenantContext.currentTenant()?.name || tenantContext.subdomain() }}</h1>
+            <p class="hero-subtitle">
+              Welcome to the dedicated business operations and management portal for {{ tenantContext.currentTenant()?.name || 'this organization' }}.
+            </p>
+            <div class="hero-cta-group">
+              <a routerLink="/login" pButton label="Sign In to ERP Workspace" icon="pi pi-sign-in" class="p-button-primary"></a>
+              @if (tenantContext.currentTenant()?.eCommerceEnabled) {
+                <a routerLink="/storefront" pButton label="View Storefront" icon="pi pi-shopping-bag" [outlined]="true" class="p-button-secondary"></a>
+              }
+            </div>
+          </div>
+          <div class="hero-visual">
+            <div class="visual-card">
+              <div class="visual-card-header">
+                <span class="dot green"></span>
+                <span class="card-caption">Enterprise Tenant Active</span>
+              </div>
+              <div class="visual-card-body">
+                <div class="mock-stat">
+                  <span class="stat-label">Subdomain</span>
+                  <strong class="stat-val">{{ tenantContext.subdomain() }}</strong>
+                </div>
+                <div class="mock-stat">
+                  <span class="stat-label">Structure</span>
+                  <strong class="stat-val">{{ tenantContext.currentTenant()?.companyStructure || 'Single Company' }}</strong>
+                </div>
+                <div class="mock-stat">
+                  <span class="stat-label">E-Commerce</span>
+                  <strong class="stat-val">{{ tenantContext.currentTenant()?.eCommerceEnabled ? 'Enabled' : 'Disabled' }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+  } @else {
   <!-- TAB 1: PLATFORM MARKETING VIEW -->
   @if (navService.activeTab() === 'platform') {
     <div id="tabpanel-platform" role="tabpanel" aria-labelledby="tab-platform" class="tab-pane">
@@ -174,4 +236,5 @@
       </section>
     </div>
   }
+}
 </div>

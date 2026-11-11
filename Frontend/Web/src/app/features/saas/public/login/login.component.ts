@@ -6,7 +6,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
 import { PasswordModule } from 'primeng/password';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { TenantHostService } from '../../../../core/tenant/tenant-host.service';
+import { TenantContextService } from '../../../../core/services/tenant-context.service';
 import { sanitizeReturnUrl } from '../../../../core/utils/return-url.util';
 
 @Component({
@@ -18,9 +18,9 @@ import { sanitizeReturnUrl } from '../../../../core/utils/return-url.util';
 })
 export class LoginComponent implements OnInit {
   private readonly authService = inject(AuthService);
-  readonly tenantHostService = inject(TenantHostService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  readonly tenantContext = inject(TenantContextService);
 
   tenantCode = '';
   email = '';
@@ -60,11 +60,7 @@ export class LoginComponent implements OnInit {
       },
       error: (err) => {
         this.loading.set(false);
-        const serverMsg =
-          err?.error?.detail ||
-          err?.error?.message ||
-          err?.message ||
-          'Unable to connect to authentication server.';
+        const serverMsg = err?.error?.message || err?.message || 'Unable to connect to authentication server.';
         this.errorMessage.set(serverMsg);
       }
     });

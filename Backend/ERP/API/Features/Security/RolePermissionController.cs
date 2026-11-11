@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using API.Common;
+using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ public class RolePermissionController : BaseApiController
     }
 
     [HttpGet("{roleId:guid}")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.VIEW")]
     public async Task<IActionResult> GetRolePermissions(Guid roleId)
     {
         try
@@ -100,7 +101,7 @@ public class RolePermissionController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.EDIT")]
     public async Task<IActionResult> AssignPermissionToRole([FromBody] AssignPermissionToRoleRequest request)
     {
         try
@@ -166,7 +167,7 @@ public class RolePermissionController : BaseApiController
     }
 
     [HttpDelete]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.EDIT")]
     public async Task<IActionResult> RemovePermissionFromRole([FromBody] AssignPermissionToRoleRequest request)
     {
         try
@@ -220,14 +221,14 @@ public class RolePermissionController : BaseApiController
     }
 
     [HttpPost("remove")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.EDIT")]
     public Task<IActionResult> RemovePermissionFromRolePost([FromBody] AssignPermissionToRoleRequest request)
     {
         return RemovePermissionFromRole(request);
     }
 
     [HttpPost("batch")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.EDIT")]
     public async Task<IActionResult> BatchAssignPermissions([FromBody] AssignRolePermissionsBatchRequest request)
     {
         try

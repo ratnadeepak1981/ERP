@@ -23,6 +23,7 @@ public class SecurityBootstrapService
 
     public async Task EnsurePlatformRbacAsync()
     {
+        await PermissionCatalogueSeeder.SeedAsync(_repository);
         await PlatformPermissionSeed.SeedAsync(_repository);
         await PlatformRoleSeed.SeedAsync(_repository);
         await PlatformRolePermissionSeed.SeedAsync(_repository);

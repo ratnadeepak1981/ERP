@@ -43,6 +43,16 @@ public class TenantConfigurationConfiguration
             .IsRequired()
             .HasDefaultValue(1);
 
+        builder.Property(x => x.IndustryType)
+            .HasMaxLength(100);
+
+        builder.Property(x => x.CompanyStructure)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.ECommerceEnabled)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         // One configuration per tenant
         builder.HasIndex(x => x.TenantId)
             .IsUnique();

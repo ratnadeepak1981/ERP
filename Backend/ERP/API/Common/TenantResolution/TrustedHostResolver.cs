@@ -17,11 +17,8 @@ public static class TrustedHostResolver
 
     public static string ExtractHost(HttpContext context)
     {
-        var remoteIp = context.Connection.RemoteIpAddress;
-        bool isLoopback = remoteIp != null && IPAddress.IsLoopback(remoteIp);
-
-        // Accept X-Forwarded-Host only from trusted loopback proxy (e.g., local Angular dev proxy)
-        if (isLoopback && context.Request.Headers.TryGetValue("X-Forwarded-Host", out var forwardedHostValues))
+        // Accept X-Forwarded-Host if present (e.g., local Angular dev proxy or reverse proxy)
+        if (context.Request.Headers.TryGetValue("X-Forwarded-Host", out var forwardedHostValues))
         {
             var firstForwarded = forwardedHostValues.ToString()
                 .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
@@ -53,6 +50,21 @@ public static class TrustedHostResolver
         if (IPAddress.TryParse(unbracketed, out _))
         {
             return true;
+        }
+
+        // Bare LAN wildcard IP domain (e.g. '192.168.1.5.nip.io') is platform root (legacy shared host)
+        if (unbracketed.EndsWith(".nip.io", StringComparison.OrdinalIgnoreCase) ||
+            unbracketed.EndsWith(".sslip.io", StringComparison.OrdinalIgnoreCase))
+        {
+            string[] parts = unbracketed.Split('.');
+            if (parts.Length == 6 &&
+                byte.TryParse(parts[0], out _) &&
+                byte.TryParse(parts[1], out _) &&
+                byte.TryParse(parts[2], out _) &&
+                byte.TryParse(parts[3], out _))
+            {
+                return true;
+            }
         }
 
         return false;

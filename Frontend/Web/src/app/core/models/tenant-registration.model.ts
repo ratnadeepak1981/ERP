@@ -2,6 +2,12 @@ export interface CreateTenantRequest {
   name: string;
   subscriptionPlanId: string;
   subdomain?: string;
+  industryType?: string;
+  companyStructure?: string;
+  eCommerceEnabled?: boolean;
+  adminFullName?: string;
+  adminEmail?: string;
+  adminPhone?: string;
 }
 
 export interface TenantSummary {
@@ -9,6 +15,10 @@ export interface TenantSummary {
   name: string;
   code: string;
   isActive: boolean;
+  subdomain?: string;
+  industryType?: string;
+  companyStructure?: string;
+  eCommerceEnabled?: boolean;
 }
 
 export interface SubscriptionSummary {

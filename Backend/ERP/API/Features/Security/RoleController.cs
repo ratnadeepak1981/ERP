@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using API.Common;
+using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +34,7 @@ public class RoleController : BaseApiController
     }
 
     [HttpGet]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.VIEW")]
     public async Task<IActionResult> GetRoles()
     {
         try
@@ -75,7 +76,7 @@ public class RoleController : BaseApiController
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.VIEW")]
     public async Task<IActionResult> GetRoleById(Guid id)
     {
         try
@@ -149,7 +150,7 @@ public class RoleController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.CREATE")]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
         try
@@ -187,7 +188,7 @@ public class RoleController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.EDIT")]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request)
     {
         try
@@ -261,7 +262,7 @@ public class RoleController : BaseApiController
     }
 
     [HttpPut("{id:guid}/toggle-status")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("ROLE.DELETE, ROLE.EDIT")]
     public async Task<IActionResult> ToggleRoleStatus(Guid id)
     {
         try
@@ -284,6 +285,17 @@ public class RoleController : BaseApiController
                 {
                     return ForbiddenResponse("You do not have permission to modify roles belonging to another tenant.");
                 }
+            }
+
+            // Deactivating an active role requires ROLE.DELETE permission.
+            // Reactivating an inactive role requires ROLE.EDIT permission.
+            if (role.IsActive && !User.HasClaim("permission", "ROLE.DELETE"))
+            {
+                return ForbiddenResponse("Deactivating a role requires ROLE.DELETE permission.");
+            }
+            if (!role.IsActive && !User.HasClaim("permission", "ROLE.EDIT") && !User.HasClaim("permission", "ROLE.UPDATE"))
+            {
+                return ForbiddenResponse("Reactivating a role requires ROLE.EDIT permission.");
             }
 
             role.IsActive = !role.IsActive;

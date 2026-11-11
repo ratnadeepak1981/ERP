@@ -43,4 +43,12 @@ public class TenantDetailsDto
     public bool DatabaseIsActive { get; set; }
 
     public bool ConfigurationExists { get; set; }
+
+    public string? Subdomain { get; set; }
+
+    public string? IndustryType { get; set; }
+
+    public string? CompanyStructure { get; set; }
+
+    public bool ECommerceEnabled { get; set; }
 }

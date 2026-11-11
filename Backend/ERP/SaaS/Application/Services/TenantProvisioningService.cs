@@ -130,6 +130,11 @@ public class TenantProvisioningService
         TenantConfiguration tenantConfiguration =
             TenantConfiguration.CreateDefault(tenantId);
 
+        if (string.IsNullOrWhiteSpace(tenant.Subdomain) && primaryDomain != null)
+        {
+            tenant.Subdomain = primaryDomain.Subdomain;
+        }
+
         await _tenantDatabaseRepository.AddAsync(
             tenantDatabase);
 
