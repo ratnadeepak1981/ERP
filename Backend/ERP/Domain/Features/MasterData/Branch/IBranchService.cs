@@ -1,4 +1,4 @@
-﻿namespace Domain.Features.MasterData.Branch;
+namespace Domain.Features.MasterData.Branch;
 
 public interface IBranchService
 {
@@ -10,4 +10,10 @@ public interface IBranchService
         Guid tenantId,
         Guid companyId,
         Guid branchId);
+
+    Task<Branch> CreateBranchAsync(
+        Guid tenantId,
+        Guid companyId,
+        string name,
+        string code);
 }

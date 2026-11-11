@@ -1,4 +1,4 @@
-﻿using Domain.Features.MasterData.Branch;
+using Domain.Features.MasterData.Branch;
 using Domain.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 namespace Domain.Features.MasterData.Branch;
@@ -38,5 +38,16 @@ public class BranchRepository : IBranchRepository
                     c.Id == b.CompanyId &&
                     c.TenantId == tenantId))
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<Branch> AddAsync(Branch branch)
+    {
+        await _context.Branches.AddAsync(branch);
+        return branch;
+    }
+
+    public async Task<int> SaveChangesAsync()
+    {
+        return await _context.SaveChangesAsync();
     }
 }
