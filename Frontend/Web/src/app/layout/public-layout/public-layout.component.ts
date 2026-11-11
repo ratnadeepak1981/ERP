@@ -4,6 +4,7 @@ import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { ThemeService } from '../../core/services/theme.service';
 import { PublicHomeTab, PublicNavService } from '../../core/services/public-nav.service';
+import { TenantContextService } from '../../core/services/tenant-context.service';
 
 @Component({
   selector: 'app-public-layout',
@@ -15,6 +16,7 @@ import { PublicHomeTab, PublicNavService } from '../../core/services/public-nav.
 export class PublicLayoutComponent {
   readonly themeService = inject(ThemeService);
   readonly navService = inject(PublicNavService);
+  readonly tenantContext = inject(TenantContextService);
   private readonly router = inject(Router);
 
   currentYear = new Date().getFullYear();

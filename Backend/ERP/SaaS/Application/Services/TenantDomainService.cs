@@ -35,6 +35,15 @@ public class TenantDomainService : ITenantDomainService
         var domain = await _tenantDomainRepository.GetByHostnameAsync(normalized);
         if (domain == null)
         {
+            string? subdomain = TenantHostResolver.ExtractSubdomain(normalized);
+            if (!string.IsNullOrWhiteSpace(subdomain))
+            {
+                domain = await _tenantDomainRepository.GetBySubdomainAsync(subdomain);
+            }
+        }
+
+        if (domain == null)
+        {
             return TenantResolutionResult.NotFound($"Tenant domain '{normalized}' is not registered.");
         }
 
@@ -70,6 +79,7 @@ public class TenantDomainService : ITenantDomainService
             domain.Hostname,
             domain.Subdomain,
             domain.DomainType,
-            domain.IsPrimary);
+            domain.IsPrimary,
+            domain.Tenant.Name);
     }
 }

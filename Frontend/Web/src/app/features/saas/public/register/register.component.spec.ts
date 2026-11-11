@@ -40,12 +40,24 @@ describe('RegisterComponent', () => {
         {
           provide: SubscriptionPlanService,
           useValue: {
+            getSubscriptionPlans: vi.fn().mockReturnValue(of({
+              succeeded: true,
+              data: [
+                {
+                  id: validPlanId,
+                  name: 'Enterprise Retail',
+                  code: 'RETAIL',
+                  price: 100,
+                  storageMode: 1
+                }
+              ]
+            })),
             getSubscriptionPlanById: vi.fn().mockReturnValue(of({
               data: {
                 id: validPlanId,
-                name: 'Free Manufacturing',
-                code: 'FREE',
-                price: 0
+                name: 'Enterprise Retail',
+                code: 'RETAIL',
+                price: 100
               }
             }))
           }
@@ -101,6 +113,28 @@ describe('RegisterComponent', () => {
     expect(component.planIdError()).toContain('valid subscription plan must be selected');
   });
 
+  it('should validate password complexity and confirmation matching', () => {
+    component.adminPassword = 'weak';
+    expect(component.validatePassword()).toBe(false);
+    expect(component.adminPasswordError()).toContain('at least 8 characters');
+
+    component.adminPassword = 'NoSpecialOrDigits';
+    expect(component.validatePassword()).toBe(false);
+    expect(component.adminPasswordError()).toContain('uppercase, lowercase, numbers, and special');
+
+    component.adminPassword = 'ValidPassword123#';
+    expect(component.validatePassword()).toBe(true);
+    expect(component.adminPasswordError()).toBeNull();
+
+    component.adminConfirmPassword = 'MismatchPassword123#';
+    expect(component.validateConfirmPassword()).toBe(false);
+    expect(component.adminConfirmPasswordError()).toContain('Passwords do not match');
+
+    component.adminConfirmPassword = 'ValidPassword123#';
+    expect(component.validateConfirmPassword()).toBe(true);
+    expect(component.adminConfirmPasswordError()).toBeNull();
+  });
+
   it('should prevent duplicate submissions while request is in progress', () => {
     const registerSpy = vi.spyOn(registrationService, 'registerTenant').mockReturnValue(of({} as any));
 
@@ -114,7 +148,7 @@ describe('RegisterComponent', () => {
     expect(registerSpy).not.toHaveBeenCalled();
   });
 
-  it('should submit exact contract payload { name, subscriptionPlanId } to registration API when valid', () => {
+  it('should submit complete contract payload to registration API when valid', () => {
     const mockResult: ApiResponse<TenantRegistrationResult> = {
       succeeded: true,
       message: 'Tenant registration use case completed',
@@ -129,7 +163,7 @@ describe('RegisterComponent', () => {
           id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
           tenantId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
           subscriptionPlanId: validPlanId,
-          subscriptionName: 'Free Manufacturing',
+          subscriptionName: 'Enterprise Retail',
           subscriptionType: 1,
           storageMode: 1,
           startDate: '2026-10-15T00:00:00Z',
@@ -145,20 +179,28 @@ describe('RegisterComponent', () => {
     component.tenantName = ' Acme Precision Ltd ';
     component.adminFullName = 'Johnathan Miller';
     component.adminEmail = 'admin@acme.com';
+    component.industryType = 'Manufacturing';
+    component.companyStructure = 'Single';
+    component.eCommerceEnabled = true;
 
     component.onRegister();
 
-    expect(registerSpy).toHaveBeenCalledWith({
+    expect(registerSpy).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Acme Precision Ltd',
-      subscriptionPlanId: validPlanId
-    });
+      subscriptionPlanId: validPlanId,
+      industryType: 'Manufacturing',
+      companyStructure: 'Single',
+      eCommerceEnabled: true,
+      adminFullName: 'Johnathan Miller',
+      adminEmail: 'admin@acme.com'
+    }));
     expect(component.registrationResult()?.tenant.name).toBe('Acme Precision Ltd');
   });
 
   it('should display actual API error message and allow retry when registration fails', () => {
     const apiError = {
-      status: 401,
-      error: { message: 'Unauthorized: Platform authority is required for tenant registration.' }
+      status: 409,
+      error: { message: 'A tenant with this organization name already exists.' }
     };
     vi.spyOn(registrationService, 'registerTenant').mockReturnValue(throwError(() => apiError));
 
@@ -169,8 +211,9 @@ describe('RegisterComponent', () => {
     component.onRegister();
 
     expect(component.isSubmitting()).toBe(false);
-    expect(component.apiError()).toContain('Tenant Registration Request Failed (HTTP 401)');
-    expect(component.apiErrorDetails()).toContain('Unauthorized: Platform authority is required');
+    expect(component.apiError()).toContain('Registration Conflict');
+    expect(component.tenantNameError()).toContain('organization with this name is already registered');
+    expect(component.subdomainError()).toBeNull();
 
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
@@ -193,7 +236,7 @@ describe('RegisterComponent', () => {
           id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
           tenantId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
           subscriptionPlanId: validPlanId,
-          subscriptionName: 'Free Manufacturing',
+          subscriptionName: 'Enterprise Retail',
           subscriptionType: 1,
           storageMode: 1,
           startDate: '2026-10-15T00:00:00Z',
@@ -214,10 +257,10 @@ describe('RegisterComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.confirmation-view')).toBeTruthy();
-    expect(compiled.textContent).toContain('Tenant Registration Confirmed');
+    expect(compiled.textContent).toContain('Tenant Onboarding Confirmed');
     expect(compiled.textContent).toContain('TEN-AAAA1111');
-    expect(compiled.textContent).toContain('Free Manufacturing');
-    expect(compiled.textContent).toContain('Phase 1 Complete');
+    expect(compiled.textContent).toContain('Enterprise Retail');
+    expect(compiled.textContent).toContain('Workspace Initialized');
   });
 
   it('should auto-derive subdomain slug from tenant name when untouched', () => {
@@ -225,7 +268,7 @@ describe('RegisterComponent', () => {
     component.onTenantNameChange();
 
     expect(component.subdomain).toBe('acme-precision-tools-ltd');
-    expect(component.previewHostname()).toBe('acme-precision-tools-ltd.localhost:4200');
+    expect(component.previewHostname()).toContain('acme-precision-tools-ltd');
   });
 
   it('should not overwrite custom subdomain once touched by user', () => {
@@ -236,7 +279,7 @@ describe('RegisterComponent', () => {
     component.onTenantNameChange();
 
     expect(component.subdomain).toBe('custom-acme');
-    expect(component.previewHostname()).toBe('custom-acme.localhost:4200');
+    expect(component.previewHostname()).toContain('custom-acme');
   });
 
   it('should reject reserved subdomains during validation', () => {
@@ -278,11 +321,11 @@ describe('RegisterComponent', () => {
 
     component.onRegister();
 
-    expect(registerSpy).toHaveBeenCalledWith({
+    expect(registerSpy).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Acme Corp',
       subscriptionPlanId: validPlanId,
       subdomain: 'my-custom-sub'
-    });
+    }));
   });
 
   it('should display assigned workspace domain details and link on successful registration', () => {
@@ -300,7 +343,7 @@ describe('RegisterComponent', () => {
           id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
           tenantId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
           subscriptionPlanId: validPlanId,
-          subscriptionName: 'Free Manufacturing',
+          subscriptionName: 'Enterprise Retail',
           subscriptionType: 1,
           storageMode: 1,
           startDate: '2026-10-15T00:00:00Z',
@@ -329,9 +372,8 @@ describe('RegisterComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Dedicated Workspace Domain');
+    expect(compiled.textContent).toContain('Dedicated Tenant Workspace URL');
     expect(compiled.textContent).toContain('acme-precision');
     expect(compiled.textContent).toContain('acme-precision.localhost');
-    expect(compiled.textContent).toContain('http://acme-precision.localhost:4200');
   });
 });

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using API.Common;
+using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -81,7 +82,7 @@ public class UserController : BaseApiController
     }
 
     [HttpGet]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.VIEW")]
     public async Task<IActionResult> GetUsers()
     {
         try
@@ -128,7 +129,7 @@ public class UserController : BaseApiController
     }
 
     [HttpGet("{userId:guid}")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.VIEW")]
     public async Task<IActionResult> GetUserById(Guid userId)
     {
         try
@@ -180,14 +181,19 @@ public class UserController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Platform Admin, Security Manager")]
+    [RequirePermission("USER.CREATE")]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
+        if (_currentUserContext.TenantId.HasValue)
+        {
+            return ForbiddenResponse("Tenant administrators must use the tenant-user endpoint.");
+        }
+
         return await HandleCreateUserInternal(request);
     }
 
     [HttpPost("tenant-user")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.CREATE")]
     public async Task<IActionResult> CreateTenantUser([FromBody] CreateUserRequest request)
     {
         return await HandleCreateUserInternal(request);
@@ -306,7 +312,7 @@ public class UserController : BaseApiController
     }
 
     [HttpPut("{userId:guid}")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.EDIT")]
     public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserRequest request)
     {
         try
@@ -391,7 +397,7 @@ public class UserController : BaseApiController
     }
 
     [HttpGet("scopes")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.VIEW")]
     public async Task<IActionResult> GetScopes(
         [FromQuery] Guid? userId = null,
         [FromQuery] bool includeInactive = true)
@@ -478,14 +484,14 @@ public class UserController : BaseApiController
     }
 
     [HttpGet("{userId:guid}/scopes")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.VIEW")]
     public Task<IActionResult> GetUserScopes(Guid userId, [FromQuery] bool includeInactive = true)
     {
         return GetScopes(userId, includeInactive);
     }
 
     [HttpPost("scope")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.EDIT")]
     public async Task<IActionResult> AssignScope([FromBody] AssignUserScopeRequest request)
     {
         try
@@ -645,7 +651,7 @@ public class UserController : BaseApiController
     }
 
     [HttpDelete("scope/{scopeId:guid}")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.EDIT")]
     public async Task<IActionResult> RevokeScope(Guid scopeId)
     {
         try
@@ -682,7 +688,7 @@ public class UserController : BaseApiController
     }
 
     [HttpPut("{userId:guid}/toggle-status")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.DELETE, USER.EDIT")]
     public async Task<IActionResult> ToggleUserStatus(Guid userId)
     {
         try
@@ -697,6 +703,17 @@ public class UserController : BaseApiController
             if (tenantId.HasValue && user.TenantId != tenantId.Value)
             {
                 return ForbiddenResponse("Cannot modify status of a user belonging to another tenant.");
+            }
+
+            // Deactivating an active user requires USER.DELETE permission.
+            // Reactivating a deactivated user requires USER.EDIT permission.
+            if (user.IsActive && !User.HasClaim("permission", "USER.DELETE"))
+            {
+                return ForbiddenResponse("Deactivating a user requires USER.DELETE permission.");
+            }
+            if (!user.IsActive && !User.HasClaim("permission", "USER.EDIT") && !User.HasClaim("permission", "USER.UPDATE"))
+            {
+                return ForbiddenResponse("Reactivating a user requires USER.EDIT permission.");
             }
 
             user.IsActive = !user.IsActive;

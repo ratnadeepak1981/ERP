@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using API.Common;
+using API.Common.TenantResolution;
 using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,23 @@ public class TenantController : BaseApiController
         _tenantService = tenantService;
         _tenantProvisioningService = tenantProvisioningService;
         _currentUserContext = currentUserContext;
+    }
+
+    [HttpGet("context")]
+    [AllowAnonymous]
+    public IActionResult GetCurrentTenantContext(
+        [FromServices] ITenantContext tenantContext)
+    {
+        return SuccessResponse(new
+        {
+            isTenant = tenantContext.IsTenantDomainRequest,
+            tenantId = tenantContext.TenantId,
+            name = tenantContext.TenantName,
+            subdomain = tenantContext.Subdomain,
+            industryType = tenantContext.IndustryType,
+            companyStructure = tenantContext.CompanyStructure,
+            eCommerceEnabled = tenantContext.ECommerceEnabled
+        });
     }
 
     [HttpPost("tenant-registration-test")]
@@ -73,9 +91,27 @@ public class TenantController : BaseApiController
                 subdomain = result.Subdomain
             }, "Tenant registration use case completed");
         }
-        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
         {
-            return ConflictResponse("A tenant with this organization name already exists. Please choose a different name.");
+            var innerMsg = ex.InnerException?.Message ?? ex.Message;
+            if (innerMsg.Contains("IX_Tenants_Name"))
+            {
+                return ConflictResponse($"An organization with the name '{request.Name}' already exists. Please choose a different name.");
+            }
+            if (innerMsg.Contains("IX_Tenants_Subdomain") || innerMsg.Contains("IX_TenantDomains_Subdomain") || innerMsg.Contains("IX_TenantDomains_Hostname"))
+            {
+                return ConflictResponse($"The subdomain '{request.Subdomain}' is already registered. Please choose another subdomain.");
+            }
+            if (innerMsg.Contains("IX_Tenants_Code"))
+            {
+                return ConflictResponse("A tenant code collision occurred. Please retry.");
+            }
+            if (innerMsg.Contains("duplicate key") || innerMsg.Contains("UNIQUE KEY"))
+            {
+                return ConflictResponse($"A record collision was detected: {innerMsg}");
+            }
+
+            return BadRequestResponse($"Database error: {innerMsg}");
         }
         catch (Exception ex)
         {

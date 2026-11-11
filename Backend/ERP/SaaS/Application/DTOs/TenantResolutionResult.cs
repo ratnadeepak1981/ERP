@@ -9,6 +9,7 @@ public class TenantResolutionResult
     public Guid? TenantId { get; set; }
     public string? Hostname { get; set; }
     public string? Subdomain { get; set; }
+    public string? TenantName { get; set; }
     public TenantDomainType? DomainType { get; set; }
     public bool IsPrimary { get; set; }
     public bool IsActive { get; set; }
@@ -21,7 +22,8 @@ public class TenantResolutionResult
         string hostname,
         string? subdomain,
         TenantDomainType domainType,
-        bool isPrimary)
+        bool isPrimary,
+        string? tenantName = null)
     {
         return new TenantResolutionResult
         {
@@ -29,6 +31,7 @@ public class TenantResolutionResult
             TenantId = tenantId,
             Hostname = hostname,
             Subdomain = subdomain,
+            TenantName = tenantName,
             DomainType = domainType,
             IsPrimary = isPrimary,
             IsActive = true,

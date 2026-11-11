@@ -78,6 +78,15 @@ public class TenantService : ITenantService
                 nameof(request.SubscriptionPlanId));
         }
 
+        if (!string.IsNullOrWhiteSpace(request.CompanyStructure) &&
+            !string.Equals(request.CompanyStructure, "Single", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.CompanyStructure, "Multi", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                "Invalid company structure. Must be 'Single' or 'Multi'.",
+                nameof(request.CompanyStructure));
+        }
+
         Guid tenantId = Guid.NewGuid();
 
         string targetSubdomain;
@@ -118,7 +127,8 @@ public class TenantService : ITenantService
             Id = tenantId,
             Name = request.Name.Trim(),
             Code = tenantCode,
-            IsActive = true
+            IsActive = true,
+            Subdomain = targetSubdomain
         };
 
         var transaction =
@@ -175,30 +185,19 @@ public class TenantService : ITenantService
 
     private async Task<string> GenerateAvailableSubdomainAsync(string tenantName, Guid tenantId)
     {
-        string rawSlug = Regex.Replace(tenantName.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
-        if (rawSlug.Length < 3 || TenantDomainRules.IsReservedSubdomain(rawSlug))
+        string rawSlug = TenantSlugRules.GenerateSlug(tenantName);
+        if (string.IsNullOrWhiteSpace(rawSlug) || rawSlug.Length < 3 || TenantDomainRules.IsReservedSubdomain(rawSlug))
         {
             rawSlug = $"tenant-{tenantId.ToString("N")[..6]}";
         }
-        else if (rawSlug.Length > 50)
-        {
-            rawSlug = rawSlug[..50].TrimEnd('-');
-        }
 
-        string candidate = rawSlug;
-        int counter = 1;
-        while (await _tenantDomainRepository.ExistsSubdomainAsync(candidate) ||
-               TenantDomainRules.IsReservedSubdomain(candidate))
-        {
-            candidate = $"{rawSlug}-{counter}";
-            if (candidate.Length > 63)
-            {
-                candidate = $"{rawSlug[..(63 - counter.ToString().Length - 1)]}-{counter}";
-            }
-            counter++;
-        }
-
-        return candidate;
+        return await TenantSlugRules.ResolveCollisionAsync(
+            rawSlug,
+            async candidate =>
+                await _tenantDomainRepository.ExistsSubdomainAsync(candidate) ||
+                await _tenantRepository.ExistsBySubdomainAsync(candidate) ||
+                TenantSlugRules.IsReserved(candidate) ||
+                TenantDomainRules.IsReservedSubdomain(candidate));
     }
 
     public Task<List<TenantQueueItemDto>> GetTenantListAsync()

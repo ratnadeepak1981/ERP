@@ -33,12 +33,22 @@ public class Program
             {
                 policy.SetIsOriginAllowed(origin =>
                 {
-                    var host = new Uri(origin).Host;
-                    return host == "localhost" || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase);
+                    if (string.IsNullOrWhiteSpace(origin)) return false;
+                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+
+                    string host = uri.Host.ToLowerInvariant();
+                    string baseDomain = (builder.Configuration["Hosting:TenantBaseDomain"] ?? "localhost").ToLowerInvariant();
+
+                    return host == "localhost" ||
+                           host == "127.0.0.1" ||
+                           host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+                           host.EndsWith(".nip.io", StringComparison.OrdinalIgnoreCase) ||
+                           host == baseDomain ||
+                           host.EndsWith("." + baseDomain, StringComparison.OrdinalIgnoreCase);
                 })
-                      .AllowAnyHeader()
-                      .AllowAnyMethod()
-                      .AllowCredentials();
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
             });
         });
 
@@ -269,6 +279,13 @@ public class Program
             app.UseSwagger();
             app.UseSwaggerUI();
         }
+
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedHost |
+                               Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto |
+                               Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+        });
 
         app.UseCors();
         if (!app.Environment.IsDevelopment())

@@ -26,6 +26,30 @@ public class TenantRepository : ITenantRepository
             .FirstOrDefaultAsync(x => x.Id == tenantId);
     }
 
+    public async Task<Tenant?> GetBySubdomainAsync(string subdomain)
+    {
+        if (string.IsNullOrWhiteSpace(subdomain))
+        {
+            return null;
+        }
+
+        string normalized = subdomain.Trim().ToLowerInvariant();
+        return await _context.Tenants
+            .FirstOrDefaultAsync(x => x.Subdomain == normalized);
+    }
+
+    public async Task<bool> ExistsBySubdomainAsync(string subdomain)
+    {
+        if (string.IsNullOrWhiteSpace(subdomain))
+        {
+            return false;
+        }
+
+        string normalized = subdomain.Trim().ToLowerInvariant();
+        return await _context.Tenants
+            .AnyAsync(x => x.Subdomain == normalized);
+    }
+
     public async Task<bool> ExistsByCodeAsync(string code)
     {
         return await _context.Tenants

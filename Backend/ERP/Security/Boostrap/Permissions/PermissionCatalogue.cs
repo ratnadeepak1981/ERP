@@ -97,6 +97,32 @@ public static class PermissionCatalogue
             "Allows soft deleting branches.");
 
         // =========================
+        // Master data: users & access
+        // =========================
+        AddTenant(permissions, "USER.VIEW", "View Users", "User",
+            "Allows viewing and listing user profiles and operating scopes.");
+        AddTenant(permissions, "USER.CREATE", "Create Users", "User",
+            "Allows creating new user accounts.");
+        AddTenant(permissions, "USER.EDIT", "Edit Users", "User",
+            "Allows updating user profile details, active status, and operating scopes.");
+        AddTenant(permissions, "USER.DELETE", "Deactivate Users", "User",
+            "Allows deactivating or suspending user accounts.");
+        AddTenant(permissions, "USER.ASSIGN_ROLE", "Assign User Roles", "User",
+            "Allows binding and unbinding roles to user accounts.");
+
+        // =========================
+        // Master data: roles & access
+        // =========================
+        AddTenant(permissions, "ROLE.VIEW", "View Roles", "Role",
+            "Allows viewing and listing role definitions and assigned permissions.");
+        AddTenant(permissions, "ROLE.CREATE", "Create Roles", "Role",
+            "Allows creating custom tenant roles.");
+        AddTenant(permissions, "ROLE.EDIT", "Edit Roles", "Role",
+            "Allows updating custom role metadata and activating/reactivating roles.");
+        AddTenant(permissions, "ROLE.DELETE", "Deactivate Roles", "Role",
+            "Allows deactivating custom tenant roles.");
+
+        // =========================
         // Master data: product & catalogue
         // =========================
         AddTenant(permissions, "PRODUCT.VIEW", "View Product", "Product",

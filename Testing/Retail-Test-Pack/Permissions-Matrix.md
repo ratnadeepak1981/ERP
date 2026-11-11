@@ -1,0 +1,26 @@
+# ApexERP — Retail Test Pack: Permissions Matrix (Gate 1 Verification)
+
+## 1. Verified Role-Permission Matrix
+
+| Responsibility | Actual Role (`Role.Name`) | Template Key (`TemplateKey`) | Verified Permission Codes | Target Screens & Routes | Route Guards & API Enforcement |
+|---|---|---|---|---|---|
+| **Tenant Administration** | `Tenant Admin` | `TENANT_ADMIN` | All 89 Tenant Permission Codes (excluding specialized `PRICE_CARD.OVERRIDE`) | `/tenant-admin/*`<br>`/app/master-data/*` | Angular: `roleGuard(['Tenant Admin', 'Platform Admin'])`<br>Backend: Bypass in `UserAccessService.CanAccessCompanyAsync` |
+| **Procurement (Creation & Submit)** | `Procurement Officer` | `PROCUREMENT_OFFICER` | `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.CREATE`, `PURCHASE_ORDER.EDIT`, `PURCHASE_ORDER.DELETE`, `PURCHASE_ORDER.SUBMIT`, `PURCHASE_ORDER.CANCEL`, `PURCHASE_REQUISITION.*`, `GRN.*`, `SUPPLIER.VIEW`, `SUPPLIER_PRICE.VIEW`, `PRODUCT.VIEW`, `WAREHOUSE.VIEW`, `INVENTORY.VIEW` | `/app/procurement/purchase-orders`<br>`/app/procurement/purchase-orders/new`<br>`/app/procurement/purchase-orders/:id/edit` | Angular: `workspaceGuard`, action buttons disabled/hidden for approval<br>Backend: `[RequirePermission("PURCHASE_ORDER.CREATE")]`, `[RequirePermission("PURCHASE_ORDER.SUBMIT")]`. Explicitly lacks `PURCHASE_ORDER.APPROVE`. |
+| **PO Approval** | `Procurement Manager` | `PROCUREMENT_MANAGER` | All Procurement Officer permissions PLUS `PURCHASE_ORDER.APPROVE`, `PURCHASE_REQUISITION.APPROVE`, `PROCUREMENT.SETTINGS.EDIT`, `BATCH.VIEW` | `/app/procurement/purchase-orders/:id/approve`<br>`/app/procurement/purchase-orders` | Angular: `workspaceGuard`, Approval action buttons enabled<br>Backend: `[RequirePermission("PURCHASE_ORDER.APPROVE")]` with separation of submitter/approver enforcement. |
+| **Goods Receipt (GRN)** | `Procurement Officer`<br>*(or `Procurement Manager`)* | `PROCUREMENT_OFFICER`<br>`PROCUREMENT_MANAGER` | `GRN.VIEW`, `GRN.CREATE`, `GRN.EDIT`, `GRN.DELETE`, `GRN.CONFIRM`, `GRN.CANCEL`, `WAREHOUSE.VIEW`, `INVENTORY.VIEW` | `/app/procurement/goods-receipts`<br>`/app/procurement/goods-receipts/new`<br>`/app/procurement/goods-receipts/:id` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("GRN.CREATE")]`, `[RequirePermission("GRN.CONFIRM")]`. |
+| **Warehouse & Putaway** | `Inventory Manager`<br>*(or `Inventory Officer`)* | `INVENTORY_MANAGER`<br>`INVENTORY_OFFICER` | `INVENTORY.VIEW`, `PUTAWAY.POST`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`, `BATCH.VIEW`, `BATCH.CREATE`, `BATCH.EDIT` | `/app/inventory/store-putaway`<br>`/app/master-data/warehouses` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("PUTAWAY.POST")]`. |
+| **Inventory Operations & Counts** | `Inventory Manager` | `INVENTORY_MANAGER` | `INVENTORY.VIEW`, `STOCK_RECEIPT.POST`, `STOCK_ISSUE.POST`, `PUTAWAY.POST`, `STOCK_COUNT.VIEW`, `STOCK_COUNT.CREATE`, `STOCK_COUNT.EDIT`, `STOCK_COUNT.SUBMIT`, `STOCK_COUNT.APPROVE`, `STOCK_COUNT.POST`, `STOCK_COUNT.CANCEL`, `BATCH.*`, `WAREHOUSE.VIEW`, `LOCATION.VIEW` | `/app/inventory/stock-receipts`<br>`/app/inventory/issue-stock`<br>`/app/inventory/transfers`<br>`/app/inventory/count-adjust` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("STOCK_ISSUE.POST")]`, `[RequirePermission("STOCK_RECEIPT.POST")]`, `[RequirePermission("STOCK_COUNT.APPROVE")]`, `[RequirePermission("STOCK_COUNT.POST")]`. Note: `Inventory Officer` lacks Count Approve/Post. |
+| **Sales** | `Sales Manager`<br>*(or `Sales Officer`)* | `SALES_MANAGER`<br>`SALES_OFFICER` | `SALES_ORDER.*` (including `CONFIRM`), `SALES_SHIPMENT.*` (including `DISPATCH`, `DELIVER`), `SALES_INVOICE.*`, `CUSTOMER.VIEW`, `PRICE_CARD.VIEW`, `PRODUCT.VIEW`, `INVENTORY.VIEW` | `/app/sales/orders`<br>`/app/sales/orders/new`<br>`/app/sales/orders/:id/confirm`<br>`/app/sales/dispatches`<br>`/app/sales/invoices` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("SALES_ORDER.CONFIRM")]`, `[RequirePermission("SALES_SHIPMENT.DISPATCH")]`. Note: `Sales Officer` creates/submits and dispatches, but requires `Sales Manager` to confirm order. |
+| **Reports & Audit** | `Tenant Read-only Auditor`<br>*(or Module Viewers)* | `TENANT_AUDITOR` | All 41 `*.VIEW` permissions in Tenant Catalogue | All read-only list, register, balance and ledger screens | Angular: `workspaceGuard`, all mutation actions hidden/denied<br>Backend: `[RequirePermission("*.VIEW")]` allows read-only queries. |
+
+## 2. API Authorization Architecture
+
+- **Attribute:** `[RequirePermission("PERMISSION_CODE")]` decorates controllers and individual action methods.
+- **Provider:** `PermissionPolicyProvider` registers dynamic policies with prefix `Permission:`.
+- **Handler:** `PermissionAuthorizationHandler` inspects the authenticated user's JWT `permission` claims.
+  - Automatically handles `.EDIT` and `.UPDATE` action aliases.
+  - Returns `403 Forbidden` if the user's role lacks the required claim.
+- **Company & Branch Scope Enforcement:**
+  - `UserAccessService.CanAccessCompanyAsync` validates that non-admin users have an explicit, active `UserRoleScope` entry for the requested `companyId`.
+  - `UserAccessService.CanAccessBranchAsync` validates branch-level scope when restricted.
+  - If a user attempts to access a company or branch outside their scope, the API returns `401 Unauthorized` or `403 Forbidden`.

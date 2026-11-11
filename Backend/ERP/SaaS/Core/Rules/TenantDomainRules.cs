@@ -41,7 +41,22 @@ public static class TenantDomainRules
             return string.Empty;
         }
 
-        return hostname.Trim().TrimEnd('.').ToLowerInvariant();
+        string raw = hostname.Trim().TrimEnd('.');
+        if (raw.StartsWith('[') && raw.Contains(']'))
+        {
+            int closingBracket = raw.IndexOf(']');
+            raw = raw[1..closingBracket];
+        }
+        else
+        {
+            int portIndex = raw.IndexOf(':');
+            if (portIndex > 0)
+            {
+                raw = raw[..portIndex];
+            }
+        }
+
+        return raw.ToLowerInvariant();
     }
 
     public static bool IsValidSubdomain(string? subdomain)

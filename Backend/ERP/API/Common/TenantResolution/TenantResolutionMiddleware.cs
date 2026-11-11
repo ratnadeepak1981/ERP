@@ -64,7 +64,8 @@ public class TenantResolutionMiddleware
         tenantContext.SetResolvedTenant(
             result.TenantId!.Value,
             result.Hostname!,
-            result.Subdomain);
+            result.Subdomain,
+            result.TenantName);
 
         context.Items["CurrentTenantId"] = result.TenantId.Value;
         context.Items["TenantContext"] = tenantContext;

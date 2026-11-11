@@ -28,7 +28,7 @@ public class Phase1SecurityApiTests : IClassFixture<TestSecurityFixture>
             username: "tenantadmin_a",
             tenantId: TestConstants.TenantAlphaId,
             roles: new[] { "Tenant Admin" },
-            permissions: new[] { "COMPANY.VIEW", "USER.VIEW", "ROLE.VIEW" });
+            permissions: new[] { "COMPANY.VIEW", "USER.VIEW", "USER.ASSIGN_ROLE", "ROLE.VIEW", "ROLE.CREATE", "ROLE.EDIT", "ROLE.DELETE" });
     }
 
     private System.Net.Http.HttpClient CreatePlatformAdminClient()
@@ -38,7 +38,7 @@ public class Phase1SecurityApiTests : IClassFixture<TestSecurityFixture>
             username: "platformadmin",
             tenantId: null,
             roles: new[] { "Platform Admin" },
-            permissions: new[] { "TENANT.VIEW", "SUBSCRIPTION.VIEW", "AUDIT.VIEW" });
+            permissions: new[] { "TENANT.VIEW", "SUBSCRIPTION.VIEW", "AUDIT.VIEW", "USER.ASSIGN_ROLE", "ROLE.VIEW", "ROLE.CREATE", "ROLE.EDIT", "ROLE.DELETE" });
     }
 
     #region 1. Permission Discovery & Isolation Tests

@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using API.Common;
+using API.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,7 @@ public class UserRoleController : BaseApiController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.ASSIGN_ROLE")]
     public async Task<IActionResult> AssignRoleToUser([FromBody] AssignRoleToUserRequest request)
     {
         try
@@ -90,7 +91,7 @@ public class UserRoleController : BaseApiController
     }
 
     [HttpDelete]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.ASSIGN_ROLE")]
     public async Task<IActionResult> RemoveRoleFromUser([FromBody] AssignRoleToUserRequest request)
     {
         try
@@ -136,7 +137,7 @@ public class UserRoleController : BaseApiController
     }
 
     [HttpPost("remove")]
-    [Authorize(Roles = "Platform Admin, Security Manager, Tenant Admin")]
+    [RequirePermission("USER.ASSIGN_ROLE")]
     public Task<IActionResult> RemoveRoleFromUserPost([FromBody] AssignRoleToUserRequest request)
     {
         return RemoveRoleFromUser(request);

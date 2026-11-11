@@ -2,7 +2,6 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
-import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { AuthService } from '../../../core/auth/auth.service';
 
@@ -18,7 +17,7 @@ interface CustomerOrder {
 @Component({
   selector: 'app-customer-portal',
   standalone: true,
-  imports: [CommonModule, RouterLink, ButtonModule, PageHeaderComponent, StatusBadgeComponent],
+  imports: [CommonModule, RouterLink, ButtonModule, StatusBadgeComponent],
   template: `
     <div class="customer-portal-page">
       <header class="portal-header erp-card">

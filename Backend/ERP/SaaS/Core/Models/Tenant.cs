@@ -16,6 +16,8 @@ namespace SaaS.Core.Models
 
         public bool IsActive { get; set; } = true;
 
+        public string? Subdomain { get; set; }
+
         public ICollection<TenantDomain> Domains { get; set; } = new List<TenantDomain>();
 
     }
