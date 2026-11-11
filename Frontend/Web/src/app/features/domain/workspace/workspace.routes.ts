@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { permissionGuard } from '../../../core/guards/auth.guard';
 
 export const workspaceRoutes: Routes = [
   {
@@ -12,6 +13,21 @@ export const workspaceRoutes: Routes = [
   },
   {
     path: 'master-data',
+    canActivate: [
+      permissionGuard([
+        'PRODUCT.VIEW',
+        'CUSTOMER.VIEW',
+        'SUPPLIER.VIEW',
+        'WAREHOUSE.VIEW',
+        'UOM.VIEW',
+        'CATEGORY.VIEW',
+        'BRAND.VIEW',
+        'PAYMENT_TERM.VIEW',
+        'TAX_CODE.VIEW',
+        'CURRENCY.VIEW',
+        'PRICE_CARD.VIEW'
+      ])
+    ],
     children: [
       {
         path: '',
@@ -20,6 +36,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'products',
+        canActivate: [permissionGuard(['PRODUCT.VIEW'])],
         children: [
           {
             path: '',
@@ -28,16 +45,19 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: 'new',
+            canActivate: [permissionGuard(['PRODUCT.CREATE'])],
             loadComponent: () =>
               import('./master-data/products/product-page.component').then(m => m.ProductPageComponent)
           },
           {
             path: ':id/edit',
+            canActivate: [permissionGuard(['PRODUCT.EDIT'])],
             loadComponent: () =>
               import('./master-data/products/product-page.component').then(m => m.ProductPageComponent)
           },
           {
             path: ':id',
+            canActivate: [permissionGuard(['PRODUCT.VIEW'])],
             loadComponent: () =>
               import('./master-data/products/product-page.component').then(m => m.ProductPageComponent)
           }
@@ -45,6 +65,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'customers',
+        canActivate: [permissionGuard(['CUSTOMER.VIEW'])],
         children: [
           {
             path: '',
@@ -53,16 +74,19 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: 'new',
+            canActivate: [permissionGuard(['CUSTOMER.CREATE'])],
             loadComponent: () =>
               import('./master-data/customers/customer-page.component').then(m => m.CustomerPageComponent)
           },
           {
             path: ':id/edit',
+            canActivate: [permissionGuard(['CUSTOMER.EDIT'])],
             loadComponent: () =>
               import('./master-data/customers/customer-page.component').then(m => m.CustomerPageComponent)
           },
           {
             path: ':id',
+            canActivate: [permissionGuard(['CUSTOMER.VIEW'])],
             loadComponent: () =>
               import('./master-data/customers/customer-page.component').then(m => m.CustomerPageComponent)
           }
@@ -70,6 +94,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'suppliers',
+        canActivate: [permissionGuard(['SUPPLIER.VIEW'])],
         children: [
           {
             path: '',
@@ -78,16 +103,19 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: 'new',
+            canActivate: [permissionGuard(['SUPPLIER.CREATE'])],
             loadComponent: () =>
               import('./master-data/suppliers/supplier-page.component').then(m => m.SupplierPageComponent)
           },
           {
             path: ':id/edit',
+            canActivate: [permissionGuard(['SUPPLIER.EDIT'])],
             loadComponent: () =>
               import('./master-data/suppliers/supplier-page.component').then(m => m.SupplierPageComponent)
           },
           {
             path: ':id',
+            canActivate: [permissionGuard(['SUPPLIER.VIEW'])],
             loadComponent: () =>
               import('./master-data/suppliers/supplier-page.component').then(m => m.SupplierPageComponent)
           }
@@ -95,6 +123,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'warehouses',
+        canActivate: [permissionGuard(['WAREHOUSE.VIEW'])],
         children: [
           {
             path: '',
@@ -105,6 +134,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: 'new',
+            canActivate: [permissionGuard(['WAREHOUSE.CREATE'])],
             loadComponent: () =>
               import('./master-data/warehouses/warehouse-page.component').then(
                 m => m.WarehousePageComponent
@@ -112,6 +142,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':id/edit',
+            canActivate: [permissionGuard(['WAREHOUSE.EDIT', 'WAREHOUSE.UPDATE'])],
             loadComponent: () =>
               import('./master-data/warehouses/warehouse-page.component').then(
                 m => m.WarehousePageComponent
@@ -119,6 +150,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':id',
+            canActivate: [permissionGuard(['WAREHOUSE.VIEW'])],
             loadComponent: () =>
               import('./master-data/warehouses/warehouse-page.component').then(
                 m => m.WarehousePageComponent
@@ -126,6 +158,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':warehouseId/zones/new',
+            canActivate: [permissionGuard(['WAREHOUSE.CREATE', 'WAREHOUSE.MANAGE_ZONES'])],
             loadComponent: () =>
               import('./master-data/warehouses/zone-page.component').then(
                 m => m.ZonePageComponent
@@ -133,6 +166,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':warehouseId/zones/:zoneId/edit',
+            canActivate: [permissionGuard(['WAREHOUSE.EDIT', 'WAREHOUSE.MANAGE_ZONES'])],
             loadComponent: () =>
               import('./master-data/warehouses/zone-page.component').then(
                 m => m.ZonePageComponent
@@ -140,6 +174,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':warehouseId/zones/:zoneId',
+            canActivate: [permissionGuard(['WAREHOUSE.VIEW'])],
             loadComponent: () =>
               import('./master-data/warehouses/zone-page.component').then(
                 m => m.ZonePageComponent
@@ -147,6 +182,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':warehouseId/locations/new',
+            canActivate: [permissionGuard(['LOCATION.CREATE'])],
             loadComponent: () =>
               import('./master-data/warehouses/location-page.component').then(
                 m => m.LocationPageComponent
@@ -154,6 +190,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':warehouseId/locations/:locationId/edit',
+            canActivate: [permissionGuard(['LOCATION.EDIT', 'LOCATION.UPDATE'])],
             loadComponent: () =>
               import('./master-data/warehouses/location-page.component').then(
                 m => m.LocationPageComponent
@@ -161,6 +198,7 @@ export const workspaceRoutes: Routes = [
           },
           {
             path: ':warehouseId/locations/:locationId',
+            canActivate: [permissionGuard(['LOCATION.VIEW'])],
             loadComponent: () =>
               import('./master-data/warehouses/location-page.component').then(
                 m => m.LocationPageComponent
@@ -170,11 +208,13 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'uom',
+        canActivate: [permissionGuard(['UOM.VIEW'])],
         loadComponent: () =>
           import('./master-data/uom/uom-management.component').then(m => m.UomManagementComponent)
       },
       {
         path: 'categories-brands',
+        canActivate: [permissionGuard(['CATEGORY.VIEW', 'BRAND.VIEW'])],
         loadComponent: () =>
           import('./master-data/categories-brands/categories-brands.component').then(
             m => m.CategoriesBrandsComponent
@@ -182,6 +222,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'payment-terms',
+        canActivate: [permissionGuard(['PAYMENT_TERM.VIEW'])],
         loadComponent: () =>
           import('./master-data/payment-terms/payment-terms.component').then(
             m => m.PaymentTermsComponent
@@ -189,6 +230,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'tax-codes',
+        canActivate: [permissionGuard(['TAX_CODE.VIEW'])],
         loadComponent: () =>
           import('./master-data/tax-codes/tax-codes.component').then(
             m => m.TaxCodesComponent
@@ -196,6 +238,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'currencies',
+        canActivate: [permissionGuard(['CURRENCY.VIEW'])],
         loadComponent: () =>
           import('./master-data/currencies/currency-master.component').then(
             m => m.CurrencyMasterComponent
@@ -203,6 +246,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'exchange-rates',
+        canActivate: [permissionGuard(['CURRENCY.VIEW'])],
         loadComponent: () =>
           import('./master-data/exchange-rates/exchange-rate-master.component').then(
             m => m.ExchangeRateMasterComponent
@@ -210,6 +254,7 @@ export const workspaceRoutes: Routes = [
       },
       {
         path: 'price-cards',
+        canActivate: [permissionGuard(['PRICE_CARD.VIEW'])],
         children: [
           {
             path: '',
@@ -221,6 +266,7 @@ export const workspaceRoutes: Routes = [
           {
             path: 'new',
             data: { mode: 'create' },
+            canActivate: [permissionGuard(['PRICE_CARD.CREATE'])],
             loadComponent: () =>
               import('./master-data/price-cards/price-card-page.component').then(
                 m => m.PriceCardPageComponent
@@ -229,6 +275,7 @@ export const workspaceRoutes: Routes = [
           {
             path: ':id/edit',
             data: { mode: 'edit' },
+            canActivate: [permissionGuard(['PRICE_CARD.EDIT', 'PRICE_CARD.MANAGE'])],
             loadComponent: () =>
               import('./master-data/price-cards/price-card-page.component').then(
                 m => m.PriceCardPageComponent
@@ -237,6 +284,7 @@ export const workspaceRoutes: Routes = [
           {
             path: ':id',
             data: { mode: 'view' },
+            canActivate: [permissionGuard(['PRICE_CARD.VIEW'])],
             loadComponent: () =>
               import('./master-data/price-cards/price-card-page.component').then(
                 m => m.PriceCardPageComponent
