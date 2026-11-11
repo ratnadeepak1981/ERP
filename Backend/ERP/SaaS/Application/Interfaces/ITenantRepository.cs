@@ -9,6 +9,10 @@ public interface ITenantRepository
 
     Task<Tenant?> GetByIdAsync(Guid tenantId);
 
+    Task<Tenant?> GetBySubdomainAsync(string subdomain);
+
+    Task<bool> ExistsBySubdomainAsync(string subdomain);
+
     Task<bool> ExistsByCodeAsync(string code);
 
     Task SaveChangesAsync();

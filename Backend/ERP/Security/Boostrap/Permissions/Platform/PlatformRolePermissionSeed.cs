@@ -1,4 +1,4 @@
-﻿using Security.Core.Models;
+using Security.Core.Models;
 using Security.Interfaces;
 
 namespace Security.Boostrap.Permissions.Platform;
@@ -20,7 +20,16 @@ public static class PlatformRolePermissionSeed
                 "SUBSCRIPTION.VIEW",
                 "SUBSCRIPTION.CREATE",
                 "SUBSCRIPTION.EDIT",
-                "AUDIT.VIEW"
+                "AUDIT.VIEW",
+                "USER.VIEW",
+                "USER.CREATE",
+                "USER.EDIT",
+                "USER.DELETE",
+                "USER.ASSIGN_ROLE",
+                "ROLE.VIEW",
+                "ROLE.CREATE",
+                "ROLE.EDIT",
+                "ROLE.DELETE"
             });
 
         await AddPermissionsAsync(
@@ -38,7 +47,16 @@ public static class PlatformRolePermissionSeed
             new[]
             {
                 "TENANT.VIEW",
-                "AUDIT.VIEW"
+                "AUDIT.VIEW",
+                "USER.VIEW",
+                "USER.CREATE",
+                "USER.EDIT",
+                "USER.DELETE",
+                "USER.ASSIGN_ROLE",
+                "ROLE.VIEW",
+                "ROLE.CREATE",
+                "ROLE.EDIT",
+                "ROLE.DELETE"
             });
 
         await AddPermissionsAsync(

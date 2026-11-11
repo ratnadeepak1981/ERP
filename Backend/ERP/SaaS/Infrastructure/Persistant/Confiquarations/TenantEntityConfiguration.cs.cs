@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SaaS.Core.Models;
 
@@ -23,6 +23,13 @@ public class TenantEntityConfiguration
 
         builder.Property(x => x.IsActive)
             .IsRequired();
+
+        builder.Property(x => x.Subdomain)
+            .HasMaxLength(63);
+
+        builder.HasIndex(x => x.Subdomain)
+            .IsUnique()
+            .HasFilter("[Subdomain] IS NOT NULL");
 
         builder.HasIndex(x => x.Name)
             .IsUnique();

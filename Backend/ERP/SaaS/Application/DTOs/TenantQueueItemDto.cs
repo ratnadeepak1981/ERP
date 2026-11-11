@@ -25,4 +25,12 @@ public class TenantQueueItemDto
     public bool IsProvisioned { get; set; }
 
     public string? DatabaseName { get; set; }
+
+    public string? Subdomain { get; set; }
+
+    public string? IndustryType { get; set; }
+
+    public string? CompanyStructure { get; set; }
+
+    public bool ECommerceEnabled { get; set; }
 }

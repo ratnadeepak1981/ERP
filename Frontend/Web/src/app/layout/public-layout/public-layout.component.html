@@ -9,46 +9,57 @@
             <i class="pi pi-box"></i>
           </div>
           <div class="brand-text">
-            <span class="brand-title">ApexERP</span>
-            <span class="brand-tag">SaaS Platform</span>
+            @if (tenantContext.isTenantDomain()) {
+              <span class="brand-title">{{ tenantContext.currentTenant()?.name || tenantContext.subdomain() }}</span>
+              <span class="brand-tag">{{ tenantContext.currentTenant()?.industryType || 'Tenant Portal' }}</span>
+            } @else {
+              <span class="brand-title">ApexERP</span>
+              <span class="brand-tag">SaaS Platform</span>
+            }
           </div>
         </a>
       </div>
 
-      <!-- Exactly Two Main Tabs -->
-      <nav class="public-nav" role="tablist" aria-label="Main Navigation">
-        <button
-          type="button"
-          role="tab"
-          id="tab-platform"
-          class="nav-tab"
-          [class.active]="navService.activeTab() === 'platform'"
-          [attr.aria-selected]="navService.activeTab() === 'platform'"
-          aria-controls="tabpanel-platform"
-          [attr.tabindex]="navService.activeTab() === 'platform' ? 0 : -1"
-          (click)="selectTab('platform')"
-          (keydown)="onTabKeydown($event, 'platform')"
-        >
-          <i class="pi pi-th-large tab-icon" aria-hidden="true"></i>
-          <span>Platform</span>
-        </button>
+      <!-- Main Navigation Tabs (Platform Mode Only) -->
+      @if (!tenantContext.isTenantDomain()) {
+        <nav class="public-nav" role="tablist" aria-label="Main Navigation">
+          <button
+            type="button"
+            role="tab"
+            id="tab-platform"
+            class="nav-tab"
+            [class.active]="navService.activeTab() === 'platform'"
+            [attr.aria-selected]="navService.activeTab() === 'platform'"
+            aria-controls="tabpanel-platform"
+            [attr.tabindex]="navService.activeTab() === 'platform' ? 0 : -1"
+            (click)="selectTab('platform')"
+            (keydown)="onTabKeydown($event, 'platform')"
+          >
+            <i class="pi pi-th-large tab-icon" aria-hidden="true"></i>
+            <span>Platform</span>
+          </button>
 
-        <button
-          type="button"
-          role="tab"
-          id="tab-directory"
-          class="nav-tab"
-          [class.active]="navService.activeTab() === 'directory'"
-          [attr.aria-selected]="navService.activeTab() === 'directory'"
-          aria-controls="tabpanel-directory"
-          [attr.tabindex]="navService.activeTab() === 'directory' ? 0 : -1"
-          (click)="selectTab('directory')"
-          (keydown)="onTabKeydown($event, 'directory')"
-        >
-          <i class="pi pi-building tab-icon" aria-hidden="true"></i>
-          <span>Business Directory</span>
-        </button>
-      </nav>
+          <button
+            type="button"
+            role="tab"
+            id="tab-directory"
+            class="nav-tab"
+            [class.active]="navService.activeTab() === 'directory'"
+            [attr.aria-selected]="navService.activeTab() === 'directory'"
+            aria-controls="tabpanel-directory"
+            [attr.tabindex]="navService.activeTab() === 'directory' ? 0 : -1"
+            (click)="selectTab('directory')"
+            (keydown)="onTabKeydown($event, 'directory')"
+          >
+            <i class="pi pi-building tab-icon" aria-hidden="true"></i>
+            <span>Business Directory</span>
+          </button>
+        </nav>
+      } @else {
+        <div class="tenant-nav-badge">
+          <span class="badge-text"><i class="pi pi-verified"></i> Dedicated Tenant Portal</span>
+        </div>
+      }
 
       <!-- Shared Actions: Theme Toggle, Sign In -->
       <div class="header-actions">
