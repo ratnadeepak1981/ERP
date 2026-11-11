@@ -21,6 +21,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import {
   WarehouseItem,
   WarehouseZoneItem,
@@ -64,6 +65,7 @@ export interface ParentLocationOption {
 export class LocationPageComponent implements OnInit, OnDestroy {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
 
@@ -75,6 +77,10 @@ export class LocationPageComponent implements OnInit, OnDestroy {
   readonly locationId = signal<string | null>(null);
   readonly currentWarehouse = signal<WarehouseItem | null>(null);
   readonly currentLocation = signal<WarehouseLocationItem | null>(null);
+
+  // Permission Checks
+  readonly canCreate = computed(() => this.authService.hasPermission('LOCATION.CREATE'));
+  readonly canEdit = computed(() => this.authService.hasPermission('LOCATION.EDIT') || this.authService.hasPermission('LOCATION.UPDATE'));
 
   // Collections for Selectors
   readonly zones = signal<WarehouseZoneItem[]>([]);
@@ -585,9 +591,28 @@ export class LocationPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  switchToEdit(): void {
+    if (!this.canEdit()) return;
+    const whId = this.warehouseId();
+    const locId = this.locationId();
+    if (whId && locId) {
+      this.router.navigate(['/app/master-data/warehouses', whId, 'locations', locId, 'edit']);
+    }
+  }
+
   saveLocation(): void {
     if (this.mode() === 'view') {
-      this.mode.set('edit');
+      this.switchToEdit();
+      return;
+    }
+
+    if (this.mode() === 'create' && !this.canCreate()) {
+      this.message.set({ text: 'You do not have permission to create storage locations.', severity: 'danger' });
+      return;
+    }
+
+    if (this.mode() === 'edit' && !this.canEdit()) {
+      this.message.set({ text: 'You do not have permission to update storage locations.', severity: 'danger' });
       return;
     }
 

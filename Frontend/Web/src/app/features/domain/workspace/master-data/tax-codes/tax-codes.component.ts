@@ -8,6 +8,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import { TaxCodeItem, CreateTaxCodeDto, UpdateTaxCodeDto } from '../../../../../core/models/scope.models';
 
 @Component({
@@ -28,6 +29,11 @@ import { TaxCodeItem, CreateTaxCodeDto, UpdateTaxCodeDto } from '../../../../../
 })
 export class TaxCodesComponent implements OnInit {
   private readonly masterDataService = inject(MasterDataService);
+  private readonly authService = inject(AuthService);
+
+  readonly canCreate = computed(() => this.authService.hasPermission('TAX_CODE.CREATE'));
+  readonly canEdit = computed(() => this.authService.hasPermission('TAX_CODE.EDIT'));
+  readonly canDelete = computed(() => this.authService.hasPermission('TAX_CODE.DELETE'));
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -133,6 +139,7 @@ export class TaxCodesComponent implements OnInit {
 
   // --- Inline Form Handlers ---
   openCreateForm(): void {
+    if (!this.canCreate()) return;
     this.isEditing.set(false);
     this.editingId.set(null);
     this.code = '';
@@ -148,6 +155,7 @@ export class TaxCodesComponent implements OnInit {
   }
 
   openEditForm(taxCode: TaxCodeItem): void {
+    if (!this.canEdit()) return;
     this.isEditing.set(true);
     this.editingId.set(taxCode.taxCodeId);
     this.code = taxCode.code;
@@ -176,6 +184,8 @@ export class TaxCodesComponent implements OnInit {
   }
 
   saveTaxCode(): void {
+    if (this.isEditing() && !this.canEdit()) return;
+    if (!this.isEditing() && !this.canCreate()) return;
     if (!this.code.trim() || !this.name.trim()) {
       this.message.set({ text: 'Please fill in both Tax Code and Name.', severity: 'warn' });
       return;
@@ -242,6 +252,7 @@ export class TaxCodesComponent implements OnInit {
 
   // --- Inline Deactivate / Reactivate Handlers ---
   promptDeactivate(taxCode: TaxCodeItem): void {
+    if (!this.canDelete()) return;
     this.pendingAction.set({
       type: 'deactivate',
       id: taxCode.taxCodeId,
@@ -252,6 +263,7 @@ export class TaxCodesComponent implements OnInit {
   }
 
   promptReactivate(taxCode: TaxCodeItem): void {
+    if (!this.canDelete()) return;
     this.pendingAction.set({
       type: 'reactivate',
       id: taxCode.taxCodeId,

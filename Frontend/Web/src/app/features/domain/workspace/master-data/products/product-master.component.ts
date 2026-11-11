@@ -20,6 +20,7 @@ import { AppEmptyStateComponent } from '../../../../../shared/components/empty-s
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import {
   isForbiddenError,
   toUserFacingErrorMessage
@@ -73,7 +74,24 @@ export interface CategoryNodeState {
 export class ProductMasterComponent implements OnInit {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
+
+  get canCreate(): boolean {
+    return this.authService.hasPermission('PRODUCT.CREATE');
+  }
+
+  get canEdit(): boolean {
+    return this.authService.hasPermission('PRODUCT.EDIT');
+  }
+
+  get canDelete(): boolean {
+    return this.authService.hasPermission('PRODUCT.DELETE');
+  }
+
+  get canView(): boolean {
+    return this.authService.hasPermission('PRODUCT.VIEW');
+  }
 
   readonly products = signal<ProductItem[]>([]);
   readonly categories = signal<CategoryItem[]>([]);

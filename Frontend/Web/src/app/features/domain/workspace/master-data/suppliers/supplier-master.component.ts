@@ -12,6 +12,7 @@ import { AppEmptyStateComponent } from '../../../../../shared/components/empty-s
 import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import {
   isForbiddenError,
   toUserFacingErrorMessage
@@ -40,7 +41,24 @@ import { SupplierItem } from '../../../../../core/models/scope.models';
 export class SupplierMasterComponent implements OnInit {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
+
+  get canCreate(): boolean {
+    return this.authService.hasPermission('SUPPLIER.CREATE');
+  }
+
+  get canEdit(): boolean {
+    return this.authService.hasPermission('SUPPLIER.EDIT');
+  }
+
+  get canDelete(): boolean {
+    return this.authService.hasPermission('SUPPLIER.DELETE');
+  }
+
+  get canView(): boolean {
+    return this.authService.hasPermission('SUPPLIER.VIEW');
+  }
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -110,11 +128,17 @@ export class SupplierMasterComponent implements OnInit {
   }
 
   openCreateDialog(): void {
+    if (!this.canCreate) return;
     this.router.navigate(['/app/master-data/suppliers/new']);
   }
 
-  openEditDialog(supplier: SupplierItem): void {
+  viewSupplier(supplier: SupplierItem): void {
     this.router.navigate(['/app/master-data/suppliers', supplier.supplierId]);
+  }
+
+  openEditDialog(supplier: SupplierItem): void {
+    if (!this.canEdit) return;
+    this.router.navigate(['/app/master-data/suppliers', supplier.supplierId, 'edit']);
   }
 
   promptDeactivate(supplier: SupplierItem): void {

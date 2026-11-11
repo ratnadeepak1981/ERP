@@ -21,22 +21,26 @@
       }
 
       @if (mode() === 'view') {
-        <p-button
-          label="Edit Product"
-          icon="pi pi-pencil"
-          size="small"
-          severity="primary"
-          (onClick)="switchToEdit()"
-        ></p-button>
+        @if (canEdit) {
+          <p-button
+            label="Edit Product"
+            icon="pi pi-pencil"
+            size="small"
+            severity="primary"
+            (onClick)="switchToEdit()"
+          ></p-button>
+        }
       } @else {
-        <p-button
-          [label]="mode() === 'create' ? 'Save Product' : 'Update Product'"
-          icon="pi pi-check"
-          size="small"
-          severity="primary"
-          [loading]="saving()"
-          (onClick)="saveProduct()"
-        ></p-button>
+        @if ((mode() === 'create' && canCreate) || (mode() === 'edit' && canEdit)) {
+          <p-button
+            [label]="mode() === 'create' ? 'Save Product' : 'Update Product'"
+            icon="pi pi-check"
+            size="small"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveProduct()"
+          ></p-button>
+        }
       }
     </div>
   </app-page-header>

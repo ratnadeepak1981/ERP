@@ -1097,6 +1097,452 @@ public class GoodsReceiptNoteTests : IClassFixture<TestSecurityFixture>
         Assert.Equal(GoodsReceiptNoteStatus.Draft, persistedDraft.Status);
     }
 
+    [Fact]
+    public async Task TrackingModeNone_WhenBatchOrSerialProvided_ConfirmationFailsWithConflict()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        var wh = await CreateTestWarehouseAsync(db, tenantId);
+        var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "BIN_NONE_FAIL");
+        var prod = await CreateTestProductAsync(db, tenantId, TrackingMode.None);
+        var po = await CreateApprovedPoAsync(db, tenantId, companyId, branchId, prod.ProductId, 10m, 12m);
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+
+        var createRes = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = po.Id,
+                GrnNumber = $"GRN_{Guid.NewGuid():N}"[..12],
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 10m,
+                        BatchNumber = "ILLEGAL_BATCH" // Not allowed on TrackingMode.None
+                    }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var draft = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        Assert.NotNull(draft);
+
+        var confirmRes = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{draft.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.Conflict, confirmRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task TrackingModeBatch_WithValidDates_SucceedsAndSyncsProductBatch()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        var wh = await CreateTestWarehouseAsync(db, tenantId);
+        var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "BIN_BATCH_OK");
+        var prod = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch);
+        var po = await CreateApprovedPoAsync(db, tenantId, companyId, branchId, prod.ProductId, 25m, 18m);
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+
+        string batchNo = $"LOT-{Guid.NewGuid():N}"[..16].ToUpperInvariant();
+        var mfgDate = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+        var expDate = new DateTime(2027, 12, 31, 0, 0, 0, DateTimeKind.Utc);
+
+        var createRes = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = po.Id,
+                GrnNumber = $"GRN_{Guid.NewGuid():N}"[..12],
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 25m,
+                        BatchNumber = batchNo,
+                        ManufacturingDate = mfgDate,
+                        ExpiryDate = expDate
+                    }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var draft = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        Assert.NotNull(draft);
+        Assert.Equal(batchNo, draft.Lines[0].BatchNumber);
+
+        var confirmRes = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{draft.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
+
+        // Verify ProductBatch synchronized
+        using var verifyScope = _fixture.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var savedBatch = await verifyDb.ProductBatches.FirstOrDefaultAsync(b =>
+            b.TenantId == tenantId && b.ProductId == prod.ProductId && b.BatchNumber == batchNo);
+        Assert.NotNull(savedBatch);
+        Assert.Equal(mfgDate.Date, savedBatch.ManufacturingDate);
+        Assert.Equal(expDate.Date, savedBatch.ExpiryDate);
+
+        // Verify inventory transaction created with batch details
+        var txn = await verifyDb.InventoryTransactions.FirstOrDefaultAsync(t =>
+            t.SourceDocumentId == draft.GoodsReceiptNoteId && t.ProductId == prod.ProductId);
+        Assert.NotNull(txn);
+        Assert.Equal(batchNo, txn.BatchNumber);
+        Assert.Equal(expDate, txn.ExpiryDate);
+        Assert.Equal(25m, txn.Quantity);
+    }
+
+    [Fact]
+    public async Task TrackingModeBatch_MultiBatchReceiptAgainstSinglePoLine_SucceedsAndFulfillsPo()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        var wh = await CreateTestWarehouseAsync(db, tenantId);
+        var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "BIN_MULTI_BATCH");
+        var prod = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch);
+        var po = await CreateApprovedPoAsync(db, tenantId, companyId, branchId, prod.ProductId, 50m, 20m);
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+
+        string batch1 = $"LOT1-{Guid.NewGuid():N}"[..16].ToUpperInvariant();
+        string batch2 = $"LOT2-{Guid.NewGuid():N}"[..16].ToUpperInvariant();
+        var exp1 = new DateTime(2027, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+        var exp2 = new DateTime(2027, 9, 30, 0, 0, 0, DateTimeKind.Utc);
+
+        var createRes = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = po.Id,
+                GrnNumber = $"GRN_{Guid.NewGuid():N}"[..12],
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 30m,
+                        BatchNumber = batch1,
+                        ExpiryDate = exp1
+                    },
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 20m,
+                        BatchNumber = batch2,
+                        ExpiryDate = exp2
+                    }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var draft = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        Assert.NotNull(draft);
+        Assert.Equal(2, draft.Lines.Count);
+
+        var confirmRes = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{draft.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
+
+        // Verify PO updated to Fulfilled with total 50 received
+        using var verifyScope = _fixture.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var updatedPo = await verifyDb.PurchaseOrders.Include(p => p.Items).FirstAsync(p => p.Id == po.Id);
+        Assert.Equal(50m, updatedPo.Items[0].ReceivedQuantity);
+        Assert.Equal(PurchaseOrderStatus.Fulfilled, updatedPo.Status);
+
+        // Verify 2 batches created
+        var b1 = await verifyDb.ProductBatches.FirstOrDefaultAsync(b => b.BatchNumber == batch1);
+        var b2 = await verifyDb.ProductBatches.FirstOrDefaultAsync(b => b.BatchNumber == batch2);
+        Assert.NotNull(b1);
+        Assert.NotNull(b2);
+
+        // Verify total inventory on hand is 50
+        var posting = verifyScope.ServiceProvider.GetRequiredService<IInventoryPostingService>();
+        var balanceBatch1 = await posting.GetBalanceAsync(tenantId, loc.WarehouseLocationId, prod.ProductId, batch1);
+        var balanceBatch2 = await posting.GetBalanceAsync(tenantId, loc.WarehouseLocationId, prod.ProductId, batch2);
+        Assert.NotNull(balanceBatch1);
+        Assert.NotNull(balanceBatch2);
+        Assert.Equal(30m, balanceBatch1.QuantityOnHand);
+        Assert.Equal(20m, balanceBatch2.QuantityOnHand);
+    }
+
+    [Fact]
+    public async Task TrackingModeSerial_MultipleSerialsWithQuantityOne_Succeeds()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        var wh = await CreateTestWarehouseAsync(db, tenantId);
+        var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "BIN_SERIAL_OK");
+        var prod = await CreateTestProductAsync(db, tenantId, TrackingMode.Serial);
+        var po = await CreateApprovedPoAsync(db, tenantId, companyId, branchId, prod.ProductId, 3m, 100m);
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+
+        string sn1 = $"SN-A-{Guid.NewGuid():N}"[..14].ToUpperInvariant();
+        string sn2 = $"SN-B-{Guid.NewGuid():N}"[..14].ToUpperInvariant();
+        string sn3 = $"SN-C-{Guid.NewGuid():N}"[..14].ToUpperInvariant();
+
+        var createRes = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = po.Id,
+                GrnNumber = $"GRN_{Guid.NewGuid():N}"[..12],
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 1m,
+                        SerialNumber = sn1
+                    },
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 1m,
+                        SerialNumber = sn2
+                    },
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 1m,
+                        SerialNumber = sn3
+                    }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var draft = await createRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        Assert.NotNull(draft);
+        Assert.Equal(3, draft.Lines.Count);
+
+        var confirmRes = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{draft.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
+
+        // Verify PO Fulfilled
+        using var verifyScope = _fixture.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var updatedPo = await verifyDb.PurchaseOrders.Include(p => p.Items).FirstAsync(p => p.Id == po.Id);
+        Assert.Equal(3m, updatedPo.Items[0].ReceivedQuantity);
+        Assert.Equal(PurchaseOrderStatus.Fulfilled, updatedPo.Status);
+
+        // Verify each serial created individual balance
+        var posting = verifyScope.ServiceProvider.GetRequiredService<IInventoryPostingService>();
+        var bal1 = await posting.GetBalanceAsync(tenantId, loc.WarehouseLocationId, prod.ProductId, serialNumber: sn1);
+        var bal2 = await posting.GetBalanceAsync(tenantId, loc.WarehouseLocationId, prod.ProductId, serialNumber: sn2);
+        var bal3 = await posting.GetBalanceAsync(tenantId, loc.WarehouseLocationId, prod.ProductId, serialNumber: sn3);
+        Assert.NotNull(bal1);
+        Assert.NotNull(bal2);
+        Assert.NotNull(bal3);
+        Assert.Equal(1m, bal1.QuantityOnHand);
+        Assert.Equal(1m, bal2.QuantityOnHand);
+        Assert.Equal(1m, bal3.QuantityOnHand);
+    }
+
+    [Fact]
+    public async Task TrackingModeBatchAndSerial_RequiresBothBatchAndSerial_AndSucceeds()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        var wh = await CreateTestWarehouseAsync(db, tenantId);
+        var loc = await CreateTestLocationAsync(db, tenantId, wh.WarehouseId, "BIN_BS_OK");
+        var prod = await CreateTestProductAsync(db, tenantId, TrackingMode.BatchAndSerial);
+        var po = await CreateApprovedPoAsync(db, tenantId, companyId, branchId, prod.ProductId, 2m, 250m);
+
+        var client = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW", "GRN.CREATE", "GRN.CONFIRM" });
+
+        string batchNo = $"LOT-BS-{Guid.NewGuid():N}"[..14].ToUpperInvariant();
+        string sn1 = $"SN-BS1-{Guid.NewGuid():N}"[..14].ToUpperInvariant();
+        string sn2 = $"SN-BS2-{Guid.NewGuid():N}"[..14].ToUpperInvariant();
+
+        // 1. Missing serial when batch provided -> Fails
+        var invalidDraftRes = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = po.Id,
+                GrnNumber = $"GRN_{Guid.NewGuid():N}"[..12],
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 1m,
+                        BatchNumber = batchNo
+                        // SerialNumber is null
+                    }
+                }
+            });
+        var invalidDraft = await invalidDraftRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+        var invalidConfirm = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{invalidDraft!.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.Conflict, invalidConfirm.StatusCode);
+
+        // 2. Both batch and serial provided with quantity 1 -> Succeeds
+        var validDraftRes = await client.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = po.Id,
+                GrnNumber = $"GRN_{Guid.NewGuid():N}"[..12],
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>
+                {
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 1m,
+                        BatchNumber = batchNo,
+                        SerialNumber = sn1
+                    },
+                    new()
+                    {
+                        PurchaseOrderItemId = po.Items[0].Id,
+                        ProductId = prod.ProductId,
+                        WarehouseId = wh.WarehouseId,
+                        WarehouseLocationId = loc.WarehouseLocationId,
+                        QuantityReceived = 1m,
+                        BatchNumber = batchNo,
+                        SerialNumber = sn2
+                    }
+                }
+            });
+        Assert.Equal(HttpStatusCode.Created, validDraftRes.StatusCode);
+        var validDraft = await validDraftRes.ReadApiResponseDataAsync<GoodsReceiptNoteDto>(_jsonOpts);
+
+        var validConfirm = await client.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes/{validDraft!.GoodsReceiptNoteId}/confirm",
+            null);
+        Assert.Equal(HttpStatusCode.OK, validConfirm.StatusCode);
+
+        // Verify balance created with both batch and serial
+        using var verifyScope = _fixture.Services.CreateScope();
+        var posting = verifyScope.ServiceProvider.GetRequiredService<IInventoryPostingService>();
+        var bal = await posting.GetBalanceAsync(tenantId, loc.WarehouseLocationId, prod.ProductId, batchNumber: batchNo, serialNumber: sn1);
+        Assert.NotNull(bal);
+        Assert.Equal(1m, bal.QuantityOnHand);
+        Assert.Equal(batchNo, bal.BatchNumber);
+        Assert.Equal(sn1, bal.SerialNumber);
+    }
+
+    [Fact]
+    public async Task GoodsReceiptNote_PermissionMatrix_EnforcesAccess()
+    {
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+
+        // 1. Anonymous request returns 401
+        var anonClient = _fixture.CreateClient();
+        var anonRes = await anonClient.GetAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonRes.StatusCode);
+
+        // 2. User without GRN.VIEW returns 403
+        var noPermClient = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            Array.Empty<string>());
+        var noPermRes = await noPermClient.GetAsync($"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes");
+        Assert.Equal(HttpStatusCode.Forbidden, noPermRes.StatusCode);
+
+        // 3. User with GRN.VIEW but without GRN.CREATE returns 403 on draft creation
+        var viewOnlyClient = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            tenantId,
+            new[] { "Branch User" },
+            new[] { "GRN.VIEW" });
+        var viewOnlyCreateRes = await viewOnlyClient.PostAsJsonAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/goods-receipt-notes",
+            new CreateGoodsReceiptNoteRequest
+            {
+                PurchaseOrderId = Guid.NewGuid(),
+                GrnNumber = "GRN_TEST",
+                Lines = new List<CreateGoodsReceiptNoteLineRequest>()
+            });
+        Assert.Equal(HttpStatusCode.Forbidden, viewOnlyCreateRes.StatusCode);
+    }
+
     private static async Task<PurchaseOrder> CreateApprovedPoAsync(
         DomainDbContext db,
         Guid tenantId,

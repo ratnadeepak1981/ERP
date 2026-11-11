@@ -8,6 +8,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import { UnitOfMeasureItem, UnitOfMeasureConversionItem } from '../../../../../core/models/scope.models';
 
 @Component({
@@ -28,6 +29,13 @@ import { UnitOfMeasureItem, UnitOfMeasureConversionItem } from '../../../../../c
 })
 export class UomManagementComponent implements OnInit {
   private readonly masterDataService = inject(MasterDataService);
+  private readonly authService = inject(AuthService);
+
+  readonly canCreateUnit = computed(() => this.authService.hasPermission('UOM.CREATE'));
+  readonly canEditUnit = computed(() => this.authService.hasPermission('UOM.EDIT'));
+  readonly canDeleteUnit = computed(() => this.authService.hasPermission('UOM.DELETE'));
+  readonly canCreateConversion = computed(() => this.authService.hasPermission('UOM.CREATE') || this.authService.hasPermission('UOM.CONVERT'));
+  readonly canConvert = computed(() => this.authService.hasPermission('UOM.CONVERT') || this.authService.hasPermission('UOM.VIEW'));
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -110,6 +118,7 @@ export class UomManagementComponent implements OnInit {
 
   // --- Unit actions ---
   openCreateUnitModal(): void {
+    if (!this.canCreateUnit()) return;
     this.isEditingUnit.set(false);
     this.editingUnitId.set(null);
     this.unitCode = '';
@@ -119,6 +128,7 @@ export class UomManagementComponent implements OnInit {
   }
 
   openEditUnitModal(unit: UnitOfMeasureItem): void {
+    if (!this.canEditUnit()) return;
     this.isEditingUnit.set(true);
     this.editingUnitId.set(unit.unitOfMeasureId);
     this.unitCode = unit.code;
@@ -132,6 +142,8 @@ export class UomManagementComponent implements OnInit {
   }
 
   saveUnit(): void {
+    if (this.isEditingUnit() && !this.canEditUnit()) return;
+    if (!this.isEditingUnit() && !this.canCreateUnit()) return;
     if (!this.unitName.trim()) return;
 
     if (this.isEditingUnit()) {
@@ -164,6 +176,7 @@ export class UomManagementComponent implements OnInit {
   }
 
   deactivateUnit(unit: UnitOfMeasureItem): void {
+    if (!this.canDeleteUnit()) return;
     if (confirm(`Deactivate unit of measure "${unit.name}" (${unit.code})?`)) {
       this.masterDataService.deactivateUnitOfMeasure(unit.unitOfMeasureId).subscribe({
         next: () => this.loadData(),
@@ -174,6 +187,7 @@ export class UomManagementComponent implements OnInit {
 
   // --- Conversion actions ---
   openCreateConversionModal(): void {
+    if (!this.canCreateConversion()) return;
     const list = this.units();
     this.convFromUnitId = list[0]?.unitOfMeasureId || '';
     this.convToUnitId = list[1]?.unitOfMeasureId || '';
@@ -186,6 +200,7 @@ export class UomManagementComponent implements OnInit {
   }
 
   saveConversion(): void {
+    if (!this.canCreateConversion()) return;
     if (!this.convFromUnitId || !this.convToUnitId || this.convFromUnitId === this.convToUnitId) {
       alert('Source and target units must be different.');
       return;

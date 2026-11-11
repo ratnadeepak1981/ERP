@@ -64,10 +64,12 @@
             </div>
 
             <div class="action-buttons">
-              <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateUnitModal()">
-                <i class="pi pi-plus p-button-icon-left"></i>
-                <span class="p-button-label">New Unit</span>
-              </button>
+              @if (canCreateUnit()) {
+                <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateUnitModal()">
+                  <i class="pi pi-plus p-button-icon-left"></i>
+                  <span class="p-button-label">New Unit</span>
+                </button>
+              }
             </div>
           </div>
 
@@ -75,7 +77,7 @@
             <app-empty-state
               title="No units found"
               description="No unit of measure records match your query."
-              actionLabel="Create First Unit"
+              [actionLabel]="canCreateUnit() ? 'Create First Unit' : undefined"
               actionIcon="pi pi-plus"
               (action)="openCreateUnitModal()"
             ></app-empty-state>
@@ -102,23 +104,27 @@
                       </td>
                       <td style="text-align: right;">
                         <div class="action-buttons-cell">
-                          <button
-                            type="button"
-                            class="p-button p-button-sm p-button-text"
-                            (click)="openEditUnitModal(unit)"
-                            title="Edit Unit"
-                          >
-                            <i class="pi pi-pencil"></i>
-                          </button>
-                          @if (unit.isActive) {
+                          @if (canEditUnit()) {
                             <button
                               type="button"
-                              class="p-button p-button-sm p-button-text p-button-danger"
-                              (click)="deactivateUnit(unit)"
-                              title="Deactivate Unit"
+                              class="p-button p-button-sm p-button-text"
+                              (click)="openEditUnitModal(unit)"
+                              title="Edit Unit"
                             >
-                              <i class="pi pi-trash"></i>
+                              <i class="pi pi-pencil"></i>
                             </button>
+                          }
+                          @if (canDeleteUnit()) {
+                            @if (unit.isActive) {
+                              <button
+                                type="button"
+                                class="p-button p-button-sm p-button-text p-button-danger"
+                                (click)="deactivateUnit(unit)"
+                                title="Deactivate Unit"
+                              >
+                                <i class="pi pi-trash"></i>
+                              </button>
+                            }
                           }
                         </div>
                       </td>
@@ -139,10 +145,12 @@
               <span>Standard conversion factors between registered units. The engine automatically supports reverse/inverse calculations.</span>
             </div>
             <div class="action-buttons">
-              <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateConversionModal()">
-                <i class="pi pi-plus p-button-icon-left"></i>
-                <span class="p-button-label">New Conversion Factor</span>
-              </button>
+              @if (canCreateConversion()) {
+                <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateConversionModal()">
+                  <i class="pi pi-plus p-button-icon-left"></i>
+                  <span class="p-button-label">New Conversion Factor</span>
+                </button>
+              }
             </div>
           </div>
 
@@ -150,7 +158,7 @@
             <app-empty-state
               title="No conversions configured"
               description="Configure unit conversion factors to enable automatic quantity conversions across purchasing and sales."
-              actionLabel="Add Conversion"
+              [actionLabel]="canCreateConversion() ? 'Add Conversion' : undefined"
               actionIcon="pi pi-plus"
               (action)="openCreateConversionModal()"
             ></app-empty-state>

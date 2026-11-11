@@ -8,6 +8,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import { CategoryItem, BrandItem } from '../../../../../core/models/scope.models';
 
 @Component({
@@ -28,6 +29,15 @@ import { CategoryItem, BrandItem } from '../../../../../core/models/scope.models
 })
 export class CategoriesBrandsComponent implements OnInit {
   private readonly masterDataService = inject(MasterDataService);
+  private readonly authService = inject(AuthService);
+
+  readonly canCreateCategory = computed(() => this.authService.hasPermission('CATEGORY.CREATE'));
+  readonly canEditCategory = computed(() => this.authService.hasPermission('CATEGORY.EDIT'));
+  readonly canDeleteCategory = computed(() => this.authService.hasPermission('CATEGORY.DELETE'));
+
+  readonly canCreateBrand = computed(() => this.authService.hasPermission('BRAND.CREATE'));
+  readonly canEditBrand = computed(() => this.authService.hasPermission('BRAND.EDIT'));
+  readonly canDeleteBrand = computed(() => this.authService.hasPermission('BRAND.DELETE'));
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -139,6 +149,7 @@ export class CategoriesBrandsComponent implements OnInit {
 
   // --- Category Actions ---
   openCreateCategory(): void {
+    if (!this.canCreateCategory()) return;
     this.isEditingCategory.set(false);
     this.editingCategoryId.set(null);
     this.catCode = '';
@@ -150,6 +161,7 @@ export class CategoriesBrandsComponent implements OnInit {
   }
 
   openEditCategory(cat: CategoryItem): void {
+    if (!this.canEditCategory()) return;
     this.isEditingCategory.set(true);
     this.editingCategoryId.set(cat.categoryId);
     this.catCode = cat.categoryCode;
@@ -165,6 +177,8 @@ export class CategoriesBrandsComponent implements OnInit {
   }
 
   saveCategory(): void {
+    if (this.isEditingCategory() && !this.canEditCategory()) return;
+    if (!this.isEditingCategory() && !this.canCreateCategory()) return;
     if (!this.catName.trim()) return;
     this.categoryFormSaving.set(true);
 
@@ -213,6 +227,7 @@ export class CategoriesBrandsComponent implements OnInit {
 
   // --- Brand Actions ---
   openCreateBrand(): void {
+    if (!this.canCreateBrand()) return;
     this.isEditingBrand.set(false);
     this.editingBrandId.set(null);
     this.brandCode = '';
@@ -223,6 +238,7 @@ export class CategoriesBrandsComponent implements OnInit {
   }
 
   openEditBrand(brand: BrandItem): void {
+    if (!this.canEditBrand()) return;
     this.isEditingBrand.set(true);
     this.editingBrandId.set(brand.brandId);
     this.brandCode = brand.brandCode;
@@ -237,6 +253,8 @@ export class CategoriesBrandsComponent implements OnInit {
   }
 
   saveBrand(): void {
+    if (this.isEditingBrand() && !this.canEditBrand()) return;
+    if (!this.isEditingBrand() && !this.canCreateBrand()) return;
     if (!this.brandName.trim()) return;
     this.brandFormSaving.set(true);
 
@@ -281,6 +299,8 @@ export class CategoriesBrandsComponent implements OnInit {
 
   // --- Inline Confirmation Workflow (NO POPUP) ---
   requestAction(type: 'deactivate' | 'reactivate', target: 'category' | 'brand', id: string, name: string): void {
+    if (target === 'category' && !this.canDeleteCategory()) return;
+    if (target === 'brand' && !this.canDeleteBrand()) return;
     this.pendingAction.set({ type, target, id, name });
   }
 

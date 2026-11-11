@@ -5,12 +5,15 @@ import {
   inject,
   signal,
   computed,
-  ChangeDetectionStrategy
+  ChangeDetectionStrategy,
+  ViewChild,
+  TemplateRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
@@ -25,18 +28,26 @@ import { AppErrorStateComponent } from '../../../../shared/components/error-stat
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
 import { GoodsReceiptNoteService } from '../../../../core/services/goods-receipt-note.service';
 import { PurchaseOrderService } from '../../../../core/services/purchase-order.service';
+import { MasterDataService } from '../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import {
   GoodsReceiptNoteDto,
   GoodsReceiptNoteStatus,
   CreateGoodsReceiptNoteRequest,
+  CreateGoodsReceiptNoteLineRequest,
   UpdateGoodsReceiptNoteRequest,
+  BatchSerialAllocation,
   getGrnStatusName,
   getGrnStatusSeverity
 } from '../../../../core/models/goods-receipt-note.models';
 import { PurchaseOrderDto, PurchaseOrderStatus } from '../../../../core/models/purchase-order.models';
+import { TrackingMode, ProductItem } from '../../../../core/models/scope.models';
 import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
+import {
+  BatchSerialTrackingDialogComponent,
+  BatchSerialDialogData
+} from './batch-serial-dialog/batch-serial-dialog.component';
 
 export type GRNPageMode = 'create' | 'view';
 
@@ -59,6 +70,13 @@ export interface EditableGRNLine {
   warehouseLocationId?: string;
   unitOfMeasureId?: string | null;
   remarks?: string;
+  trackingMode?: number;
+  trackingAllocations?: BatchSerialAllocation[];
+  batchNumber?: string | null;
+  serialNumber?: string | null;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
+  isQuarantine?: boolean;
 }
 
 @Component({
@@ -79,21 +97,27 @@ export interface EditableGRNLine {
     AppStatusBadgeComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
-    AccessDeniedComponent
+    AccessDeniedComponent,
+    MatDialogModule
   ],
   templateUrl: './goods-receipt-page.component.html',
   styleUrl: './goods-receipt-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
+  @ViewChild('trackingCellTemplate', { static: true }) trackingCellTemplate!: TemplateRef<any>;
+
   readonly grnService = inject(GoodsReceiptNoteService);
   readonly poService = inject(PurchaseOrderService);
+  readonly masterDataService = inject(MasterDataService);
+  readonly matDialog = inject(MatDialog);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
 
   private readonly subs = new Subscription();
+  private readonly productMasterCache = new Map<string, ProductItem>();
 
   // Mode & Route State
   readonly mode = signal<GRNPageMode>('create');
@@ -298,6 +322,14 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         ]
       },
       {
+        field: 'trackingMode',
+        header: 'Tracking Details',
+        width: '180px',
+        align: 'center',
+        editable: false,
+        cellTemplate: this.trackingCellTemplate
+      },
+      {
         field: 'unitCost',
         header: 'Unit Price',
         sortable: true,
@@ -493,6 +525,125 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     }
 
     this.workingLines.set(lines);
+    this.loadProductTrackingModes(lines);
+  }
+
+  // Load Product Master to configure authoritative Tracking Modes
+  private loadProductTrackingModes(lines: EditableGRNLine[]): void {
+    if (!lines || lines.length === 0) return;
+
+    this.masterDataService.getProducts().subscribe({
+      next: products => {
+        const prodMap = new Map(products.map(p => [p.productId, p]));
+        for (const p of products) {
+          this.productMasterCache.set(p.productId, p);
+        }
+
+        this.workingLines.update(currLines =>
+          currLines.map(l => {
+            const prod = prodMap.get(l.productId);
+            const mode = prod ? Number(prod.trackingMode) || TrackingMode.None : TrackingMode.None;
+            return {
+              ...l,
+              trackingMode: mode
+            };
+          })
+        );
+      },
+      error: () => {
+        // Fallback: If bulk product load encounters issue, lines preserve default TrackingMode.None
+      }
+    });
+  }
+
+  // Tracking Helpers & Validation
+  isLineTrackingComplete(row: EditableGRNLine): boolean {
+    const mode = Number(row.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) return true;
+
+    const receivedQty = Number(row.receivedQuantityNow) || 0;
+    if (receivedQty <= 0) return true;
+
+    const allocs = row.trackingAllocations || [];
+    if (allocs.length === 0) return false;
+
+    const totalAlloc = allocs.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+    if (Math.abs(totalAlloc - receivedQty) > 0.0001) return false;
+
+    for (const a of allocs) {
+      if ((mode === TrackingMode.Batch || mode === TrackingMode.BatchAndSerial) && (!a.batchNumber || !a.batchNumber.trim())) {
+        return false;
+      }
+      if ((mode === TrackingMode.Serial || mode === TrackingMode.BatchAndSerial) && (!a.serialNumber || !a.serialNumber.trim())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  getLineAllocatedQuantity(row: EditableGRNLine): number {
+    return (row.trackingAllocations || []).reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+  }
+
+  getLineTrackingSummary(row: EditableGRNLine): string {
+    const mode = Number(row.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) return 'Untracked';
+
+    const allocs = row.trackingAllocations || [];
+    const allocated = allocs.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+    const target = Number(row.receivedQuantityNow) || 0;
+
+    if (allocated === target && target > 0) {
+      return mode === TrackingMode.Batch
+        ? `Batches (${allocs.length}) ✓`
+        : `Serials (${allocs.length}) ✓`;
+    }
+    return `Configure (${allocated}/${target})`;
+  }
+
+  openTrackingDialog(row: EditableGRNLine, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    const mode = Number(row.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) {
+      this.showMessage(`Product '${row.productCode}' does not track batches or serial numbers.`, 'info');
+      return;
+    }
+
+    const targetQty = Number(row.receivedQuantityNow) || 0;
+    if (targetQty <= 0) {
+      this.showMessage(`Specify a received quantity greater than 0 before allocating batch or serial details.`, 'warn');
+      return;
+    }
+
+    const dialogRef = this.matDialog.open<BatchSerialTrackingDialogComponent, BatchSerialDialogData, BatchSerialAllocation[]>(
+      BatchSerialTrackingDialogComponent,
+      {
+        width: '920px',
+        maxWidth: '96vw',
+        disableClose: true,
+        data: {
+          productCode: row.productCode,
+          productName: row.productName,
+          unitOfMeasure: row.unitOfMeasure,
+          trackingMode: mode,
+          targetQuantity: targetQty,
+          readOnly: !this.canEditDraft(),
+          allocations: row.trackingAllocations || []
+        }
+      }
+    );
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        row.trackingAllocations = result;
+        this.workingLines.set([...this.workingLines()]);
+        this.showMessage(`Tracking details recorded for ${row.productCode}.`, 'success');
+      }
+    });
   }
 
   // Load Saved GRN for Reopening / View Mode
@@ -540,28 +691,62 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       remarks: grn.remarks || ''
     });
 
-    const lines: EditableGRNLine[] = (grn.lines || []).map(l => ({
-      lineId: l.goodsReceiptNoteLineId || 'line-' + Math.random().toString(36).substring(2, 9),
-      purchaseOrderItemId: l.purchaseOrderItemId,
-      productId: l.productId,
-      productCode: l.productCode || 'ITEM',
-      productName: l.productName || 'Material',
-      unitOfMeasure: l.unitOfMeasure || '',
-      orderedQuantity: l.quantityReceived,
-      previouslyReceivedQuantity: 0,
-      outstandingQuantity: l.quantityReceived,
-      receivedQuantityNow: l.quantityReceived,
-      unitCost: l.unitCost, // Strictly read-only
-      discountRate: 0,
-      netLineAmount: undefined,
-      lineTotal: l.lineTotal,
-      warehouseId: l.warehouseId,
-      warehouseLocationId: l.warehouseLocationId,
-      unitOfMeasureId: l.unitOfMeasureId ?? null,
-      remarks: l.remarks ?? undefined
-    }));
+    const groupedMap = new Map<string, { headerLine: EditableGRNLine; allocations: BatchSerialAllocation[] }>();
 
+    for (const l of grn.lines || []) {
+      const alloc: BatchSerialAllocation = {
+        id: l.goodsReceiptNoteLineId || 'alloc-' + Math.random().toString(36).substring(2, 9),
+        batchNumber: l.batchNumber || '',
+        serialNumber: l.serialNumber || '',
+        quantity: Number(l.quantityReceived) || 1,
+        manufacturingDate: l.manufacturingDate ? l.manufacturingDate.substring(0, 10) : '',
+        expiryDate: l.expiryDate ? l.expiryDate.substring(0, 10) : '',
+        isQuarantine: l.isQuarantine || false,
+        remarks: l.remarks || ''
+      };
+
+      const existing = groupedMap.get(l.purchaseOrderItemId);
+      if (!existing) {
+        const editableLine: EditableGRNLine = {
+          lineId: l.goodsReceiptNoteLineId || 'line-' + Math.random().toString(36).substring(2, 9),
+          purchaseOrderItemId: l.purchaseOrderItemId,
+          productId: l.productId,
+          productCode: l.productCode || 'ITEM',
+          productName: l.productName || 'Material',
+          unitOfMeasure: l.unitOfMeasure || '',
+          orderedQuantity: Number(l.quantityReceived) || 0,
+          previouslyReceivedQuantity: 0,
+          outstandingQuantity: Number(l.quantityReceived) || 0,
+          receivedQuantityNow: Number(l.quantityReceived) || 0,
+          unitCost: l.unitCost, // Strictly read-only
+          discountRate: 0,
+          netLineAmount: undefined,
+          lineTotal: l.lineTotal,
+          warehouseId: l.warehouseId,
+          warehouseLocationId: l.warehouseLocationId,
+          unitOfMeasureId: l.unitOfMeasureId ?? null,
+          remarks: l.remarks ?? undefined,
+          trackingAllocations: (l.batchNumber || l.serialNumber) ? [alloc] : []
+        };
+        groupedMap.set(l.purchaseOrderItemId, {
+          headerLine: editableLine,
+          allocations: (l.batchNumber || l.serialNumber) ? [alloc] : []
+        });
+      } else {
+        existing.headerLine.receivedQuantityNow += Number(l.quantityReceived) || 0;
+        existing.headerLine.lineTotal += l.lineTotal;
+        existing.headerLine.orderedQuantity += Number(l.quantityReceived) || 0;
+        existing.headerLine.outstandingQuantity += Number(l.quantityReceived) || 0;
+        if (l.batchNumber || l.serialNumber) {
+          existing.allocations.push(alloc);
+          existing.headerLine.trackingAllocations = existing.allocations;
+        }
+      }
+    }
+
+    const lines = Array.from(groupedMap.values()).map(g => g.headerLine);
     this.workingLines.set(lines);
+    this.loadProductTrackingModes(lines);
   }
 
   private loadPurchaseOrderForDraft(grn: GoodsReceiptNoteDto): void {
@@ -663,18 +848,60 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Product Master-driven tracking completeness validation
+    for (const line of linesToReceive) {
+      const mode = Number(line.trackingMode) || TrackingMode.None;
+      if (mode !== TrackingMode.None) {
+        if (!this.isLineTrackingComplete(line)) {
+          this.showMessage(
+            `Tracking details are incomplete for line '${line.productCode}'. Received quantity is ${line.receivedQuantityNow}, but allocated tracking quantity is ${this.getLineAllocatedQuantity(line)}. Click 'Configure' in the Tracking Details column.`,
+            'danger'
+          );
+          return;
+        }
+      }
+    }
+
     const formVal = this.headerForm.getRawValue();
 
-    // Map request DTO - note: prices are server-authoritative and not client supplied
-    const lines = linesToReceive.map(l => ({
-      purchaseOrderItemId: l.purchaseOrderItemId,
-      productId: l.productId,
-      warehouseId: l.warehouseId,
-      warehouseLocationId: l.warehouseLocationId,
-      quantityReceived: Number(l.receivedQuantityNow),
-      unitOfMeasureId: l.unitOfMeasureId ?? null,
-      remarks: l.remarks || null
-    }));
+    // Map request DTO - expands tracking allocations into individual line items for server
+    const requestLines: CreateGoodsReceiptNoteLineRequest[] = [];
+    for (const l of linesToReceive) {
+      const mode = Number(l.trackingMode) || TrackingMode.None;
+      if (mode !== TrackingMode.None && l.trackingAllocations && l.trackingAllocations.length > 0) {
+        for (const alloc of l.trackingAllocations) {
+          requestLines.push({
+            purchaseOrderItemId: l.purchaseOrderItemId,
+            productId: l.productId,
+            warehouseId: l.warehouseId,
+            warehouseLocationId: l.warehouseLocationId,
+            quantityReceived: Number(alloc.quantity),
+            unitOfMeasureId: l.unitOfMeasureId ?? null,
+            batchNumber: alloc.batchNumber?.trim() || null,
+            serialNumber: alloc.serialNumber?.trim() || null,
+            manufacturingDate: alloc.manufacturingDate ? new Date(alloc.manufacturingDate).toISOString() : null,
+            expiryDate: alloc.expiryDate ? new Date(alloc.expiryDate).toISOString() : null,
+            isQuarantine: alloc.isQuarantine || false,
+            remarks: alloc.remarks || l.remarks || null
+          });
+        }
+      } else {
+        requestLines.push({
+          purchaseOrderItemId: l.purchaseOrderItemId,
+          productId: l.productId,
+          warehouseId: l.warehouseId,
+          warehouseLocationId: l.warehouseLocationId,
+          quantityReceived: Number(l.receivedQuantityNow),
+          unitOfMeasureId: l.unitOfMeasureId ?? null,
+          batchNumber: null,
+          serialNumber: null,
+          manufacturingDate: null,
+          expiryDate: null,
+          isQuarantine: false,
+          remarks: l.remarks || null
+        });
+      }
+    }
 
     const receiptDate = formVal.receiptDate
       ? new Date(formVal.receiptDate).toISOString()
@@ -685,7 +912,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         receiptDate,
         deliveryNoteNumber: formVal.deliveryNoteNumber || null,
         remarks: formVal.remarks || null,
-        lines
+        lines: requestLines
       };
 
       this.actionInProgress.set(true);
@@ -730,13 +957,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       receiptDate,
       deliveryNoteNumber: formVal.deliveryNoteNumber || null,
       remarks: formVal.remarks || null,
-      lines: linesToReceive.map(l => ({
-        purchaseOrderItemId: l.purchaseOrderItemId,
-        productId: l.productId,
-        quantityReceived: Number(l.receivedQuantityNow),
-        unitOfMeasureId: l.unitOfMeasureId ?? null,
-        remarks: l.remarks || null
-      }))
+      lines: requestLines
     };
 
     this.actionInProgress.set(true);
@@ -778,6 +999,18 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
     if (!grn || !company || !branch) return;
+
+    // Validate that any tracked lines have complete tracking details
+    for (const line of this.workingLines()) {
+      const mode = Number(line.trackingMode) || TrackingMode.None;
+      if (mode !== TrackingMode.None && !this.isLineTrackingComplete(line)) {
+        this.showMessage(
+          `Cannot confirm receipt. Tracking details are incomplete for line '${line.productCode}'. Click 'Edit Draft' to configure batch/serial tracking.`,
+          'danger'
+        );
+        return;
+      }
+    }
 
     this.actionInProgress.set(true);
     this.grnService.confirmGrn(company.id, branch.id, grn.goodsReceiptNoteId).subscribe({

@@ -61,6 +61,10 @@ export class WarehousePageComponent implements OnInit, OnDestroy {
   readonly warehouseId = signal<string | null>(null);
   readonly currentWarehouse = signal<WarehouseItem | null>(null);
 
+  // Permission Checks
+  readonly canCreate = computed(() => this.authService.hasPermission('WAREHOUSE.CREATE'));
+  readonly canEdit = computed(() => this.authService.hasPermission('WAREHOUSE.EDIT') || this.authService.hasPermission('WAREHOUSE.UPDATE'));
+
   // Page State
   readonly loading = signal<boolean>(false);
   readonly saving = signal<boolean>(false);
@@ -300,9 +304,27 @@ export class WarehousePageComponent implements OnInit, OnDestroy {
     });
   }
 
+  switchToEdit(): void {
+    if (!this.canEdit()) return;
+    const id = this.warehouseId();
+    if (id) {
+      this.router.navigate(['/app/master-data/warehouses', id, 'edit']);
+    }
+  }
+
   saveWarehouse(): void {
     if (this.mode() === 'view') {
-      this.mode.set('edit');
+      this.switchToEdit();
+      return;
+    }
+
+    if (this.mode() === 'create' && !this.canCreate()) {
+      this.message.set({ text: 'You do not have permission to create warehouses.', severity: 'danger' });
+      return;
+    }
+
+    if (this.mode() === 'edit' && !this.canEdit()) {
+      this.message.set({ text: 'You do not have permission to update warehouses.', severity: 'danger' });
       return;
     }
 
