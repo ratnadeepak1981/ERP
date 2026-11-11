@@ -300,7 +300,9 @@
                   } @else {
                     <!-- Cell Display Mode (Standard text, formatted currency/badge, click to edit) -->
                     <div class="cell-display-container" [class.clickable]="isColumnEditable(col)" [title]="isColumnEditable(col) ? 'Click to edit' : ''">
-                      @if (col.type === 'badge') {
+                      @if (col.cellTemplate) {
+                        <ng-container *ngTemplateOutlet="col.cellTemplate; context: { $implicit: row[col.field], row: row, col: col }"></ng-container>
+                      } @else if (col.type === 'badge') {
                         <app-status-badge
                           [label]="row[col.field]"
                           [severity]="col.badgeSeverityMap ? col.badgeSeverityMap(row[col.field], row) : 'neutral'"

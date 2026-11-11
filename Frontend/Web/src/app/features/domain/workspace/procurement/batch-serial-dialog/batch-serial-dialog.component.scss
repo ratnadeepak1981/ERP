@@ -1,0 +1,230 @@
+.fluent-batch-serial-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 900px;
+  max-width: 95vw;
+  max-height: 88vh;
+  background: #ffffff;
+  color: #323130;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  overflow: hidden;
+
+  .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #edebe9;
+
+    .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .header-icon {
+        color: #0078d4;
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+      }
+
+      .title-text-group {
+        display: flex;
+        flex-direction: column;
+
+        .dialog-title {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 600;
+          color: #201f1e;
+        }
+
+        .dialog-subtitle {
+          font-size: 13px;
+          color: #605e5c;
+          margin-top: 2px;
+        }
+      }
+    }
+
+    .close-btn {
+      color: #605e5c;
+      &:hover {
+        color: #201f1e;
+        background: #edebe9;
+      }
+    }
+  }
+
+  .dialog-metric-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 12px 24px;
+    background: #faf9f8;
+    border-bottom: 1px solid #edebe9;
+
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+
+      .metric-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: #605e5c;
+      }
+
+      .metric-val {
+        font-size: 14px;
+        font-weight: 600;
+        color: #323130;
+
+        &.mode-pill {
+          background: #eff6fc;
+          color: #0078d4;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 12px;
+        }
+
+        &.target-val {
+          color: #201f1e;
+        }
+
+        &.valid-alloc {
+          color: #107c10;
+        }
+
+        &.invalid-alloc {
+          color: #a80000;
+        }
+
+        &.balance-zero {
+          color: #107c10;
+        }
+
+        &.balance-pending {
+          color: #d83b01;
+        }
+      }
+    }
+
+    .metric-divider {
+      width: 1px;
+      height: 28px;
+      background: #edebe9;
+    }
+  }
+
+  .bulk-serial-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 24px;
+    background: #f3f9fd;
+    border-bottom: 1px solid #c7e0f4;
+
+    .bulk-title {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #005a9e;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    .bulk-inputs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+
+      .bulk-text-input,
+      .bulk-number-input {
+        padding: 5px 10px;
+        border: 1px solid #8a8886;
+        border-radius: 4px;
+        font-size: 13px;
+        outline: none;
+
+        &:focus {
+          border-color: #0078d4;
+          box-shadow: 0 0 0 1px #0078d4;
+        }
+      }
+
+      .bulk-text-input {
+        width: 160px;
+      }
+
+      .bulk-number-input {
+        width: 80px;
+      }
+
+      .bulk-add-btn {
+        font-size: 12px;
+        line-height: 28px;
+        height: 28px;
+        border-color: #0078d4;
+        color: #0078d4;
+      }
+    }
+  }
+
+  .dialog-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .validation-error-panel {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fdf3f2;
+    border: 1px solid #f8d7da;
+    border-radius: 4px;
+    color: #a80000;
+    font-size: 13px;
+
+    .err-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #d13438;
+      margin-top: 1px;
+    }
+
+    .err-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: #faf9f8;
+    border-top: 1px solid #edebe9;
+    margin: 0;
+  }
+}
