@@ -131,19 +131,31 @@ export class CompanyService {
   }
 
   createBranch(companyId: string, dto: { name: string; code: string }): Observable<Branch> {
-    const newBranch: Branch = {
-      id: 'br-' + Math.random().toString(36).substring(2, 9),
-      companyId,
+    return this.http.post<ApiResponse<Branch>>(buildApiUrl(`/companies/${companyId}/branches`), {
       name: dto.name.trim(),
-      code: dto.code.trim().toUpperCase(),
-      isActive: true
-    };
+      code: dto.code.trim().toUpperCase()
+    }).pipe(
+      map(res => res.data),
+      catchError(err => {
+        if (err?.status !== 0 && err?.status != null) {
+          return throwError(() => err);
+        }
 
-    const branches = this.getLocalBranches(companyId);
-    branches.push(newBranch);
-    this.saveLocalBranches(companyId, branches);
+        const newBranch: Branch = {
+          id: 'br-' + Math.random().toString(36).substring(2, 9),
+          companyId,
+          name: dto.name.trim(),
+          code: dto.code.trim().toUpperCase(),
+          isActive: true
+        };
 
-    return of(newBranch);
+        const branches = this.getLocalBranches(companyId);
+        branches.push(newBranch);
+        this.saveLocalBranches(companyId, branches);
+
+        return of(newBranch);
+      })
+    );
   }
 
   initializeDefaultCompanyAndBranch(

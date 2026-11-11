@@ -1,4 +1,4 @@
-﻿namespace Domain.Features.MasterData.Branch;
+namespace Domain.Features.MasterData.Branch;
 
 public class BranchService : IBranchService
 {
@@ -27,5 +27,31 @@ public class BranchService : IBranchService
             tenantId,
             companyId,
             branchId);
+    }
+
+    public async Task<Branch> CreateBranchAsync(
+        Guid tenantId,
+        Guid companyId,
+        string name,
+        string code)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Branch name is required.", nameof(name));
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("Branch code is required.", nameof(code));
+
+        var branch = new Branch
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            Name = name.Trim(),
+            Code = code.Trim().ToUpperInvariant(),
+            IsActive = true
+        };
+
+        await _repository.AddAsync(branch);
+        await _repository.SaveChangesAsync();
+
+        return branch;
     }
 }

@@ -44,4 +44,15 @@ public class BranchRepository : IBranchRepository
                     c.TenantId == tenantId))
             .FirstOrDefaultAsync();
     }
+
+    public async Task<Branch> AddAsync(Branch branch)
+    {
+        await _context.Branches.AddAsync(branch);
+        return branch;
+    }
+
+    public async Task<int> SaveChangesAsync()
+    {
+        return await _context.SaveChangesAsync();
+    }
 }
