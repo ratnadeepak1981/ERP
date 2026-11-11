@@ -20,6 +20,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import {
   WarehouseItem,
   WarehouseZoneItem,
@@ -50,6 +51,7 @@ export type ZonePageMode = 'create' | 'edit' | 'view';
 export class ZonePageComponent implements OnInit, OnDestroy {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
 
@@ -61,6 +63,10 @@ export class ZonePageComponent implements OnInit, OnDestroy {
   readonly zoneId = signal<string | null>(null);
   readonly currentWarehouse = signal<WarehouseItem | null>(null);
   readonly currentZone = signal<WarehouseZoneItem | null>(null);
+
+  // Permission Checks
+  readonly canCreate = computed(() => this.authService.hasPermission('WAREHOUSE.CREATE') || this.authService.hasPermission('WAREHOUSE.MANAGE_ZONES'));
+  readonly canEdit = computed(() => this.authService.hasPermission('WAREHOUSE.EDIT') || this.authService.hasPermission('WAREHOUSE.MANAGE_ZONES'));
 
   // Page State
   readonly loading = signal<boolean>(false);
@@ -260,9 +266,28 @@ export class ZonePageComponent implements OnInit, OnDestroy {
     });
   }
 
+  switchToEdit(): void {
+    if (!this.canEdit()) return;
+    const whId = this.warehouseId();
+    const zId = this.zoneId();
+    if (whId && zId) {
+      this.router.navigate(['/app/master-data/warehouses', whId, 'zones', zId, 'edit']);
+    }
+  }
+
   saveZone(): void {
     if (this.mode() === 'view') {
-      this.mode.set('edit');
+      this.switchToEdit();
+      return;
+    }
+
+    if (this.mode() === 'create' && !this.canCreate()) {
+      this.message.set({ text: 'You do not have permission to create warehouse zones.', severity: 'danger' });
+      return;
+    }
+
+    if (this.mode() === 'edit' && !this.canEdit()) {
+      this.message.set({ text: 'You do not have permission to update warehouse zones.', severity: 'danger' });
       return;
     }
 

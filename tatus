@@ -1,0 +1,2056 @@
+warning: in the working copy of 'Testing/Retail-Test-Pack/Approval-Test-Cases.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/GRN-and-Putaway-Test-Cases.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/Inventory-Test-Cases.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/Manual-Test-Guide.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/Permissions-Matrix.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/Procurement-Test-Cases.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/Sales-Test-Cases.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/Transaction-Register.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'Testing/Retail-Test-Pack/Users-and-Roles.md', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/Testing/Retail-Test-Pack/Approval-Test-Cases.md b/Testing/Retail-Test-Pack/Approval-Test-Cases.md[m
+[1mindex d03b399..1ef9fb5 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Approval-Test-Cases.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Approval-Test-Cases.md[m
+[36m@@ -1,32 +1,109 @@[m
+[31m-# ApexERP Retail Test Pack — Approval Test Cases[m
+[32m+[m[32m# ApexERP Retail Test Pack — Approval Test Cases (Gate 6)[m
+ [m
+[31m-## 1. Segregation of Duties (SoD) Verification[m
+[32m+[m[32m## 1. Purchase Requisition (PR) Approval & Segregation of Duties[m
+ [m
+[31m-### Test Case 1: Unauthorized Approval Attempt (Negative Test)[m
+[31m-- **Test Identifier:** `TC-RET-APPR-01`[m
+[32m+[m[32m### TC-RET-APPR-PR-01: Unauthorized PR Approval Attempt (Negative Test)[m
+[32m+[m[32m- **Actor:** `retail.po` (Requester / Creator of the PR)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Action:** Attempt to call `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/approve`[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 403 Forbidden**.[m
+[32m+[m[32m- **Security Invariant:** Standard Procurement Officer lacks `PURCHASE_REQUISITION.APPROVE`. Self-approval of purchase requisitions is strictly blocked at backend API and frontend UI layers.[m
+[32m+[m[32m- **Next Responsible User:** `retail.approver` (Procurement Manager).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-APPR-PR-02: Authorized Management PR Approval (Positive Test)[m
+[32m+[m[32m- **Actor:** `retail.approver` (Procurement Manager)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.APPROVE`, `PURCHASE_REQUISITION.VIEW`[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/approve`[m
+[32m+[m[32m- **Payload:**[m
+[32m+[m[32m  ```json[m
+[32m+[m[32m  {[m
+[32m+[m[32m    "remarks": "Approved under FY26 Retail replenishment budget for PO conversion."[m
+[32m+[m[32m  }[m
+[32m+[m[32m  ```[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**.[m
+[32m+[m[32m- **Resulting PR Status:** `Approved`.[m
+[32m+[m[32m- **Post-Approval State:**[m
+[32m+[m[32m  - PR becomes eligible for Purchase Order creation and conversion.[m
+[32m+[m[32m  - Submitter (`retail.po`) and Approver (`retail.approver`) identities and timestamps are immutably logged in `ApprovalHistories`.[m
+[32m+[m[32m- **Next Responsible User:** `retail.po` (Procurement Officer).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-APPR-PR-03: Purchase Requisition Rejection Workflow[m
+[32m+[m[32m- **Actor:** `retail.approver` (Procurement Manager)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_MANAGER`[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.APPROVE`[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/reject`[m
+[32m+[m[32m- **Payload:**[m
+[32m+[m[32m  ```json[m
+[32m+[m[32m  {[m
+[32m+[m[32m    "remarks": "Item unit rates exceed approved procurement budget ceiling."[m
+[32m+[m[32m  }[m
+[32m+[m[32m  ```[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. PR transitions to `Rejected`. Line items lock permanently. Cannot be converted to Purchase Order.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 2. Purchase Order (PO) Approval & Segregation of Duties[m
+[32m+[m
+[32m+[m[32m### TC-RET-APPR-PO-01: Unauthorized PO Approval Attempt (Negative Test)[m
+ - **Actor:** `retail.po` (Creator of the Purchase Order)[m
+[31m-- **Role Code:** `ProcurementOfficer`[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+ - **Action:** Attempt to call `POST /api/companies/{companyId}/branches/{branchId}/purchase-orders/{id}/approve`[m
+ - **Expected Outcome:** **HTTP 403 Forbidden**.[m
+[31m-- **Security Invariant:** A standard procurement officer role does not possess `Procurement.Orders.Approve`. Self-approval of purchase requisitions or purchase orders is strictly prevented.[m
+[32m+[m[32m- **Security Invariant:** Standard Procurement Officer lacks `PURCHASE_ORDER.APPROVE`. The system prevents any creator from approving their own purchase order.[m
+[32m+[m[32m- **Next Responsible User:** `retail.approver` (Procurement Manager).[m
+ [m
+ ---[m
+ [m
+[31m-### Test Case 2: Authorized Management Approval (Positive Test)[m
+[31m-- **Test Identifier:** `TC-RET-APPR-02`[m
+[31m-- **Actor:** `retail.approver` (Procurement Manager / Financial Controller)[m
+[31m-- **Role Code:** `ProcurementManager`[m
+[31m-- **Permissions Verified:** `Procurement.Orders.Approve`, `Procurement.Orders.View`[m
+[32m+[m[32m### TC-RET-APPR-PO-02: Authorized Management PO Approval (Positive Test)[m
+[32m+[m[32m- **Actor:** `retail.approver` (Procurement Manager)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_ORDER.APPROVE`, `PURCHASE_ORDER.VIEW`[m
+ - **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-orders/{id}/approve`[m
+ - **Payload:**[m
+   ```json[m
+   {[m
+[31m-    "ApprovedBy": "retail.approver",[m
+[31m-    "Comments": "Approved under FY26 Retail replenishment budget"[m
+[32m+[m[32m    "approvedBy": "retail.approver",[m
+[32m+[m[32m    "comments": "Approved under FY26 Retail replenishment budget."[m
+   }[m
+   ```[m
+ - **Expected Outcome:** **HTTP 200 OK**.[m
+[31m-- **Resulting PO Status:** `Approved` (or `Confirmed`).[m
+[32m+[m[32m- **Resulting PO Status:** `Approved`.[m
+ - **Post-Approval State:**[m
+   - PO becomes eligible for Goods Receipt Note (GRN) generation.[m
+[31m-  - Line items lock against unapproved modifications.[m
+[32m+[m[32m  - PO line items lock against unapproved modifications.[m
+[32m+[m[32m  - Originating PR status transitions to `Ordered` / fulfillment tracking.[m
+[32m+[m[32m- **Next Responsible User:** `retail.grn` (Receiving Clerk / Procurement Officer).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 3. Segregation of Duties (SoD) & Audit Invariants[m
+[32m+[m
+[32m+[m[32m1. **Distinct Creator and Approver:**[m
+[32m+[m[32m   - Requester/Creator: `retail.po` (`retail.po@retail.local`)[m
+[32m+[m[32m   - Independent Approver: `retail.approver` (`retail.approver@retail.local`)[m
+[32m+[m[32m   - Any attempt to bypass approval via direct database or API injection fails backend permission and tenant scope checks.[m
+[32m+[m[32m2. **Permanent Audit Trail:**[m
+[32m+[m[32m   - Every approval or rejection persists:[m
+[32m+[m[32m     - `ApprovedByUserId`: GUID of approver (`retail.approver`)[m
+[32m+[m[32m     - `ApprovedByUserName`: `retail.approver`[m
+[32m+[m[32m     - `ApprovalDate`: UTC timestamp[m
+[32m+[m[32m     - `ApprovalRemarks`: Explicit justification entered by approver[m
+[32m+[m[32m3. **Tenant Admin Emergency Oversight:**[m
+[32m+[m[32m   - In emergency business continuity situations, `retail.admin` (Tenant Admin) possesses universal tenant authority to approve transactions, with their distinct admin identity recorded in the audit log.[m
+[1mdiff --git a/Testing/Retail-Test-Pack/GRN-and-Putaway-Test-Cases.md b/Testing/Retail-Test-Pack/GRN-and-Putaway-Test-Cases.md[m
+[1mindex e4da7b5..a52c204 100644[m
+[1m--- a/Testing/Retail-Test-Pack/GRN-and-Putaway-Test-Cases.md[m
+[1m+++ b/Testing/Retail-Test-Pack/GRN-and-Putaway-Test-Cases.md[m
+[36m@@ -1,63 +1,101 @@[m
+[31m-# ApexERP Retail Test Pack — GRN and Putaway Test Cases[m
+[32m+[m[32m# ApexERP Retail Test Pack — GRN and Putaway Test Cases (Gate 6)[m
+ [m
+[31m-## 1. Goods Receipt Note (GRN) Generation[m
+[32m+[m[32m## 1. Product Master Tracking Configuration[m
+ [m
+[31m-### Test Summary[m
+[31m-- **Test Identifier:** `TC-RET-GRN-01`[m
+[31m-- **Actor:** `retail.grn` (Receiving Clerk / Dock Operator)[m
+[31m-- **Role Code:** `InventoryReceivingClerk`[m
+[32m+[m[32mIn ApexERP, batch and serial capture during Goods Receipt is strictly driven by the authoritative **Product Master** configuration:[m
+[32m+[m
+[32m+[m[32m| Product Code | Description | Base UOM | IsBatchTracked | IsSerialTracked | Tracking Mode | Tracking Requirement at Receipt |[m
+[32m+[m[32m| :--- | :--- | :---: | :---: | :---: | :--- | :--- |[m
+[32m+[m[32m| `RET-001` | Samba Rice 5kg Pack | BAG | `true` | `false` | Batch | Mandatory Batch Number, Mfg Date, Expiry Date |[m
+[32m+[m[32m| `RET-002` | Cooking Oil 1L | BTL | `true` | `false` | Batch | Mandatory Batch Number, Mfg Date, Expiry Date |[m
+[32m+[m[32m| `RET-003` | White Sugar 1kg | PKT | `true` | `false` | Batch | Mandatory Batch Number, Mfg Date, Expiry Date |[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 2. Step 3: Goods Receipt Note (GRN) Generation from PO[m
+[32m+[m
+[32m+[m[32m### TC-RET-GRN-01: GRN Draft Creation from Approved PO[m
+[32m+[m[32m- **Actor:** `retail.grn` (Receiving Clerk / Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `GRN.VIEW`, `GRN.CREATE`[m
+[32m+[m[32m- **Allowed Actions:** View PO, Create GRN Draft from PO, Save Draft[m
+[32m+[m[32m- **Restricted Actions:** Confirm without valid batch allocation (Denied with validation error)[m
+ - **Source Document:** Approved Purchase Order (`PO-RET-2026-001`)[m
+[32m+[m[32m- **Receiving Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse`)[m
+ - **Receiving Location:** Receiving Dock 01 (`LOC-REC-01`)[m
+[31m-- **Endpoints:**[m
+[31m-  1. `POST /api/goodsreceiptnotes/from-po/{poId}` (Draft creation)[m
+[31m-  2. `POST /api/goodsreceiptnotes/{grnId}/confirm` (Confirmation & Stock Landing)[m
+[32m+[m[32m- **Endpoint:** `POST /api/goodsreceiptnotes/from-po/{poId}`[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 201 Created**. GRN created in `Draft` status with reference `GRN-RET-001`. Line items pre-populated from PO. Staging destination initialized to `LOC-REC-01`.[m
+[32m+[m[32m- **Next Step:** Batch allocation and confirmation (Step 4 / TC-RET-GRN-02).[m
+ [m
+[31m-### Batch Allocation & Inbound Split[m
+[31m-To thoroughly test multi-batch splitting per product line, the 240 ordered units are received across 5 distinct batches:[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 3. Step 4: Batch Allocation & GRN Confirmation[m
+[32m+[m
+[32m+[m[32m### TC-RET-GRN-02: Multi-Batch Split Allocation (5 Batches, 240 Units) & Confirmation[m
+[32m+[m[32m- **Actor:** `retail.grn` (Receiving Clerk / Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Permissions Verified:** `GRN.EDIT`, `GRN.CONFIRM`, `BATCH.VIEW`, `BATCH.CREATE`[m
+[32m+[m[32m- **Endpoint:** `POST /api/goodsreceiptnotes/{grnId}/confirm`[m
+ [m
+[31m-| PO Line | Product | Total Qty | Batch Number | Split Qty | Mfg Date | Expiry Date | Unit Cost (LKR) | Destination |[m
+[32m+[m[32m#### Batch Allocation & Inbound Split Detail[m
+[32m+[m[32mTo thoroughly verify multi-batch splitting per product line, the 240 ordered units are allocated across **5 distinct batches**:[m
+[32m+[m
+[32m+[m[32m| PO Line | Product | Total Qty | Batch Number | Split Qty | Mfg Date | Expiry Date | Unit Cost (LKR) | Staging Destination |[m
+ | :---: | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :--- |[m
+[31m-| 1 | `RET-001` (Rice) | 100 | `RICE-2026-001` | 60 | 2026-01-01 | 2026-12-31 | 1,500.00 | `LOC-REC-01` |[m
+[31m-| 1 | `RET-001` (Rice) | 100 | `RICE-2026-002` | 40 | 2026-02-01 | 2027-01-31 | 1,500.00 | `LOC-REC-01` |[m
+[31m-| 2 | `RET-002` (Oil) | 80 | `OIL-2026-001` | 50 | 2026-01-10 | 2026-10-31 | 850.00 | `LOC-REC-01` |[m
+[31m-| 2 | `RET-002` (Oil) | 80 | `OIL-2026-002` | 30 | 2026-02-15 | 2026-11-30 | 850.00 | `LOC-REC-01` |[m
+[31m-| 3 | `RET-003` (Sugar) | 60 | `SUGAR-2026-001` | 60 | 2026-01-05 | 2027-06-30 | 320.00 | `LOC-REC-01` |[m
+[32m+[m[32m| 1 | `RET-001` (Rice) | 100 | `RICE-2026-001` | 60 | 2026-01-15 | 2027-06-30 | 1,500.00 | `LOC-REC-01` |[m
+[32m+[m[32m| 1 | `RET-001` (Rice) | 100 | `RICE-2026-002` | 40 | 2026-02-01 | 2027-08-31 | 1,500.00 | `LOC-REC-01` |[m
+[32m+[m[32m| 2 | `RET-002` (Oil) | 80 | `OIL-2026-001` | 50 | 2026-03-01 | 2027-09-30 | 850.00 | `LOC-REC-01` |[m
+[32m+[m[32m| 2 | `RET-002` (Oil) | 80 | `OIL-2026-002` | 30 | 2026-03-15 | 2027-10-31 | 850.00 | `LOC-REC-01` |[m
+[32m+[m[32m| 3 | `RET-003` (Sugar) | 60 | `SUGAR-2026-001` | 60 | 2026-01-10 | 2027-07-31 | 320.00 | `LOC-REC-01` |[m
+ [m
+[31m-### Expected Post-GRN Status[m
+[32m+[m[32m#### Post-GRN Expected Outcomes[m
+ - **GRN Status:** `Confirmed`[m
+ - **PO Status:** Fully Received (`Received`)[m
+[31m-- **Stock Location:** All 240 units reside in `LOC-REC-01` with `QuantityOnHand = 240`.[m
+[32m+[m[32m- **Inventory Posting:** 5 permanent `InventoryTransaction` records created (Source: `GoodsReceipt`).[m
+[32m+[m[32m- **Stock Location:** All 240 units reside in `LOC-REC-01` (`QuantityOnHand = 240.0000`).[m
+[32m+[m[32m- **Valuation:** `237,200.00 LKR` added to inventory asset valuation layers.[m
+[32m+[m[32m- **Main Rack Balance (`LOC-STK-01`):** `0.0000` units (stock remains safely quarantined in dock until putaway).[m
+[32m+[m[32m- **Next Responsible User:** `retail.store` (Inventory Manager).[m
+ [m
+ ---[m
+ [m
+[31m-## 2. Warehouse Putaway[m
+[32m+[m[32m## 4. Step 5: Warehouse Putaway to Main Storage Racks[m
+ [m
+[31m-### Test Summary[m
+[31m-- **Test Identifier:** `TC-RET-PUT-01`[m
+[31m-- **Actor:** `retail.store` (Warehouse Storekeeper)[m
+[31m-- **Role Code:** `InventoryStorekeeper`[m
+[31m-- **Source Document:** Confirmed GRN (`PutawaySourceDocumentType.GoodsReceipt`)[m
+[32m+[m[32m### TC-RET-PUT-01: Putaway Execution (Dock to Permanent Storage)[m
+[32m+[m[32m- **Actor:** `retail.store` (Inventory Storekeeper / Warehouse Manager)[m
+[32m+[m[32m- **Role Code:** `INVENTORY_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `PUTAWAY.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View GRN, Create Putaway Draft, Confirm / Post Putaway[m
+[32m+[m[32m- **Source Document:** Confirmed GRN `GRN-RET-001` (`PutawaySourceDocumentType.GoodsReceipt` / `2`)[m
+ - **Source Location:** Receiving Dock (`LOC-REC-01`)[m
+ - **Target Location:** Main Storage Rack (`LOC-STK-01`)[m
+ - **Endpoints:**[m
+   1. `POST /api/inventory/putaway` (Create Putaway Draft)[m
+   2. `POST /api/inventory/putaway/{putawayId}/confirm` (Execute Putaway)[m
+ [m
+[31m-### Putaway Movements[m
+[31m-Each GRN line item is transferred from the inbound dock into permanent racking:[m
+[31m-[m
+[31m-| Line | Product | Batch Number | Putaway Qty | From Location | To Location |[m
+[31m-| :---: | :--- | :--- | :---: | :--- | :--- |[m
+[31m-| 1 | `RET-001` | `RICE-2026-001` | 60 | `LOC-REC-01` | `LOC-STK-01` |[m
+[31m-| 2 | `RET-001` | `RICE-2026-002` | 40 | `LOC-REC-01` | `LOC-STK-01` |[m
+[31m-| 3 | `RET-002` | `OIL-2026-001` | 50 | `LOC-REC-01` | `LOC-STK-01` |[m
+[31m-| 4 | `RET-002` | `OIL-2026-002` | 30 | `LOC-REC-01` | `LOC-STK-01` |[m
+[31m-| 5 | `RET-003` | `SUGAR-2026-001` | 60 | `LOC-REC-01` | `LOC-STK-01` |[m
+[31m-[m
+[31m-### Expected Post-Putaway Status[m
+[31m-- **Putaway Status:** `Confirmed`[m
+[31m-- **`LOC-REC-01` Balance:** `0.00` (Fully cleared dock)[m
+[31m-- **`LOC-STK-01` Balance:**[m
+[31m-  - `RET-001`: `100.00` (B1: 60, B2: 40)[m
+[31m-  - `RET-002`: `80.00` (B1: 50, B2: 30)[m
+[31m-  - `RET-003`: `60.00` (B1: 60)[m
+[32m+[m[32m#### Putaway Movements by Batch[m
+[32m+[m[32mEvery received line item is transferred from dock quarantine into permanent racking:[m
+[32m+[m
+[32m+[m[32m| Line | Product | Batch Number | Putaway Qty | From Location (Dock) | To Location (Storage Rack) | Unit Cost (LKR) | Line Valuation (LKR) |[m
+[32m+[m[32m| :---: | :--- | :--- | :---: | :--- | :--- | :---: | :---: |[m
+[32m+[m[32m| 1 | `RET-001` | `RICE-2026-001` | 60 | `LOC-REC-01` | `LOC-STK-01` | 1,500.00 | 90,000.00 |[m
+[32m+[m[32m| 2 | `RET-001` | `RICE-2026-002` | 40 | `LOC-REC-01` | `LOC-STK-01` | 1,500.00 | 60,000.00 |[m
+[32m+[m[32m| 3 | `RET-002` | `OIL-2026-001` | 50 | `LOC-REC-01` | `LOC-STK-01` | 850.00 | 42,500.00 |[m
+[32m+[m[32m| 4 | `RET-002` | `OIL-2026-002` | 30 | `LOC-REC-01` | `LOC-STK-01` | 850.00 | 25,500.00 |[m
+[32m+[m[32m| 5 | `RET-003` | `SUGAR-2026-001` | 60 | `LOC-REC-01` | `LOC-STK-01` | 320.00 | 19,200.00 |[m
+[32m+[m
+[32m+[m[32m#### Post-Putaway Expected Status[m
+[32m+[m[32m- **Putaway Status:** `Completed` / `Confirmed`[m
+[32m+[m[32m- **`LOC-REC-01` Balance:** Cleanly drops to **`0.0000`** (Dock cleared).[m
+[32m+[m[32m- **`LOC-STK-01` Balance:** Holds all **`240.0000`** units:[m
+[32m+[m[32m  - `RET-001`: `100.0000` (B1: 60, B2: 40)[m
+[32m+[m[32m  - `RET-002`: `80.0000` (B1: 50, B2: 30)[m
+[32m+[m[32m  - `RET-003`: `60.0000` (B1: 60)[m
+[32m+[m[32m- **Total Valuation:** Unchanged at `237,200.00 LKR` (Internal warehouse transfer preserves asset cost).[m
+[32m+[m[32m- **Next Responsible User:** `retail.store` (Inventory Manager).[m
+[1mdiff --git a/Testing/Retail-Test-Pack/Inventory-Test-Cases.md b/Testing/Retail-Test-Pack/Inventory-Test-Cases.md[m
+[1mindex a359e61..e7885c9 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Inventory-Test-Cases.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Inventory-Test-Cases.md[m
+[36m@@ -1,74 +1,146 @@[m
+[31m-# ApexERP Retail Test Pack — Inventory Test Cases[m
+[32m+[m[32m# ApexERP Retail Test Pack — Inventory Test Cases (Gate 6)[m
+ [m
+[31m-## 1. Stock Receipt (Direct Inward Adjustment)[m
+[32m+[m[32m## 1. Step 6: Stock Receipt (Direct Inward Intake)[m
+ [m
+[31m-- **Test Identifier:** `TC-RET-INV-01`[m
+[31m-- **Actor:** `retail.store` (Warehouse Storekeeper)[m
+[31m-- **Role Code:** `InventoryStorekeeper`[m
+[32m+[m[32m### TC-RET-INV-01: Direct Stock Receipt Posting (+30 Units)[m
+[32m+[m[32m- **Actor:** `retail.store` (Warehouse Storekeeper / Inventory Manager)[m
+[32m+[m[32m- **Role Code:** `INVENTORY_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `STOCK_RECEIPT.POST`, `INVENTORY.VIEW`, `BATCH.VIEW`, `BATCH.CREATE`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft, Post Direct Stock Receipt[m
+[32m+[m[32m- **Restricted Actions:** Post without specifying location or batch[m
+ - **Endpoint:** `POST /api/inventory/stock-receipts`[m
+[31m-- **Warehouse:** `RETAIL-WH1` | **Location:** `LOC-STK-01`[m
+[31m-- **Reason:** `StockReceiptReason.Miscellaneous`[m
+[31m-- **Lines Received:**[m
+[31m-  - `RET-001` (Rice) on batch `RICE-2026-001`: **+15 units** @ 1,500 LKR[m
+[31m-  - `RET-002` (Oil) on batch `OIL-2026-001`: **+10 units** @ 850 LKR[m
+[31m-  - `RET-003` (Sugar) on new batch `SUGAR-2026-002` (Mfg: 2026-02-15, Exp: 2027-09-30): **+10 units** @ 320 LKR[m
+[31m-- **Outcome:** **HTTP 200 OK**. Stock balances updated immediately in `LOC-STK-01`.[m
+[32m+[m[32m- **Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse`)[m
+[32m+[m[32m- **Location:** `LOC-STK-01` (`Main Storage Rack A-01`)[m
+[32m+[m[32m- **Reason:** `StockReceiptReason.Miscellaneous` (Sample / Promotional Intake)[m
+[32m+[m
+[32m+[m[32m#### Lines Received[m
+[32m+[m[32m| Product Code | Description | Batch Number | Received Qty | Valuation Rate (LKR) | Added Valuation (LKR) | New Rack Balance |[m
+[32m+[m[32m| :--- | :--- | :--- | :---: | :---: | :---: | :---: |[m
+[32m+[m[32m| `RET-001` | Samba Rice 5kg Pack | `RICE-2026-001` | `+10.0000` | 1,500.00 | +15,000.00 | `70.0000` |[m
+[32m+[m[32m| `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `+10.0000` | 850.00 | +8,500.00 | `60.0000` |[m
+[32m+[m[32m| `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `+10.0000` | 320.00 | +3,200.00 | `70.0000` |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Receipt posted with document `SR-RET-001`.[m
+[32m+[m[32m- **Inventory Impact:** Total on-hand quantity temporarily increases to `270.0000` units (+30 units); valuation increases to `263,900.00 LKR` (+26,700.00 LKR).[m
+[32m+[m[32m- **Next Step:** Direct Stock Issue (Step 7 / TC-RET-INV-02).[m
+ [m
+ ---[m
+ [m
+[31m-## 2. Stock Issue (Internal Operational Usage)[m
+[32m+[m[32m## 2. Step 7: Stock Issue (Operational / Sample Issue — Net Zero)[m
+ [m
+[31m-- **Test Identifier:** `TC-RET-INV-02`[m
+[31m-- **Actor:** `retail.store`[m
+[31m-- **Role Code:** `InventoryStorekeeper`[m
+[32m+[m[32m### TC-RET-INV-02: Direct Stock Issue Posting (-30 Units, Net Zero Offset)[m
+[32m+[m[32m- **Actor:** `retail.store` (Warehouse Storekeeper / Inventory Manager)[m
+[32m+[m[32m- **Role Code:** `INVENTORY_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `STOCK_ISSUE.POST`, `INVENTORY.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft, Post Direct Stock Issue[m
+[32m+[m[32m- **Restricted Actions:** Issue quantity exceeding location on-hand[m
+ - **Endpoint:** `POST /api/inventory/stock-issues`[m
+[31m-- **Warehouse:** `RETAIL-WH1` | **Location:** `LOC-STK-01`[m
+[31m-- **Purpose:** `StockIssuePurpose.InternalUse`[m
+[31m-- **Remarks:** `Internal consumption / store pantry sample testing`[m
+[31m-- **Lines Issued:**[m
+[31m-  - `RET-001` (Rice) from batch `RICE-2026-001`: **10 units**[m
+[31m-  - `RET-002` (Oil) from batch `OIL-2026-001`: **5 units**[m
+[31m-- **Outcome:** **HTTP 200 OK**. Batch quantities accurately decremented without affecting unrelated batches.[m
+[32m+[m[32m- **Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse`)[m
+[32m+[m[32m- **Location:** `LOC-STK-01` (`Main Storage Rack A-01`)[m
+[32m+[m[32m- **Purpose:** `StockIssuePurpose.InternalUse` (Quality Assurance / Pantry Sample Testing)[m
+[32m+[m
+[32m+[m[32m#### Lines Issued[m
+[32m+[m[32m| Product Code | Description | Batch Number | Issued Qty | Valuation Rate (LKR) | Deducted Valuation (LKR) | Restored Rack Balance |[m
+[32m+[m[32m| :--- | :--- | :--- | :---: | :---: | :---: | :---: |[m
+[32m+[m[32m| `RET-001` | Samba Rice 5kg Pack | `RICE-2026-001` | `-10.0000` | 1,500.00 | -15,000.00 | `60.0000` |[m
+[32m+[m[32m| `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `-10.0000` | 850.00 | -8,500.00 | `50.0000` |[m
+[32m+[m[32m| `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `-10.0000` | 320.00 | -3,200.00 | `60.0000` |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Issue posted with document `SI-RET-001`.[m
+[32m+[m[32m- **Net-Zero Reconciliation:** Direct receipt (+30 units, +26,700 LKR) and direct issue (-30 units, -26,700 LKR) cleanly offset each other to net zero. Rack `LOC-STK-01` returns exactly to the baseline **`240.0000`** units and **`237,200.00 LKR`**.[m
+[32m+[m[32m- **Next Step:** Inter-warehouse Transfer (Step 8 / TC-RET-INV-03).[m
+ [m
+ ---[m
+ [m
+[31m-## 3. Inventory Item Transfer (WH1 to WH2)[m
+[32m+[m[32m## 3. Step 8: Inventory Item Transfer (WH1 to WH2)[m
+ [m
+[31m-- **Test Identifier:** `TC-RET-INV-03`[m
+[31m-- **Actor:** `retail.store`[m
+[31m-- **Role Code:** `InventoryStorekeeper`[m
+[32m+[m[32m### TC-RET-INV-03: Inter-Warehouse Transfer Out (40 Units)[m
+[32m+[m[32m- **Actor:** `retail.store` (Warehouse Storekeeper / Inventory Manager)[m
+[32m+[m[32m- **Role Code:** `INVENTORY_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Transfer Draft, Post Transfer[m
+[32m+[m[32m- **Restricted Actions:** Transfer between unauthorized companies[m
+[32m+[m[32m- **Origin Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse`) | Origin Location: `LOC-STK-01`[m
+[32m+[m[32m- **Destination Warehouse:** `RETAIL-WH2` (`Annex Retail Warehouse`) | Destination Location: `LOC-WH2-01`[m
+ - **Endpoints:**[m
+   1. `POST /api/inventory/item-transfers` (Create Draft)[m
+   2. `POST /api/inventory/item-transfers/{transferId}/post` (Execute Transfer)[m
+[31m-- **Source:** `RETAIL-WH1` (`LOC-STK-01`)[m
+[31m-- **Destination:** `RETAIL-WH2` (`LOC-WH2-01`)[m
+[31m-- **Lines Transferred:**[m
+[31m-  - `RET-001`: **20 units** on batch `RICE-2026-001`[m
+[31m-  - `RET-002`: **10 units** on batch `OIL-2026-001`[m
+[31m-  - `RET-003`: **10 units** on batch `SUGAR-2026-001`[m
+[31m-- **Outcome:** **HTTP 200 OK**.[m
+[31m-- **Resulting Stock in WH2 (`LOC-WH2-01`):**[m
+[31m-  - `RET-001`: 20[m
+[31m-  - `RET-002`: 10[m
+[31m-  - `RET-003`: 10[m
+[32m+[m
+[32m+[m[32m#### Lines Transferred[m
+[32m+[m[32m| Product Code | Description | Batch Number | Transferred Qty | Valuation Rate (LKR) | Line Valuation (LKR) | WH1 Balance | WH2 Balance |[m
+[32m+[m[32m| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |[m
+[32m+[m[32m| `RET-001` | Samba Rice 5kg Pack | `RICE-2026-001` | `20.0000` | 1,500.00 | 30,000.00 | `40.0000` | `20.0000` |[m
+[32m+[m[32m| `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `10.0000` | 850.00 | 8,500.00 | `40.0000` | `10.0000` |[m
+[32m+[m[32m| `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `10.0000` | 320.00 | 3,200.00 | `50.0000` | `10.0000` |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Transfer posted with reference `TR-RET-001`.[m
+[32m+[m[32m- **Resulting Stock:** WH1 (`LOC-STK-01`) decrements to `200.0000` units (`195,500.00 LKR`); WH2 (`LOC-WH2-01`) increments to `40.0000` units (`41,700.00 LKR`). Total company valuation is unchanged at `237,200.00 LKR`.[m
+[32m+[m[32m- **Next Step:** Stock Count (Step 9 / TC-RET-INV-04).[m
+ [m
+ ---[m
+ [m
+[31m-## 4. Stock Count & Discrepancy Adjustment[m
+[32m+[m[32m## 4. Step 9: Stock Count & Discrepancy Adjustment[m
+ [m
+[31m-- **Test Identifier:** `TC-RET-INV-04`[m
+[31m-- **Actor:** `retail.store`[m
+[31m-- **Role Code:** `InventoryStorekeeper`[m
+[32m+[m[32m### TC-RET-INV-04: Physical Count, Variance Approval & Posting[m
+[32m+[m[32m- **Actor:** `retail.store` (Warehouse Storekeeper / Inventory Manager)[m
+[32m+[m[32m- **Role Code:** `INVENTORY_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `STOCK_COUNT.VIEW`, `STOCK_COUNT.CREATE`, `STOCK_COUNT.EDIT`, `STOCK_COUNT.SUBMIT`, `STOCK_COUNT.APPROVE`, `STOCK_COUNT.POST`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Count Draft, Enter Physical Counts, Submit, Approve Variance, Post Adjustment[m
+[32m+[m[32m- **Restricted Actions:** Post count without approval[m
+[32m+[m[32m- **Count Location:** `RETAIL-WH1` (`LOC-STK-01`)[m
+ - **Endpoints:**[m
+[31m-  1. `POST /api/stock-counts` (Create Physical Count Draft)[m
+[31m-  2. `POST /api/stock-counts/{countId}/submit` (Submit Count)[m
+[31m-  3. `POST /api/stock-counts/{countId}/approve` (Approve Variance)[m
+[32m+[m[32m  1. `POST /api/stock-counts` (Create Draft)[m
+[32m+[m[32m  2. `POST /api/stock-counts/{countId}/submit` (Submit)[m
+[32m+[m[32m  3. `POST /api/stock-counts/{countId}/approve` (Approve Variances)[m
+   4. `POST /api/stock-counts/{countId}/post` (Post Variance Adjustments)[m
+[31m-- **Scope:** `RETAIL-WH1` (`LOC-STK-01`)[m
+[31m-- **Count Details & Variances:**[m
+[31m-  | Product | Batch | Expected Qty | Counted Physical Qty | Variance Base | Valuation Effect |[m
+[31m-  | :--- | :--- | :---: | :---: | :---: | :--- |[m
+[31m-  | `RET-001` (Rice) | `RICE-2026-001` | 25 | 25 | **0** | No change |[m
+[31m-  | `RET-002` (Oil) | `OIL-2026-001` | 30 | 28 | **-2** (Shortage) | Auto Stock Issue (Write-off) |[m
+[31m-  | `RET-003` (Sugar) | `SUGAR-2026-001` | 40 | 45 | **+5** (Overage) | Auto Stock Receipt (Write-in) |[m
+[31m-- **Outcome:** **HTTP 200 OK**. Posting handles both negative and positive variances atomically with separate deterministic idempotency keys (`SC-ISSUE-{countId}` and `SC-RECEIPT-{countId}`).[m
+[32m+[m
+[32m+[m[32m#### Count Details & Variances[m
+[32m+[m[32m| Product | Batch | System Expected Qty | Counted Physical Qty | Variance Qty | Valuation Rate (LKR) | Valuation Effect (LKR) | Auto Adjustment Mechanism |[m
+[32m+[m[32m| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |[m
+[32m+[m[32m| `RET-001` | `RICE-2026-001` | `40.0000` | `40.0000` | `0.0000` | 1,500.00 | `0.00` | No Adjustment |[m
+[32m+[m[32m| `RET-002` | `OIL-2026-001` | `40.0000` | `38.0000` | `-2.0000` | 850.00 | `-1,700.00` | Auto Stock Issue (Shortage Write-off) |[m
+[32m+[m[32m| `RET-003` | `SUGAR-2026-001` | `50.0000` | `55.0000` | `+5.0000` | 320.00 | `+1,600.00` | Auto Stock Receipt (Overage Write-in) |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Posting handles negative and positive variances atomically using distinct idempotency keys (`SC-ISSUE-{countId}` and `SC-RECEIPT-{countId}`).[m
+[32m+[m[32m- **Next Responsible User:** `retail.sales` (Sales Manager) for Sales Orders (Step 10).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 5. Step 13: Inventory Reversals (Transfer Return WH2 to WH1)[m
+[32m+[m
+[32m+[m[32m### TC-RET-INV-05: Inter-Warehouse Transfer Return / Reversal[m
+[32m+[m[32m- **Actor:** `retail.store` (Warehouse Storekeeper / Inventory Manager)[m
+[32m+[m[32m- **Role Code:** `INVENTORY_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Return Transfer Draft, Post Reversal[m
+[32m+[m[32m- **Origin Warehouse:** `RETAIL-WH2` (`Annex Retail Warehouse`) | Origin Location: `LOC-WH2-01`[m
+[32m+[m[32m- **Destination Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse`) | Destination Location: `LOC-STK-01`[m
+[32m+[m[32m- **Endpoints:**[m
+[32m+[m[32m  1. `POST /api/inventory/item-transfers` (Create Draft)[m
+[32m+[m[32m  2. `POST /api/inventory/item-transfers/{transferId}/post` (Execute Reversal)[m
+[32m+[m
+[32m+[m[32m#### Lines Returned / Reversed[m
+[32m+[m[32m| Product Code | Description | Batch Number | Returned Qty | Valuation Rate (LKR) | Line Valuation (LKR) | WH2 Balance | WH1 Balance Restored |[m
+[32m+[m[32m| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |[m
+[32m+[m[32m| `RET-001` | Samba Rice 5kg Pack | `RICE-2026-001` | `20.0000` | 1,500.00 | 30,000.00 | **`0.0000`** | `60.0000` |[m
+[32m+[m[32m| `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `10.0000` | 850.00 | 8,500.00 | **`0.0000`** | `48.0000` (net of count adj) |[m
+[32m+[m[32m| `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `10.0000` | 320.00 | 3,200.00 | **`0.0000`** | `65.0000` (net of count adj) |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Reversal posted with reference `TR-RET-002`.[m
+[32m+[m[32m- **Reconciliation Impact:** WH2 (`LOC-WH2-01`) returns cleanly to **`0.0000`** units (`0.00 LKR`). All stock is restored to WH1 ready for final dispatch and zero-balance reconciliation.[m
+[32m+[m[32m- **Next Responsible User:** `retail.viewer` (Auditor) / `retail.admin` (Tenant Admin) for final reports (Step 14).[m
+[1mdiff --git a/Testing/Retail-Test-Pack/Manual-Test-Guide.md b/Testing/Retail-Test-Pack/Manual-Test-Guide.md[m
+[1mindex 3996972..9fb4bcc 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Manual-Test-Guide.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Manual-Test-Guide.md[m
+[36m@@ -13,415 +13,503 @@[m
+ [m
+ ### User Accounts and Operational Responsibilities[m
+ [m
+[31m-| User Role | Login Email Alias | Standard Password | Operational Gate 6 Responsibility |[m
+[31m-| :--- | :--- | :---: | :--- |[m
+[31m-| **Tenant Administrator** | `retail.admin@retail.local` | `123` | Master data setup, user security administration |[m
+[31m-| **Procurement Officer** | `retail.po@retail.local` | `123` | Purchase Requisition & Purchase Order creation, submission |[m
+[31m-| **Procurement Manager** | `retail.approver@retail.local` | `123` | Independent Purchase Requisition & Purchase Order approval (SoD) |[m
+[31m-| **Receiving Clerk** | `retail.grn@retail.local` | `123` | Goods Receipt Note (GRN) creation, batch splits, confirmation |[m
+[31m-| **Inventory Storekeeper** | `retail.store@retail.local` | `123` | Putaway, stock receipts, stock issues, transfers, stock counts |[m
+[31m-| **Sales Representative** | `retail.sales@retail.local` | `123` | Sales orders, customer confirmation, shipment dispatch |[m
+[31m-| **Audit Viewer** | `retail.viewer@retail.local` | `123` | Read-only audit verification and RBAC enforcement |[m
+[32m+[m[32m| User Role | Username | Login Email Alias | Password | Operational Gate 6 Responsibility |[m
+[32m+[m[32m| :--- | :--- | :--- | :---: | :--- |[m
+[32m+[m[32m| **Tenant Administrator** | `retail.admin` | `retail.admin@retail.local` | `123` | Master data setup, user security administration, emergency oversight |[m
+[32m+[m[32m| **Procurement Officer** | `retail.po` | `retail.po@retail.local` | `123` | Purchase Requisition & Purchase Order creation, submission |[m
+[32m+[m[32m| **Procurement Manager** | `retail.approver` | `retail.approver@retail.local` | `123` | Independent Purchase Requisition & Purchase Order approval / rejection (SoD) |[m
+[32m+[m[32m| **Receiving Clerk** | `retail.grn` | `retail.grn@retail.local` | `123` | Goods Receipt Note (GRN) creation, batch splits, confirmation |[m
+[32m+[m[32m| **Inventory Storekeeper** | `retail.store` | `retail.store@retail.local` | `123` | Putaway, stock receipts, stock issues, transfers, stock counts, reversals |[m
+[32m+[m[32m| **Sales Representative** | `retail.sales` | `retail.sales@retail.local` | `123` | Sales orders, customer confirmation, shipment dispatch, sales invoicing |[m
+[32m+[m[32m| **Audit Viewer** | `retail.viewer` | `retail.viewer@retail.local` | `123` | Read-only audit verification and RBAC enforcement |[m
+ [m
+ ---[m
+ [m
+[31m-## 2. Step-by-Step Manual Execution Scenarios[m
+[31m-[m
+[31m-### Step 0: Purchase Requisition (PR) Creation, Submission & Independent Approval (Pre-PO Requirement)[m
+[31m-[m
+[31m-> [!IMPORTANT][m
+[31m-> **Mandatory Pre-PO Workflow:** The business process requires creating and independently approving a Purchase Requisition (PR) containing **at least 2 distinct items** before creating the Purchase Order. This verifies the complete end-to-end Procurement cycle (PR -> Approval -> PO from PR -> PO Approval -> GRN).[m
+[31m-[m
+[31m-#### 0A: Create & Submit Purchase Requisition (Requester: Procurement Officer)[m
+[31m-- **Login As:** `retail.po@retail.local` (Procurement Officer)[m
+[31m-- **Navigate to:** `Procurement -> Purchase Requisitions`[m
+[31m-- **Click:** `+ New Purchase Requisition`[m
+[31m-- **Header Fields:**[m
+[31m-  - **Company:** `Lanka Retail Mart`[m
+[31m-  - **Branch:** `Main Store`[m
+[31m-  - **Requisition Date:** Today's date[m
+[31m-  - **Required Date:** 7 days from today[m
+[31m-  - **Department:** `Retail Store Operations`[m
+[31m-  - **Priority / Urgency:** `Medium`[m
+[31m-  - **Justification:** "Quarterly inventory replenishment for retail staple food and cooking essentials."[m
+[31m-- **Requisition Line Items (Add 3 Items — Meets 'At Least 2 Items' Requirement):**[m
+[31m-  1. **Item 1:** Product: `RET-001` (Samba Rice 5kg) | Quantity: `100` | UOM: `BAG` | Est. Unit Price: `1,500.00`[m
+[31m-  2. **Item 2:** Product: `RET-002` (Cooking Oil 1L) | Quantity: `80` | UOM: `BOTTLE` | Est. Unit Price: `850.00`[m
+[31m-  3. **Item 3:** Product: `RET-003` (White Sugar 1kg) | Quantity: `60` | UOM: `BAG` | Est. Unit Price: `320.00`[m
+[31m-- **Actions:**[m
+[31m-  - Click `Save Draft` -> Verify toast message "Draft saved successfully". PR status displays `Draft`.[m
+[31m-  - Click `Submit` -> PR status updates to `Submitted`.[m
+[31m-  - **SoD Verification:** Notice the `Approve` button is **disabled or hidden** for `retail.po@retail.local` (requester cannot self-approve).[m
+[31m-[m
+[31m-#### 0B: Independent PR Approval (Approver: Procurement Manager)[m
+[31m-- **Logout** and **Login As:** `retail.approver@retail.local` (Procurement Manager)[m
+[31m-- **Navigate to:** `Procurement -> Purchase Requisitions`[m
+[31m-- **Open:** The submitted Purchase Requisition from Step 0A.[m
+[31m-- **Inspect:** Verify all line items (at least 2 items, here 3 items: 100 BAG, 80 BOTTLE, 60 BAG) are present and correct.[m
+[31m-- **Actions:**[m
+[31m-  - Click `Approve` -> Enter approval remarks: "Approved for Purchase Order conversion".[m
+[31m-  - Status updates to `Approved`.[m
+[31m-  - Both submitter (`retail.po`) and approver (`retail.approver`) identities and timestamps are recorded in the PR audit trail.[m
+[32m+[m[32m## 2. Updated 14-Step Workflow Sequence[m
+[32m+[m
+[32m+[m[32m```mermaid[m
+[32m+[m[32mflowchart TD[m
+[32m+[m[32m    S01["Step 1: Purchase Requisition (PR)<br><i>retail.po (Create/Submit) -> retail.approver (Approve)</i>"] --> S02["Step 2: Purchase Order (PO)<br><i>retail.po (From PR) -> retail.approver (Approve)</i>"][m
+[32m+[m[32m    S02 --> S03["Step 3: Product Receipt / GRN<br><i>retail.grn (Draft from Approved PO)</i>"][m
+[32m+[m[32m    S03 --> S04["Step 4: Batch & Serial Allocation<br><i>retail.grn (5 Batches, 240 units, Confirm)</i>"][m
+[32m+[m[32m    S04 --> S05["Step 5: Warehouse Putaway<br><i>retail.store (Dock LOC-REC-01 -> Rack LOC-STK-01)</i>"][m
+[32m+[m[32m    S05 --> S06["Step 6: Stock Receipt<br><i>retail.store (Direct Inward +30 units)</i>"][m
+[32m+[m[32m    S06 --> S07["Step 7: Stock Issue<br><i>retail.store (Internal Use -30 units, Net Zero)</i>"][m
+[32m+[m[32m    S07 --> S08["Step 8: Inventory Item Transfer<br><i>retail.store (WH1 to WH2, 40 units)</i>"][m
+[32m+[m[32m    S08 --> S09["Step 9: Stock Count<br><i>retail.store (Count, Variance Approval & Post)</i>"][m
+[32m+[m[32m    S09 --> S10["Step 10: Sales Orders<br><i>retail.sales (SO1 & SO2 Entry, Confirmation)</i>"][m
+[32m+[m[32m    S10 --> S11["Step 11: Dispatch Notes<br><i>retail.sales (Shipments SH1 & SH2, Batch Relief)</i>"][m
+[32m+[m[32m    S11 --> S12["Step 12: Sales Invoices<br><i>retail.sales (INV1 & INV2 from Shipments, Confirm)</i>"][m
+[32m+[m[32m    S12 --> S13["Step 13: Inventory Reversals<br><i>retail.store (Transfer Return WH2 to WH1)</i>"][m
+[32m+[m[32m    S13 --> S14["Step 14: Reports & Audit<br><i>retail.viewer / retail.admin (Zero Stock Reconciliation)</i>"][m
+[32m+[m[32m```[m
+ [m
+ ---[m
+ [m
+[31m-### Step 1: Purchase Order Creation from Approved PR (At Least 2 Items Linked)[m
+[31m-[m
+[31m-> [!NOTE][m
+[31m-> When creating the Purchase Order, the Procurement Officer can convert items from the approved PR. In this scenario, all 3 items (or at least 2 items) from the approved PR are ordered into the PO.[m
+[31m-[m
+[31m-- **Logout** and **Login As:** `retail.po@retail.local` (Procurement Officer)[m
+[31m-- **Navigate to:** `Procurement -> Purchase Orders`[m
+[31m-- **Click:** `+ New Purchase Order`[m
+[31m-- **Link Source Requisition:**[m
+[31m-  - Select the approved PR from Step 0B in the `Source Requisition` dropdown.[m
+[31m-  - Verify badge: `Source Requisition: PR-XXXXXX (Approved)`[m
+[31m-  - Verify lines are automatically pre-populated with PR items, quantities, and remaining allowed balance indicators.[m
+[31m-- **Header Fields:**[m
+[31m-  - **Supplier:** Select `Lanka Retail Distributors (Pvt) Ltd` (`SUP-RET-001`)[m
+[31m-  - **Warehouse:** Select `Central Retail Warehouse` (`RETAIL-WH1`)[m
+[31m-  - **Order Date:** Today's date[m
+[31m-  - **Expected Delivery Date:** 7 days from today[m
+[31m-  - **Payment Terms:** `Net 30 Days`[m
+[31m-  - **Currency:** `LKR`[m
+[31m-- **Line Items Grid Verification (At Least 2 PR Items Ordered):**[m
+[31m-  1. **Line 1 (From PR Item 1):** Product: `RET-001` (Samba Rice 5kg) | Ordered Qty: `100` | Max Allowed: `100` | Unit Price: `1,500.00` (auto-resolved from Price Card) | Tax: `TAX-EXEMPT` (0%) | PR Link: Valid[m
+[31m-  2. **Line 2 (From PR Item 2):** Product: `RET-002` (Cooking Oil 1L) | Ordered Qty: `80` | Max Allowed: `80` | Unit Price: `850.00` (auto-resolved from Price Card) | Tax: `VAT-18` (18%) | PR Link: Valid[m
+[31m-  3. **Line 3 (From PR Item 3):** Product: `RET-003` (White Sugar 1kg) | Ordered Qty: `60` | Max Allowed: `60` | Unit Price: `320.00` (auto-resolved from Price Card) | Tax: `TAX-EXEMPT` (0%) | PR Link: Valid[m
+[31m-- **Over-Order Protection Verification:**[m
+[31m-  - Temporarily increase Ordered Qty on Line 1 (`RET-001`) to `105`.[m
+[31m-  - Verify inline validation alert: "Quantity cannot exceed remaining PR quantity (100)".[m
+[31m-  - Revert Qty back to `100`.[m
+[31m-- **Header Totals Verification:**[m
+[31m-  - SubTotal: `237,200.00 LKR`[m
+[31m-  - Tax Amount: `12,240.00 LKR` (18% on Line 2 `RET-002`: `80 * 850 = 68,000 * 18% = 12,240`)[m
+[31m-  - Total: `249,440.00 LKR`[m
+[31m-- **Actions:**[m
+[31m-  - Click `Save Draft` -> Verify toast message "Draft saved successfully".[m
+[31m-  - Click `Submit` -> PO status updates to `Submitted`.[m
+[31m-  - Notice the `Approve` button is **disabled or hidden** (SoD check).[m
+[32m+[m[32m## 3. Step-by-Step Manual Execution Scenarios[m
+[32m+[m
+[32m+[m[32m### Step 1: Purchase Requisition (PR) Workflow[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.po` (Requester) | Next Approver: `retail.approver` (Procurement Manager)[m
+[32m+[m[32m- **Role:** `Procurement Officer` | `Procurement Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:**[m
+[32m+[m[32m  - Requester: `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.CREATE`, `PURCHASE_REQUISITION.EDIT`, `PURCHASE_REQUISITION.SUBMIT`[m
+[32m+[m[32m  - Approver: `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.APPROVE`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft, Edit Lines, Submit, Approve, Reject[m
+[32m+[m[32m- **Restricted Actions:** `retail.po` cannot approve PR (HTTP 403 Forbidden)[m
+[32m+[m
+[32m+[m[32m#### 1A: Create & Submit Purchase Requisition[m
+[32m+[m[32m1. **Login As:** `retail.po@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Procurement -> Purchase Requisitions` (`/app/procurement/purchase-requisitions`)[m
+[32m+[m[32m3. **Click:** `+ New Purchase Requisition`[m
+[32m+[m[32m4. **Header Fields:**[m
+[32m+[m[32m   - **Company:** `Lanka Retail Mart`[m
+[32m+[m[32m   - **Branch:** `Main Store`[m
+[32m+[m[32m   - **Requisition Date:** Today's date[m
+[32m+[m[32m   - **Required Date:** 7 days from today[m
+[32m+[m[32m   - **Department:** `Retail Store Operations`[m
+[32m+[m[32m   - **Priority:** `Medium`[m
+[32m+[m[32m   - **Justification:** "Quarterly replenishment for retail staple food and cooking essentials."[m
+[32m+[m[32m5. **Requisition Line Items (Add 3 Distinct SKUs — Meets 'At Least 2 Items' Requirement):**[m
+[32m+[m[32m   - **Line 1:** Product: `RET-001` (Samba Rice 5kg) | Qty: `100` | UOM: `BAG` | Est. Unit Price: `1,500.00 LKR` | Subtotal: `150,000.00 LKR`[m
+[32m+[m[32m   - **Line 2:** Product: `RET-002` (Cooking Oil 1L) | Qty: `80` | UOM: `BTL` | Est. Unit Price: `850.00 LKR` | Subtotal: `68,000.00 LKR`[m
+[32m+[m[32m   - **Line 3:** Product: `RET-003` (White Sugar 1kg) | Qty: `60` | UOM: `PKT` | Est. Unit Price: `320.00 LKR` | Subtotal: `19,200.00 LKR`[m
+[32m+[m[32m   - **Requisition Estimated Total:** `237,200.00 LKR` (240 units total).[m
+[32m+[m[32m6. **Actions:**[m
+[32m+[m[32m   - Click `Save Draft` -> Verify toast message "Draft saved successfully". PR status displays `Draft`.[m
+[32m+[m[32m   - Click `Submit` -> PR status updates to `Submitted`.[m
+[32m+[m[32m   - **SoD Verification:** Notice the `Approve` button is **disabled or hidden** for `retail.po` (requester cannot self-approve).[m
+[32m+[m[32m7. **Role Handoff:** Logout and hand over to `retail.approver@retail.local`.[m
+[32m+[m
+[32m+[m[32m#### 1B: Rejection & Cancellation Validation (Negative / Alternate Paths)[m
+[32m+[m[32m- **Optional Test 1 (Rejection):** Approver opens a test submitted PR and clicks `Reject` with remarks *"Exceeds monthly allocated store budget"*. Status updates to `Rejected`. Line items become locked.[m
+[32m+[m[32m- **Optional Test 2 (Cancellation):** Requester opens a draft PR and clicks `Cancel`. Status updates to `Cancelled`.[m
+[32m+[m
+[32m+[m[32m#### 1C: Independent PR Approval[m
+[32m+[m[32m1. **Login As:** `retail.approver@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Procurement -> Purchase Requisitions`[m
+[32m+[m[32m3. **Open:** The submitted Purchase Requisition from Step 1A (`PR-RET-2026-001`).[m
+[32m+[m[32m4. **Inspect:** Verify all 3 line items (100 BAG, 80 BTL, 60 PKT) and estimated total `237,200.00 LKR` are present.[m
+[32m+[m[32m5. **Actions:**[m
+[32m+[m[32m   - Click `Approve` -> Enter approval remarks: "Approved for Purchase Order conversion under FY26 retail replenishment budget."[m
+[32m+[m[32m   - PR status updates to `Approved`.[m
+[32m+[m[32m   - Audit trail records: `ApprovedBy: retail.approver`, approval timestamp, and remarks.[m
+[32m+[m[32m6. **Role Handoff:** Logout and hand over to `retail.po@retail.local` for PO creation.[m
+ [m
+ ---[m
+ [m
+[31m-### Step 2: SoD Check & Purchase Order Approval[m
+[31m-- **Logout** and **Login As:** `retail.approver@retail.local` (Procurement Manager)[m
+[31m-- **Navigate to:** `Procurement -> Purchase Orders`[m
+[31m-- **Open:** The submitted Purchase Order from Step 1.[m
+[31m-- **Inspect:** Verify line items and totals match `249,440.00 LKR`.[m
+[31m-- **Actions:**[m
+[31m-  - Click `Approve` -> Enter approval remarks: "Approved FY26 Retail Stock".[m
+[31m-  - Status updates to `Approved`.[m
+[31m-  - Verify PR status reflects `Ordered` or partial fulfillment tracking accordingly.[m
+[32m+[m[32m### Step 2: Purchase Order (PO) Workflow[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.po` (Creator) | Next Approver: `retail.approver` (Procurement Manager)[m
+[32m+[m[32m- **Role:** `Procurement Officer` | `Procurement Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:**[m
+[32m+[m[32m  - Creator: `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.CREATE`, `PURCHASE_ORDER.EDIT`, `PURCHASE_ORDER.SUBMIT`[m
+[32m+[m[32m  - Approver: `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.APPROVE`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft from PR, Submit, Approve[m
+[32m+[m[32m- **Restricted Actions:** `retail.po` cannot approve PO (HTTP 403 Forbidden)[m
+[32m+[m
+[32m+[m[32m#### 2A: Create PO from Approved PR[m
+[32m+[m[32m1. **Login As:** `retail.po@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Procurement -> Purchase Orders` (`/app/procurement/purchase-orders`)[m
+[32m+[m[32m3. **Click:** `+ New Purchase Order`[m
+[32m+[m[32m4. **Link Source Requisition:**[m
+[32m+[m[32m   - Select approved PR `PR-RET-2026-001` in the `Source Requisition` dropdown.[m
+[32m+[m[32m   - Badge appears: `Source Requisition: PR-RET-2026-001 (Approved)`.[m
+[32m+[m[32m   - Verify line items automatically pre-populate from PR.[m
+[32m+[m[32m5. **Header Fields:**[m
+[32m+[m[32m   - **Supplier:** Select `Lanka Retail Distributors (Pvt) Ltd` (`SUP-RET-001`)[m
+[32m+[m[32m   - **Warehouse:** Select `Central Retail Warehouse` (`RETAIL-WH1`)[m
+[32m+[m[32m   - **Order Number:** `PO-RET-2026-001`[m
+[32m+[m[32m   - **Order Date:** Today's date[m
+[32m+[m[32m   - **Expected Delivery Date:** 7 days from today[m
+[32m+[m[32m   - **Payment Terms:** `Net 30 Days`[m
+[32m+[m[32m   - **Currency:** `LKR`[m
+[32m+[m[32m6. **Line Items Grid Verification:**[m
+[32m+[m[32m   - **Line 1 (From PR 1):** `RET-001` (Samba Rice 5kg) | Qty: `100` | Max Allowed: `100` | Unit Price: `1,500.00` | Tax: `TAX-EXEMPT` (0%) | Subtotal: `150,000.00`[m
+[32m+[m[32m   - **Line 2 (From PR 2):** `RET-002` (Cooking Oil 1L) | Qty: `80` | Max Allowed: `80` | Unit Price: `850.00` | Tax: `VAT-18` (18%) | Subtotal: `68,000.00` | Tax: `12,240.00`[m
+[32m+[m[32m   - **Line 3 (From PR 3):** `RET-003` (White Sugar 1kg) | Qty: `60` | Max Allowed: `60` | Unit Price: `320.00` | Tax: `TAX-EXEMPT` (0%) | Subtotal: `19,200.00`[m
+[32m+[m[32m7. **Over-Order Protection Verification:**[m
+[32m+[m[32m   - Temporarily increase Ordered Qty on Line 1 (`RET-001`) to `105`.[m
+[32m+[m[32m   - Verify validation error: *"Ordered quantity cannot exceed remaining requisition quantity (100)"*.[m
+[32m+[m[32m   - Revert Qty to `100`.[m
+[32m+[m[32m8. **Totals Verification:**[m
+[32m+[m[32m   - SubTotal: `237,200.00 LKR`[m
+[32m+[m[32m   - Tax Amount: `12,240.00 LKR`[m
+[32m+[m[32m   - Total Amount: `249,440.00 LKR`[m
+[32m+[m[32m9. **Submit:**[m
+[32m+[m[32m   - Click `Save Draft` -> Verify toast message. Status: `Draft`.[m
+[32m+[m[32m   - Click `Submit` -> Status updates to `Submitted`. Lines lock.[m
+[32m+[m[32m   - Self-approval attempt is blocked (HTTP 403 Forbidden).[m
+[32m+[m[32m10. **Role Handoff:** Logout and hand over to `retail.approver@retail.local`.[m
+[32m+[m
+[32m+[m[32m#### 2B: Independent PO Approval[m
+[32m+[m[32m1. **Login As:** `retail.approver@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Procurement -> Purchase Orders`[m
+[32m+[m[32m3. **Open:** The submitted Purchase Order (`PO-RET-2026-001`).[m
+[32m+[m[32m4. **Inspect:** Verify totals match `249,440.00 LKR`.[m
+[32m+[m[32m5. **Actions:**[m
+[32m+[m[32m   - Click `Approve` -> Enter approval remarks: "Approved FY26 Retail Stock".[m
+[32m+[m[32m   - Status updates to `Approved`.[m
+[32m+[m[32m   - PR status updates to reflect `Ordered`.[m
+[32m+[m[32m6. **Role Handoff:** Logout and hand over to `retail.grn@retail.local` (Receiving Clerk).[m
+ [m
+ ---[m
+ [m
+[31m-### Step 3: Goods Receipt Note (GRN) Inbound Split[m
+[31m-- **Logout** and **Login As:** `retail.grn@retail.local` (Receiving Clerk)[m
+[31m-- **Navigate to:** `Inventory -> Goods Receipt Notes`[m
+[31m-- **Click:** `+ New GRN from PO`[m
+[31m-- **Select PO:** The approved PO from Step 2.[m
+[31m-- **Receiving Location:** `Receiving Dock 01` (`LOC-REC-01`).[m
+[31m-- **Enter Batch Splits for Line Items (5 Total Batches, exactly 240 units):**[m
+[31m-  - `RET-001` (Samba Rice 5kg) Line:[m
+[31m-    - Batch `RICE-2026-001` | Qty: `60` | Mfg: `2026-01-15` | Exp: `2027-06-30`[m
+[31m-    - Click `+ Add Batch Split`[m
+[31m-    - Batch `RICE-2026-002` | Qty: `40` | Mfg: `2026-02-01` | Exp: `2027-08-31`[m
+[31m-    *(Line 1 Subtotal: 100 units)*[m
+[31m-  - `RET-002` (Cooking Oil 1L) Line:[m
+[31m-    - Batch `OIL-2026-001` | Qty: `50` | Mfg: `2026-03-01` | Exp: `2027-09-30`[m
+[31m-    - Click `+ Add Batch Split`[m
+[31m-    - Batch `OIL-2026-002` | Qty: `30` | Mfg: `2026-03-15` | Exp: `2027-10-31`[m
+[31m-    *(Line 2 Subtotal: 80 units)*[m
+[31m-  - `RET-003` (White Sugar 1kg) Line:[m
+[31m-    - Batch `SUGAR-2026-001` | Qty: `60` | Mfg: `2026-01-10` | Exp: `2027-07-31`[m
+[31m-    *(Line 3 Subtotal: 60 units)*[m
+[31m-- **Actions:**[m
+[31m-  - Click `Confirm Receipt`.[m
+[31m-  - Verify Status: `Confirmed`.[m
+[31m-[m
+[31m-#### Verification: Post-GRN Stock Report & Valuation Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` (or `Inventory -> Current Stock`)[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify KPI Card **Total Inventory Value:** `237,200.00 LKR`[m
+[31m-  - Verify KPI Card **Total On-Hand Quantity:** `240.0000` units[m
+[31m-  - Verify KPI Card **Total Stock Items:** `3` items[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | Warehouse | Staging / Storage Location | Inbound Qty | Valuation Rate (LKR) | Total Valuation (LKR) | Location Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: |[m
+[31m-| `GRN-XXXXXX` | `GoodsReceipt` | `RET-001` Samba Rice 5kg | `RICE-2026-001` | `RETAIL-WH1` | **`LOC-REC-01` (Receiving Dock)** | `+60.0000` | `1,500.00` | `90,000.00` | `60.0000` |[m
+[31m-| `GRN-XXXXXX` | `GoodsReceipt` | `RET-001` Samba Rice 5kg | `RICE-2026-002` | `RETAIL-WH1` | **`LOC-REC-01` (Receiving Dock)** | `+40.0000` | `1,500.00` | `60,000.00` | `40.0000` |[m
+[31m-| `GRN-XXXXXX` | `GoodsReceipt` | `RET-002` Cooking Oil 1L | `OIL-2026-001` | `RETAIL-WH1` | **`LOC-REC-01` (Receiving Dock)** | `+50.0000` | `850.00` | `42,500.00` | `50.0000` |[m
+[31m-| `GRN-XXXXXX` | `GoodsReceipt` | `RET-002` Cooking Oil 1L | `OIL-2026-002` | `RETAIL-WH1` | **`LOC-REC-01` (Receiving Dock)** | `+30.0000` | `850.00` | `25,500.00` | `30.0000` |[m
+[31m-| `GRN-XXXXXX` | `GoodsReceipt` | `RET-003` White Sugar 1kg | `SUGAR-2026-001` | `RETAIL-WH1` | **`LOC-REC-01` (Receiving Dock)** | `+60.0000` | `320.00` | `19,200.00` | `60.0000` |[m
+[31m-| **Total Inbound** | | | | | **Dock / Staging Total** | **`+240.0000`** | | **`237,200.00`** | **`240.0000`** |[m
+[31m-[m
+[31m-> [!NOTE][m
+[31m-> All 240 units are currently quarantined/staged at `LOC-REC-01`. Main storage rack `LOC-STK-01` currently has `0.0000` units.[m
+[32m+[m[32m### Step 3: Product Receipt / GRN Draft Creation[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.grn` (Receiving Clerk / Procurement Officer)[m
+[32m+[m[32m- **Role:** `Procurement Officer`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `GRN.VIEW`, `GRN.CREATE`, `WAREHOUSE.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View Approved POs, Create Draft GRN from PO, Set Receiving Location[m
+[32m+[m[32m- **Restricted Actions:** Confirm GRN without complete batch tracking data[m
+[32m+[m[32m- **Next Responsible User:** Same user (`retail.grn`) continues to Step 4 for batch allocation.[m
+[32m+[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Login As:** `retail.grn@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Inventory -> Goods Receipt Notes` (`/app/procurement/goods-receipts`)[m
+[32m+[m[32m3. **Click:** `+ New GRN from PO`[m
+[32m+[m[32m4. **Select PO:** Pick approved PO `PO-RET-2026-001`.[m
+[32m+[m[32m5. **Receiving Destination:** Select `Receiving Dock 01` (`LOC-REC-01`).[m
+[32m+[m[32m6. **Verify Header:** GRN reference generated `GRN-RET-001`, Status: `Draft`. Line items (100 BAG, 80 BTL, 60 PKT) pre-populated from PO.[m
+ [m
+ ---[m
+ [m
+[31m-### Step 4: Warehouse Putaway to Main Racks[m
+[31m-- **Logout** and **Login As:** `retail.store@retail.local` (Inventory Storekeeper)[m
+[31m-- **Navigate to:** `Inventory -> Putaway`[m
+[31m-- **Click:** `+ New Putaway`[m
+[31m-- **Select Source:** `Goods Receipt Note` -> Pick confirmed GRN from Step 3.[m
+[31m-- **Target Location:** Set all lines to `Main Rack A-01` (`LOC-STK-01`).[m
+[31m-- **Confirm Quantities & Batches:**[m
+[31m-  - `RET-001`: Batch `RICE-2026-001` (60), Batch `RICE-2026-002` (40)[m
+[31m-  - `RET-002`: Batch `OIL-2026-001` (50), Batch `OIL-2026-002` (30)[m
+[31m-  - `RET-003`: Batch `SUGAR-2026-001` (60)[m
+[31m-- **Actions:**[m
+[31m-  - Click `Confirm Putaway`.[m
+[31m-  - Status updates to `Completed`.[m
+[31m-[m
+[31m-#### Verification: Post-Putaway Stock Report & Location Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` / `Current Stock`[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify **Staging Dock Cleared:** `LOC-REC-01` shows `0.0000` on hand for all items and batches.[m
+[31m-  - Verify **Storage Rack Populated:** `LOC-STK-01` shows all `240.0000` units safely stored.[m
+[31m-  - Verify KPI Card **Total Inventory Value:** Unchanged at `237,200.00 LKR` (internal transfer preserves valuation).[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | From Location (Staging) | To Location (Storage) | Transferred Qty | Valuation Rate (LKR) | Line Valuation (LKR) | Storage Rack Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: |[m
+[31m-| `PUT-XXXXXX` | `StoragePutaway` | `RET-001` Samba Rice 5kg | `RICE-2026-001` | `LOC-REC-01` (`0.0000`) | **`LOC-STK-01`** | `60.0000` | `1,500.00` | `90,000.00` | `60.0000` |[m
+[31m-| `PUT-XXXXXX` | `StoragePutaway` | `RET-001` Samba Rice 5kg | `RICE-2026-002` | `LOC-REC-01` (`0.0000`) | **`LOC-STK-01`** | `40.0000` | `1,500.00` | `60,000.00` | `40.0000` |[m
+[31m-| `PUT-XXXXXX` | `StoragePutaway` | `RET-002` Cooking Oil 1L | `OIL-2026-001` | `LOC-REC-01` (`0.0000`) | **`LOC-STK-01`** | `50.0000` | `850.00` | `42,500.00` | `50.0000` |[m
+[31m-| `PUT-XXXXXX` | `StoragePutaway` | `RET-002` Cooking Oil 1L | `OIL-2026-002` | `LOC-REC-01` (`0.0000`) | **`LOC-STK-01`** | `30.0000` | `850.00` | `25,500.00` | `30.0000` |[m
+[31m-| `PUT-XXXXXX` | `StoragePutaway` | `RET-003` White Sugar 1kg | `SUGAR-2026-001` | `LOC-REC-01` (`0.0000`) | **`LOC-STK-01`** | `60.0000` | `320.00` | `19,200.00` | `60.0000` |[m
+[31m-| **Putaway Total** | | | | **Dock: `0.0000`** | **Rack: `240.0000`** | **`240.0000`** | | **`237,200.00`** | **`240.0000`** |[m
+[32m+[m[32m### Step 4: Batch and Serial Allocation & GRN Confirmation[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.grn` (Receiving Clerk)[m
+[32m+[m[32m- **Role:** `Procurement Officer`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `GRN.EDIT`, `GRN.CONFIRM`, `BATCH.CREATE`, `BATCH.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** Allocate Batches, Validate Dates, Confirm Receipt[m
+[32m+[m[32m- **Restricted Actions:** Post putaway movements to racks (Requires `retail.store`)[m
+[32m+[m
+[32m+[m[32m#### UI Actions: Enter 5 Batch Splits for Exactly 240 Units[m
+[32m+[m[32m1. **On Line 1 (`RET-001` Samba Rice 5kg Pack — 100 units):**[m
+[32m+[m[32m   - Click `+ Add Batch Split`[m
+[32m+[m[32m   - Batch 1: `RICE-2026-001` | Split Qty: `60` | Mfg: `2026-01-15` | Exp: `2027-06-30`[m
+[32m+[m[32m   - Click `+ Add Batch Split`[m
+[32m+[m[32m   - Batch 2: `RICE-2026-002` | Split Qty: `40` | Mfg: `2026-02-01` | Exp: `2027-08-31`[m
+[32m+[m[32m   *(Line 1 Allocation Total: 100 units — 100% matched)*[m
+[32m+[m[32m2. **On Line 2 (`RET-002` Cooking Oil 1L — 80 units):**[m
+[32m+[m[32m   - Click `+ Add Batch Split`[m
+[32m+[m[32m   - Batch 1: `OIL-2026-001` | Split Qty: `50` | Mfg: `2026-03-01` | Exp: `2027-09-30`[m
+[32m+[m[32m   - Click `+ Add Batch Split`[m
+[32m+[m[32m   - Batch 2: `OIL-2026-002` | Split Qty: `30` | Mfg: `2026-03-15` | Exp: `2027-10-31`[m
+[32m+[m[32m   *(Line 2 Allocation Total: 80 units — 100% matched)*[m
+[32m+[m[32m3. **On Line 3 (`RET-003` White Sugar 1kg — 60 units):**[m
+[32m+[m[32m   - Batch 1: `SUGAR-2026-001` | Split Qty: `60` | Mfg: `2026-01-10` | Exp: `2027-07-31`[m
+[32m+[m[32m   *(Line 3 Allocation Total: 60 units — 100% matched)*[m
+[32m+[m[32m4. **Confirm Receipt:**[m
+[32m+[m[32m   - Click `Confirm Receipt`.[m
+[32m+[m[32m   - Toast message appears: "Goods Receipt Note confirmed successfully".[m
+[32m+[m[32m   - Status updates to `Confirmed`.[m
+[32m+[m[32m5. **Stock & Ledger Verification:**[m
+[32m+[m[32m   - Navigate to `Inventory -> Overview` / `Current Stock`.[m
+[32m+[m[32m   - Verify KPI Card **Total Inventory Value:** `237,200.00 LKR`[m
+[32m+[m[32m   - Verify KPI Card **Total On-Hand Quantity:** `240.0000` units[m
+[32m+[m[32m   - All 240 units reside in `LOC-REC-01` (Receiving Dock). Main storage rack `LOC-STK-01` currently has `0.0000` units.[m
+[32m+[m[32m6. **Role Handoff:** Logout and hand over to `retail.store@retail.local` (Inventory Storekeeper).[m
+ [m
+ ---[m
+ [m
+[31m-### Step 5: Direct Stock Receipt & Direct Stock Issue (Net-Zero Store Movements)[m
+[31m-- **Continue As:** `retail.store@retail.local` (Inventory Storekeeper)[m
+[31m-- **5A: Direct Stock Receipt:**[m
+[31m-  - Navigate to `Inventory -> Stock Receipts` -> `+ New Stock Receipt`.[m
+[31m-  - Warehouse: `RETAIL-WH1` | Location: `LOC-STK-01` | Reason: `Sample/Promotion Intake`.[m
+[31m-  - Line 1: `RET-001` | Batch: `RICE-2026-001` | Qty: `10` | Cost: `1,500.00`[m
+[31m-  - Line 2: `RET-002` | Batch: `OIL-2026-001` | Qty: `10` | Cost: `850.00`[m
+[31m-  - Line 3: `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10` | Cost: `320.00`[m
+[31m-  - Click `Post Receipt` -> Verify toast "Stock receipt posted successfully".[m
+[31m-[m
+[31m-#### Verification 5A: Post-Stock Receipt Report & Valuation Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` (or `Inventory -> Current Stock`)[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify KPI Card **Total Inventory Value:** Increased to `263,900.00 LKR` (+26,700.00 LKR)[m
+[31m-  - Verify KPI Card **Total On-Hand Quantity:** Increased to `270.0000` units (+30 units)[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | Warehouse | Location Affected | Added Qty | Valuation Rate (LKR) | Added Valuation (LKR) | Storage Rack Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: |[m
+[31m-| `SR-XXXXXX` | `StockReceipt` | `RET-001` Samba Rice 5kg | `RICE-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `+10.0000` | `1,500.00` | `+15,000.00` | `70.0000` |[m
+[31m-| `SR-XXXXXX` | `StockReceipt` | `RET-002` Cooking Oil 1L | `OIL-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `+10.0000` | `850.00` | `+8,500.00` | `60.0000` |[m
+[31m-| `SR-XXXXXX` | `StockReceipt` | `RET-003` White Sugar 1kg | `SUGAR-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `+10.0000` | `320.00` | `+3,200.00` | `70.0000` |[m
+[31m-| **Receipt Total** | | | | | **`LOC-STK-01`** | **`+30.0000`** | | **`+26,700.00`** | **`270.0000`** |[m
+[31m-[m
+[31m-- **5B: Direct Stock Issue (Internal Store Use / QA Testing):**[m
+[31m-  - Navigate to `Inventory -> Stock Issues` -> `+ New Stock Issue`.[m
+[31m-  - Warehouse: `RETAIL-WH1` | Location: `LOC-STK-01` | Purpose: `Quality Assurance / Tasting Sample`.[m
+[31m-  - Line 1: `RET-001` | Batch: `RICE-2026-001` | Qty: `10`[m
+[31m-  - Line 2: `RET-002` | Batch: `OIL-2026-001` | Qty: `10`[m
+[31m-  - Line 3: `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10`[m
+[31m-  - Click `Post Issue` -> Verify toast "Stock issue posted successfully".[m
+[31m-[m
+[31m-#### Verification 5B: Post-Stock Issue Report & Valuation Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` (or `Inventory -> Current Stock`)[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify KPI Card **Total Inventory Value:** Restored to `237,200.00 LKR` (-26,700.00 LKR)[m
+[31m-  - Verify KPI Card **Total On-Hand Quantity:** Restored to `240.0000` units (-30 units)[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | Warehouse | Location Affected | Issued Qty | Valuation Rate (LKR) | Deducted Valuation (LKR) | Storage Rack Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: |[m
+[31m-| `SI-XXXXXX` | `StockIssue` | `RET-001` Samba Rice 5kg | `RICE-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `-10.0000` | `1,500.00` | `-15,000.00` | `60.0000` |[m
+[31m-| `SI-XXXXXX` | `StockIssue` | `RET-002` Cooking Oil 1L | `OIL-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `-10.0000` | `850.00` | `-8,500.00` | `50.0000` |[m
+[31m-| `SI-XXXXXX` | `StockIssue` | `RET-003` White Sugar 1kg | `SUGAR-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `-10.0000` | `320.00` | `-3,200.00` | `60.0000` |[m
+[31m-| **Issue Total** | | | | | **`LOC-STK-01`** | **`-30.0000`** | | **`-26,700.00`** | **`240.0000`** |[m
+[31m-[m
+[31m-> [!NOTE][m
+[31m-> The direct receipt (+30 units, +26,700 LKR) and direct issue (-30 units, -26,700 LKR) net out to zero. Storage rack `LOC-STK-01` returns exactly to the 240 units from the GRN.[m
+[32m+[m[32m### Step 5: Warehouse Putaway to Main Racks[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.store` (Warehouse Storekeeper / Inventory Manager)[m
+[32m+[m[32m- **Role:** `Inventory Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `PUTAWAY.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View Dock Stock, Create Putaway Draft from GRN, Confirm Putaway[m
+[32m+[m[32m- **Next Responsible User:** Same user (`retail.store`) continues to Step 6.[m
+[32m+[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Login As:** `retail.store@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Inventory -> Putaway` (`/app/inventory/store-putaway`)[m
+[32m+[m[32m3. **Click:** `+ New Putaway`[m
+[32m+[m[32m4. **Select Source:** Pick `Goods Receipt Note` -> Select confirmed GRN `GRN-RET-001`.[m
+[32m+[m[32m5. **Destination Location:** Set all 5 lines to `Main Rack A-01` (`LOC-STK-01`).[m
+[32m+[m[32m6. **Confirm Movements:**[m
+[32m+[m[32m   - `RET-001` | Batch `RICE-2026-001` (60)[m
+[32m+[m[32m   - `RET-001` | Batch `RICE-2026-002` (40)[m
+[32m+[m[32m   - `RET-002` | Batch `OIL-2026-001` (50)[m
+[32m+[m[32m   - `RET-002` | Batch `OIL-2026-002` (30)[m
+[32m+[m[32m   - `RET-003` | Batch `SUGAR-2026-001` (60)[m
+[32m+[m[32m7. **Execute:**[m
+[32m+[m[32m   - Click `Confirm Putaway`. Status updates to `Completed`.[m
+[32m+[m[32m8. **Verification:**[m
+[32m+[m[32m   - Dock `LOC-REC-01` drops cleanly to **`0.0000`** units.[m
+[32m+[m[32m   - Main Rack `LOC-STK-01` shows all **`240.0000`** units safely stored.[m
+[32m+[m[32m   - Total inventory valuation remains unchanged at `237,200.00 LKR`.[m
+ [m
+ ---[m
+ [m
+[31m-### Step 6: Inter-Warehouse Transfer & Reversal/Return (WH1 to WH2 and Return)[m
+[31m-- **Continue As:** `retail.store@retail.local` (Inventory Storekeeper)[m
+[31m-- **6A: Transfer Out (WH1 -> WH2):**[m
+[31m-  - Navigate to `Inventory -> Item Transfers` -> `+ New Transfer`.[m
+[31m-  - **From Warehouse:** `Central Retail Warehouse` (`RETAIL-WH1`) | From Location: `LOC-STK-01`[m
+[31m-  - **To Warehouse:** `Annex Retail Warehouse` (`RETAIL-WH2`) | To Location: `LOC-WH2-01`[m
+[31m-  - Transfer Lines:[m
+[31m-    - Line 1: `RET-001` | Batch: `RICE-2026-001` | Qty: `20`[m
+[31m-    - Line 2: `RET-002` | Batch: `OIL-2026-001` | Qty: `10`[m
+[31m-    - Line 3: `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10`[m
+[31m-  - Click `Save Draft` -> Then `Post Transfer`.[m
+[31m-[m
+[31m-#### Verification 6A: Post-Transfer Out Stock Report & Valuation Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` / `Current Stock`[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify **WH1 Stock:** Drops from 240 to `200.0000` units (Valuation: `195,500.00 LKR`).[m
+[31m-  - Verify **WH2 Stock:** Increases from 0 to `40.0000` units (Valuation: `41,700.00 LKR`).[m
+[31m-  - Verify **Total Company Valuation:** Unchanged at `237,200.00 LKR`.[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | Origin (WH1) | Destination (WH2) | Qty Transferred | Valuation Rate (LKR) | Line Valuation (LKR) | WH1 Balance | WH2 Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |[m
+[31m-| `TR-XXXXXX` | `InternalTransfer` | `RET-001` Samba Rice 5kg | `RICE-2026-001` | `LOC-STK-01` | `LOC-WH2-01` | `20.0000` | `1,500.00` | `30,000.00` | `40.0000` | `20.0000` |[m
+[31m-| `TR-XXXXXX` | `InternalTransfer` | `RET-002` Cooking Oil 1L | `OIL-2026-001` | `LOC-STK-01` | `LOC-WH2-01` | `10.0000` | `850.00` | `8,500.00` | `40.0000` | `10.0000` |[m
+[31m-| `TR-XXXXXX` | `InternalTransfer` | `RET-003` White Sugar 1kg | `SUGAR-2026-001` | `LOC-STK-01` | `LOC-WH2-01` | `10.0000` | `320.00` | `3,200.00` | `50.0000` | `10.0000` |[m
+[31m-| **Transfer Total** | | | | **WH1 Total** | **WH2 Total** | **`40.0000`** | | **`41,700.00`** | **`200.0000`** | **`40.0000`** |[m
+[31m-[m
+[31m-- **6B: Transfer Return / Reversal (WH2 -> WH1):**[m
+[31m-  - Navigate to `Inventory -> Item Transfers` -> `+ New Transfer`.[m
+[31m-  - **From Warehouse:** `Annex Retail Warehouse` (`RETAIL-WH2`) | From Location: `LOC-WH2-01`[m
+[31m-  - **To Warehouse:** `Central Retail Warehouse` (`RETAIL-WH1`) | To Location: `LOC-STK-01`[m
+[31m-  - Transfer Lines:[m
+[31m-    - Line 1: `RET-001` | Batch: `RICE-2026-001` | Qty: `20`[m
+[31m-    - Line 2: `RET-002` | Batch: `OIL-2026-001` | Qty: `10`[m
+[31m-    - Line 3: `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10`[m
+[31m-  - Click `Save Draft` -> Then `Post Transfer`.[m
+[31m-[m
+[31m-#### Verification 6B: Post-Transfer Return Stock Report & Valuation Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` / `Current Stock`[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify **WH2 Stock Cleared:** `LOC-WH2-01` returns cleanly to **`0.0000`** units (`0.00 LKR`).[m
+[31m-  - Verify **WH1 Stock Restored:** `LOC-STK-01` returns to **`240.0000`** units (`237,200.00 LKR`).[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | Origin (WH2) | Destination (WH1) | Qty Returned | Valuation Rate (LKR) | Line Valuation (LKR) | WH2 Balance | WH1 Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |[m
+[31m-| `TR-YYYYYY` | `InternalTransfer` | `RET-001` Samba Rice 5kg | `RICE-2026-001` | `LOC-WH2-01` | `LOC-STK-01` | `20.0000` | `1,500.00` | `30,000.00` | `0.0000` | `60.0000` |[m
+[31m-| `TR-YYYYYY` | `InternalTransfer` | `RET-002` Cooking Oil 1L | `OIL-2026-001` | `LOC-WH2-01` | `LOC-STK-01` | `10.0000` | `850.00` | `8,500.00` | `0.0000` | `50.0000` |[m
+[31m-| `TR-YYYYYY` | `InternalTransfer` | `RET-003` White Sugar 1kg | `SUGAR-2026-001` | `LOC-WH2-01` | `LOC-STK-01` | `10.0000` | `320.00` | `3,200.00` | `0.0000` | `60.0000` |[m
+[31m-| **Return Total** | | | | **WH2 Total** | **WH1 Total** | **`40.0000`** | | **`41,700.00`** | **`0.0000`** | **`240.0000`** |[m
+[32m+[m[32m### Step 6: Direct Stock Receipt (+30 Units)[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.store` (Inventory Manager)[m
+[32m+[m[32m- **Role:** `Inventory Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `STOCK_RECEIPT.POST`, `INVENTORY.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Next Responsible User:** Same user (`retail.store`) continues to Step 7.[m
+[32m+[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Navigate to:** `Inventory -> Stock Receipts` (`/app/inventory/stock-receipts`) -> Click `+ New Stock Receipt`.[m
+[32m+[m[32m2. **Warehouse & Location:** `RETAIL-WH1` | Location: `LOC-STK-01` | Reason: `Sample/Promotion Intake`.[m
+[32m+[m[32m3. **Add Receipt Lines:**[m
+[32m+[m[32m   - `RET-001` | Batch: `RICE-2026-001` | Qty: `10` | Cost: `1,500.00`[m
+[32m+[m[32m   - `RET-002` | Batch: `OIL-2026-001` | Qty: `10` | Cost: `850.00`[m
+[32m+[m[32m   - `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10` | Cost: `320.00`[m
+[32m+[m[32m4. **Post:** Click `Post Receipt`. Toast: "Stock receipt posted successfully". Document: `SR-RET-001`.[m
+[32m+[m[32m5. **Verification:** Total inventory increases to `270.0000` units (+30 units); valuation increases to `263,900.00 LKR` (+26,700.00 LKR).[m
+ [m
+ ---[m
+ [m
+[31m-### Step 7: Sales Orders, Shipment & Dispatch (Exhaust All Stock to Exactly Net Zero)[m
+[31m-- **Logout** and **Login As:** `retail.sales@retail.local` (Sales Representative)[m
+[31m-- **7A: Sales Order 1 (Primary Batches — 170 Units Total):**[m
+[31m-  - Navigate to `Sales -> Sales Orders` -> `+ New Sales Order`.[m
+[31m-  - Customer: `Cargills Retail Supermarkets PLC` (`CUST-RET-001`).[m
+[31m-  - Warehouse: `Central Retail Warehouse` (`RETAIL-WH1`).[m
+[31m-  - Add items (Primary Batches):[m
+[31m-    1. `RET-001` (Samba Rice 5kg) | Qty: `60` | Unit Price: `1,800.00`[m
+[31m-    2. `RET-002` (Cooking Oil 1L) | Qty: `50` | Unit Price: `1,050.00`[m
+[31m-    3. `RET-003` (White Sugar 1kg) | Qty: `60` | Unit Price: `400.00`[m
+[31m-  - Click `Submit` -> Then `Confirm Order`.[m
+[31m-  - Navigate to `Sales -> Shipments` -> `+ Create Shipment from Order`.[m
+[31m-  - Allocate from Primary Batches:[m
+[31m-    - `RET-001`: Batch `RICE-2026-001` (Qty: `60`)[m
+[31m-    - `RET-002`: Batch `OIL-2026-001` (Qty: `50`)[m
+[31m-    - `RET-003`: Batch `SUGAR-2026-001` (Qty: `60`)[m
+[31m-  - Click `Dispatch` -> Status updates to `Dispatched`.[m
+[31m-[m
+[31m-#### Verification 7A: Post-SO1 Dispatch Stock Report & Valuation Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` / `Current Stock`[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify **Primary Batches Depleted:** `RICE-2026-001`, `OIL-2026-001`, and `SUGAR-2026-001` show `0.0000` on hand.[m
+[31m-  - Verify KPI Card **Total Inventory Value:** Reduced to `85,500.00 LKR` (-151,700.00 LKR cost reduction).[m
+[31m-  - Verify KPI Card **Total On-Hand Quantity:** Reduced to `70.0000` units (-170 units).[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | Warehouse | Location Affected | Dispatched Qty | Valuation Rate (LKR) | Cost Reduction (LKR) | Selling Rate (LKR) | Rack Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |[m
+[31m-| `SH-XXXXXX` | `ShipmentDispatch` | `RET-001` Samba Rice 5kg | `RICE-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `-60.0000` | `1,500.00` | `-90,000.00` | `1,800.00` | **`0.0000`** |[m
+[31m-| `SH-XXXXXX` | `ShipmentDispatch` | `RET-002` Cooking Oil 1L | `OIL-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `-50.0000` | `850.00` | `-42,500.00` | `1,050.00` | **`0.0000`** |[m
+[31m-| `SH-XXXXXX` | `ShipmentDispatch` | `RET-003` White Sugar 1kg | `SUGAR-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | `-60.0000` | `320.00` | `-19,200.00` | `400.00` | **`0.0000`** |[m
+[31m-| **SO1 Total** | | | | | **`LOC-STK-01`** | **`-170.0000`** | | **`-151,700.00`** | | **`70.0000`** |[m
+[31m-[m
+[31m-- **7B: Sales Order 2 (Secondary Batches — 70 Units Total):**[m
+[31m-  - Navigate to `Sales -> Sales Orders` -> `+ New Sales Order`.[m
+[31m-  - Customer: `Keells Supermarkets Holdings` (`CUST-RET-002`).[m
+[31m-  - Warehouse: `Central Retail Warehouse` (`RETAIL-WH1`).[m
+[31m-  - Add items (Secondary Batches):[m
+[31m-    1. `RET-001` (Samba Rice 5kg) | Qty: `40` | Unit Price: `1,800.00`[m
+[31m-    2. `RET-002` (Cooking Oil 1L) | Qty: `30` | Unit Price: `1,050.00`[m
+[31m-  - Click `Submit` -> Then `Confirm Order`.[m
+[31m-  - Navigate to `Sales -> Shipments` -> `+ Create Shipment from Order`.[m
+[31m-  - Allocate from Secondary Batches:[m
+[31m-    - `RET-001`: Batch `RICE-2026-002` (Qty: `40`)[m
+[31m-    - `RET-002`: Batch `OIL-2026-002` (Qty: `30`)[m
+[31m-  - Click `Dispatch` -> Status updates to `Dispatched`.[m
+[31m-[m
+[31m-#### Verification 7B: Post-SO2 Dispatch Stock Report & Valuation Audit[m
+[31m-- **Navigate to:** `Inventory -> Overview` / `Current Stock`[m
+[31m-- **Run Standard Stock Report & Ledger Verification:**[m
+[31m-  - Verify **Secondary Batches Depleted:** `RICE-2026-002` and `OIL-2026-002` show `0.0000` on hand.[m
+[31m-  - Verify KPI Card **Total Inventory Value:** Cleanly drops to **`0.00 LKR`** (-85,500.00 LKR).[m
+[31m-  - Verify KPI Card **Total On-Hand Quantity:** Cleanly drops to **`0.0000`** units.[m
+[31m-  - Verify **Warehouse Empty:** Both `RETAIL-WH1` and `RETAIL-WH2` have **`0.0000`** inventory.[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Batch # | Warehouse | Location Affected | Dispatched Qty | Valuation Rate (LKR) | Cost Reduction (LKR) | Selling Rate (LKR) | Final Balance |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |[m
+[31m-| `SH-YYYYYY` | `ShipmentDispatch` | `RET-001` Samba Rice 5kg | `RICE-2026-002` | `RETAIL-WH1` | `LOC-STK-01` | `-40.0000` | `1,500.00` | `-60,000.00` | `1,800.00` | **`0.0000`** |[m
+[31m-| `SH-YYYYYY` | `ShipmentDispatch` | `RET-002` Cooking Oil 1L | `OIL-2026-002` | `RETAIL-WH1` | `LOC-STK-01` | `-30.0000` | `850.00` | `-25,500.00` | `1,050.00` | **`0.0000`** |[m
+[31m-| **SO2 Total** | | | | | **`LOC-STK-01`** | **`-70.0000`** | | **`-85,500.00`** | | **`0.0000`** |[m
+[32m+[m[32m### Step 7: Direct Stock Issue (-30 Units, Net Zero Offset)[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.store` (Inventory Manager)[m
+[32m+[m[32m- **Role:** `Inventory Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `STOCK_ISSUE.POST`, `INVENTORY.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Next Responsible User:** Same user (`retail.store`) continues to Step 8.[m
+[32m+[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Navigate to:** `Inventory -> Stock Issues` (`/app/inventory/issue-stock`) -> Click `+ New Stock Issue`.[m
+[32m+[m[32m2. **Warehouse & Location:** `RETAIL-WH1` | Location: `LOC-STK-01` | Purpose: `Quality Assurance / Tasting Sample`.[m
+[32m+[m[32m3. **Add Issue Lines:**[m
+[32m+[m[32m   - `RET-001` | Batch: `RICE-2026-001` | Qty: `10`[m
+[32m+[m[32m   - `RET-002` | Batch: `OIL-2026-001` | Qty: `10`[m
+[32m+[m[32m   - `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10`[m
+[32m+[m[32m4. **Post:** Click `Post Issue`. Toast: "Stock issue posted successfully". Document: `SI-RET-001`.[m
+[32m+[m[32m5. **Verification (Net Zero):** Storage rack `LOC-STK-01` returns exactly to **`240.0000`** units and **`237,200.00 LKR`**. The receipt (+30) and issue (-30) cleanly net to zero![m
+ [m
+ ---[m
+ [m
+[31m-### Step 8: Physical Stock Count & Zero-Stock Reconciliation Verification[m
+[31m-- **Logout** and **Login As:** `retail.store@retail.local` (Inventory Storekeeper)[m
+[31m-- **Navigate to:** `Inventory -> Stock Counts`[m
+[31m-- **Click:** `+ New Stock Count`[m
+[31m-- **Warehouse:** `Central Retail Warehouse` (`RETAIL-WH1`) | Location: `LOC-STK-01`.[m
+[31m-- **Verify System Stock & Enter Physical Counts (All Zero):**[m
+[31m-  - `RET-001` (`RICE-2026-001`): System Qty `0.0000` | Counted `0.0000` -> Variance: `0.0000`[m
+[31m-  - `RET-001` (`RICE-2026-002`): System Qty `0.0000` | Counted `0.0000` -> Variance: `0.0000`[m
+[31m-  - `RET-002` (`OIL-2026-001`): System Qty `0.0000` | Counted `0.0000` -> Variance: `0.0000`[m
+[31m-  - `RET-002` (`OIL-2026-002`): System Qty `0.0000` | Counted `0.0000` -> Variance: `0.0000`[m
+[31m-  - `RET-003` (`SUGAR-2026-001`): System Qty `0.0000` | Counted `0.0000` -> Variance: `0.0000`[m
+[31m-- **Workflow:**[m
+[31m-  - Click `Submit` -> Then `Approve`.[m
+[31m-  - Click `Post Count` -> Verify zero-variance stock count posts cleanly without errors.[m
+[31m-[m
+[31m-#### Verification 8: Final Stock Count & System Valuation Audit Report[m
+[31m-- **Navigate to:** `Inventory -> Overview`[m
+[31m-- **Run Final Stock Valuation Report Verification:**[m
+[31m-[m
+[31m-| Transaction Source | Movement Type | Product Code & Name | Warehouse | Location | System Qty | Counted Qty | Variance Qty | Valuation Rate (LKR) | Valuation Variance (LKR) | Final Confirmed Stock |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |[m
+[31m-| `SC-XXXXXX` | `StockCountAudit` | `RET-001` Samba Rice 5kg | `RETAIL-WH1` | `LOC-STK-01` | `0.0000` | `0.0000` | `0.0000` | `1,500.00` | `0.00` | **`0.0000`** |[m
+[31m-| `SC-XXXXXX` | `StockCountAudit` | `RET-002` Cooking Oil 1L | `RETAIL-WH1` | `LOC-STK-01` | `0.0000` | `0.0000` | `0.0000` | `850.00` | `0.00` | **`0.0000`** |[m
+[31m-| `SC-XXXXXX` | `StockCountAudit` | `RET-003` White Sugar 1kg | `RETAIL-WH1` | `LOC-STK-01` | `0.0000` | `0.0000` | `0.0000` | `320.00` | `0.00` | **`0.0000`** |[m
+[31m-| **All Locations** | | **All 3 Retail SKUs** | **All WHs** | **All Locs** | **`0.0000`** | **`0.0000`** | **`0.0000`** | | **`0.00`** | **`0.0000`** |[m
+[31m-[m
+[31m-- **Confirmed Final Metrics:**[m
+[31m-  - Total Stock Items: `3`[m
+[31m-  - Total On-Hand Quantity: **`0.0000`**[m
+[31m-  - Total Inventory Valuation: **`0.00 LKR`**[m
+[31m-  - Confirms complete lifecycle from PR -> PO -> GRN -> Putaway -> Receipt -> Issue -> Transfer -> Transfer Return -> Sales Dispatches -> Stock Count reconciled at exact net zero![m
+[32m+[m[32m### Step 8: Inventory Item Transfer (WH1 to WH2)[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.store` (Inventory Manager)[m
+[32m+[m[32m- **Role:** `Inventory Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`[m
+[32m+[m[32m- **Next Responsible User:** Same user (`retail.store`) continues to Step 9.[m
+[32m+[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Navigate to:** `Inventory -> Item Transfers` (`/app/inventory/transfers`) -> Click `+ New Transfer`.[m
+[32m+[m[32m2. **Origin:** `Central Retail Warehouse` (`RETAIL-WH1`) | Location: `LOC-STK-01`[m
+[32m+[m[32m3. **Destination:** `Annex Retail Warehouse` (`RETAIL-WH2`) | Location: `LOC-WH2-01`[m
+[32m+[m[32m4. **Transfer Lines (40 Units Total):**[m
+[32m+[m[32m   - `RET-001` | Batch: `RICE-2026-001` | Qty: `20`[m
+[32m+[m[32m   - `RET-002` | Batch: `OIL-2026-001` | Qty: `10`[m
+[32m+[m[32m   - `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10`[m
+[32m+[m[32m5. **Post:** Click `Save Draft` -> Then `Post Transfer`. Document: `TR-RET-001`.[m
+[32m+[m[32m6. **Verification:**[m
+[32m+[m[32m   - WH1 stock drops to `200.0000` units (`195,500.00 LKR`).[m
+[32m+[m[32m   - WH2 stock increases to `40.0000` units (`41,700.00 LKR`).[m
+[32m+[m[32m   - Total company valuation unchanged at `237,200.00 LKR`.[m
+ [m
+ ---[m
+ [m
+[31m-### Step 9: Read-Only Audit & RBAC Verification[m
+[31m-- **Logout** and **Login As:** `retail.viewer@retail.local` (Audit Viewer)[m
+[31m-- **Navigate to:** `Procurement -> Purchase Requisitions`[m
+[31m-  - Verify PR list is visible.[m
+[31m-  - Verify `+ New Purchase Requisition` button is hidden or disabled.[m
+[31m-- **Navigate to:** `Procurement -> Purchase Orders`[m
+[31m-  - Verify purchase orders are viewable.[m
+[31m-  - Verify `+ New Purchase Order` button is hidden or disabled.[m
+[31m-- **Navigate to:** `Inventory -> Recent Transactions`[m
+[31m-  - Verify full end-to-end movement audit history (GRN -> Putaway -> Receipt -> Issue -> Transfer -> Dispatch -> Stock Count).[m
+[32m+[m[32m### Step 9: Stock Count & Discrepancy Adjustment[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.store` (Inventory Manager)[m
+[32m+[m[32m- **Role:** `Inventory Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `STOCK_COUNT.VIEW`, `STOCK_COUNT.CREATE`, `STOCK_COUNT.SUBMIT`, `STOCK_COUNT.APPROVE`, `STOCK_COUNT.POST`[m
+[32m+[m[32m- **Allowed Actions:** Create Count, Enter Physical Counts, Submit, Approve, Post[m
+[32m+[m[32m- **Next Responsible User:** `retail.sales@retail.local` (Sales Manager) for Sales Orders.[m
+[32m+[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Navigate to:** `Inventory -> Stock Counts` (`/app/inventory/count-adjust`) -> Click `+ New Stock Count`.[m
+[32m+[m[32m2. **Scope:** Warehouse: `RETAIL-WH1` | Location: `LOC-STK-01`.[m
+[32m+[m[32m3. **Enter Physical Counts:**[m
+[32m+[m[32m   - `RET-001` (`RICE-2026-001`): System Qty `40` | Counted `40` -> Variance: `0`[m
+[32m+[m[32m   - `RET-002` (`OIL-2026-001`): System Qty `40` | Counted `38` -> Variance: `-2` (Shortage)[m
+[32m+[m[32m   - `RET-003` (`SUGAR-2026-001`): System Qty `50` | Counted `55` -> Variance: `+5` (Overage)[m
+[32m+[m[32m4. **Workflow:** Click `Submit` -> Then `Approve` -> Then `Post Count`. Document: `SC-RET-001`.[m
+[32m+[m[32m5. **Verification:** Shortage and overage adjustments post atomically with separate idempotency keys.[m
+[32m+[m[32m6. **Role Handoff:** Logout and hand over to `retail.sales@retail.local`.[m
+ [m
+ ---[m
+ [m
+[31m-## 3. End-State Stock Balance Reconciliation (Net-Zero Verification)[m
+[32m+[m[32m### Step 10: Sales Orders (SO1 & SO2)[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role:** `Sales Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `SALES_ORDER.VIEW`, `SALES_ORDER.CREATE`, `SALES_ORDER.EDIT`, `SALES_ORDER.SUBMIT`, `SALES_ORDER.CONFIRM`, `CUSTOMER.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View, Create SO1 & SO2, Submit, Confirm Orders[m
+[32m+[m[32m- **Next Responsible User:** Same user (`retail.sales`) continues to Step 11 for shipments.[m
+[32m+[m
+[32m+[m[32m#### 10A: Sales Order 1 (Primary Batches — 170 Units Total)[m
+[32m+[m[32m1. **Login As:** `retail.sales@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Sales -> Sales Orders` (`/app/sales/orders`) -> Click `+ New Sales Order`.[m
+[32m+[m[32m3. **Header:** Customer: `Cargills Retail Supermarkets PLC` (`CUST-RET-001`) | Warehouse: `RETAIL-WH1`.[m
+[32m+[m[32m4. **Lines (Primary Batches Target):**[m
+[32m+[m[32m   - Line 1: `RET-001` | Qty: `60` | Unit Price: `1,800.00 LKR` | Total: `108,000.00 LKR`[m
+[32m+[m[32m   - Line 2: `RET-002` | Qty: `50` | Unit Price: `1,050.00 LKR` | Total: `61,950.00 LKR` (with VAT)[m
+[32m+[m[32m   - Line 3: `RET-003` | Qty: `60` | Unit Price: `400.00 LKR` | Total: `24,000.00 LKR`[m
+[32m+[m[32m5. **Submit & Confirm:** Click `Submit` -> Then `Confirm Order`. Document: `SO-RET-1-XXXX`.[m
+[32m+[m
+[32m+[m[32m#### 10B: Sales Order 2 (Secondary Batches — 70 Units Total)[m
+[32m+[m[32m1. **Navigate to:** `Sales -> Sales Orders` -> Click `+ New Sales Order`.[m
+[32m+[m[32m2. **Header:** Customer: `Keells Supermarkets Holdings` (`CUST-RET-002`) | Warehouse: `RETAIL-WH1`.[m
+[32m+[m[32m3. **Lines (Secondary Batches Target):**[m
+[32m+[m[32m   - Line 1: `RET-001` | Qty: `40` | Unit Price: `1,800.00 LKR` | Total: `72,000.00 LKR`[m
+[32m+[m[32m   - Line 2: `RET-002` | Qty: `30` | Unit Price: `1,050.00 LKR` | Total: `37,170.00 LKR` (with VAT)[m
+[32m+[m[32m4. **Submit & Confirm:** Click `Submit` -> Then `Confirm Order`. Document: `SO-RET-2-XXXX`.[m
+ [m
+[31m-All inbound stock from the Goods Receipt Note (240 units) is completely sold and dispatched across Sales Orders 1 and 2, while intermediate direct receipts and issues offset each other (+10 vs -10), and inter-warehouse transfers are returned to WH1. Consequently, the final stock across every product, batch, warehouse, and location is cleanly **`0.0000`**, making testing and verification effortless and unambiguous.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### Step 11: Dispatch Notes / Sales Shipments (SH1 & SH2)[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role:** `Sales Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `SALES_SHIPMENT.VIEW`, `SALES_SHIPMENT.CREATE`, `SALES_SHIPMENT.DISPATCH`, `INVENTORY.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Next Responsible User:** Same user (`retail.sales`) continues to Step 12 for invoicing.[m
+[32m+[m
+[32m+[m[32m#### 11A: Dispatch Shipment 1 (Primary Batches — 170 Units)[m
+[32m+[m[32m1. **Navigate to:** `Sales -> Shipments` (`/app/sales/dispatches`) -> Click `+ Create Shipment from Order`.[m
+[32m+[m[32m2. **Select Order:** Pick `SO-RET-1-XXXX`.[m
+[32m+[m[32m3. **Allocate Batches:**[m
+[32m+[m[32m   - `RET-001`: Batch `RICE-2026-001` (Qty: `60`)[m
+[32m+[m[32m   - `RET-002`: Batch `OIL-2026-001` (Qty: `50`)[m
+[32m+[m[32m   - `RET-003`: Batch `SUGAR-2026-001` (Qty: `60`)[m
+[32m+[m[32m4. **Dispatch:** Click `Dispatch`. Document: `SH-RET-1-XXXX`. Primary batches depleted to `0.0000`.[m
+[32m+[m
+[32m+[m[32m#### 11B: Dispatch Shipment 2 (Secondary Batches — 70 Units)[m
+[32m+[m[32m1. **Navigate to:** `Sales -> Shipments` -> Click `+ Create Shipment from Order`.[m
+[32m+[m[32m2. **Select Order:** Pick `SO-RET-2-XXXX`.[m
+[32m+[m[32m3. **Allocate Batches:**[m
+[32m+[m[32m   - `RET-001`: Batch `RICE-2026-002` (Qty: `40`)[m
+[32m+[m[32m   - `RET-002`: Batch `OIL-2026-002` (Qty: `30`)[m
+[32m+[m[32m4. **Dispatch:** Click `Dispatch`. Document: `SH-RET-2-XXXX`. Secondary batches depleted to `0.0000`.[m
+[32m+[m[32m5. **Inventory Check:** All batches are now fully dispatched.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### Step 12: Sales Invoices (INV1 & INV2)[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role:** `Sales Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `SALES_INVOICE.VIEW`, `SALES_INVOICE.CREATE`, `SALES_INVOICE.EDIT`, `SALES_INVOICE.CONFIRM`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft from Shipment, Update, Confirm Invoice[m
+[32m+[m[32m- **Next Responsible User:** `retail.store@retail.local` (Inventory Manager) for Reversals (Step 13).[m
+ [m
+[31m-| Product Code | Product Description | Batch Number | Warehouse Code | Location Code | Expected Final Quantity | Verification Status |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :---: | :---: |[m
+[31m-| `RET-001` | Samba Rice 5kg | `RICE-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | **0.0000** | Pending Manual Run |[m
+[31m-| `RET-001` | Samba Rice 5kg | `RICE-2026-002` | `RETAIL-WH1` | `LOC-STK-01` | **0.0000** | Pending Manual Run |[m
+[31m-| `RET-001` | Samba Rice 5kg | `RICE-2026-001` | `RETAIL-WH2` | `LOC-WH2-01` | **0.0000** | Pending Manual Run |[m
+[31m-| `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | **0.0000** | Pending Manual Run |[m
+[31m-| `RET-002` | Cooking Oil 1L | `OIL-2026-002` | `RETAIL-WH1` | `LOC-STK-01` | **0.0000** | Pending Manual Run |[m
+[31m-| `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `RETAIL-WH2` | `LOC-WH2-01` | **0.0000** | Pending Manual Run |[m
+[31m-| `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | **0.0000** | Pending Manual Run |[m
+[31m-| `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `RETAIL-WH2` | `LOC-WH2-01` | **0.0000** | Pending Manual Run |[m
+[31m-| *(All)* | *(All Inbound)* | *(All)* | `RETAIL-WH1` | `LOC-REC-01` | **0.0000** | Receiving Dock Clear |[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Navigate to:** `Sales -> Invoices` (`/app/sales/invoices`) -> Click `+ New Invoice from Shipment`.[m
+[32m+[m[32m2. **Invoice 1:** Pick `SH-RET-1-XXXX`. Verify SubTotal: `184,500.00 LKR`, Tax: `9,450.00 LKR`, Total: `193,950.00 LKR`. Click `Confirm Invoice`. Reference: `INV-RET-1-XXXX`.[m
+[32m+[m[32m3. **Invoice 2:** Pick `SH-RET-2-XXXX`. Verify SubTotal: `97,000.00 LKR`, Tax: `5,670.00 LKR`, Total: `102,670.00 LKR`. Click `Confirm Invoice`. Reference: `INV-RET-2-XXXX`.[m
+[32m+[m[32m4. **Role Handoff:** Logout and hand over to `retail.store@retail.local`.[m
+ [m
+ ---[m
+ [m
+[31m-## 4. Defect and Anomaly Prevention Notes[m
+[32m+[m[32m### Step 13: Inventory Reversals (Transfer Return WH2 to WH1)[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.store` (Warehouse Storekeeper / Inventory Manager)[m
+[32m+[m[32m- **Role:** `Inventory Manager`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Return Transfer Draft, Post Reversal[m
+[32m+[m[32m- **Next Responsible User:** `retail.viewer@retail.local` (Auditor) / `retail.admin@retail.local` (Tenant Admin).[m
+[32m+[m
+[32m+[m[32m#### UI Actions[m
+[32m+[m[32m1. **Login As:** `retail.store@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Inventory -> Item Transfers` (`/app/inventory/transfers`) -> Click `+ New Transfer`.[m
+[32m+[m[32m3. **Origin:** `Annex Retail Warehouse` (`RETAIL-WH2`) | Location: `LOC-WH2-01`[m
+[32m+[m[32m4. **Destination:** `Central Retail Warehouse` (`RETAIL-WH1`) | Location: `LOC-STK-01`[m
+[32m+[m[32m5. **Transfer Lines (40 Units Total):**[m
+[32m+[m[32m   - `RET-001` | Batch: `RICE-2026-001` | Qty: `20`[m
+[32m+[m[32m   - `RET-002` | Batch: `OIL-2026-001` | Qty: `10`[m
+[32m+[m[32m   - `RET-003` | Batch: `SUGAR-2026-001` | Qty: `10`[m
+[32m+[m[32m6. **Post:** Click `Save Draft` -> Then `Post Transfer`. Document: `TR-RET-002`.[m
+[32m+[m[32m7. **Verification:** WH2 (`LOC-WH2-01`) drops cleanly to **`0.0000`** units (`0.00 LKR`). All stock is restored to WH1 ready for final zero-stock reconciliation![m
+[32m+[m[32m8. **Role Handoff:** Logout and hand over to `retail.viewer@retail.local` and `retail.admin@retail.local`.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### Step 14: Reports, Audit Verification & Zero-Stock Reconciliation[m
+[32m+[m
+[32m+[m[32m#### Scenario Metadata[m
+[32m+[m[32m- **Actor:** `retail.viewer` (Auditor) | Oversight: `retail.admin` (Tenant Admin)[m
+[32m+[m[32m- **Role:** `Tenant Read-only Auditor` | `Tenant Admin`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Required:** All 41 `*.VIEW` permissions (Auditor) / All 89 permissions (Tenant Admin)[m
+[32m+[m[32m- **Allowed Actions:** View all lists, stock balances, valuation layers, transaction ledgers[m
+[32m+[m[32m- **Restricted Actions:** Any creation, modification, deletion or posting (Denied with HTTP 403 Forbidden)[m
+[32m+[m
+[32m+[m[32m#### UI Actions & Final Stock Reconciliations[m
+[32m+[m[32m1. **Login As:** `retail.viewer@retail.local` / Password: `123`[m
+[32m+[m[32m2. **Navigate to:** `Inventory -> Overview` & `Inventory -> Current Stock`:[m
+[32m+[m[32m   - Verify KPI Card **Total On-Hand Quantity:** Cleanly **`0.0000`** units across all locations![m
+[32m+[m[32m   - Verify KPI Card **Total Inventory Value:** Cleanly **`0.00 LKR`**![m
+[32m+[m[32m   - Verify Receiving Dock `LOC-REC-01`: **`0.0000`** units.[m
+[32m+[m[32m   - Verify Main Storage Rack `LOC-STK-01`: **`0.0000`** units.[m
+[32m+[m[32m   - Verify Annex Storage `LOC-WH2-01`: **`0.0000`** units.[m
+[32m+[m[32m3. **Navigate to:** `Inventory -> Recent Transactions` / Transaction Ledger:[m
+[32m+[m[32m   - Full end-to-end movement sequence verified:[m
+[32m+[m[32m     `GoodsReceipt` -> `StoragePutaway` -> `StockReceipt` -> `StockIssue` -> `InternalTransfer` -> `StockAdjustment` -> `ShipmentDispatch` -> `InternalTransfer` (Return)[m
+[32m+[m[32m   - FIFO valuation layers preserved and relieved accurately.[m
+[32m+[m[32m4. **RBAC Guard Verification:**[m
+[32m+[m[32m   - Attempt to click `+ New Purchase Requisition` -> Button is hidden or disabled.[m
+[32m+[m[32m   - Attempt to click `+ New Purchase Order` -> Button is hidden or disabled.[m
+[32m+[m[32m   - Direct API calls to POST/PUT/DELETE return HTTP 403 Forbidden.[m
+[32m+[m[32m5. **Tenant Admin Full Verification:**[m
+[32m+[m[32m   - Login as `retail.admin@retail.local` / Password: `123`.[m
+[32m+[m[32m   - Verify access across Tenant Administration, User Management, Role Management, and all 19 Master Data screens.[m
+[32m+[m
+[32m+[m[32m---[m
+ [m
+[31m-1. **Multi-Batch GRN Putaway (`RET-DEF-001`):** Ensure putaway maps line items by `SourceDocumentLineId` to handle multiple batches on the same product cleanly.[m
+[31m-2. **Stock Count Idempotency Key (`RET-DEF-002`):** When posting count adjustments with both shortages and overages, distinct transaction IDs are generated automatically.[m
+[31m-3. **Batch Expiry Dates (`RET-DEF-003`):** Enter explicit manufacturing and expiration dates during GRN creation matching the registered test dates above.[m
+[31m-4. **GRN Putaway Enum (`RET-DEF-004`):** Select source type `Goods Receipt Note` (`SourceDocumentType = 2`) when executing putaway from confirmed GRNs.[m
+[32m+[m[32m## 4. End-State Stock Balance Reconciliation Table[m
+[32m+[m
+[32m+[m[32m| Product Code | Product Description | Batch Number | Warehouse Code | Location Code | Inbound GRN | Direct Receipt | Direct Issue | Transfer Out | Transfer Return | Dispatched SO1 | Dispatched SO2 | Count Adj | Expected Final Qty | Verification Status |[m
+[32m+[m[32m| :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |[m
+[32m+[m[32m| `RET-001` | Samba Rice 5kg | `RICE-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | +60.0000 | +10.0000 | -10.0000 | -20.0000 | +20.0000 | -60.0000 | 0.0000 | 0.0000 | **0.0000** | Reconciled Net Zero |[m
+[32m+[m[32m| `RET-001` | Samba Rice 5kg | `RICE-2026-002` | `RETAIL-WH1` | `LOC-STK-01` | +40.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | -40.0000 | 0.0000 | **0.0000** | Reconciled Net Zero |[m
+[32m+[m[32m| `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | +50.0000 | +10.0000 | -10.0000 | -10.0000 | +10.0000 | -50.0000 | 0.0000 | 0.0000 | **0.0000** | Reconciled Net Zero |[m
+[32m+[m[32m| `RET-002` | Cooking Oil 1L | `OIL-2026-002` | `RETAIL-WH1` | `LOC-STK-01` | +30.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | -30.0000 | 0.0000 | **0.0000** | Reconciled Net Zero |[m
+[32m+[m[32m| `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `RETAIL-WH1` | `LOC-STK-01` | +60.0000 | +10.0000 | -10.0000 | -10.0000 | +10.0000 | -60.0000 | 0.0000 | 0.0000 | **0.0000** | Reconciled Net Zero |[m
+[32m+[m[32m| *(All)* | *(Quarantine Dock)* | *(All Batches)* | `RETAIL-WH1` | `LOC-REC-01` | +240.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | **0.0000** | Dock Cleared by Putaway |[m
+[32m+[m[32m| *(All)* | *(Annex Storage)* | *(All Batches)* | `RETAIL-WH2` | `LOC-WH2-01` | 0.0000 | 0.0000 | 0.0000 | +40.0000 | -40.0000 | 0.0000 | 0.0000 | 0.0000 | **0.0000** | Cleared by Return Reversal |[m
+[1mdiff --git a/Testing/Retail-Test-Pack/Permissions-Matrix.md b/Testing/Retail-Test-Pack/Permissions-Matrix.md[m
+[1mindex 9118034..e2ee65f 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Permissions-Matrix.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Permissions-Matrix.md[m
+[36m@@ -1,26 +1,38 @@[m
+[31m-# ApexERP — Retail Test Pack: Permissions Matrix (Gate 1 Verification)[m
+[32m+[m[32m# ApexERP — Retail Test Pack: Permissions Matrix (Gate 6 Full Lifecycle)[m
+ [m
+[31m-## 1. Verified Role-Permission Matrix[m
+[32m+[m[32m## 1. Verified Role-Permission Matrix (14-Step Workflow Sequence)[m
+ [m
+[31m-| Responsibility | Actual Role (`Role.Name`) | Template Key (`TemplateKey`) | Verified Permission Codes | Target Screens & Routes | Route Guards & API Enforcement |[m
+[31m-|---|---|---|---|---|---|[m
+[31m-| **Tenant Administration** | `Tenant Admin` | `TENANT_ADMIN` | All 89 Tenant Permission Codes (excluding specialized `PRICE_CARD.OVERRIDE`) | `/tenant-admin/*`<br>`/app/master-data/*` | Angular: `roleGuard(['Tenant Admin', 'Platform Admin'])`<br>Backend: Bypass in `UserAccessService.CanAccessCompanyAsync` |[m
+[31m-| **Procurement (Creation & Submit)** | `Procurement Officer` | `PROCUREMENT_OFFICER` | `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.CREATE`, `PURCHASE_ORDER.EDIT`, `PURCHASE_ORDER.DELETE`, `PURCHASE_ORDER.SUBMIT`, `PURCHASE_ORDER.CANCEL`, `PURCHASE_REQUISITION.*`, `GRN.*`, `SUPPLIER.VIEW`, `SUPPLIER_PRICE.VIEW`, `PRODUCT.VIEW`, `WAREHOUSE.VIEW`, `INVENTORY.VIEW` | `/app/procurement/purchase-orders`<br>`/app/procurement/purchase-orders/new`<br>`/app/procurement/purchase-orders/:id/edit` | Angular: `workspaceGuard`, action buttons disabled/hidden for approval<br>Backend: `[RequirePermission("PURCHASE_ORDER.CREATE")]`, `[RequirePermission("PURCHASE_ORDER.SUBMIT")]`. Explicitly lacks `PURCHASE_ORDER.APPROVE`. |[m
+[31m-| **PO Approval** | `Procurement Manager` | `PROCUREMENT_MANAGER` | All Procurement Officer permissions PLUS `PURCHASE_ORDER.APPROVE`, `PURCHASE_REQUISITION.APPROVE`, `PROCUREMENT.SETTINGS.EDIT`, `BATCH.VIEW` | `/app/procurement/purchase-orders/:id/approve`<br>`/app/procurement/purchase-orders` | Angular: `workspaceGuard`, Approval action buttons enabled<br>Backend: `[RequirePermission("PURCHASE_ORDER.APPROVE")]` with separation of submitter/approver enforcement. |[m
+[31m-| **Goods Receipt (GRN)** | `Procurement Officer`<br>*(or `Procurement Manager`)* | `PROCUREMENT_OFFICER`<br>`PROCUREMENT_MANAGER` | `GRN.VIEW`, `GRN.CREATE`, `GRN.EDIT`, `GRN.DELETE`, `GRN.CONFIRM`, `GRN.CANCEL`, `WAREHOUSE.VIEW`, `INVENTORY.VIEW` | `/app/procurement/goods-receipts`<br>`/app/procurement/goods-receipts/new`<br>`/app/procurement/goods-receipts/:id` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("GRN.CREATE")]`, `[RequirePermission("GRN.CONFIRM")]`. |[m
+[31m-| **Warehouse & Putaway** | `Inventory Manager`<br>*(or `Inventory Officer`)* | `INVENTORY_MANAGER`<br>`INVENTORY_OFFICER` | `INVENTORY.VIEW`, `PUTAWAY.POST`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`, `BATCH.VIEW`, `BATCH.CREATE`, `BATCH.EDIT` | `/app/inventory/store-putaway`<br>`/app/master-data/warehouses` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("PUTAWAY.POST")]`. |[m
+[31m-| **Inventory Operations & Counts** | `Inventory Manager` | `INVENTORY_MANAGER` | `INVENTORY.VIEW`, `STOCK_RECEIPT.POST`, `STOCK_ISSUE.POST`, `PUTAWAY.POST`, `STOCK_COUNT.VIEW`, `STOCK_COUNT.CREATE`, `STOCK_COUNT.EDIT`, `STOCK_COUNT.SUBMIT`, `STOCK_COUNT.APPROVE`, `STOCK_COUNT.POST`, `STOCK_COUNT.CANCEL`, `BATCH.*`, `WAREHOUSE.VIEW`, `LOCATION.VIEW` | `/app/inventory/stock-receipts`<br>`/app/inventory/issue-stock`<br>`/app/inventory/transfers`<br>`/app/inventory/count-adjust` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("STOCK_ISSUE.POST")]`, `[RequirePermission("STOCK_RECEIPT.POST")]`, `[RequirePermission("STOCK_COUNT.APPROVE")]`, `[RequirePermission("STOCK_COUNT.POST")]`. Note: `Inventory Officer` lacks Count Approve/Post. |[m
+[31m-| **Sales** | `Sales Manager`<br>*(or `Sales Officer`)* | `SALES_MANAGER`<br>`SALES_OFFICER` | `SALES_ORDER.*` (including `CONFIRM`), `SALES_SHIPMENT.*` (including `DISPATCH`, `DELIVER`), `SALES_INVOICE.*`, `CUSTOMER.VIEW`, `PRICE_CARD.VIEW`, `PRODUCT.VIEW`, `INVENTORY.VIEW` | `/app/sales/orders`<br>`/app/sales/orders/new`<br>`/app/sales/orders/:id/confirm`<br>`/app/sales/dispatches`<br>`/app/sales/invoices` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("SALES_ORDER.CONFIRM")]`, `[RequirePermission("SALES_SHIPMENT.DISPATCH")]`. Note: `Sales Officer` creates/submits and dispatches, but requires `Sales Manager` to confirm order. |[m
+[31m-| **Reports & Audit** | `Tenant Read-only Auditor`<br>*(or Module Viewers)* | `TENANT_AUDITOR` | All 41 `*.VIEW` permissions in Tenant Catalogue | All read-only list, register, balance and ledger screens | Angular: `workspaceGuard`, all mutation actions hidden/denied<br>Backend: `[RequirePermission("*.VIEW")]` allows read-only queries. |[m
+[32m+[m[32mThe matrix below maps each workflow step in Gate 6 to its authoritative permission codes, assigned roles, target Angular screens, route guards, and backend API authorization enforcement.[m
+ [m
+[31m-## 2. API Authorization Architecture[m
+[32m+[m[32m| Step # | Workflow Step | Actual Role (`Role.Name`) | Template Key | Verified Permission Codes | Target Screens & Angular Routes | Route Guards & API Enforcement |[m
+[32m+[m[32m| :---: | :--- | :--- | :--- | :--- | :--- | :--- |[m
+[32m+[m[32m| **00** | **Tenant Administration & Master Data** | `Tenant Admin` | `TENANT_ADMIN` | All 89 Tenant Permissions (Full Master Data, Scope, Roles & Workflows) | `/tenant-admin/*`<br>`/app/master-data/*` | Angular: `roleGuard(['Tenant Admin', 'Platform Admin'])`<br>Backend: `UserAccessService.CanAccessCompanyAsync` (Bypass for Tenant Admin). |[m
+[32m+[m[32m| **01** | **Purchase Requisition (PR)** | `Procurement Officer` | `PROCUREMENT_OFFICER` | `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.CREATE`, `PURCHASE_REQUISITION.EDIT`, `PURCHASE_REQUISITION.SUBMIT`, `PURCHASE_REQUISITION.CANCEL` | `/app/procurement/purchase-requisitions`<br>`/app/procurement/purchase-requisitions/new`<br>`/app/procurement/purchase-requisitions/:id` | Angular: `workspaceGuard`, action buttons enabled for draft & submit<br>Backend: `[RequirePermission("PURCHASE_REQUISITION.CREATE")]`, `[RequirePermission("PURCHASE_REQUISITION.SUBMIT")]`. Explicitly lacks `PURCHASE_REQUISITION.APPROVE`. |[m
+[32m+[m[32m| **01-A**| **PR Approval & Rejection** | `Procurement Manager`<br>*(Oversight: `Tenant Admin`)* | `PROCUREMENT_MANAGER`<br>`TENANT_ADMIN` | `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.APPROVE` | `/app/procurement/purchase-requisitions/:id`<br>`/app/procurement/purchase-requisitions` | Angular: `workspaceGuard`, `Approve` / `Reject` buttons visible<br>Backend: `[RequirePermission("PURCHASE_REQUISITION.APPROVE")]` on `/approve` and `/reject`. |[m
+[32m+[m[32m| **02** | **Purchase Order (PO)** | `Procurement Officer` | `PROCUREMENT_OFFICER` | `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.CREATE`, `PURCHASE_ORDER.EDIT`, `PURCHASE_ORDER.SUBMIT`, `SUPPLIER.VIEW`, `PRODUCT.VIEW` | `/app/procurement/purchase-orders`<br>`/app/procurement/purchase-orders/new`<br>`/app/procurement/purchase-orders/:id` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("PURCHASE_ORDER.CREATE")]`, `[RequirePermission("PURCHASE_ORDER.SUBMIT")]`. Explicitly lacks `PURCHASE_ORDER.APPROVE`. |[m
+[32m+[m[32m| **02-A**| **PO Approval** | `Procurement Manager`<br>*(Oversight: `Tenant Admin`)* | `PROCUREMENT_MANAGER`<br>`TENANT_ADMIN` | `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.APPROVE`, `PROCUREMENT.SETTINGS.EDIT`, `BATCH.VIEW` | `/app/procurement/purchase-orders/:id/approve`<br>`/app/procurement/purchase-orders` | Angular: `workspaceGuard`, Approval action buttons enabled<br>Backend: `[RequirePermission("PURCHASE_ORDER.APPROVE")]` with separation of submitter/approver enforcement. |[m
+[32m+[m[32m| **03** | **Product Receipt / GRN** | `Procurement Officer` | `PROCUREMENT_OFFICER` | `GRN.VIEW`, `GRN.CREATE`, `GRN.EDIT`, `WAREHOUSE.VIEW`, `INVENTORY.VIEW` | `/app/procurement/goods-receipts`<br>`/app/procurement/goods-receipts/new`<br>`/app/procurement/goods-receipts/:id` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("GRN.CREATE")]` creates draft from approved PO with dock staging destination. |[m
+[32m+[m[32m| **04** | **Batch Allocation & Confirm**| `Procurement Officer` | `PROCUREMENT_OFFICER` | `GRN.EDIT`, `GRN.CONFIRM`, `BATCH.VIEW`, `BATCH.CREATE` | `/app/procurement/goods-receipts/:id` | Angular: Batch split grid modal/inline table<br>Backend: `[RequirePermission("GRN.CONFIRM")]` lands stock into `LOC-REC-01` and generates inventory transactions. |[m
+[32m+[m[32m| **05** | **Warehouse Putaway** | `Inventory Manager`<br>*(or `Inventory Officer`)* | `INVENTORY_MANAGER`<br>`INVENTORY_OFFICER` | `INVENTORY.VIEW`, `PUTAWAY.POST`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`, `BATCH.VIEW` | `/app/inventory/store-putaway`<br>`/app/inventory/putaway/new` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("PUTAWAY.POST")]` moves items from Dock `LOC-REC-01` to Main Rack `LOC-STK-01`. |[m
+[32m+[m[32m| **06** | **Stock Receipt** | `Inventory Manager` | `INVENTORY_MANAGER` | `STOCK_RECEIPT.POST`, `INVENTORY.VIEW`, `BATCH.VIEW`, `BATCH.CREATE`, `WAREHOUSE.VIEW` | `/app/inventory/stock-receipts`<br>`/app/inventory/stock-receipts/new` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("STOCK_RECEIPT.POST")]` immediately updates on-hand stock and ledger balances. |[m
+[32m+[m[32m| **07** | **Stock Issue** | `Inventory Manager` | `INVENTORY_MANAGER` | `STOCK_ISSUE.POST`, `INVENTORY.VIEW`, `BATCH.VIEW`, `WAREHOUSE.VIEW` | `/app/inventory/issue-stock`<br>`/app/inventory/stock-issues/new` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("STOCK_ISSUE.POST")]` relieves specified batch quantities from `LOC-STK-01`. |[m
+[32m+[m[32m| **08** | **Inventory Item Transfer** | `Inventory Manager` | `INVENTORY_MANAGER` | `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW` | `/app/inventory/transfers`<br>`/app/inventory/transfers/new` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("STOCK_TRANSFER.POST")]` decrements origin warehouse and increments destination warehouse. |[m
+[32m+[m[32m| **09** | **Stock Count** | `Inventory Manager` | `INVENTORY_MANAGER` | `STOCK_COUNT.VIEW`, `STOCK_COUNT.CREATE`, `STOCK_COUNT.EDIT`, `STOCK_COUNT.SUBMIT`, `STOCK_COUNT.APPROVE`, `STOCK_COUNT.POST` | `/app/inventory/count-adjust`<br>`/app/inventory/count-adjust/new` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("STOCK_COUNT.APPROVE")]` and `[RequirePermission("STOCK_COUNT.POST")]`. Note: standard Inventory Officer lacks approval/post permissions. |[m
+[32m+[m[32m| **10** | **Sales Order (SO1 & SO2)** | `Sales Manager`<br>*(or `Sales Officer`)* | `SALES_MANAGER`<br>`SALES_OFFICER` | `SALES_ORDER.VIEW`, `SALES_ORDER.CREATE`, `SALES_ORDER.EDIT`, `SALES_ORDER.SUBMIT`, `SALES_ORDER.CONFIRM`, `CUSTOMER.VIEW`, `PRICE_CARD.VIEW` | `/app/sales/orders`<br>`/app/sales/orders/new`<br>`/app/sales/orders/:id/confirm` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("SALES_ORDER.CREATE")]`, `[RequirePermission("SALES_ORDER.CONFIRM")]`. Note: `Sales Officer` creates/submits, `Sales Manager` confirms. |[m
+[32m+[m[32m| **11** | **Dispatch Note (Shipment)**| `Sales Manager`<br>*(or `Sales Officer`)* | `SALES_MANAGER`<br>`SALES_OFFICER` | `SALES_SHIPMENT.VIEW`, `SALES_SHIPMENT.CREATE`, `SALES_SHIPMENT.DISPATCH`, `INVENTORY.VIEW`, `BATCH.VIEW` | `/app/sales/dispatches`<br>`/app/sales/dispatches/new`<br>`/app/sales/dispatches/:id` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("SALES_SHIPMENT.DISPATCH")]` relieves stock from warehouse racking via FIFO batch allocation. |[m
+[32m+[m[32m| **12** | **Sales Invoice** | `Sales Manager`<br>*(or `Sales Officer`)* | `SALES_MANAGER`<br>`SALES_OFFICER` | `SALES_INVOICE.VIEW`, `SALES_INVOICE.CREATE`, `SALES_INVOICE.EDIT`, `SALES_INVOICE.CONFIRM` | `/app/sales/invoices`<br>`/app/sales/invoices/new`<br>`/app/sales/invoices/:id` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("SALES_INVOICE.CREATE")]` creates draft from shipment; `[RequirePermission("SALES_INVOICE.CONFIRM")]` finalizes invoice. |[m
+[32m+[m[32m| **13** | **Inventory Reversals** | `Inventory Manager` | `INVENTORY_MANAGER` | `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW` | `/app/inventory/transfers`<br>`/app/inventory/transfers/new` | Angular: `workspaceGuard`<br>Backend: `[RequirePermission("STOCK_TRANSFER.POST")]` posts return transfer WH2 to WH1, netting out inventory movements. |[m
+[32m+[m[32m| **14** | **Reports & Audit Verification** | `Tenant Read-only Auditor`<br>*(Admin: `Tenant Admin`)*| `TENANT_AUDITOR`<br>`TENANT_ADMIN` | All 41 `*.VIEW` permissions (Auditor)<br>All 89 permissions (Tenant Admin) | All read-only list, balance, ledger, valuation, and transaction history screens | Angular: `workspaceGuard`, all mutation actions hidden/denied<br>Backend: `[RequirePermission("*.VIEW")]` allows read-only queries, rejects mutation calls with HTTP 403 Forbidden. |[m
+ [m
+[31m-- **Attribute:** `[RequirePermission("PERMISSION_CODE")]` decorates controllers and individual action methods.[m
+[31m-- **Provider:** `PermissionPolicyProvider` registers dynamic policies with prefix `Permission:`.[m
+[31m-- **Handler:** `PermissionAuthorizationHandler` inspects the authenticated user's JWT `permission` claims.[m
+[31m-  - Automatically handles `.EDIT` and `.UPDATE` action aliases.[m
+[31m-  - Returns `403 Forbidden` if the user's role lacks the required claim.[m
+[31m-- **Company & Branch Scope Enforcement:**[m
+[31m-  - `UserAccessService.CanAccessCompanyAsync` validates that non-admin users have an explicit, active `UserRoleScope` entry for the requested `companyId`.[m
+[31m-  - `UserAccessService.CanAccessBranchAsync` validates branch-level scope when restricted.[m
+[31m-  - If a user attempts to access a company or branch outside their scope, the API returns `401 Unauthorized` or `403 Forbidden`.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 2. API Authorization & Scope Enforcement Architecture[m
+[32m+[m
+[32m+[m[32m- **Attribute Decoration:** Every operational controller action is decorated with `[RequirePermission("PERMISSION_CODE")]` and inherits from `BaseApiController`.[m
+[32m+[m[32m- **Dynamic Policy Provider:** `PermissionPolicyProvider` registers dynamic policies prefixed with `Permission:`.[m
+[32m+[m[32m- **Authorization Handler:** `PermissionAuthorizationHandler` inspects the authenticated user's JWT `permission` claims, supporting `.EDIT` / `.UPDATE` aliases and returning `HTTP 403 Forbidden` if unauthorized.[m
+[32m+[m[32m- **Company & Branch Scope Validation:**[m
+[32m+[m[32m  - `UserAccessService.CanAccessCompanyAsync` validates that the user possesses an active `UserRoleScope` entry for the requested `companyId`.[m
+[32m+[m[32m  - `UserAccessService.CanAccessBranchAsync` validates branch-level scope when branch-level restrictions apply.[m
+[32m+[m[32m  - Cross-company or cross-branch manipulation by unauthorized users returns `HTTP 401 Unauthorized` or `HTTP 403 Forbidden`.[m
+[32m+[m[32m  - Platform users are blocked from tenant operational domain controllers (`return Forbid()`).[m
+[1mdiff --git a/Testing/Retail-Test-Pack/Procurement-Test-Cases.md b/Testing/Retail-Test-Pack/Procurement-Test-Cases.md[m
+[1mindex d293ee6..4aafa1d 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Procurement-Test-Cases.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Procurement-Test-Cases.md[m
+[36m@@ -1,43 +1,167 @@[m
+[31m-# ApexERP Retail Test Pack — Procurement Test Cases[m
+[32m+[m[32m# ApexERP Retail Test Pack — Procurement Test Cases (Gate 6)[m
+ [m
+[31m-## 1. Test Case Summary[m
+[32m+[m[32m## 1. Purchase Requisition (PR) Workflow Test Cases[m
+ [m
+[31m-- **Test Identifier:** `TC-RET-PROC-01`[m
+[31m-- **Actor:** `retail.po` (Purchase Officer / Operator)[m
+[31m-- **Role Code:** `ProcurementOfficer`[m
+[31m-- **Permissions Verified:** `Procurement.Orders.Create`, `Procurement.Orders.Submit`, `Procurement.Orders.View`[m
+[31m-- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-orders`[m
+[31m-- **Submission Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-orders/{id}/submit`[m
+[32m+[m[32m### TC-RET-PR-01: Purchase Requisition Creation (Draft)[m
+[32m+[m[32m- **Actor:** `retail.po` (Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.CREATE`[m
+[32m+[m[32m- **Allowed Actions:** View PR list, Create Draft, Save Draft[m
+[32m+[m[32m- **Restricted Actions:** Approve, Reject (Denied HTTP 403)[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions`[m
+[32m+[m[32m- **Payload:**[m
+[32m+[m[32m  ```json[m
+[32m+[m[32m  {[m
+[32m+[m[32m    "companyId": "30C46526-3161-455C-B362-227E8BD0A34A",[m
+[32m+[m[32m    "branchId": "5CFABB17-CBE0-43C5-99AB-72769D8DECF1",[m
+[32m+[m[32m    "requisitionDate": "2026-11-11T00:00:00Z",[m
+[32m+[m[32m    "requiredDate": "2026-11-18T00:00:00Z",[m
+[32m+[m[32m    "department": "Retail Store Operations",[m
+[32m+[m[32m    "priority": "Medium",[m
+[32m+[m[32m    "remarks": "Quarterly inventory replenishment for retail staple food and cooking essentials."[m
+[32m+[m[32m  }[m
+[32m+[m[32m  ```[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 201 Created**. Requisition created in `Draft` status with generated `RequisitionNumber` (e.g. `PR-RET-2026-001`).[m
+[32m+[m[32m- **Next Step:** Add line items to PR (Step PR-02).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-PR-02: Purchase Requisition Line Item Addition (At Least 2 Items)[m
+[32m+[m[32m- **Actor:** `retail.po` (Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.EDIT`[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/items`[m
+[32m+[m[32m- **Lines Added (3 Distinct Retail SKUs — Meets 'At Least 2 Items' Requirement):**[m
+[32m+[m[32m  | Line | Item Code | Description | Requested Qty | UOM | Est. Unit Price (LKR) | Line Total (LKR) |[m
+[32m+[m[32m  | :---: | :--- | :--- | :---: | :---: | :---: | :---: |[m
+[32m+[m[32m  | 1 | `RET-001` | Samba Rice 5kg Pack | 100 | BAG | 1,500.00 | 150,000.00 |[m
+[32m+[m[32m  | 2 | `RET-002` | Cooking Oil 1L | 80 | BTL | 850.00 | 68,000.00 |[m
+[32m+[m[32m  | 3 | `RET-003` | White Sugar 1kg | 60 | PKT | 320.00 | 19,200.00 |[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Total requested quantity = 240 units. Header total estimated amount = `237,200.00 LKR`. Status remains `Draft`.[m
+[32m+[m[32m- **Next Step:** Submit PR (Step PR-03).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-PR-03: Purchase Requisition Submission[m
+[32m+[m[32m- **Actor:** `retail.po` (Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.SUBMIT`[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/submit`[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Requisition status transitions to `Submitted`. Submitter audit trail captures `retail.po` and timestamp. Lines lock against editing.[m
+[32m+[m[32m- **Segregation of Duties (SoD) Check:** `retail.po` cannot approve the submitted PR (`Approve` button hidden/disabled; API call returns HTTP 403 Forbidden).[m
+[32m+[m[32m- **Next Responsible User:** `retail.approver` (Procurement Manager).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-PR-04: Unauthorized Requisition Approval Attempt (Negative SoD Test)[m
+[32m+[m[32m- **Actor:** `retail.po` (Requester)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Action:** Attempt to call `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/approve`[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 403 Forbidden**. Self-approval is strictly prevented.[m
+[32m+[m[32m- **Next Responsible User:** `retail.approver` (Procurement Manager).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-PR-05: Authorized Requisition Approval (Positive Test)[m
+[32m+[m[32m- **Actor:** `retail.approver` (Procurement Manager)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.APPROVE`[m
+[32m+[m[32m- **Allowed Actions:** View, Approve, Reject[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/approve`[m
+[32m+[m[32m- **Payload:**[m
+[32m+[m[32m  ```json[m
+[32m+[m[32m  {[m
+[32m+[m[32m    "remarks": "Approved for Purchase Order conversion under FY26 retail replenishment budget."[m
+[32m+[m[32m  }[m
+[32m+[m[32m  ```[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Requisition status transitions to `Approved`. Approval audit log captures `ApprovedBy: retail.approver`, approval timestamp, and remarks. The PR is now available for PO conversion.[m
+[32m+[m[32m- **Next Responsible User:** `retail.po` (Procurement Officer).[m
+ [m
+ ---[m
+ [m
+[31m-## 2. Test Input Payload[m
+[32m+[m[32m### TC-RET-PR-06: Purchase Requisition Rejection Scenario (Alternative Path)[m
+[32m+[m[32m- **Actor:** `retail.approver` (Procurement Manager)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_MANAGER`[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.APPROVE`[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/reject`[m
+[32m+[m[32m- **Payload:**[m
+[32m+[m[32m  ```json[m
+[32m+[m[32m  {[m
+[32m+[m[32m    "remarks": "Budget exhausted for current cycle. Revise requested quantities."[m
+[32m+[m[32m  }[m
+[32m+[m[32m  ```[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Requisition status transitions to `Rejected`. Line items become locked. Cannot be converted to Purchase Order.[m
+ [m
+[31m-### Header[m
+[31m-- **Company ID:** `30C46526-3161-455C-B362-227E8BD0A34A`[m
+[31m-- **Branch ID:** `5CFABB17-CBE0-43C5-99AB-72769D8DECF1`[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-PR-07: Purchase Requisition Cancellation Scenario (Alternative Path)[m
+[32m+[m[32m- **Actor:** `retail.po` (Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_REQUISITION.CANCEL`[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-requisitions/{requisitionId}/cancel`[m
+[32m+[m[32m- **Payload:**[m
+[32m+[m[32m  ```json[m
+[32m+[m[32m  {[m
+[32m+[m[32m    "remarks": "Requisition superseded by emergency regional bulk contract."[m
+[32m+[m[32m  }[m
+[32m+[m[32m  ```[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Requisition status transitions to `Cancelled`. Cannot be submitted or converted.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 2. Purchase Order (PO) Workflow Test Cases[m
+[32m+[m
+[32m+[m[32m### TC-RET-PO-01: Purchase Order Creation from Approved PR[m
+[32m+[m[32m- **Actor:** `retail.po` (Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.CREATE`, `SUPPLIER.VIEW`, `PRODUCT.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft PO, Link Approved PR, Pre-populate Lines, Save Draft[m
+[32m+[m[32m- **Restricted Actions:** Approve PO (Denied HTTP 403)[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-orders`[m
+[32m+[m[32m- **Source Requisition:** `PR-RET-2026-001` (from Step TC-RET-PR-05)[m
+[32m+[m
+[32m+[m[32m#### Header Inputs[m
+ - **Supplier:** `Lanka Retail Distributors (Pvt) Ltd` (`SUP-RET-001` / `5E348635-4309-4B52-8700-1B2F04EE5A77`)[m
+[31m-- **Order Number:** `PO-RET-2026-001` (or generated unique prefix `PO-RET-001-XXXX`)[m
+[31m-- **Order Date:** Current Date (`DateTime.UtcNow`)[m
+[31m-- **Expected Delivery Date:** `DateTime.UtcNow.AddDays(7)`[m
+[32m+[m[32m- **Order Number:** `PO-RET-2026-001`[m
+[32m+[m[32m- **Order Date:** `2026-11-11T00:00:00Z`[m
+[32m+[m[32m- **Expected Delivery Date:** `2026-11-18T00:00:00Z`[m
+ - **Currency:** `LKR`[m
+ - **Payment Term:** `Net 30 Days` (`6BDACD4B-A480-4D88-AC01-B1143899723A`)[m
+[31m-- **Warehouse:** `RETAIL-WH1` (`68462A1E-4A4B-4830-9461-129EEC9E8B80`)[m
+[31m-[m
+[31m-### Line Items[m
+[31m-| Line | Item Code | Description | Ordered Qty | UOM | Unit Price (LKR) | Tax Code | Tax Rate | Line Subtotal | Line Tax | Total Line |[m
+[31m-| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |[m
+[31m-| 1 | `RET-001` | Samba Rice 5kg Pack | 100 | BAG | 1,500.00 | TAX-EXEMPT | 0% | 150,000.00 | 0.00 | 150,000.00 |[m
+[31m-| 2 | `RET-002` | Cooking Oil 1L | 80 | BTL | 850.00 | VAT-18 | 18% | 68,000.00 | 12,240.00 | 80,240.00 |[m
+[31m-| 3 | `RET-003` | White Sugar 1kg | 60 | PKT | 320.00 | TAX-EXEMPT | 0% | 19,200.00 | 0.00 | 19,200.00 |[m
+[32m+[m[32m- **Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse` / `68462A1E-4A4B-4830-9461-129EEC9E8B80`)[m
+ [m
+[31m----[m
+[32m+[m[32m#### Line Items (Pre-populated & Linked from PR Lines)[m
+[32m+[m[32m| Line | Item Code | Description | Ordered Qty | Max Allowed (PR Balance) | UOM | Unit Price (LKR) | Tax Code | Tax Rate | Line Subtotal | Line Tax | Total Line |[m
+[32m+[m[32m| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |[m
+[32m+[m[32m| 1 | `RET-001` | Samba Rice 5kg Pack | 100 | 100 | BAG | 1,500.00 | TAX-EXEMPT | 0% | 150,000.00 | 0.00 | 150,000.00 |[m
+[32m+[m[32m| 2 | `RET-002` | Cooking Oil 1L | 80 | 80 | BTL | 850.00 | VAT-18 | 18% | 68,000.00 | 12,240.00 | 80,240.00 |[m
+[32m+[m[32m| 3 | `RET-003` | White Sugar 1kg | 60 | 60 | PKT | 320.00 | TAX-EXEMPT | 0% | 19,200.00 | 0.00 | 19,200.00 |[m
+ [m
+[31m-## 3. Financial Totals & Acceptance Criteria[m
+[32m+[m[32m#### Over-Ordering Validation Check[m
+[32m+[m[32m- **Negative Assertion:** Attempting to set Ordered Qty > PR remaining balance (e.g. 105 BAG on Line 1) must be rejected with validation error: *"Ordered quantity cannot exceed remaining requisition quantity (100)"*.[m
+ [m
+[32m+[m[32m#### Financial Totals[m
+ - **SubTotal:** `237,200.00 LKR`[m
+[31m-- **TaxAmount:** `12,240.00 LKR`[m
+[32m+[m[32m- **TaxAmount:** `12,240.00 LKR` (18% on Line 2 `RET-002`: `80 * 850 = 68,000 * 18% = 12,240.00`)[m
+ - **TotalAmount:** `249,440.00 LKR`[m
+[31m-- **Initial Status:** `Draft`[m
+[31m-- **Post-Submission Status:** `Submitted` (or `PendingApproval`)[m
+[31m-- **Forbidden Actions:** User `retail.po` MUST NOT be able to call `/approve` (returns HTTP 403 Forbidden).[m
+[32m+[m[32m- **Status:** `Draft`[m
+[32m+[m[32m- **Next Step:** Submit PO (Step TC-RET-PO-02).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-PO-02: Purchase Order Submission[m
+[32m+[m[32m- **Actor:** `retail.po` (Procurement Officer)[m
+[32m+[m[32m- **Role Code:** `PROCUREMENT_OFFICER`[m
+[32m+[m[32m- **Permissions Verified:** `PURCHASE_ORDER.SUBMIT`[m
+[32m+[m[32m- **Endpoint:** `POST /api/companies/{companyId}/branches/{branchId}/purchase-orders/{id}/submit`[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. PO status transitions to `Submitted`. Lines lock against further modifications.[m
+[32m+[m[32m- **Segregation of Duties (SoD) Check:** `retail.po` cannot approve the submitted PO (`Approve` button hidden/disabled; API call returns HTTP 403 Forbidden).[m
+[32m+[m[32m- **Next Responsible User:** `retail.approver` (Procurement Manager).[m
+[1mdiff --git a/Testing/Retail-Test-Pack/README.md b/Testing/Retail-Test-Pack/README.md[m
+[1mindex a2e66e3..0a70b4d 100644[m
+[1m--- a/Testing/Retail-Test-Pack/README.md[m
+[1m+++ b/Testing/Retail-Test-Pack/README.md[m
+[36m@@ -2,29 +2,51 @@[m
+ [m
+ ## 1. Overview[m
+ [m
+[31m-This test pack defines the authoritative, repeatable and portable test suite for **ApexERP Industry 1 — Retail**.[m
+[31m-It ensures that automated integration tests and manual browser execution share the **identical identities, master data codes, quantities, batch numbers, transaction scenarios, and expected outcomes**, while maintaining clean execution separation.[m
+[31m-[m
+[31m-Future industry testing (Industries 2–11) will reuse this exact structure and methodology.[m
+[31m-[m
+[31m-## 2. Directory Structure[m
+[31m-[m
+[31m-- `README.md` — This file. Master index and navigation.[m
+[31m-- `Test-Environment.md` — Database configurations, connection strings, safety guards, and isolation topology.[m
+[31m-- `Users-and-Roles.md` — Canonical test accounts, login email aliases, password policies, and scope assignments.[m
+[31m-- `Permissions-Matrix.md` — Gate 1 verified matrix mapping responsibilities to actual roles, permission codes, and screens.[m
+[31m-- `Master-Data.md` — Shared master data definitions (Company, Branch, Currency, Taxes, Suppliers, Customers).[m
+[31m-- `Products-and-UOM.md` — Retail item definitions (RET-001, RET-002, RET-003), UOM conversion ratios, and tracking modes.[m
+[31m-- `Warehouse-and-Locations.md` — Warehouse A, Warehouse B, zones, staging, and storage bins.[m
+[31m-- `Batch-Register.md` — Authoritative batch numbers, manufacturing dates, and expiration dates.[m
+[31m-- `Procurement-Test-Cases.md` — Purchase Order creation, item lines, tax calculations, and submission.[m
+[31m-- `Approval-Test-Cases.md` — Independent PO approval workflows, rejection checks, and self-approval prevention.[m
+[31m-- `GRN-and-Putaway-Test-Cases.md` — Goods Receipt batch allocation, receipt posting, and warehouse putaway.[m
+[31m-- `Inventory-Test-Cases.md` — Stock Issue, Stock Receipt, Item Transfer (WH-A to WH-B), and Stock Count.[m
+[31m-- `Sales-Test-Cases.md` — Sales Orders, confirmation, allocation, and shipment dispatch.[m
+[31m-- `Expected-Stock-Balances.md` — Mathematical baseline and reconciled inventory quantities across warehouses and batches.[m
+[31m-- `Transaction-Register.md` — Master audit log of all automated and manual transaction references.[m
+[31m-- `Automated-Test-Results.md` — Automated test execution logs, pass/fail metrics, and execution history.[m
+[31m-- `Manual-Test-Guide.md` — Step-by-step user manual with exact UI screens, inputs, clicks, and validations.[m
+[31m-- `Defect-Register.md` — Formal defect tracking register (`RET-DEF-xxx`) with root cause analysis and severity.[m
+[31m-- `Regression-Test-History.md` — Audit log of fixes, re-tests, and verification runs.[m
+[32m+[m[32mThis test pack defines the authoritative, repeatable and portable test suite for **ApexERP Industry 1 — Retail (Gate 6)**.[m
+[32m+[m[32mIt ensures that automated integration tests, manual browser execution, and role-based security audits share the **identical identities, master data codes, quantities, batch numbers, transaction scenarios, and expected outcomes**, while maintaining clean execution separation.[m
+[32m+[m
+[32m+[m[32mFuture industry testing (Industries 2–11) reuses this exact structure and methodology.[m
+[32m+[m
+[32m+[m[32m## 2. Updated Workflow Sequence (Gate 6 Full Lifecycle)[m
+[32m+[m
+[32m+[m[32mThe Gate 6 retail verification follows an end-to-end 14-step operational sequence:[m
+[32m+[m
+[32m+[m[32m```mermaid[m
+[32m+[m[32mflowchart TD[m
+[32m+[m[32m    S01["1. Purchase Requisition (PR)<br><i>Draft, Submit, Rejection Test, Approval</i>"] --> S02["2. Purchase Order (PO)<br><i>From Approved PR, Submit, SoD Approval</i>"][m
+[32m+[m[32m    S02 --> S03["3. Product Receipt / GRN<br><i>Draft from Approved PO, Dock Landing</i>"][m
+[32m+[m[32m    S03 --> S04["4. Batch & Serial Allocation<br><i>5 Batches, 240 Units, Product Master Driven, Confirm</i>"][m
+[32m+[m[32m    S04 --> S05["5. Warehouse Putaway<br><i>Dock to Storage Bins, Clear Staging</i>"][m
+[32m+[m[32m    S05 --> S06["6. Stock Receipt<br><i>Direct Inward Intake (+30 units)</i>"][m
+[32m+[m[32m    S06 --> S07["7. Stock Issue<br><i>Operational / Sample Issue (-30 units, Net Zero)</i>"][m
+[32m+[m[32m    S07 --> S08["8. Inventory Item Transfer<br><i>WH1 (Central) to WH2 (Annex) (40 units)</i>"][m
+[32m+[m[32m    S08 --> S09["9. Stock Count<br><i>Physical Verification, Variance Approval & Post</i>"][m
+[32m+[m[32m    S09 --> S10["10. Sales Order<br><i>Customer SO1 & SO2 Entry, Confirmation</i>"][m
+[32m+[m[32m    S10 --> S11["11. Dispatch Note<br><i>Sales Shipments SH1 & SH2, Batch Picking, Dispatch</i>"][m
+[32m+[m[32m    S11 --> S12["12. Sales Invoice<br><i>Billing from Shipments, Tax & Totals, Confirm</i>"][m
+[32m+[m[32m    S12 --> S13["13. Inventory Reversals<br><i>Transfer Return WH2 to WH1, Full Reconciled Balances</i>"][m
+[32m+[m[32m    S13 --> S14["14. Reports & Audit<br><i>Stock Overview, Valuation, Ledger, RBAC & Tenant Admin Audit</i>"][m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m## 3. Directory Structure[m
+[32m+[m
+[32m+[m[32m- [`README.md`](file:///z:/ERP/Testing/Retail-Test-Pack/README.md) — This file. Master index, navigation, and updated 14-step workflow sequence.[m
+[32m+[m[32m- [`Test-Environment.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Test-Environment.md) — Database configurations, connection strings, safety guards, and isolation topology.[m
+[32m+[m[32m- [`Users-and-Roles.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Users-and-Roles.md) — Canonical test accounts, login email aliases, password policies, scope assignments, and scenario user-role matrix.[m
+[32m+[m[32m- [`Permissions-Matrix.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Permissions-Matrix.md) — Verified matrix mapping each workflow step to actual roles, permission codes, routes, and API enforcement.[m
+[32m+[m[32m- [`Master-Data.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Master-Data.md) — Shared master data definitions (Company, Branch, Currency, Taxes, Suppliers, Customers).[m
+[32m+[m[32m- [`Products-and-UOM.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Products-and-UOM.md) — Retail item definitions (`RET-001`, `RET-002`, `RET-003`), UOM conversion ratios, and tracking modes.[m
+[32m+[m[32m- [`Warehouse-and-Locations.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Warehouse-and-Locations.md) — Warehouse A (`RETAIL-WH1`), Warehouse B (`RETAIL-WH2`), zones, staging docks, and storage bins.[m
+[32m+[m[32m- [`Batch-Register.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Batch-Register.md) — Authoritative batch numbers, manufacturing dates, expiration dates, and 5-batch split allocations.[m
+[32m+[m[32m- [`Procurement-Test-Cases.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Procurement-Test-Cases.md) — Purchase Requisition (PR) lifecycle, Rejection/Cancellation, and Purchase Order (PO) creation from PR.[m
+[32m+[m[32m- [`Approval-Test-Cases.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Approval-Test-Cases.md) — Independent PR & PO approval workflows, rejection checks, and segregation of duties (SoD) verification.[m
+[32m+[m[32m- [`GRN-and-Putaway-Test-Cases.md`](file:///z:/ERP/Testing/Retail-Test-Pack/GRN-and-Putaway-Test-Cases.md) — Goods Receipt batch allocation (5 batches, 240 units), receipt confirmation, and warehouse putaway.[m
+[32m+[m[32m- [`Inventory-Test-Cases.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Inventory-Test-Cases.md) — Stock Receipt, Stock Issue, Inter-warehouse Transfer, Stock Count, and Inventory Reversals.[m
+[32m+[m[32m- [`Sales-Test-Cases.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Sales-Test-Cases.md) — Sales Orders, Shipments / Dispatch Notes, and Sales Invoicing.[m
+[32m+[m[32m- [`Expected-Stock-Balances.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Expected-Stock-Balances.md) — Mathematical baseline and reconciled inventory quantities across warehouses and batches.[m
+[32m+[m[32m- [`Transaction-Register.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Transaction-Register.md) — Master audit log of all automated and manual transaction references (`PR`, `PO`, `GRN`, `PUT`, `SR`, `SI`, `TR`, `SO`, `SH`, `INV`, `SC`).[m
+[32m+[m[32m- [`Automated-Test-Results.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Automated-Test-Results.md) — Automated test execution logs, pass/fail metrics, and execution history.[m
+[32m+[m[32m- [`Manual-Test-Guide.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Manual-Test-Guide.md) — Comprehensive step-by-step user manual with exact UI screens, inputs, clicks, role handoffs, and validations.[m
+[32m+[m[32m- [`Defect-Register.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Defect-Register.md) — Formal defect tracking register (`RET-DEF-xxx`) with root cause analysis and severity.[m
+[32m+[m[32m- [`Regression-Test-History.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Regression-Test-History.md) — Audit log of fixes, re-tests, and verification runs.[m
+[32m+[m[32m- [`Gate-6-Verification-Report.md`](file:///z:/ERP/Testing/Retail-Test-Pack/Gate-6-Verification-Report.md) — Official Gate 6 execution evidence, test logs, and sign-off report.[m
+[1mdiff --git a/Testing/Retail-Test-Pack/Sales-Test-Cases.md b/Testing/Retail-Test-Pack/Sales-Test-Cases.md[m
+[1mindex 29efdf0..4b053b7 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Sales-Test-Cases.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Sales-Test-Cases.md[m
+[36m@@ -1,46 +1,144 @@[m
+[31m-# ApexERP Retail Test Pack — Sales Test Cases[m
+[32m+[m[32m# ApexERP Retail Test Pack — Sales Test Cases (Gate 6)[m
+ [m
+[31m-## 1. Sales Order 1: Bulk Institutional Customer Order[m
+[32m+[m[32m## 1. Step 10: Sales Orders (SO1 & SO2)[m
+ [m
+[31m-- **Test Identifier:** `TC-RET-SALES-01`[m
+[31m-- **Actor:** `retail.sales` (Sales Representative / Store Cashier)[m
+[31m-- **Role Code:** `SalesExecutive`[m
+[32m+[m[32m### TC-RET-SO-01: Sales Order 1 (Primary Batches — 170 Units Total)[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Representative / Sales Manager)[m
+[32m+[m[32m- **Role Code:** `SALES_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `SALES_ORDER.VIEW`, `SALES_ORDER.CREATE`, `SALES_ORDER.EDIT`, `SALES_ORDER.SUBMIT`, `SALES_ORDER.CONFIRM`, `CUSTOMER.VIEW`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft, Submit, Confirm Sales Order[m
+[32m+[m[32m- **Restricted Actions:** Post physical inventory without shipment[m
+ - **Customer:** `Cargills Retail Supermarkets PLC` (`CUST-RET-001` / `0299BA16-6287-4348-8C64-D72B8FEFA3A7`)[m
+ - **Order Number:** `SO-RET-1-XXXX`[m
+ - **Currency:** `LKR`[m
+[31m-- **Lines Ordered:**[m
+[31m-  1. `RET-001` (Rice): 20 BAG @ 1,850.00 LKR = 37,000.00 LKR[m
+[31m-  2. `RET-002` (Oil): 15 BTL @ 1,050.00 LKR = 15,750.00 LKR[m
+[31m-  3. `RET-003` (Sugar): 10 PKT @ 400.00 LKR = 4,000.00 LKR[m
+[31m-- **Workflow Steps:**[m
+[32m+[m[32m- **Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse`)[m
+[32m+[m[32m- **Endpoints:**[m
+   1. `POST /api/companies/{companyId}/branches/{branchId}/sales-orders` (Draft)[m
+   2. `POST /api/companies/{companyId}/branches/{branchId}/sales-orders/{id}/submit`[m
+   3. `POST /api/companies/{companyId}/branches/{branchId}/sales-orders/{id}/confirm`[m
+[31m-- **Shipment & Dispatch:**[m
+[31m-  - Create Shipment from Order: `POST /api/companies/{companyId}/branches/{branchId}/sales-shipments/from-order/{id}`[m
+[31m-  - Allocated Batches: `RICE-2026-001` (20), `OIL-2026-001` (15), `SUGAR-2026-001` (10)[m
+[31m-  - Execute Dispatch: `POST /api/companies/{companyId}/branches/{branchId}/sales-shipments/{shipmentId}/dispatch`[m
+[31m-- **Outcome:** **HTTP 200 OK**. Stock relieved from `LOC-STK-01`.[m
+ [m
+[31m----[m
+[32m+[m[32m#### Lines Ordered (Primary Batches Target)[m
+[32m+[m[32m| Line | Product Code | Description | Ordered Qty | UOM | Unit Price (LKR) | Tax Code | Line Total (LKR) | Target Allocation Batch |[m
+[32m+[m[32m| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |[m
+[32m+[m[32m| 1 | `RET-001` | Samba Rice 5kg Pack | 60 | BAG | 1,800.00 | TAX-EXEMPT | 108,000.00 | `RICE-2026-001` (60 units) |[m
+[32m+[m[32m| 2 | `RET-002` | Cooking Oil 1L | 50 | BTL | 1,050.00 | VAT-18 | 61,950.00 | `OIL-2026-001` (50 units) |[m
+[32m+[m[32m| 3 | `RET-003` | White Sugar 1kg | 60 | PKT | 400.00 | TAX-EXEMPT | 24,000.00 | `SUGAR-2026-001` (60 units) |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Order status: `Confirmed`. Line total = 170 units. Subtotal = `184,500.00 LKR` (Net total with tax = `193,950.00 LKR`).[m
+[32m+[m[32m- **Next Step:** Create Shipment 1 (Step 11 / TC-RET-SH-01).[m
+ [m
+[31m-## 2. Sales Order 2: Walk-In Retail Distribution Order[m
+[32m+[m[32m---[m
+ [m
+[31m-- **Test Identifier:** `TC-RET-SALES-02`[m
+[31m-- **Actor:** `retail.sales`[m
+[31m-- **Role Code:** `SalesExecutive`[m
+[31m-- **Customer:** `Cargills Retail Supermarkets PLC` (`CUST-RET-001`)[m
+[32m+[m[32m### TC-RET-SO-02: Sales Order 2 (Secondary Batches — 70 Units Total)[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role Code:** `SALES_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `SALES_ORDER.CREATE`, `SALES_ORDER.CONFIRM`[m
+[32m+[m[32m- **Customer:** `Keells Supermarkets Holdings` (`CUST-RET-002`)[m
+ - **Order Number:** `SO-RET-2-XXXX`[m
+ - **Currency:** `LKR`[m
+[31m-- **Lines Ordered:**[m
+[31m-  1. `RET-001` (Rice): 10 BAG @ 1,850.00 LKR = 18,500.00 LKR[m
+[31m-  2. `RET-002` (Oil): 10 BTL @ 1,050.00 LKR = 10,500.00 LKR[m
+[31m-  3. `RET-003` (Sugar): 10 PKT @ 400.00 LKR = 4,000.00 LKR[m
+[31m-- **Workflow Steps:**[m
+[31m-  1. Create, submit, and confirm Sales Order 2.[m
+[31m-  2. Create Shipment allocating from secondary batch sets:[m
+[31m-     - `RET-001`: `RICE-2026-002` (10)[m
+[31m-     - `RET-002`: `OIL-2026-002` (10)[m
+[31m-     - `RET-003`: `SUGAR-2026-002` (10)[m
+[31m-  3. Execute Dispatch via `/dispatch`.[m
+[31m-- **Outcome:** **HTTP 200 OK**. Validates that secondary and later batches are correctly relieved when specified.[m
+[32m+[m[32m- **Warehouse:** `RETAIL-WH1` (`Central Retail Warehouse`)[m
+[32m+[m[32m- **Endpoints:**[m
+[32m+[m[32m  1. `POST /api/companies/{companyId}/branches/{branchId}/sales-orders` (Draft)[m
+[32m+[m[32m  2. `POST /api/companies/{companyId}/branches/{branchId}/sales-orders/{id}/submit`[m
+[32m+[m[32m  3. `POST /api/companies/{companyId}/branches/{branchId}/sales-orders/{id}/confirm`[m
+[32m+[m
+[32m+[m[32m#### Lines Ordered (Secondary Batches Target)[m
+[32m+[m[32m| Line | Product Code | Description | Ordered Qty | UOM | Unit Price (LKR) | Tax Code | Line Total (LKR) | Target Allocation Batch |[m
+[32m+[m[32m| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |[m
+[32m+[m[32m| 1 | `RET-001` | Samba Rice 5kg Pack | 40 | BAG | 1,800.00 | TAX-EXEMPT | 72,000.00 | `RICE-2026-002` (40 units) |[m
+[32m+[m[32m| 2 | `RET-002` | Cooking Oil 1L | 30 | BTL | 1,050.00 | VAT-18 | 37,170.00 | `OIL-2026-002` (30 units) |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Order status: `Confirmed`. Line total = 70 units. Subtotal = `97,000.00 LKR` (Net total with tax = `102,670.00 LKR`).[m
+[32m+[m[32m- **Next Step:** Create Shipment 2 (Step 11 / TC-RET-SH-02).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 2. Step 11: Dispatch Notes / Sales Shipments (SH1 & SH2)[m
+[32m+[m
+[32m+[m[32m### TC-RET-SH-01: Shipment 1 Dispatch (Relieve Primary Batches — 170 Units)[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role Code:** `SALES_MANAGER`[m
+[32m+[m[32m- **Permissions Verified:** `SALES_SHIPMENT.CREATE`, `SALES_SHIPMENT.DISPATCH`, `INVENTORY.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Source Document:** Confirmed Sales Order 1 (`SO-RET-1-XXXX`)[m
+[32m+[m[32m- **Endpoints:**[m
+[32m+[m[32m  1. `POST /api/companies/{companyId}/branches/{branchId}/sales-shipments/from-order/{orderId}` (Create Draft)[m
+[32m+[m[32m  2. `POST /api/companies/{companyId}/branches/{branchId}/sales-shipments/{shipmentId}/dispatch` (Execute Dispatch)[m
+[32m+[m
+[32m+[m[32m#### Batch Allocation & Physical Dispatch[m
+[32m+[m[32m| Line | Product Code | Description | Batch Number | Dispatch Qty | Storage Location | Valuation Cost Relieved (LKR) | Resulting Batch Balance |[m
+[32m+[m[32m| :---: | :--- | :--- | :--- | :---: | :--- | :---: | :---: |[m
+[32m+[m[32m| 1 | `RET-001` | Samba Rice 5kg Pack | `RICE-2026-001` | `60.0000` | `LOC-STK-01` | -90,000.00 | **`0.0000`** |[m
+[32m+[m[32m| 2 | `RET-002` | Cooking Oil 1L | `OIL-2026-001` | `50.0000` | `LOC-STK-01` | -42,500.00 | **`0.0000`** |[m
+[32m+[m[32m| 3 | `RET-003` | White Sugar 1kg | `SUGAR-2026-001` | `60.0000` | `LOC-STK-01` | -19,200.00 | **`0.0000`** |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Shipment status: `Dispatched`.[m
+[32m+[m[32m- **Inventory Impact:** 170 units relieved from `LOC-STK-01`. Inventory valuation decreases by `151,700.00 LKR`. Primary batches `RICE-2026-001`, `OIL-2026-001`, and `SUGAR-2026-001` are completely depleted to **`0.0000`**.[m
+[32m+[m[32m- **Next Step:** Create Sales Invoice 1 (Step 12 / TC-RET-INV-01).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-SH-02: Shipment 2 Dispatch (Relieve Secondary Batches — 70 Units)[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role Code:** `SALES_MANAGER`[m
+[32m+[m[32m- **Permissions Verified:** `SALES_SHIPMENT.CREATE`, `SALES_SHIPMENT.DISPATCH`, `INVENTORY.VIEW`, `BATCH.VIEW`[m
+[32m+[m[32m- **Source Document:** Confirmed Sales Order 2 (`SO-RET-2-XXXX`)[m
+[32m+[m[32m- **Endpoints:**[m
+[32m+[m[32m  1. `POST /api/companies/{companyId}/branches/{branchId}/sales-shipments/from-order/{orderId}`[m
+[32m+[m[32m  2. `POST /api/companies/{companyId}/branches/{branchId}/sales-shipments/{shipmentId}/dispatch`[m
+[32m+[m
+[32m+[m[32m#### Batch Allocation & Physical Dispatch[m
+[32m+[m[32m| Line | Product Code | Description | Batch Number | Dispatch Qty | Storage Location | Valuation Cost Relieved (LKR) | Resulting Batch Balance |[m
+[32m+[m[32m| :---: | :--- | :--- | :--- | :---: | :--- | :---: | :---: |[m
+[32m+[m[32m| 1 | `RET-001` | Samba Rice 5kg Pack | `RICE-2026-002` | `40.0000` | `LOC-STK-01` | -60,000.00 | **`0.0000`** |[m
+[32m+[m[32m| 2 | `RET-002` | Cooking Oil 1L | `OIL-2026-002` | `30.0000` | `LOC-STK-01` | -25,500.00 | **`0.0000`** |[m
+[32m+[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Shipment status: `Dispatched`.[m
+[32m+[m[32m- **Inventory Impact:** 70 units relieved from `LOC-STK-01`. Inventory valuation decreases by `85,500.00 LKR`. Secondary batches `RICE-2026-002` and `OIL-2026-002` are completely depleted to **`0.0000`**.[m
+[32m+[m[32m- **Net Balance Check:** All warehouse storage and dock locations reach exactly **`0.0000`** units and **`0.00 LKR`** valuation![m
+[32m+[m[32m- **Next Step:** Create Sales Invoice 2 (Step 12 / TC-RET-INV-02).[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 3. Step 12: Sales Invoicing (INV1 & INV2)[m
+[32m+[m
+[32m+[m[32m### TC-RET-INV-01: Sales Invoice 1 Creation from Shipment 1 & Confirmation[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role Code:** `SALES_MANAGER`[m
+[32m+[m[32m- **Tenant Scope:** `retail` (`10000000-0000-0000-0000-000000000001`)[m
+[32m+[m[32m- **Company Scope:** `Lanka Retail Mart` (`30C46526-3161-455C-B362-227E8BD0A34A`)[m
+[32m+[m[32m- **Branch Scope:** `Main Store` (`5CFABB17-CBE0-43C5-99AB-72769D8DECF1`)[m
+[32m+[m[32m- **Permissions Verified:** `SALES_INVOICE.VIEW`, `SALES_INVOICE.CREATE`, `SALES_INVOICE.EDIT`, `SALES_INVOICE.CONFIRM`[m
+[32m+[m[32m- **Allowed Actions:** View, Create Draft from Shipment, Update, Confirm Invoice[m
+[32m+[m[32m- **Restricted Actions:** Modify confirmed invoice[m
+[32m+[m[32m- **Source Document:** Dispatched Shipment 1 (`SH-RET-1-XXXX`)[m
+[32m+[m[32m- **Endpoints:**[m
+[32m+[m[32m  1. `POST /api/companies/{companyId}/branches/{branchId}/sales-invoices/from-shipment/{shipmentId}` (Create Draft)[m
+[32m+[m[32m  2. `POST /api/companies/{companyId}/branches/{branchId}/sales-invoices/{id}/confirm` (Confirm Invoice)[m
+[32m+[m[32m- **Invoice Financials:**[m
+[32m+[m[32m  - SubTotal: `184,500.00 LKR`[m
+[32m+[m[32m  - Tax Amount: `9,450.00 LKR` (18% on Line 2 `RET-002`: `50 * 1,050 = 52,500 * 18% = 9,450.00`)[m
+[32m+[m[32m  - Total Invoice Amount: `193,950.00 LKR`[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Invoice status: `Confirmed`. Invoice reference generated: `INV-RET-1-XXXX`.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m### TC-RET-INV-02: Sales Invoice 2 Creation from Shipment 2 & Confirmation[m
+[32m+[m[32m- **Actor:** `retail.sales` (Sales Manager)[m
+[32m+[m[32m- **Role Code:** `SALES_MANAGER`[m
+[32m+[m[32m- **Permissions Verified:** `SALES_INVOICE.CREATE`, `SALES_INVOICE.CONFIRM`[m
+[32m+[m[32m- **Source Document:** Dispatched Shipment 2 (`SH-RET-2-XXXX`)[m
+[32m+[m[32m- **Endpoints:**[m
+[32m+[m[32m  1. `POST /api/companies/{companyId}/branches/{branchId}/sales-invoices/from-shipment/{shipmentId}`[m
+[32m+[m[32m  2. `POST /api/companies/{companyId}/branches/{branchId}/sales-invoices/{id}/confirm`[m
+[32m+[m[32m- **Invoice Financials:**[m
+[32m+[m[32m  - SubTotal: `97,000.00 LKR`[m
+[32m+[m[32m  - Tax Amount: `5,670.00 LKR` (18% on Line 2 `RET-002`: `30 * 1,050 = 31,500 * 18% = 5,670.00`)[m
+[32m+[m[32m  - Total Invoice Amount: `102,670.00 LKR`[m
+[32m+[m[32m- **Expected Outcome:** **HTTP 200 OK**. Invoice status: `Confirmed`. Invoice reference generated: `INV-RET-2-XXXX`.[m
+[32m+[m[32m- **Next Responsible User:** `retail.store` (Inventory Manager) for Inventory Reversals (Step 13) or `retail.viewer` (Auditor) for final reports (Step 14).[m
+[1mdiff --git a/Testing/Retail-Test-Pack/Transaction-Register.md b/Testing/Retail-Test-Pack/Transaction-Register.md[m
+[1mindex c75a07d..be74b93 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Transaction-Register.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Transaction-Register.md[m
+[36m@@ -1,31 +1,37 @@[m
+[31m-# ApexERP Retail Test Pack — Transaction Register[m
+[32m+[m[32m# ApexERP Retail Test Pack — Transaction Register (Gate 6 Full Lifecycle)[m
+ [m
+ ## 1. Register Index[m
+ [m
+[31m-This register catalogues all canonical transactions executed during the Retail verification run.[m
+[32m+[m[32mThis register catalogues all canonical transactions executed during the Retail verification run across the 14-step workflow sequence.[m
+ [m
+[31m-| Ref # | Workflow Type | Document Number | Initiator | Status | Financial Value | Stock Impact |[m
+[31m-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |[m
+[31m-| **TX-01** | Purchase Order | `PO-RET-2026-001` | `retail.po` | Approved | 249,440.00 LKR | None (Commitment) |[m
+[31m-| **TX-02** | Goods Receipt Note | `GRN-RET-001` | `retail.grn` | Confirmed | 237,200.00 LKR | +240 units into `LOC-REC-01` |[m
+[31m-| **TX-03** | Putaway Transaction | `PUT-RET-001` | `retail.store` | Confirmed | N/A (Internal) | -240 from `LOC-REC-01`, +240 into `LOC-STK-01` |[m
+[31m-| **TX-04** | Stock Receipt | `SR-RET-001` | `retail.store` | Posted | 34,200.00 LKR | +35 units into `LOC-STK-01` |[m
+[31m-| **TX-05** | Stock Issue | `SI-RET-001` | `retail.store` | Posted | 19,250.00 LKR | -15 units from `LOC-STK-01` |[m
+[31m-| **TX-06** | Inventory Transfer | `TR-RET-001` | `retail.store` | Posted | 41,700.00 LKR | -40 from `LOC-STK-01`, +40 into `LOC-WH2-01` |[m
+[31m-| **TX-07** | Sales Order 1 | `SO-RET-1-XXXX` | `retail.sales` | Confirmed | 56,750.00 LKR | None (Commitment) |[m
+[31m-| **TX-08** | Sales Shipment 1 | `SH-RET-1-XXXX` | `retail.sales` | Dispatched | 56,750.00 LKR | -45 units from `LOC-STK-01` |[m
+[31m-| **TX-09** | Sales Order 2 | `SO-RET-2-XXXX` | `retail.sales` | Confirmed | 33,000.00 LKR | None (Commitment) |[m
+[31m-| **TX-10** | Sales Shipment 2 | `SH-RET-2-XXXX` | `retail.sales` | Dispatched | 33,000.00 LKR | -30 units from `LOC-STK-01` |[m
+[31m-| **TX-11** | Stock Count & Adj | `SC-RET-001` | `retail.store` | Posted | +1,600.00 LKR (Net) | -2 `RET-002`, +5 `RET-003` in `LOC-STK-01` |[m
+[32m+[m[32m| Ref # | Workflow Step | Document Type | Document Number | Initiator (Username) | Assigned Role | Status | Financial Value | Stock Impact |[m
+[32m+[m[32m| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |[m
+[32m+[m[32m| **TX-01** | Step 01 | Purchase Requisition | `PR-RET-2026-001` | `retail.po` / `retail.approver` | `Procurement Officer` / `Procurement Manager` | Approved | 237,200.00 LKR (Est.) | None (Requisition Demand) |[m
+[32m+[m[32m| **TX-02** | Step 02 | Purchase Order | `PO-RET-2026-001` | `retail.po` / `retail.approver` | `Procurement Officer` / `Procurement Manager` | Approved | 249,440.00 LKR | None (Commitment) |[m
+[32m+[m[32m| **TX-03** | Steps 03 & 04 | Goods Receipt Note | `GRN-RET-001` | `retail.grn` | `Procurement Officer` | Confirmed | 237,200.00 LKR | +240.0000 units into `LOC-REC-01` (5 Batches) |[m
+[32m+[m[32m| **TX-04** | Step 05 | Putaway Transaction | `PUT-RET-001` | `retail.store` | `Inventory Manager` | Completed | N/A (Internal Transfer) | -240 from `LOC-REC-01`, +240 into `LOC-STK-01` |[m
+[32m+[m[32m| **TX-05** | Step 06 | Stock Receipt | `SR-RET-001` | `retail.store` | `Inventory Manager` | Posted | 26,700.00 LKR | +30.0000 units into `LOC-STK-01` |[m
+[32m+[m[32m| **TX-06** | Step 07 | Stock Issue | `SI-RET-001` | `retail.store` | `Inventory Manager` | Posted | 26,700.00 LKR | -30.0000 units from `LOC-STK-01` (Net Zero Offset) |[m
+[32m+[m[32m| **TX-07** | Step 08 | Inventory Transfer Out | `TR-RET-001` | `retail.store` | `Inventory Manager` | Posted | 41,700.00 LKR | -40.0000 from `LOC-STK-01`, +40.0000 into `LOC-WH2-01` |[m
+[32m+[m[32m| **TX-08** | Step 09 | Stock Count & Adj | `SC-RET-001` | `retail.store` | `Inventory Manager` | Posted | -100.00 LKR (Net) | Shortage (-2 `RET-002`), Overage (+5 `RET-003`) in `LOC-STK-01` |[m
+[32m+[m[32m| **TX-09** | Step 10 | Sales Order 1 | `SO-RET-1-XXXX` | `retail.sales` | `Sales Manager` | Confirmed | 193,950.00 LKR | None (Commitment) |[m
+[32m+[m[32m| **TX-10** | Step 11 | Sales Shipment 1 | `SH-RET-1-XXXX` | `retail.sales` | `Sales Manager` | Dispatched | 151,700.00 LKR (Cost) | -170.0000 units from `LOC-STK-01` (Primary Batches) |[m
+[32m+[m[32m| **TX-11** | Step 12 | Sales Invoice 1 | `INV-RET-1-XXXX` | `retail.sales` | `Sales Manager` | Confirmed | 193,950.00 LKR (Gross) | None (Billing from Shipment 1) |[m
+[32m+[m[32m| **TX-12** | Step 10 | Sales Order 2 | `SO-RET-2-XXXX` | `retail.sales` | `Sales Manager` | Confirmed | 102,670.00 LKR | None (Commitment) |[m
+[32m+[m[32m| **TX-13** | Step 11 | Sales Shipment 2 | `SH-RET-2-XXXX` | `retail.sales` | `Sales Manager` | Dispatched | 85,500.00 LKR (Cost) | -70.0000 units from `LOC-STK-01` (Secondary Batches) |[m
+[32m+[m[32m| **TX-14** | Step 12 | Sales Invoice 2 | `INV-RET-2-XXXX` | `retail.sales` | `Sales Manager` | Confirmed | 102,670.00 LKR (Gross) | None (Billing from Shipment 2) |[m
+[32m+[m[32m| **TX-15** | Step 13 | Inventory Transfer Return | `TR-RET-002` | `retail.store` | `Inventory Manager` | Posted | 41,700.00 LKR | -40.0000 from `LOC-WH2-01`, +40.0000 into `LOC-STK-01` (Reversal) |[m
+ [m
+ ---[m
+ [m
+[31m-## 2. Inventory Transaction Identifiers[m
+[32m+[m[32m## 2. Permanent Inventory Transaction Architecture[m
+ [m
+ Each transactional stock posting produces permanent entries in `InventoryTransactions` tagged with:[m
+ - `TenantId`: `10000000-0000-0000-0000-000000000001`[m
+ - `MovementSequence`: Sequential integer preserving FIFO evaluation order.[m
+ - `TransactionDate`: UTC timestamp of posting.[m
+[31m-- `SourceDocumentType`: `PurchaseOrder`, `GoodsReceipt`, `Putaway`, `StockTransfer`, `StockAdjustment`, `SalesOrder`, or `ManualPosting`.[m
+[32m+[m[32m- `SourceDocumentType`: `PurchaseOrder`, `GoodsReceipt`, `Putaway`, `StockTransfer`, `StockAdjustment`, `SalesOrder`, `SalesShipment`, or `ManualPosting`.[m
+ - `SourceDocumentId`: Foreign key linking to the source document header.[m
+ - `SourceDocumentLineId`: Foreign key linking to the line item.[m
+[32m+[m[32m- `BatchNumber`, `ExpiryDate`: Explicit batch tracking tags.[m
+[32m+[m[32m- `ReversalOfTransactionId`: Linked foreign key when a transaction reverses a previous movement.[m
+[1mdiff --git a/Testing/Retail-Test-Pack/Users-and-Roles.md b/Testing/Retail-Test-Pack/Users-and-Roles.md[m
+[1mindex a55c28b..a3365bf 100644[m
+[1m--- a/Testing/Retail-Test-Pack/Users-and-Roles.md[m
+[1m+++ b/Testing/Retail-Test-Pack/Users-and-Roles.md[m
+[36m@@ -1,24 +1,58 @@[m
+[31m-# ApexERP — Retail Test Pack: Users, Roles and Credentials (Gate 1 Verification)[m
+[32m+[m[32m# ApexERP — Retail Test Pack: Users, Roles, Credentials and Scenario Matrix (Gate 6)[m
+ [m
+[31m-## 1. Test User Accounts and Identities[m
+[32m+[m[32m## 1. Test User Accounts and Canonical Identities[m
+ [m
+[31m-To ensure exact parity between manual browser testing and automated API/integration testing, the following canonical test identities are established.[m
+[32m+[m[32mTo ensure exact parity between manual browser testing, automated API integration testing, and security authorization checks, the following canonical test identities are established.[m
+ [m
+ | Username | Login Email Alias | Intended Responsibility | Actual Role (`Role.Name`) | Template Key | Password Setup Status | Assigned Scope |[m
+ |---|---|---|---|---|---|---|[m
+[31m-| `retail.admin` | `retail.admin@retail.local` | Tenant Administration & Master Data | `Tenant Admin` | `TENANT_ADMIN` | **`123`** (Verified Accepted) | Full Tenant Scope (All Companies & Branches) |[m
+[31m-| `retail.po` | `retail.po@retail.local` | Procurement (PO Creation & Submission) | `Procurement Officer` | `PROCUREMENT_OFFICER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[31m-| `retail.approver` | `retail.approver@retail.local` | Independent PO Approval | `Procurement Manager` | `PROCUREMENT_MANAGER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[31m-| `retail.grn` | `retail.grn@retail.local` | Goods Receipt (GRN Creation & Confirmation) | `Procurement Officer` | `PROCUREMENT_OFFICER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[31m-| `retail.store` | `retail.store@retail.local` | Warehouse, Putaway & Inventory (Stock Issue/Receipt/Transfer/Count) | `Inventory Manager` | `INVENTORY_MANAGER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[31m-| `retail.sales` | `retail.sales@retail.local` | Sales Order Management, Confirmation & Shipment Dispatch | `Sales Manager` | `SALES_MANAGER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[32m+[m[32m| `retail.admin` | `retail.admin@retail.local` | Tenant Administration, Master Data & Full Governance | `Tenant Admin` | `TENANT_ADMIN` | **`123`** (Verified Accepted) | Full Tenant Scope (All Companies & Branches) |[m
+[32m+[m[32m| `retail.po` | `retail.po@retail.local` | Procurement (PR & PO Creation, Line Editing, Submission) | `Procurement Officer` | `PROCUREMENT_OFFICER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[32m+[m[32m| `retail.approver` | `retail.approver@retail.local` | Independent Approval (PR & PO Approval / Rejection, SoD) | `Procurement Manager` | `PROCUREMENT_MANAGER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[32m+[m[32m| `retail.grn` | `retail.grn@retail.local` | Goods Receipt (GRN Creation from PO, Batch Splits, Confirmation) | `Procurement Officer` | `PROCUREMENT_OFFICER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[32m+[m[32m| `retail.store` | `retail.store@retail.local` | Warehouse, Putaway, Receipts, Issues, Transfers, Counts, Reversals | `Inventory Manager` | `INVENTORY_MANAGER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[32m+[m[32m| `retail.sales` | `retail.sales@retail.local` | Sales Orders, Order Confirmation, Shipments / Dispatch, Invoicing | `Sales Manager` | `SALES_MANAGER` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+[32m+[m[32m| `retail.viewer` | `retail.viewer@retail.local` | Read-only Audit Verification, Historical Ledger & RBAC Enforcement | `Tenant Read-only Auditor` | `TENANT_AUDITOR` | **`123`** (Verified Accepted) | Company: Lanka Retail Mart, Branch: Main Store |[m
+ [m
+[31m-## 2. Password Requirement & Verification Analysis (`123`)[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 2. Scenario-by-Scenario User & Role Matrix (14-Step Workflow)[m
+[32m+[m
+[32m+[m[32mThe table below defines for every scenario in the 14-step workflow:[m
+[32m+[m[32m- The actual username.[m
+[32m+[m[32m- Assigned role.[m
+[32m+[m[32m- Tenant, company, and branch scope.[m
+[32m+[m[32m- Required permissions.[m
+[32m+[m[32m- Operational capabilities (View, Create, Edit, Submit, Approve, Confirm, Post).[m
+[32m+[m[32m- The next responsible user for handover upon completion.[m
+[32m+[m
+[32m+[m[32m| Step # | Workflow Scenario | Actual Username | Assigned Role | Tenant Scope | Company Scope | Branch Scope | Required Permissions | Allowed Actions | Restricted Actions | Next Responsible User |[m
+[32m+[m[32m| :---: | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |[m
+[32m+[m[32m| **01** | **Purchase Requisition (PR)** | `retail.po` | `Procurement Officer` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.CREATE`, `PURCHASE_REQUISITION.EDIT`, `PURCHASE_REQUISITION.SUBMIT` | View, Create, Edit, Submit, Cancel (Draft) | Approve, Reject (Returns HTTP 403) | `retail.approver` (Procurement Manager) |[m
+[32m+[m[32m| **01-A**| **PR Approval / Rejection** | `retail.approver` | `Procurement Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `PURCHASE_REQUISITION.VIEW`, `PURCHASE_REQUISITION.APPROVE` | View, Approve, Reject | Edit Lines of Submitted PR | `retail.po` (Procurement Officer) |[m
+[32m+[m[32m| **02** | **Purchase Order (PO)** | `retail.po` | `Procurement Officer` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.CREATE`, `PURCHASE_ORDER.EDIT`, `PURCHASE_ORDER.SUBMIT`, `SUPPLIER.VIEW`, `PRODUCT.VIEW` | View, Create (from PR), Edit, Submit | Approve (Returns HTTP 403) | `retail.approver` (Procurement Manager) |[m
+[32m+[m[32m| **02-A**| **PO Approval** | `retail.approver` | `Procurement Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `PURCHASE_ORDER.VIEW`, `PURCHASE_ORDER.APPROVE` | View, Approve, Reject | Self-Approval if creator | `retail.grn` (Receiving Clerk) |[m
+[32m+[m[32m| **03** | **Product Receipt / GRN** | `retail.grn` | `Procurement Officer` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `GRN.VIEW`, `GRN.CREATE`, `GRN.EDIT`, `WAREHOUSE.VIEW` | View, Create Draft from PO, Edit Dock Lines | Confirm without Batch Data | Same user for Step 04 (`retail.grn`) |[m
+[32m+[m[32m| **04** | **Batch Allocation & Confirm**| `retail.grn` | `Procurement Officer` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `GRN.EDIT`, `GRN.CONFIRM`, `BATCH.CREATE`, `BATCH.VIEW` | View, Enter 5 Batches (240 units), Confirm Receipt | Post Putaway movements | `retail.store` (Inventory Manager) |[m
+[32m+[m[32m| **05** | **Warehouse Putaway** | `retail.store` | `Inventory Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `PUTAWAY.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW`, `BATCH.VIEW` | View, Create Putaway from GRN, Confirm / Post Movements | Modify source GRN | Same user for Step 06 (`retail.store`) |[m
+[32m+[m[32m| **06** | **Stock Receipt** | `retail.store` | `Inventory Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `STOCK_RECEIPT.POST`, `INVENTORY.VIEW`, `BATCH.VIEW`, `BATCH.CREATE` | View, Create, Post Direct Inward (+30 units) | Approve POs / GRNs | Same user for Step 07 (`retail.store`) |[m
+[32m+[m[32m| **07** | **Stock Issue** | `retail.store` | `Inventory Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `STOCK_ISSUE.POST`, `INVENTORY.VIEW`, `BATCH.VIEW` | View, Create, Post Direct Issue (-30 units, Net Zero) | Issue unallocated stock | Same user for Step 08 (`retail.store`) |[m
+[32m+[m[32m| **08** | **Inventory Item Transfer** | `retail.store` | `Inventory Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW`, `LOCATION.VIEW` | View, Create Transfer Draft, Post Transfer (WH1 to WH2) | Transfer across unauthorized companies | Same user for Step 09 (`retail.store`) |[m
+[32m+[m[32m| **09** | **Stock Count** | `retail.store` | `Inventory Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `STOCK_COUNT.VIEW`, `STOCK_COUNT.CREATE`, `STOCK_COUNT.SUBMIT`, `STOCK_COUNT.APPROVE`, `STOCK_COUNT.POST` | View, Create Count, Submit, Approve Variance, Post Adjustment | Post without approval | `retail.sales` (Sales Manager) |[m
+[32m+[m[32m| **10** | **Sales Order (SO1 & SO2)** | `retail.sales` | `Sales Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `SALES_ORDER.VIEW`, `SALES_ORDER.CREATE`, `SALES_ORDER.EDIT`, `SALES_ORDER.SUBMIT`, `SALES_ORDER.CONFIRM`, `CUSTOMER.VIEW` | View, Create SO1 & SO2, Submit, Confirm | Post physical inventory without shipment | Same user for Step 11 (`retail.sales`) |[m
+[32m+[m[32m| **11** | **Dispatch Note (Shipment)**| `retail.sales` | `Sales Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `SALES_SHIPMENT.VIEW`, `SALES_SHIPMENT.CREATE`, `SALES_SHIPMENT.DISPATCH`, `INVENTORY.VIEW`, `BATCH.VIEW` | View, Create Shipment from SO, Allocate Batches, Dispatch | Dispatch without batch allocation | Same user for Step 12 (`retail.sales`) |[m
+[32m+[m[32m| **12** | **Sales Invoice** | `retail.sales` | `Sales Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `SALES_INVOICE.VIEW`, `SALES_INVOICE.CREATE`, `SALES_INVOICE.EDIT`, `SALES_INVOICE.CONFIRM` | View, Create Draft from Shipment, Update, Confirm Invoice | Modify confirmed invoice | `retail.store` (Inventory Manager) |[m
+[32m+[m[32m| **13** | **Inventory Reversals** | `retail.store` | `Inventory Manager` | `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `STOCK_TRANSFER.POST`, `INVENTORY.VIEW`, `WAREHOUSE.VIEW` | View, Create Transfer Return Draft (WH2 to WH1), Post Reversal | Reversal into invalid location | `retail.viewer` (Auditor) / `retail.admin` |[m
+[32m+[m[32m| **14** | **Reports & Audit Oversight**| `retail.viewer`<br>*(Oversight: `retail.admin`)* | `Tenant Read-only Auditor`<br>*(Admin: `Tenant Admin`)*| `retail` (`1000...0001`) | Lanka Retail Mart (`30C4...A34A`) | Main Store (`5CFA...ECF1`) | `*.VIEW` (Auditor)<br>All 89 permissions (Tenant Admin) | View all lists, stock balances, valuation layers, transaction ledgers | Any mutation, creation, deletion or posting (Auditor) | Test Suite Complete (Sign-off) |[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 3. Password Requirements & Verification Analysis (`123`)[m
+ [m
+ ### Backend Authentication Policy Inspection[m
+ 1. **Password Hashing:** `PasswordService.cs` uses standard PBKDF2 with HMAC-SHA256 (100,000 iterations, 16-byte cryptographically secure salt, 32-byte subkey).[m
+ 2. **Validation Rules:** In `PasswordService.cs` and `UserService.cs`, the validation requirement is `!string.IsNullOrWhiteSpace(password)`. There are **no artificial minimum length or complexity restrictions** that reject password `123`.[m
+[31m-3. **Password Setup Result:** **ACCEPTED**. The requested password `123` generates a valid standard PBKDF2 hash and successfully authenticates against `VerifyPassword`.[m
+[32m+[m[32m3. **Password Setup Result:** **ACCEPTED**. The canonical password `123` generates a valid standard PBKDF2 hash and successfully authenticates against `VerifyPassword`.[m
+ [m
+ ### Frontend Angular Presentation Requirement[m
+ 1. In Angular [`login.component.html`](file:///z:/ERP/Frontend/Web/src/app/features/saas/public/login/login.component.html), the login field is configured as:[m
+[36m@@ -32,10 +66,14 @@[m [mTo ensure exact parity between manual browser testing and automated API/integrat[m
+    - For **Backend API / Automated Tests**: Send `{ "email": "retail.admin@retail.local", "password": "123" }`.[m
+    - The logical username `retail.admin` is retained as the audit trail identifier (`CreatedBy` / `UpdatedBy`).[m
+ [m
+[31m-## 3. Scope Isolation & Segregation of Duties[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## 4. Scope Isolation & Segregation of Duties (SoD)[m
+ [m
+ - **Tenant Isolation:** All Retail test users belong strictly to Tenant ID `10000000-0000-0000-0000-000000000001` (`retail`).[m
+[31m-- **Segregation of Duties (SOD):**[m
+[31m-  - `retail.po` has permission to Create and Submit Purchase Orders, but **cannot approve** (`PURCHASE_ORDER.APPROVE` is denied).[m
+[31m-  - `retail.approver` has permission to Approve Purchase Orders, ensuring distinct submitter and approver identities.[m
+[31m-  - Self-approval attempts by `retail.po` are blocked at both UI and backend controller levels.[m
+[32m+[m[32m- **Segregation of Duties (SoD) Invariants:**[m
+[32m+[m[32m  1. `retail.po` has permission to Create and Submit Purchase Requisitions and Purchase Orders, but **cannot approve** (`PURCHASE_REQUISITION.APPROVE` and `PURCHASE_ORDER.APPROVE` are denied with HTTP 403 Forbidden).[m
+[32m+[m[32m  2. `retail.approver` has permission to Approve and Reject Purchase Requisitions and Purchase Orders, ensuring distinct requester/creator and approver identities.[m
+[32m+[m[32m  3. `retail.grn` receives products into the Dock staging area (`LOC-REC-01`), but warehouse putaway to permanent racks (`LOC-STK-01`) is strictly performed by `retail.store`.[m
+[32m+[m[32m  4. `retail.sales` handles customer sales orders, shipments, and customer invoicing, but cannot modify warehouse master configurations or bypass warehouse authorization.[m
+[32m+[m[32m  5. `retail.viewer` possesses read-only viewing rights (`*.VIEW`) across all functional areas, with all creation, editing, deletion, and posting endpoints locked out (HTTP 403 Forbidden).[m

@@ -102,10 +102,12 @@
         </div>
 
         <div class="action-buttons">
-          <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateDialog()">
-            <i class="pi pi-plus p-button-icon-left"></i>
-            <span class="p-button-label">New Supplier</span>
-          </button>
+          @if (canCreate) {
+            <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateDialog()">
+              <i class="pi pi-plus p-button-icon-left"></i>
+              <span class="p-button-label">New Supplier</span>
+            </button>
+          }
         </div>
       </div>
 
@@ -113,7 +115,7 @@
         <app-empty-state
           title="No suppliers found"
           description="No supplier records match your query or none are registered yet."
-          actionLabel="Register First Supplier"
+          [actionLabel]="canCreate ? 'Register First Supplier' : undefined"
           actionIcon="pi pi-plus"
           (action)="openCreateDialog()"
         ></app-empty-state>
@@ -159,32 +161,48 @@
                   </td>
                   <td style="text-align: right;">
                     <div class="action-buttons-cell">
-                      <button
-                        type="button"
-                        class="p-button p-button-sm p-button-text"
-                        (click)="openEditDialog(sup)"
-                        title="Edit Supplier"
-                      >
-                        <i class="pi pi-pencil"></i>
-                      </button>
+                      @if (canView) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text"
+                          (click)="viewSupplier(sup)"
+                          title="View Supplier"
+                        >
+                          <i class="pi pi-eye"></i>
+                        </button>
+                      }
+                      @if (canEdit) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text"
+                          (click)="openEditDialog(sup)"
+                          title="Edit Supplier"
+                        >
+                          <i class="pi pi-pencil"></i>
+                        </button>
+                      }
                       @if (sup.isActive) {
-                        <button
-                          type="button"
-                          class="p-button p-button-sm p-button-text p-button-danger"
-                          (click)="promptDeactivate(sup)"
-                          title="Deactivate Supplier"
-                        >
-                          <i class="pi pi-ban"></i>
-                        </button>
+                        @if (canDelete) {
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text p-button-danger"
+                            (click)="promptDeactivate(sup)"
+                            title="Deactivate Supplier"
+                          >
+                            <i class="pi pi-ban"></i>
+                          </button>
+                        }
                       } @else {
-                        <button
-                          type="button"
-                          class="p-button p-button-sm p-button-text p-button-success"
-                          (click)="promptReactivate(sup)"
-                          title="Reactivate Supplier"
-                        >
-                          <i class="pi pi-replay"></i>
-                        </button>
+                        @if (canEdit) {
+                          <button
+                            type="button"
+                            class="p-button p-button-sm p-button-text p-button-success"
+                            (click)="promptReactivate(sup)"
+                            title="Reactivate Supplier"
+                          >
+                            <i class="pi pi-replay"></i>
+                          </button>
+                        }
                       }
                     </div>
                   </td>

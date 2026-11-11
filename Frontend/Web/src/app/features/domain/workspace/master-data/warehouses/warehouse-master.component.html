@@ -283,7 +283,7 @@
           <app-empty-state
             title="No storage locations found"
             description="No locations match the selected criteria or none are defined under this warehouse/zone."
-            actionLabel="Create Location"
+            [actionLabel]="canCreateLocation() ? 'Create Location' : undefined"
             actionIcon="pi pi-plus"
             (action)="navigateToCreateLocation()"
           ></app-empty-state>
@@ -422,7 +422,7 @@
           <app-empty-state
             title="No zones configured"
             description="No zones exist under the active warehouse. Zones represent macro areas such as Cold Storage, Bulk, QC, or High Value."
-            actionLabel="Add First Zone"
+            [actionLabel]="canManageZones() ? 'Add First Zone' : undefined"
             actionIcon="pi pi-plus"
             (action)="navigateToCreateZone()"
           ></app-empty-state>

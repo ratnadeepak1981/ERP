@@ -20,6 +20,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import {
   SupplierItem,
   CreateSupplierDto,
@@ -55,8 +56,17 @@ export type SupplierPageMode = 'create' | 'edit' | 'view';
 export class SupplierPageComponent implements OnInit, OnDestroy {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
+
+  get canCreate(): boolean {
+    return this.authService.hasPermission('SUPPLIER.CREATE');
+  }
+
+  get canEdit(): boolean {
+    return this.authService.hasPermission('SUPPLIER.EDIT');
+  }
 
   private readonly subs = new Subscription();
 
@@ -369,14 +379,32 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  switchToEdit(): void {
+    if (this.supplierId() && this.canEdit) {
+      this.mode.set('edit');
+      this.supplierForm.enable({ emitEvent: false });
+      this.supplierForm.get('supplierCode')?.disable({ emitEvent: false });
+      this.router.navigate(['/app/master-data/suppliers', this.supplierId(), 'edit']);
+    }
+  }
+
   private detectRoute(): void {
     const id = this.route.snapshot.paramMap.get('id');
+    const url = this.router.url;
 
     if (id) {
       this.supplierId.set(id);
-      this.mode.set('edit');
+      const isEdit = url.endsWith('/edit') || url.includes('/edit?') || url.includes('/edit#');
+      const targetMode: SupplierPageMode = isEdit ? 'edit' : 'view';
+      this.mode.set(targetMode);
       this.loadSupplier(id);
       this.loadSupplierAddresses(id);
+      if (targetMode === 'view') {
+        this.supplierForm.disable({ emitEvent: false });
+      } else {
+        this.supplierForm.enable({ emitEvent: false });
+        this.supplierForm.get('supplierCode')?.disable({ emitEvent: false });
+      }
     } else {
       this.mode.set('create');
       this.supplierId.set(null);
@@ -575,6 +603,15 @@ export class SupplierPageComponent implements OnInit, OnDestroy {
   }
 
   saveSupplier(): void {
+    if (this.mode() === 'view') {
+      return;
+    }
+    if (this.mode() === 'create' && !this.canCreate) {
+      return;
+    }
+    if (this.mode() === 'edit' && !this.canEdit) {
+      return;
+    }
     if (this.supplierForm.invalid) {
       this.supplierForm.markAllAsTouched();
       this.showMessage('Please correct the highlighted form errors before saving.', 'danger');

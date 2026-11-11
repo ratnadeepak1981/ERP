@@ -159,7 +159,7 @@
                 (ngModelChange)="searchTerm.set($event)"
               />
             </div>
-            @if (!showCategoryForm()) {
+            @if (!showCategoryForm() && canCreateCategory()) {
               <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateCategory()">
                 <i class="pi pi-plus p-button-icon-left"></i>
                 <span>New Category</span>
@@ -171,7 +171,7 @@
             <app-empty-state
               title="No categories found"
               description="No category records match your filter."
-              actionLabel="Create First Category"
+              [actionLabel]="canCreateCategory() ? 'Create First Category' : undefined"
               actionIcon="pi pi-plus"
               (action)="openCreateCategory()"
             ></app-empty-state>
@@ -198,32 +198,36 @@
                       </td>
                       <td style="text-align: right;">
                         <div class="action-buttons-cell">
-                          <button
-                            type="button"
-                            class="p-button p-button-sm p-button-text"
-                            (click)="openEditCategory(cat)"
-                            title="Edit Category"
-                          >
-                            <i class="pi pi-pencil"></i>
-                          </button>
-                          @if (cat.isActive) {
+                          @if (canEditCategory()) {
                             <button
                               type="button"
-                              class="p-button p-button-sm p-button-text p-button-danger"
-                              (click)="requestAction('deactivate', 'category', cat.categoryId, cat.categoryName)"
-                              title="Deactivate Category"
+                              class="p-button p-button-sm p-button-text"
+                              (click)="openEditCategory(cat)"
+                              title="Edit Category"
                             >
-                              <i class="pi pi-ban"></i>
+                              <i class="pi pi-pencil"></i>
                             </button>
-                          } @else {
-                            <button
-                              type="button"
-                              class="p-button p-button-sm p-button-text p-button-success"
-                              (click)="requestAction('reactivate', 'category', cat.categoryId, cat.categoryName)"
-                              title="Reactivate Category"
-                            >
-                              <i class="pi pi-refresh"></i>
-                            </button>
+                          }
+                          @if (canDeleteCategory()) {
+                            @if (cat.isActive) {
+                              <button
+                                type="button"
+                                class="p-button p-button-sm p-button-text p-button-danger"
+                                (click)="requestAction('deactivate', 'category', cat.categoryId, cat.categoryName)"
+                                title="Deactivate Category"
+                              >
+                                <i class="pi pi-ban"></i>
+                              </button>
+                            } @else {
+                              <button
+                                type="button"
+                                class="p-button p-button-sm p-button-text p-button-success"
+                                (click)="requestAction('reactivate', 'category', cat.categoryId, cat.categoryName)"
+                                title="Reactivate Category"
+                              >
+                                <i class="pi pi-refresh"></i>
+                              </button>
+                            }
                           }
                         </div>
                       </td>
@@ -304,7 +308,7 @@
                 (ngModelChange)="searchTerm.set($event)"
               />
             </div>
-            @if (!showBrandForm()) {
+            @if (!showBrandForm() && canCreateBrand()) {
               <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateBrand()">
                 <i class="pi pi-plus p-button-icon-left"></i>
                 <span>New Brand</span>
@@ -316,7 +320,7 @@
             <app-empty-state
               title="No brands configured"
               description="Register brands to associate with products and procurement catalog lines."
-              actionLabel="Create First Brand"
+              [actionLabel]="canCreateBrand() ? 'Create First Brand' : undefined"
               actionIcon="pi pi-plus"
               (action)="openCreateBrand()"
             ></app-empty-state>
@@ -343,32 +347,36 @@
                       </td>
                       <td style="text-align: right;">
                         <div class="action-buttons-cell">
-                          <button
-                            type="button"
-                            class="p-button p-button-sm p-button-text"
-                            (click)="openEditBrand(brand)"
-                            title="Edit Brand"
-                          >
-                            <i class="pi pi-pencil"></i>
-                          </button>
-                          @if (brand.isActive) {
+                          @if (canEditBrand()) {
                             <button
                               type="button"
-                              class="p-button p-button-sm p-button-text p-button-danger"
-                              (click)="requestAction('deactivate', 'brand', brand.brandId, brand.brandName)"
-                              title="Deactivate Brand"
+                              class="p-button p-button-sm p-button-text"
+                              (click)="openEditBrand(brand)"
+                              title="Edit Brand"
                             >
-                              <i class="pi pi-ban"></i>
+                              <i class="pi pi-pencil"></i>
                             </button>
-                          } @else {
-                            <button
-                              type="button"
-                              class="p-button p-button-sm p-button-text p-button-success"
-                              (click)="requestAction('reactivate', 'brand', brand.brandId, brand.brandName)"
-                              title="Reactivate Brand"
-                            >
-                              <i class="pi pi-refresh"></i>
-                            </button>
+                          }
+                          @if (canDeleteBrand()) {
+                            @if (brand.isActive) {
+                              <button
+                                type="button"
+                                class="p-button p-button-sm p-button-text p-button-danger"
+                                (click)="requestAction('deactivate', 'brand', brand.brandId, brand.brandName)"
+                                title="Deactivate Brand"
+                              >
+                                <i class="pi pi-ban"></i>
+                              </button>
+                            } @else {
+                              <button
+                                type="button"
+                                class="p-button p-button-sm p-button-text p-button-success"
+                                (click)="requestAction('reactivate', 'brand', brand.brandId, brand.brandName)"
+                                title="Reactivate Brand"
+                              >
+                                <i class="pi pi-refresh"></i>
+                              </button>
+                            }
                           }
                         </div>
                       </td>

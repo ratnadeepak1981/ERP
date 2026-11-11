@@ -110,13 +110,15 @@
           </button>
         </div>
 
-        <p-button
-          label="New Product"
-          icon="pi pi-plus"
-          size="small"
-          severity="primary"
-          (onClick)="openCreateDialog()"
-        ></p-button>
+        @if (canCreate) {
+          <p-button
+            label="New Product"
+            icon="pi pi-plus"
+            size="small"
+            severity="primary"
+            (onClick)="openCreateDialog()"
+          ></p-button>
+        }
       </div>
     </div>
 
@@ -135,7 +137,7 @@
           title="No Products Found"
           message="No product definitions match your search or filter criteria."
           icon="pi pi-box"
-          actionLabel="New Product"
+          [actionLabel]="canCreate ? 'New Product' : undefined"
           (action)="openCreateDialog()"
         ></app-empty-state>
       } @else {
@@ -178,30 +180,36 @@
                   </td>
                   <td style="text-align: right;">
                     <div class="action-buttons-cell">
-                      <button
-                        type="button"
-                        class="p-button p-button-sm p-button-text"
-                        (click)="viewProduct(product)"
-                        title="View Product"
-                      >
-                        <i class="pi pi-eye"></i>
-                      </button>
-                      <button
-                        type="button"
-                        class="p-button p-button-sm p-button-text"
-                        (click)="openEditDialog(product)"
-                        title="Edit Product"
-                      >
-                        <i class="pi pi-pencil"></i>
-                      </button>
-                      <button
-                        type="button"
-                        class="p-button p-button-sm p-button-text p-button-danger"
-                        (click)="onRowAction({ actionId: 'delete', row: product })"
-                        title="Deactivate Product"
-                      >
-                        <i class="pi pi-trash"></i>
-                      </button>
+                      @if (canView) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text"
+                          (click)="viewProduct(product)"
+                          title="View Product"
+                        >
+                          <i class="pi pi-eye"></i>
+                        </button>
+                      }
+                      @if (canEdit) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text"
+                          (click)="openEditDialog(product)"
+                          title="Edit Product"
+                        >
+                          <i class="pi pi-pencil"></i>
+                        </button>
+                      }
+                      @if (canDelete) {
+                        <button
+                          type="button"
+                          class="p-button p-button-sm p-button-text p-button-danger"
+                          (click)="onRowAction({ actionId: 'delete', row: product })"
+                          title="Deactivate Product"
+                        >
+                          <i class="pi pi-trash"></i>
+                        </button>
+                      }
                     </div>
                   </td>
                 </tr>
@@ -260,7 +268,7 @@
               title="No Root Categories"
               message="No product categories have been configured yet. Create a category to build your taxonomy."
               icon="pi pi-folder"
-              actionLabel="New Product"
+              [actionLabel]="canCreate ? 'New Product' : undefined"
               (action)="openCreateDialog()"
             ></app-empty-state>
           </div>
@@ -411,22 +419,26 @@
                 <span class="usage-tag">{{ getUsageText(product) }}</span>
                 <app-status-badge [status]="product.isActive ? 'Active' : 'Inactive'"></app-status-badge>
                 <div class="leaf-actions">
-                  <button
-                    type="button"
-                    class="p-button p-button-sm p-button-text leaf-view-btn"
-                    (click)="viewProduct(product)"
-                    title="View Product"
-                  >
-                    <i class="pi pi-eye"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="p-button p-button-sm p-button-text leaf-edit-btn"
-                    (click)="openEditDialog(product)"
-                    title="Edit Product"
-                  >
-                    <i class="pi pi-pencil"></i>
-                  </button>
+                  @if (canView) {
+                    <button
+                      type="button"
+                      class="p-button p-button-sm p-button-text leaf-view-btn"
+                      (click)="viewProduct(product)"
+                      title="View Product"
+                    >
+                      <i class="pi pi-eye"></i>
+                    </button>
+                  }
+                  @if (canEdit) {
+                    <button
+                      type="button"
+                      class="p-button p-button-sm p-button-text leaf-edit-btn"
+                      (click)="openEditDialog(product)"
+                      title="Edit Product"
+                    >
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                  }
                 </div>
               </div>
             }

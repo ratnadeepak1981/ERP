@@ -20,6 +20,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import {
   ProductItem,
   CreateProductDto,
@@ -56,8 +57,17 @@ export type ProductPageMode = 'create' | 'edit' | 'view';
 export class ProductPageComponent implements OnInit, OnDestroy {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
+
+  get canCreate(): boolean {
+    return this.authService.hasPermission('PRODUCT.CREATE');
+  }
+
+  get canEdit(): boolean {
+    return this.authService.hasPermission('PRODUCT.EDIT');
+  }
 
   private readonly subs = new Subscription();
 

@@ -21,14 +21,28 @@
         ></app-status-badge>
       }
 
-      <p-button
-        [label]="mode() === 'create' ? 'Save Supplier' : 'Update Supplier'"
-        icon="pi pi-check"
-        size="small"
-        severity="primary"
-        [loading]="saving()"
-        (onClick)="saveSupplier()"
-      ></p-button>
+      @if (mode() === 'view') {
+        @if (canEdit) {
+          <p-button
+            label="Edit Supplier"
+            icon="pi pi-pencil"
+            size="small"
+            severity="primary"
+            (onClick)="switchToEdit()"
+          ></p-button>
+        }
+      } @else {
+        @if ((mode() === 'create' && canCreate) || (mode() === 'edit' && canEdit)) {
+          <p-button
+            [label]="mode() === 'create' ? 'Save Supplier' : 'Update Supplier'"
+            icon="pi pi-check"
+            size="small"
+            severity="primary"
+            [loading]="saving()"
+            (onClick)="saveSupplier()"
+          ></p-button>
+        }
+      }
     </div>
   </app-page-header>
 

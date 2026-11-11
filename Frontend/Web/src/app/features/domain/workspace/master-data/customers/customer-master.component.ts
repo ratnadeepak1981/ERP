@@ -11,6 +11,7 @@ import { AppErrorStateComponent } from '../../../../../shared/components/error-s
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import { CustomerItem } from '../../../../../core/models/scope.models';
 
 @Component({
@@ -34,7 +35,24 @@ import { CustomerItem } from '../../../../../core/models/scope.models';
 export class CustomerMasterComponent implements OnInit {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
+
+  get canCreate(): boolean {
+    return this.authService.hasPermission('CUSTOMER.CREATE');
+  }
+
+  get canEdit(): boolean {
+    return this.authService.hasPermission('CUSTOMER.EDIT');
+  }
+
+  get canDelete(): boolean {
+    return this.authService.hasPermission('CUSTOMER.DELETE');
+  }
+
+  get canView(): boolean {
+    return this.authService.hasPermission('CUSTOMER.VIEW');
+  }
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -99,11 +117,17 @@ export class CustomerMasterComponent implements OnInit {
   }
 
   openCreateDialog(): void {
+    if (!this.canCreate) return;
     this.router.navigate(['/app/master-data/customers/new']);
   }
 
-  openEditDialog(customer: CustomerItem): void {
+  viewCustomer(customer: CustomerItem): void {
     this.router.navigate(['/app/master-data/customers', customer.customerId]);
+  }
+
+  openEditDialog(customer: CustomerItem): void {
+    if (!this.canEdit) return;
+    this.router.navigate(['/app/master-data/customers', customer.customerId, 'edit']);
   }
 
   promptDeactivate(customer: CustomerItem): void {

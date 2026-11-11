@@ -30,14 +30,33 @@
         ></p-button>
       }
 
-      <p-button
-        [label]="mode() === 'create' ? 'Save Warehouse' : 'Update Warehouse'"
-        icon="pi pi-check"
-        size="small"
-        severity="primary"
-        [loading]="saving()"
-        (onClick)="saveWarehouse()"
-      ></p-button>
+      @if (mode() === 'create' && canCreate()) {
+        <p-button
+          label="Save Warehouse"
+          icon="pi pi-check"
+          size="small"
+          severity="primary"
+          [loading]="saving()"
+          (onClick)="saveWarehouse()"
+        ></p-button>
+      } @else if (mode() === 'edit' && canEdit()) {
+        <p-button
+          label="Update Warehouse"
+          icon="pi pi-check"
+          size="small"
+          severity="primary"
+          [loading]="saving()"
+          (onClick)="saveWarehouse()"
+        ></p-button>
+      } @else if (mode() === 'view' && canEdit()) {
+        <p-button
+          label="Edit Warehouse"
+          icon="pi pi-pencil"
+          size="small"
+          severity="primary"
+          (onClick)="switchToEdit()"
+        ></p-button>
+      }
     </div>
   </app-page-header>
 

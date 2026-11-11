@@ -8,6 +8,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import { PaymentTermItem, CreatePaymentTermDto, UpdatePaymentTermDto } from '../../../../../core/models/scope.models';
 
 @Component({
@@ -28,6 +29,11 @@ import { PaymentTermItem, CreatePaymentTermDto, UpdatePaymentTermDto } from '../
 })
 export class PaymentTermsComponent implements OnInit {
   private readonly masterDataService = inject(MasterDataService);
+  private readonly authService = inject(AuthService);
+
+  readonly canCreate = computed(() => this.authService.hasPermission('PAYMENT_TERM.CREATE'));
+  readonly canEdit = computed(() => this.authService.hasPermission('PAYMENT_TERM.EDIT'));
+  readonly canDelete = computed(() => this.authService.hasPermission('PAYMENT_TERM.DELETE'));
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -93,6 +99,7 @@ export class PaymentTermsComponent implements OnInit {
 
   // --- Inline Form Handlers ---
   openCreateForm(): void {
+    if (!this.canCreate()) return;
     this.isEditing.set(false);
     this.editingId.set(null);
     this.termCode = '';
@@ -105,6 +112,7 @@ export class PaymentTermsComponent implements OnInit {
   }
 
   openEditForm(term: PaymentTermItem): void {
+    if (!this.canEdit()) return;
     this.isEditing.set(true);
     this.editingId.set(term.paymentTermId);
     this.termCode = term.termCode;
@@ -127,6 +135,8 @@ export class PaymentTermsComponent implements OnInit {
   }
 
   savePaymentTerm(): void {
+    if (this.isEditing() && !this.canEdit()) return;
+    if (!this.isEditing() && !this.canCreate()) return;
     if (!this.termCode.trim() || !this.termName.trim()) {
       this.message.set({ text: 'Please fill in both Term Code and Term Name.', severity: 'warn' });
       return;
@@ -182,6 +192,7 @@ export class PaymentTermsComponent implements OnInit {
 
   // --- Inline Deactivate / Reactivate Handlers ---
   promptDeactivate(term: PaymentTermItem): void {
+    if (!this.canDelete()) return;
     this.pendingAction.set({
       type: 'deactivate',
       id: term.paymentTermId,
@@ -192,6 +203,7 @@ export class PaymentTermsComponent implements OnInit {
   }
 
   promptReactivate(term: PaymentTermItem): void {
+    if (!this.canDelete()) return;
     this.pendingAction.set({
       type: 'reactivate',
       id: term.paymentTermId,

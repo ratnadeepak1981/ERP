@@ -50,9 +50,21 @@ export interface GoodsReceiptNoteLineDto {
   unitOfMeasure?: string;
   batchNumber?: string | null;
   serialNumber?: string | null;
+  manufacturingDate?: string | null;
   expiryDate?: string | null;
   isQuarantine?: boolean;
   remarks?: string | null;
+}
+
+export interface BatchSerialAllocation {
+  id?: string;
+  batchNumber?: string;
+  serialNumber?: string;
+  quantity: number;
+  manufacturingDate?: string;
+  expiryDate?: string;
+  isQuarantine?: boolean;
+  remarks?: string;
 }
 
 export interface GoodsReceiptNoteDto {
@@ -81,6 +93,7 @@ export interface CreateGoodsReceiptNoteLineRequest {
   unitOfMeasureId?: string | null;
   batchNumber?: string | null;
   serialNumber?: string | null;
+  manufacturingDate?: string | null;
   expiryDate?: string | null;
   isQuarantine?: boolean;
   remarks?: string | null;

@@ -20,6 +20,7 @@ import { AppLoadingStateComponent } from '../../../../../shared/components/loadi
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../../core/auth/auth.service';
 import {
   CustomerItem,
   CreateCustomerDto,
@@ -54,8 +55,17 @@ export type CustomerPageMode = 'create' | 'edit' | 'view';
 export class CustomerPageComponent implements OnInit, OnDestroy {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
+
+  get canCreate(): boolean {
+    return this.authService.hasPermission('CUSTOMER.CREATE');
+  }
+
+  get canEdit(): boolean {
+    return this.authService.hasPermission('CUSTOMER.EDIT');
+  }
 
   private readonly subs = new Subscription();
 
@@ -373,14 +383,32 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  switchToEdit(): void {
+    if (this.customerId() && this.canEdit) {
+      this.mode.set('edit');
+      this.customerForm.enable({ emitEvent: false });
+      this.customerForm.get('customerCode')?.disable({ emitEvent: false });
+      this.router.navigate(['/app/master-data/customers', this.customerId(), 'edit']);
+    }
+  }
+
   private detectRoute(): void {
     const id = this.route.snapshot.paramMap.get('id');
+    const url = this.router.url;
 
     if (id) {
       this.customerId.set(id);
-      this.mode.set('edit');
+      const isEdit = url.endsWith('/edit') || url.includes('/edit?') || url.includes('/edit#');
+      const targetMode: CustomerPageMode = isEdit ? 'edit' : 'view';
+      this.mode.set(targetMode);
       this.loadCustomer(id);
       this.loadCustomerAddresses(id);
+      if (targetMode === 'view') {
+        this.customerForm.disable({ emitEvent: false });
+      } else {
+        this.customerForm.enable({ emitEvent: false });
+        this.customerForm.get('customerCode')?.disable({ emitEvent: false });
+      }
     } else {
       this.mode.set('create');
       this.customerId.set(null);
@@ -585,6 +613,15 @@ export class CustomerPageComponent implements OnInit, OnDestroy {
   }
 
   saveCustomer(): void {
+    if (this.mode() === 'view') {
+      return;
+    }
+    if (this.mode() === 'create' && !this.canCreate) {
+      return;
+    }
+    if (this.mode() === 'edit' && !this.canEdit) {
+      return;
+    }
     if (this.customerForm.invalid) {
       this.customerForm.markAllAsTouched();
       this.showMessage('Please correct the highlighted form errors before saving.', 'danger');

@@ -77,7 +77,7 @@
           </select>
         </div>
         <div class="toolbar-actions">
-          @if (!showForm()) {
+          @if (!showForm() && canCreate()) {
             <button type="button" class="p-button p-button-sm p-button-primary" (click)="openCreateForm()">
               <i class="pi pi-plus"></i>
               <span>Add Tax Code</span>
@@ -239,32 +239,36 @@
                   </td>
                   <td style="text-align: right;">
                     <div class="row-actions">
-                      <button
-                        type="button"
-                        class="btn-icon"
-                        title="Edit Tax Code"
-                        (click)="openEditForm(tc)"
-                      >
-                        <i class="pi pi-pencil"></i>
-                      </button>
-                      @if (tc.isActive) {
+                      @if (canEdit()) {
                         <button
                           type="button"
-                          class="btn-icon btn-icon-danger"
-                          title="Deactivate Tax Code"
-                          (click)="promptDeactivate(tc)"
+                          class="btn-icon"
+                          title="Edit Tax Code"
+                          (click)="openEditForm(tc)"
                         >
-                          <i class="pi pi-ban"></i>
+                          <i class="pi pi-pencil"></i>
                         </button>
-                      } @else {
-                        <button
-                          type="button"
-                          class="btn-icon btn-icon-success"
-                          title="Reactivate Tax Code"
-                          (click)="promptReactivate(tc)"
-                        >
-                          <i class="pi pi-replay"></i>
-                        </button>
+                      }
+                      @if (canDelete()) {
+                        @if (tc.isActive) {
+                          <button
+                            type="button"
+                            class="btn-icon btn-icon-danger"
+                            title="Deactivate Tax Code"
+                            (click)="promptDeactivate(tc)"
+                          >
+                            <i class="pi pi-ban"></i>
+                          </button>
+                        } @else {
+                          <button
+                            type="button"
+                            class="btn-icon btn-icon-success"
+                            title="Reactivate Tax Code"
+                            (click)="promptReactivate(tc)"
+                          >
+                            <i class="pi pi-replay"></i>
+                          </button>
+                        }
                       }
                     </div>
                   </td>
