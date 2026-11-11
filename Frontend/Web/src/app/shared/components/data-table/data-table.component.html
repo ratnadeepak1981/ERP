@@ -151,38 +151,43 @@
 
                   @for (col of visibleColumns(); track col.field) {
                     <td [style.textAlign]="col.align || 'left'">
-                      @switch (col.type) {
-                        @case ('badge') {
-                          <app-status-badge
-                            [label]="getFieldValue(rowData, col.field)"
-                            [severity]="getBadgeSeverity(col, rowData)"
-                          ></app-status-badge>
-                        }
-                        @case ('actions') {
-                          <div class="row-actions-cell" (click)="$event.stopPropagation()">
-                            @if (actionTemplate || rowActionsTemplate) {
-                              <ng-container
-                                *ngTemplateOutlet="actionTemplate || rowActionsTemplate!; context: { $implicit: rowData }"
-                              ></ng-container>
-                            } @else if (rowActions && rowActions.length > 0) {
-                              @for (act of rowActions; track act.id) {
-                                @if (!act.visible || act.visible(rowData)) {
-                                  <p-button
-                                    [label]="act.label"
-                                    [icon]="act.icon || ''"
-                                    [severity]="getActionSeverity(act.severity)"
-                                    [outlined]="act.outlined !== false"
-                                    size="small"
-                                    [disabled]="act.disabled ? act.disabled(rowData) : false"
-                                    (onClick)="act.action(rowData)"
-                                  ></p-button>
-                                }
+                      @if (col.type === 'actions') {
+                        <div class="row-actions-cell" (click)="$event.stopPropagation()">
+                          @if (actionTemplate || rowActionsTemplate) {
+                            <ng-container
+                              *ngTemplateOutlet="actionTemplate || rowActionsTemplate!; context: { $implicit: rowData }"
+                            ></ng-container>
+                          } @else if (rowActions && rowActions.length > 0) {
+                            @for (act of rowActions; track act.id) {
+                              @if (!act.visible || act.visible(rowData)) {
+                                <p-button
+                                  [label]="act.label"
+                                  [icon]="act.icon || ''"
+                                  [severity]="getActionSeverity(act.severity)"
+                                  [outlined]="act.outlined !== false"
+                                  size="small"
+                                  [disabled]="act.disabled ? act.disabled(rowData) : false"
+                                  (onClick)="act.action(rowData)"
+                                ></p-button>
                               }
                             }
-                          </div>
-                        }
-                        @default {
-                          <span class="cell-text">{{ formatValue(col, rowData) }}</span>
+                          }
+                        </div>
+                      } @else if (cellTemplate || customCellTemplate) {
+                        <ng-container
+                          *ngTemplateOutlet="cellTemplate || customCellTemplate!; context: { row: rowData, col: col }"
+                        ></ng-container>
+                      } @else {
+                        @switch (col.type) {
+                          @case ('badge') {
+                            <app-status-badge
+                              [label]="getFieldValue(rowData, col.field)"
+                              [severity]="getBadgeSeverity(col, rowData)"
+                            ></app-status-badge>
+                          }
+                          @default {
+                            <span class="cell-text">{{ formatValue(col, rowData) }}</span>
+                          }
                         }
                       }
                     </td>
