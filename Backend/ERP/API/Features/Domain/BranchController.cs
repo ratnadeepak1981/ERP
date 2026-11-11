@@ -5,16 +5,26 @@ using API.Common;
 using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Branch;
+using Domain.Features.MasterData.Company;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 
 namespace API.Features.Domain;
 
+public class CreateBranchRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
 [ApiController]
 [Route("api/companies/{companyId:guid}/branches")]
+[Authorize]
 public class BranchController : BaseApiController
 {
     private readonly IBranchService _branchService;
+    private readonly ICompanyService _companyService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
 
@@ -25,10 +35,12 @@ public class BranchController : BaseApiController
 
     public BranchController(
         IBranchService branchService,
+        ICompanyService companyService,
         ICurrentUserContext currentUserContext,
         IUserAccessService userAccessService)
     {
         _branchService = branchService;
+        _companyService = companyService;
         _currentUserContext = currentUserContext;
         _userAccessService = userAccessService;
     }
@@ -50,6 +62,12 @@ public class BranchController : BaseApiController
         if (!tenantId.HasValue)
         {
             return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        var company = await _companyService.GetCompanyAsync(tenantId.Value, companyId);
+        if (company == null)
+        {
+            return Forbid();
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
@@ -85,6 +103,7 @@ public class BranchController : BaseApiController
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("BRANCH.VIEW")]
     public async Task<IActionResult> GetBranch(
         Guid companyId,
         Guid id)
@@ -98,6 +117,12 @@ public class BranchController : BaseApiController
         if (!tenantId.HasValue)
         {
             return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        var company = await _companyService.GetCompanyAsync(tenantId.Value, companyId);
+        if (company == null)
+        {
+            return Forbid();
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
@@ -132,5 +157,63 @@ public class BranchController : BaseApiController
         }
 
         return SuccessResponse(branch);
+    }
+
+    [HttpPost]
+    [RequirePermission("BRANCH.CREATE")]
+    public async Task<IActionResult> CreateBranch(
+        Guid companyId,
+        [FromBody] CreateBranchRequest request)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        var company = await _companyService.GetCompanyAsync(tenantId.Value, companyId);
+        if (company == null)
+        {
+            return Forbid();
+        }
+
+        if (request == null || string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Code))
+        {
+            return BadRequestResponse("Branch name and code are required.");
+        }
+
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
+
+        if (!canAccessCompany)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var branch = await _branchService.CreateBranchAsync(
+                tenantId.Value,
+                companyId,
+                request.Name,
+                request.Code);
+
+            return CreatedResponse(branch);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequestResponse(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequestResponse(ex.Message);
+        }
     }
 }

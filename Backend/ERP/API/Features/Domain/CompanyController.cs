@@ -5,6 +5,7 @@ using API.Common;
 using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Company;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 using CompanyEntity = Domain.Features.MasterData.Company.Company;
@@ -29,6 +30,7 @@ public class UpdateCompanyRequest
 
 [ApiController]
 [Route("api/companies")]
+[Authorize]
 public class CompanyController : BaseApiController
 {
     private readonly ICompanyService _companyService;
@@ -88,6 +90,7 @@ public class CompanyController : BaseApiController
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("COMPANY.VIEW")]
     public async Task<IActionResult> GetCompany(Guid id)
     {
         if (_currentUserContext.IsPlatformUser)
