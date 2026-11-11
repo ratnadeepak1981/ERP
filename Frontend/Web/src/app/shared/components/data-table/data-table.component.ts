@@ -66,6 +66,7 @@ import { TableViewSwitcherComponent, TableViewMode } from './subcomponents/table
 export class AppDataTableComponent<T extends Record<string, any> = Record<string, any>> {
   @ViewChild('dt') dtTable?: Table;
   @ContentChild('rowActions', { static: false }) rowActionsTemplate?: TemplateRef<{ $implicit: T }>;
+  @ContentChild('cellTemplate', { static: false }) cellTemplate?: TemplateRef<{ row: T; col: DataTableColumn<T> }>;
 
   // Optional unified config input
   @Input() set config(cfg: DataTableConfig<T> | undefined) {
@@ -127,6 +128,7 @@ export class AppDataTableComponent<T extends Record<string, any> = Record<string
   @Input() rowKey: string = 'id';
   @Input() rowActions?: DataTableAction<T>[];
   @Input() actionTemplate?: TemplateRef<{ $implicit: T }> | null = null;
+  @Input() customCellTemplate?: TemplateRef<{ row: T; col: DataTableColumn<T> }> | null = null;
 
   // Selection model
   private readonly _selection = signal<T[]>([]);

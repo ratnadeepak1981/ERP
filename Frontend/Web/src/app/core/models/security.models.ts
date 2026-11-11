@@ -14,6 +14,7 @@ export interface UserAccount {
   primaryCompanyName: string;
   primaryBranchId: string;
   primaryBranchName: string;
+  primaryScope?: string;
   createdAt: string;
   updatedAt?: string;
 }
