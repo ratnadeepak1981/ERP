@@ -1,9 +1,13 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppStatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
+import { TenantSetupService, TenantMasterDataSetupResult } from '../../../../core/services/tenant-setup.service';
 
 interface MasterDataCard {
   title: string;
@@ -19,17 +23,80 @@ interface MasterDataCard {
 @Component({
   selector: 'app-master-data-overview',
   standalone: true,
-  imports: [CommonModule, RouterLink, AppPageHeaderComponent, AppStatusBadgeComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    FormsModule,
+    ButtonModule,
+    InputTextModule,
+    AppPageHeaderComponent,
+    AppStatusBadgeComponent
+  ],
   templateUrl: './master-data-overview.component.html',
   styleUrl: './master-data-overview.component.scss'
 })
 export class MasterDataOverviewComponent {
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly setupService = inject(TenantSetupService);
+
+  readonly showSetupPanel = signal<boolean>(false);
+  readonly showSetupDialog = this.showSetupPanel; // Backward-compatible alias
+  readonly setupLoading = signal<boolean>(false);
+  readonly setupError = signal<string | null>(null);
+  readonly setupResult = signal<TenantMasterDataSetupResult | null>(null);
+  selectedProfileCode = 'retail';
+
+  readonly availableProfiles = [
+    { code: 'retail', name: 'Retail (Gate 6 Baseline) — Default' }
+  ];
 
   readonly breadcrumbs = [
     { label: 'Workspace', routerLink: '/app/dashboard' },
     { label: 'Supply Chain Masters' }
   ];
+
+  toggleSetupPanel(): void {
+    this.showSetupPanel.update(v => !v);
+    this.setupError.set(null);
+  }
+
+  openSetupDialog(): void {
+    this.setupError.set(null);
+    this.setupResult.set(null);
+    this.selectedProfileCode = 'retail';
+    this.showSetupPanel.set(true);
+  }
+
+  closeSetupDialog(): void {
+    this.showSetupPanel.set(false);
+  }
+
+  runMasterDataSetup(): void {
+    this.setupLoading.set(true);
+    this.setupError.set(null);
+
+    const companyId = this.scopeService.selectedCompany()?.id;
+    const branchId = !this.scopeService.isAllBranches() ? this.scopeService.selectedBranch()?.id : undefined;
+
+    this.setupService.initializeMasterData({
+      companyId: companyId,
+      branchId: branchId,
+      profileCode: this.selectedProfileCode.trim() || 'retail'
+    }).subscribe({
+      next: (res) => {
+        this.setupLoading.set(false);
+        if (res?.succeeded && res.data) {
+          this.setupResult.set(res.data);
+        } else {
+          this.setupError.set(res?.message || 'Master data setup did not return a success status.');
+        }
+      },
+      error: (err) => {
+        this.setupLoading.set(false);
+        this.setupError.set(err?.error?.message || err?.message || 'Failed to complete master data setup.');
+      }
+    });
+  }
 
   readonly masterCards: MasterDataCard[] = [
     {

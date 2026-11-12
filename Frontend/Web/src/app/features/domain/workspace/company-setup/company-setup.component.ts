@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { FormsModule } from '@angular/forms';
-import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { SharedModule } from 'primeng/api';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
@@ -17,6 +16,7 @@ import { CompanyService } from '../../../../core/services/company.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { TenantSetupService, TenantUserSetupResult, TenantMasterDataSetupResult } from '../../../../core/services/tenant-setup.service';
 import { Company, Branch, CurrencyItem } from '../../../../core/models/scope.models';
 
 export interface OnboardingStep {
@@ -25,8 +25,21 @@ export interface OnboardingStep {
   description: string;
   status: 'completed' | 'in_progress' | 'pending';
   icon: string;
-  route?: string;
   badgeText: string;
+}
+
+export const STANDARD_BASE_CURRENCIES: CurrencyItem[] = [
+  { currencyId: 'LKR', tenantId: '', currencyCode: 'LKR', currencyName: 'Sri Lankan Rupee (Default)', symbol: 'Rs', decimalPlaces: 2, isActive: true },
+  { currencyId: 'USD', tenantId: '', currencyCode: 'USD', currencyName: 'US Dollar', symbol: '$', decimalPlaces: 2, isActive: true },
+  { currencyId: 'EUR', tenantId: '', currencyCode: 'EUR', currencyName: 'Euro', symbol: '€', decimalPlaces: 2, isActive: true },
+  { currencyId: 'GBP', tenantId: '', currencyCode: 'GBP', currencyName: 'British Pound', symbol: '£', decimalPlaces: 2, isActive: true },
+  { currencyId: 'INR', tenantId: '', currencyCode: 'INR', currencyName: 'Indian Rupee', symbol: '₹', decimalPlaces: 2, isActive: true }
+];
+
+export interface IndustryProfileOption {
+  code: string;
+  name: string;
+  description: string;
 }
 
 @Component({
@@ -38,7 +51,6 @@ export interface OnboardingStep {
     RouterLink,
     ButtonModule,
     CardModule,
-    DialogModule,
     InputTextModule,
     SharedModule,
     AppPageHeaderComponent,
@@ -55,64 +67,63 @@ export class CompanySetupComponent implements OnInit {
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
+  readonly tenantSetupService = inject(TenantSetupService);
 
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
   readonly saving = signal<boolean>(false);
+  readonly formError = signal<string | null>(null);
+
   readonly companies = signal<Company[]>([]);
   readonly branches = signal<Branch[]>([]);
-  readonly activeCurrencies = signal<CurrencyItem[]>([]);
+  readonly activeCurrencies = signal<CurrencyItem[]>(STANDARD_BASE_CURRENCIES);
   readonly currenciesLoading = signal<boolean>(false);
   readonly warehouseCount = signal<number>(0);
   readonly productCount = signal<number>(0);
   readonly steps = signal<OnboardingStep[]>([]);
 
-  // Reusable Data Table Configuration for Companies
+  // Sequential Onboarding Stepper (1: Organization, 2: Users, 3: Master Data)
+  readonly activeOnboardingStep = signal<number>(1);
+
+  // Step 1 Form Fields
+  initCompanyName = '';
+  initCompanyCode = '';
+  initCompanyCurrencyCode = 'LKR';
+  initBranchName = '';
+  initBranchCode = 'MAIN';
+
+  // Step 2 User Provisioning
+  readonly userProvisioningLoading = signal<boolean>(false);
+  readonly userProvisioningSuccess = signal<boolean>(false);
+  readonly userProvisioningResult = signal<TenantUserSetupResult | null>(null);
+
+  // Step 3 Master Data Setup
+  readonly availableProfiles: IndustryProfileOption[] = [
+    { code: 'retail', name: 'Retail (Gate 6 Baseline) — Default', description: 'Currencies, categories, 5 products, barcodes, 2 warehouses, zones, locations, pricing, suppliers, customers.' }
+  ];
+  selectedIndustryProfile = 'retail';
+  readonly masterDataLoading = signal<boolean>(false);
+  readonly masterDataSuccess = signal<boolean>(false);
+  readonly masterDataResult = signal<TenantMasterDataSetupResult | null>(null);
+  readonly masterDataError = signal<string | null>(null);
+
+  // Inline forms for additional Company / Branch creation
+  readonly showAddCompanyInline = signal<boolean>(false);
+  readonly showAddBranchInline = signal<boolean>(false);
+  newCompanyName = '';
+  newCompanyCode = '';
+  newCompanyCurrencyCode = 'LKR';
+  newBranchCompanyId = '';
+  newBranchName = '';
+  newBranchCode = '';
+
   readonly companyColumns: DataTableColumn[] = [
-    {
-      field: 'code',
-      header: 'Company Code',
-      sortable: true,
-      filterable: true,
-      width: '180px'
-    },
-    {
-      field: 'name',
-      header: 'Company Name',
-      sortable: true,
-      filterable: true
-    },
-    {
-      field: 'currency',
-      header: 'Currency',
-      sortable: true,
-      filterable: true,
-      width: '120px'
-    },
-    {
-      field: 'status',
-      header: 'Status',
-      type: 'badge',
-      sortable: true,
-      filterable: true,
-      width: '140px',
-      badgeSeverityMap: (val, item) => item.isActive ? 'success' : 'neutral'
-    },
-    {
-      field: 'branchCount',
-      header: 'Branches',
-      sortable: true,
-      filterable: false,
-      width: '140px'
-    },
-    {
-      field: 'actions',
-      header: 'Working Company',
-      type: 'actions',
-      sortable: false,
-      filterable: false,
-      width: '180px'
-    }
+    { field: 'code', header: 'Company Code', sortable: true, filterable: true, width: '180px' },
+    { field: 'name', header: 'Company Name', sortable: true, filterable: true },
+    { field: 'currency', header: 'Currency', sortable: true, filterable: true, width: '120px' },
+    { field: 'status', header: 'Status', type: 'badge', sortable: true, filterable: true, width: '140px', badgeSeverityMap: (val, item) => item.isActive ? 'success' : 'neutral' },
+    { field: 'branchCount', header: 'Branches', sortable: true, filterable: false, width: '140px' },
+    { field: 'actions', header: 'Working Company', type: 'actions', sortable: false, filterable: false, width: '180px' }
   ];
 
   readonly tableCompanies = computed(() => {
@@ -120,7 +131,7 @@ export class CompanySetupComponent implements OnInit {
     return this.companies().map(c => ({
       ...c,
       status: c.isActive ? 'Active' : 'Inactive',
-      currency: c.baseCurrencyCode || 'Not set',
+      currency: c.baseCurrencyCode || 'LKR',
       branchCount: branchCountStr
     }));
   });
@@ -147,38 +158,11 @@ export class CompanySetupComponent implements OnInit {
     }
   ];
 
-  // Reusable Data Table Configuration for Branches
   readonly branchColumns: DataTableColumn[] = [
-    {
-      field: 'code',
-      header: 'Branch Code',
-      sortable: true,
-      filterable: true,
-      width: '180px'
-    },
-    {
-      field: 'name',
-      header: 'Branch / Plant Name',
-      sortable: true,
-      filterable: true
-    },
-    {
-      field: 'status',
-      header: 'Status',
-      type: 'badge',
-      sortable: true,
-      filterable: true,
-      width: '140px',
-      badgeSeverityMap: (val, item) => item.isActive ? 'success' : 'neutral'
-    },
-    {
-      field: 'actions',
-      header: 'Working Branch',
-      type: 'actions',
-      sortable: false,
-      filterable: false,
-      width: '180px'
-    }
+    { field: 'code', header: 'Branch Code', sortable: true, filterable: true, width: '180px' },
+    { field: 'name', header: 'Branch / Plant Name', sortable: true, filterable: true },
+    { field: 'status', header: 'Status', type: 'badge', sortable: true, filterable: true, width: '140px', badgeSeverityMap: (val, item) => item.isActive ? 'success' : 'neutral' },
+    { field: 'actions', header: 'Working Branch', type: 'actions', sortable: false, filterable: false, width: '180px' }
   ];
 
   readonly tableBranches = computed(() => {
@@ -210,50 +194,61 @@ export class CompanySetupComponent implements OnInit {
     }
   ];
 
-  // Dialog Controls
-  readonly showAddCompanyDialog = signal<boolean>(false);
-  readonly showAddBranchDialog = signal<boolean>(false);
-  readonly showInitWizardDialog = signal<boolean>(false);
-  readonly formError = signal<string | null>(null);
-
-  // Add Company Form
-  newCompanyName = '';
-  newCompanyCode = '';
-  newCompanyCurrencyId = '';
-
-  // Add Branch Form
-  newBranchCompanyId = '';
-  newBranchName = '';
-  newBranchCode = '';
-
-  // Initial Organization Setup Wizard Form
-  initCompanyName = '';
-  initCompanyCode = '';
-  initCompanyCurrencyId = '';
-  initBranchName = '';
-  initBranchCode = '';
-
   readonly breadcrumbs = [
     { label: 'Workspace', routerLink: '/app/dashboard' },
-    { label: 'Company Setup' }
+    { label: 'Tenant Onboarding' }
   ];
 
   ngOnInit(): void {
+    this.initOnboardingDefaults();
     this.loadCurrencies();
     this.loadOnboardingState();
+  }
+
+  private initOnboardingDefaults(): void {
+    const rawTenant = this.scopeService.activeTenantName() || 'Enterprise';
+    const cleanPrefix = rawTenant.split('@')[0].replace(/[^A-Za-z0-9]/g, ' ').trim();
+    const titleCase = cleanPrefix ? cleanPrefix.charAt(0).toUpperCase() + cleanPrefix.slice(1) : 'Apex Enterprise';
+    const shortCode = cleanPrefix.replace(/[^A-Za-z0-9]/g, '').substring(0, 6).toUpperCase() || 'APX';
+
+    if (!this.initCompanyName) {
+      this.initCompanyName = `${titleCase} (Pvt) Ltd`;
+    }
+    if (!this.initCompanyCode) {
+      this.initCompanyCode = shortCode;
+    }
+    if (!this.initCompanyCurrencyCode) {
+      this.initCompanyCurrencyCode = 'LKR';
+    }
+    if (!this.initBranchName) {
+      this.initBranchName = `${titleCase} Main Branch`;
+    }
+    if (!this.initBranchCode) {
+      this.initBranchCode = 'MAIN';
+    }
   }
 
   private loadCurrencies(): void {
     this.currenciesLoading.set(true);
     this.masterDataService.getCurrencies().subscribe({
       next: currencies => {
-        this.activeCurrencies.set(currencies.filter(currency => currency.isActive));
+        const active = (currencies || []).filter(c => c.isActive);
+        if (active.length > 0) {
+          this.activeCurrencies.set(active);
+        } else {
+          this.activeCurrencies.set(STANDARD_BASE_CURRENCIES);
+        }
+        if (!this.initCompanyCurrencyCode) {
+          this.initCompanyCurrencyCode = 'LKR';
+        }
         this.currenciesLoading.set(false);
       },
-      error: err => {
-        this.activeCurrencies.set([]);
+      error: () => {
+        this.activeCurrencies.set(STANDARD_BASE_CURRENCIES);
+        if (!this.initCompanyCurrencyCode) {
+          this.initCompanyCurrencyCode = 'LKR';
+        }
         this.currenciesLoading.set(false);
-        this.formError.set(err?.error?.message || 'Unable to load active currencies.');
       }
     });
   }
@@ -270,11 +265,11 @@ export class CompanySetupComponent implements OnInit {
 
         if (!activeComp) {
           this.buildSteps(comps, [], 0, 0);
+          this.activeOnboardingStep.set(1);
           this.loading.set(false);
           return;
         }
 
-        // Fetch branches for the active company
         this.companyService.getBranches(activeComp.id).subscribe({
           next: (brs) => {
             this.branches.set(brs);
@@ -287,6 +282,13 @@ export class CompanySetupComponent implements OnInit {
                   next: (prods) => {
                     this.productCount.set(prods.length);
                     this.buildSteps(comps, brs, whs.length, prods.length);
+
+                    // Determine sensible active step
+                    if (comps.length === 0) {
+                      this.activeOnboardingStep.set(1);
+                    } else if (prods.length === 0) {
+                      this.activeOnboardingStep.set(3);
+                    }
                     this.loading.set(false);
                   },
                   error: () => {
@@ -317,106 +319,179 @@ export class CompanySetupComponent implements OnInit {
   private buildSteps(comps: Company[], brs: Branch[], whCount: number, prodCount: number): void {
     const hasCompany = comps.length > 0;
     const hasBranch = brs.length > 0;
-    const hasWarehouse = whCount > 0;
-    const hasProducts = prodCount > 0;
+    const hasMasters = prodCount > 0 && whCount > 0;
 
     const stepsList: OnboardingStep[] = [
       {
         stepNumber: 1,
-        title: 'Company Details',
+        title: 'Organization & Base Currency',
         description: hasCompany
-          ? `${comps[0].name} (${comps[0].code}) is active and registered.`
-          : 'Establish organization profile, legal identifiers, and operating currencies.',
+          ? `${comps[0].name} (${comps[0].code}) configured with base currency LKR.`
+          : 'Define operating company, branch, and ensure base operating currency (LKR).',
         status: hasCompany ? 'completed' : 'in_progress',
         icon: 'pi pi-building',
-        badgeText: hasCompany ? 'Configured' : 'Required'
+        badgeText: hasCompany ? 'Configured' : 'Step 1'
       },
       {
         stepNumber: 2,
-        title: 'Branch Configuration',
-        description: hasBranch
-          ? `${brs.length} operational branches linked to ${comps[0]?.name || 'company'}.`
-          : 'Define operating locations, branch plants, and dispatch hubs.',
-        status: hasBranch ? 'completed' : (hasCompany ? 'in_progress' : 'pending'),
-        icon: 'pi pi-sitemap',
-        badgeText: hasBranch ? `${brs.length} Active` : 'Pending'
+        title: 'Departmental User Provisioning',
+        description: this.userProvisioningSuccess()
+          ? 'Standard departmental roles (Procurement, Inventory, Sales, Finance, Approver) active.'
+          : 'Provision standard departmental role accounts with Company and Branch scopes.',
+        status: this.userProvisioningSuccess() ? 'completed' : (hasCompany ? 'in_progress' : 'pending'),
+        icon: 'pi pi-users',
+        badgeText: this.userProvisioningSuccess() ? 'Provisioned' : 'Step 2'
       },
       {
         stepNumber: 3,
-        title: 'Warehouse & Storage Setup',
-        description: hasWarehouse
-          ? `${whCount} warehouses configured with inventory storage locations.`
-          : 'Set up receiving zones, bulk storage, and dispatch warehouse bins.',
-        status: hasWarehouse ? 'completed' : (hasBranch ? 'in_progress' : 'pending'),
-        icon: 'pi pi-box',
-        route: '/app/master-data',
-        badgeText: hasWarehouse ? `${whCount} Ready` : 'Setup'
-      },
-      {
-        stepNumber: 4,
         title: 'Supply Chain Master Data',
-        description: hasProducts
-          ? `${prodCount} products registered across master catalog.`
-          : 'Register products, categories, units of measure, and active suppliers.',
-        status: hasProducts ? 'completed' : (hasWarehouse ? 'in_progress' : 'pending'),
+        description: hasMasters
+          ? `${prodCount} products & ${whCount} warehouses active across catalog.`
+          : 'Seed products, packaging, barcodes, warehouses, suppliers, customers, and price cards.',
+        status: hasMasters ? 'completed' : (hasBranch ? 'in_progress' : 'pending'),
         icon: 'pi pi-database',
-        route: '/app/master-data',
-        badgeText: hasProducts ? `${prodCount} Products` : 'Next Step'
+        badgeText: hasMasters ? 'Active Baseline' : 'Step 3'
       }
     ];
 
     this.steps.set(stepsList);
   }
 
-  openAddCompanyModal(): void {
-    this.newCompanyName = '';
-    this.newCompanyCode = '';
-    this.newCompanyCurrencyId = this.scopeService.selectedCompany()?.baseCurrencyId
-      || this.activeCurrencies()[0]?.currencyId
-      || '';
+  goToStep(stepNumber: number): void {
+    this.activeOnboardingStep.set(stepNumber);
     this.formError.set(null);
-    this.showAddCompanyDialog.set(true);
   }
 
-  saveCompany(): void {
-    const trimmedName = this.newCompanyName.trim();
-    const trimmedCode = this.newCompanyCode.trim().toUpperCase();
-    const selectedCurrency = this.activeCurrencies().find(
-      currency => currency.currencyId === this.newCompanyCurrencyId
-    );
+  saveStep1Organization(): void {
+    const cName = this.initCompanyName.trim();
+    const cCode = this.initCompanyCode.trim().toUpperCase();
+    const bName = this.initBranchName.trim();
+    const bCode = this.initBranchCode.trim().toUpperCase();
+    const currCode = this.initCompanyCurrencyCode || 'LKR';
 
-    if (!trimmedName || !trimmedCode) {
+    if (!cName || !cCode) {
       this.formError.set('Company name and company code are required.');
       return;
     }
-    if (!selectedCurrency) {
-      this.formError.set('Select an active company base currency.');
+    if (!bName || !bCode) {
+      this.formError.set('Branch name and branch code are required.');
       return;
     }
 
     this.saving.set(true);
     this.formError.set(null);
 
-    this.companyService.createCompany({
-      name: trimmedName,
-      code: trimmedCode,
-      currency: selectedCurrency.currencyCode,
-      baseCurrencyId: selectedCurrency.currencyId
+    this.tenantSetupService.initializeOrganization({
+      companyName: cName,
+      companyCode: cCode,
+      baseCurrencyCode: currCode,
+      branchName: bName,
+      branchCode: bCode
     }).subscribe({
-      next: (comp) => {
+      next: (res) => {
         this.saving.set(false);
-        this.showAddCompanyDialog.set(false);
-        this.scopeService.selectCompany(comp);
+        this.activeOnboardingStep.set(2);
         this.loadOnboardingState();
       },
       error: (err) => {
         this.saving.set(false);
-        this.formError.set(err?.error?.message || 'Failed to register company.');
+        this.formError.set(err?.error?.message || err?.message || 'Failed to complete organization setup.');
       }
     });
   }
 
-  openAddBranchModal(): void {
+  saveStep2Users(): void {
+    const activeComp = this.scopeService.selectedCompany() || this.companies()[0];
+    const activeBranch = !this.scopeService.isAllBranches() ? this.scopeService.selectedBranch() : this.branches()[0];
+
+    this.userProvisioningLoading.set(true);
+    this.formError.set(null);
+
+    this.tenantSetupService.initializeUsers({
+      companyId: activeComp?.id,
+      branchId: activeBranch?.id
+    }).subscribe({
+      next: (res) => {
+        this.userProvisioningLoading.set(false);
+        this.userProvisioningSuccess.set(true);
+        this.userProvisioningResult.set(res?.data || null);
+        this.activeOnboardingStep.set(3);
+      },
+      error: (err) => {
+        this.userProvisioningLoading.set(false);
+        this.formError.set(err?.error?.message || err?.message || 'Failed to provision tenant users.');
+      }
+    });
+  }
+
+  saveStep3MasterData(): void {
+    const activeComp = this.scopeService.selectedCompany() || this.companies()[0];
+    const activeBranch = !this.scopeService.isAllBranches() ? this.scopeService.selectedBranch() : this.branches()[0];
+
+    this.masterDataLoading.set(true);
+    this.masterDataError.set(null);
+
+    this.tenantSetupService.initializeMasterData({
+      companyId: activeComp?.id,
+      branchId: activeBranch?.id,
+      profileCode: this.selectedIndustryProfile
+    }).subscribe({
+      next: (res) => {
+        this.masterDataLoading.set(false);
+        if (res?.succeeded && res.data) {
+          this.masterDataSuccess.set(true);
+          this.masterDataResult.set(res.data);
+          this.loadOnboardingState();
+        } else {
+          this.masterDataError.set(res?.message || 'Master data setup failed.');
+        }
+      },
+      error: (err) => {
+        this.masterDataLoading.set(false);
+        this.masterDataError.set(err?.error?.message || err?.message || 'Failed to complete master data setup.');
+      }
+    });
+  }
+
+  toggleAddCompanyInline(): void {
+    this.showAddCompanyInline.update(v => !v);
+    this.newCompanyName = '';
+    this.newCompanyCode = '';
+    this.newCompanyCurrencyCode = 'LKR';
+    this.formError.set(null);
+  }
+
+  saveNewCompany(): void {
+    const trimmedName = this.newCompanyName.trim();
+    const trimmedCode = this.newCompanyCode.trim().toUpperCase();
+    const currencyCode = this.newCompanyCurrencyCode || 'LKR';
+
+    if (!trimmedName || !trimmedCode) {
+      this.formError.set('Company name and company code are required.');
+      return;
+    }
+
+    this.saving.set(true);
+    this.formError.set(null);
+
+    this.tenantSetupService.initializeOrganization({
+      companyName: trimmedName,
+      companyCode: trimmedCode,
+      baseCurrencyCode: currencyCode
+    }).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        this.showAddCompanyInline.set(false);
+        this.loadOnboardingState();
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.formError.set(err?.error?.message || err?.message || 'Failed to register company.');
+      }
+    });
+  }
+
+  toggleAddBranchInline(): void {
     const activeComp = this.scopeService.selectedCompany() || this.companies()[0];
     if (!activeComp) {
       this.formError.set('Please select or create an operating company first.');
@@ -426,13 +501,12 @@ export class CompanySetupComponent implements OnInit {
     this.newBranchName = '';
     this.newBranchCode = '';
     this.formError.set(null);
-    this.showAddBranchDialog.set(true);
+    this.showAddBranchInline.update(v => !v);
   }
 
-  saveBranch(): void {
+  saveNewBranch(): void {
     const targetCompId = this.newBranchCompanyId || this.scopeService.selectedCompany()?.id || this.companies()[0]?.id;
-    const targetComp = this.companies().find(c => c.id === targetCompId);
-    if (!targetCompId || !targetComp) {
+    if (!targetCompId) {
       this.formError.set('Please select an operating company.');
       return;
     }
@@ -453,8 +527,7 @@ export class CompanySetupComponent implements OnInit {
     }).subscribe({
       next: (br) => {
         this.saving.set(false);
-        this.showAddBranchDialog.set(false);
-        this.scopeService.selectCompany(targetComp);
+        this.showAddBranchInline.set(false);
         this.scopeService.selectBranch(br);
         this.loadOnboardingState();
       },
@@ -463,74 +536,6 @@ export class CompanySetupComponent implements OnInit {
         this.formError.set(err?.error?.message || 'Failed to link branch.');
       }
     });
-  }
-
-  openInitWizardModal(): void {
-    const rawTenant = this.scopeService.activeTenantName() || 'Enterprise';
-    const cleanPrefix = rawTenant.split('@')[0].replace(/[^A-Za-z0-9]/g, ' ').trim();
-    const titleCase = cleanPrefix ? cleanPrefix.charAt(0).toUpperCase() + cleanPrefix.slice(1) : 'Apex Enterprise';
-    const shortCode = cleanPrefix.replace(/[^A-Za-z0-9]/g, '').substring(0, 4).toUpperCase() || 'APX';
-
-    this.initCompanyName = `${titleCase} (Pvt) Ltd`;
-    this.initCompanyCode = `${shortCode}-MFG`;
-    this.initCompanyCurrencyId = this.activeCurrencies()[0]?.currencyId || '';
-    this.initBranchName = `${titleCase} Main Branch`;
-    this.initBranchCode = `${shortCode}-BR01`;
-    this.formError.set(null);
-    this.showInitWizardDialog.set(true);
-  }
-
-  saveInitWizard(): void {
-    const cName = this.initCompanyName.trim();
-    const cCode = this.initCompanyCode.trim().toUpperCase();
-    const selectedCurrency = this.activeCurrencies().find(
-      currency => currency.currencyId === this.initCompanyCurrencyId
-    );
-    const bName = this.initBranchName.trim();
-    const bCode = this.initBranchCode.trim().toUpperCase();
-
-    if (!cName || !cCode) {
-      this.formError.set('Company name and company code are required.');
-      return;
-    }
-    if (!selectedCurrency) {
-      this.formError.set('Select an active company base currency.');
-      return;
-    }
-    if (!bName || !bCode) {
-      this.formError.set('Initial branch name and branch code are required.');
-      return;
-    }
-
-    this.saving.set(true);
-    this.formError.set(null);
-
-    this.companyService.createCompany({
-      name: cName,
-      code: cCode,
-      currency: selectedCurrency.currencyCode,
-      baseCurrencyId: selectedCurrency.currencyId
-    }).subscribe({
-      next: (company) => {
-        const branch = this.companyService.createBranch(company.id, {
-          name: bName,
-          code: bCode
-        });
-        this.saving.set(false);
-        this.showInitWizardDialog.set(false);
-        this.scopeService.selectCompany(company);
-        branch.subscribe(createdBranch => this.scopeService.selectBranch(createdBranch));
-        this.loadOnboardingState();
-      },
-      error: (err) => {
-        this.saving.set(false);
-        this.formError.set(err?.error?.message || 'Failed to complete organization setup.');
-      }
-    });
-  }
-
-  onInitializeDefault(): void {
-    this.openInitWizardModal();
   }
 
   setActiveCompany(company: Company): void {

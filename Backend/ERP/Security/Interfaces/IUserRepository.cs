@@ -11,6 +11,10 @@ public interface IUserRepository
     Task<User?> GetByEmailAsync(
         string email);
 
+    Task<User?> GetByEmailAsync(
+        Guid? tenantId,
+        string email);
+
     Task<List<string>> GetRolesAsync(
         Guid userId);
 
