@@ -1,0 +1,272 @@
+{
+  "profileCode": "retail",
+  "profileName": "Retail & Supermarket Store",
+  "currencies": [
+    { "code": "LKR", "name": "Sri Lankan Rupee", "symbol": "Rs", "decimalPlaces": 2, "isBase": true },
+    { "code": "USD", "name": "US Dollar", "symbol": "$", "decimalPlaces": 2, "isBase": false },
+    { "code": "EUR", "name": "Euro", "symbol": "€", "decimalPlaces": 2, "isBase": false },
+    { "code": "GBP", "name": "British Pound", "symbol": "£", "decimalPlaces": 2, "isBase": false },
+    { "code": "INR", "name": "Indian Rupee", "symbol": "₹", "decimalPlaces": 2, "isBase": false }
+  ],
+  "exchangeRates": [
+    { "fromCurrency": "USD", "toCurrency": "LKR", "rate": 305.00 },
+    { "fromCurrency": "EUR", "toCurrency": "LKR", "rate": 330.00 },
+    { "fromCurrency": "GBP", "toCurrency": "LKR", "rate": 385.00 },
+    { "fromCurrency": "INR", "toCurrency": "LKR", "rate": 3.65 }
+  ],
+  "paymentTerms": [
+    { "code": "NET30", "name": "Net 30 Days", "days": 30, "description": "Standard supplier and commercial customer credit" },
+    { "code": "IMMEDIATE", "name": "Immediate / Cash on Delivery", "days": 0, "description": "Retail walk-in and counter cash settlement" },
+    { "code": "NET15", "name": "Net 15 Days", "days": 15, "description": "Short term retail vendor settlement" },
+    { "code": "NET60", "name": "Net 60 Days", "days": 60, "description": "Extended distributor terms" }
+  ],
+  "taxCodes": [
+    { "code": "TAX-EXEMPT", "name": "Zero-Rated / Exempt", "rate": 0.00, "description": "Zero-rated staple foods and essential commodities" },
+    { "code": "VAT-18", "name": "Value Added Tax 18%", "rate": 18.00, "description": "Standard Sri Lanka VAT rate" },
+    { "code": "VAT-8", "name": "Value Added Tax 8%", "rate": 8.00, "description": "Concessionary goods VAT rate" }
+  ],
+  "categories": [
+    { "code": "STAPLES", "name": "Staple Foods", "description": "Rice, grains, pulses, and dry staple provisions" },
+    { "code": "COOKING", "name": "Cooking Essentials", "description": "Cooking oils, sauces, spices, and condiments" },
+    { "code": "SWEETENERS", "name": "Baking & Sweeteners", "description": "Sugar, flour, baking agents, and confectioneries" },
+    { "code": "BEVERAGES", "name": "Beverages", "description": "Bottled water, juices, and packaged drinks" },
+    { "code": "HOUSEHOLD", "name": "Apparel & Household", "description": "Packaged consumer goods and accessories" },
+    { "code": "SERVICES", "name": "Store Services", "description": "Service operations and customer handling" }
+  ],
+  "brands": [
+    { "code": "BRAND-LP", "name": "Lanka Pure", "description": "Lanka Pure Agricultural Produce" },
+    { "code": "BRAND-HG", "name": "Harvest Gold", "description": "Harvest Gold Quality Staples" },
+    { "code": "BRAND-SL", "name": "Sunlight Oils", "description": "Sunlight Cooking Oils" }
+  ],
+  "unitsOfMeasure": [
+    { "code": "BAG", "name": "Bag", "description": "5kg sack or bag container" },
+    { "code": "BTL", "name": "Bottle", "description": "Standard bottled container (1L or 500ml)" },
+    { "code": "PKT", "name": "Packet", "description": "Standard retail consumer packet" },
+    { "code": "BOX", "name": "Box", "description": "Outer shipping and distribution box" },
+    { "code": "CTN", "name": "Carton", "description": "Standard bulk shipping carton" },
+    { "code": "BDL", "name": "Bundle", "description": "Tied bundle pack" },
+    { "code": "KG", "name": "Kilogram", "description": "Metric weight unit" },
+    { "code": "G", "name": "Gram", "description": "Metric sub-weight unit" },
+    { "code": "LTR", "name": "Liter", "description": "Metric volume unit" },
+    { "code": "ML", "name": "Milliliter", "description": "Metric sub-volume unit" },
+    { "code": "PCS", "name": "Pieces", "description": "Discrete count piece" },
+    { "code": "EA", "name": "Each", "description": "Single item unit" },
+    { "code": "DOZEN", "name": "Dozen", "description": "Twelve discrete units" }
+  ],
+  "conversions": [
+    { "fromUom": "BOX", "toUom": "BAG", "conversionFactor": 4.0 },
+    { "fromUom": "CTN", "toUom": "BTL", "conversionFactor": 12.0 },
+    { "fromUom": "BDL", "toUom": "PKT", "conversionFactor": 10.0 },
+    { "fromUom": "KG", "toUom": "G", "conversionFactor": 1000.0 },
+    { "fromUom": "LTR", "toUom": "ML", "conversionFactor": 1000.0 },
+    { "fromUom": "DOZEN", "toUom": "PCS", "conversionFactor": 12.0 }
+  ],
+  "products": [
+    {
+      "code": "RET-001",
+      "name": "Samba Rice 5kg Pack",
+      "categoryCode": "STAPLES",
+      "brandCode": "BRAND-HG",
+      "baseUom": "BAG",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 1500.00,
+      "sellingPrice": 1850.00,
+      "taxCode": "TAX-EXEMPT",
+      "packagings": [
+        { "packagingCode": "RET-001-BOX", "packagingUom": "BOX", "multiplier": 4.0, "barcode": "14792001001015" }
+      ],
+      "identifiers": [
+        { "barcode": "4792001001018", "symbology": "EAN13", "isPrimary": true }
+      ]
+    },
+    {
+      "code": "RET-002",
+      "name": "Pure Vegetable Cooking Oil 1L",
+      "categoryCode": "COOKING",
+      "brandCode": "BRAND-SL",
+      "baseUom": "BTL",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 850.00,
+      "sellingPrice": 1050.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        { "packagingCode": "RET-002-CTN", "packagingUom": "CTN", "multiplier": 12.0, "barcode": "14792001002012" }
+      ],
+      "identifiers": [
+        { "barcode": "4792001002015", "symbology": "EAN13", "isPrimary": true }
+      ]
+    },
+    {
+      "code": "RET-003",
+      "name": "Refined White Sugar 1kg",
+      "categoryCode": "SWEETENERS",
+      "brandCode": "BRAND-LP",
+      "baseUom": "PKT",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 320.00,
+      "sellingPrice": 400.00,
+      "taxCode": "TAX-EXEMPT",
+      "packagings": [
+        { "packagingCode": "RET-003-BDL", "packagingUom": "BDL", "multiplier": 10.0, "barcode": "14792001003019" }
+      ],
+      "identifiers": [
+        { "barcode": "4792001003012", "symbology": "EAN13", "isPrimary": true }
+      ]
+    },
+    {
+      "code": "RET-004",
+      "name": "Spring Water 500 ml",
+      "categoryCode": "BEVERAGES",
+      "brandCode": "BRAND-LP",
+      "baseUom": "BTL",
+      "trackingMode": "Batch",
+      "valuationMethod": "WeightedAverage",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 70.00,
+      "sellingPrice": 100.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        { "packagingCode": "RET-004-CASE", "packagingUom": "CTN", "multiplier": 24.0, "barcode": "14792001004019" }
+      ],
+      "identifiers": [
+        { "barcode": "4790000000044", "symbology": "EAN13", "isPrimary": true }
+      ]
+    },
+    {
+      "code": "RET-005",
+      "name": "Reusable Shopping Bag",
+      "categoryCode": "HOUSEHOLD",
+      "brandCode": "BRAND-LP",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 50.00,
+      "sellingPrice": 80.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        { "packagingCode": "RET-005-PACK", "packagingUom": "BOX", "multiplier": 10.0, "barcode": "14792001005016" }
+      ],
+      "identifiers": [
+        { "barcode": "BAR-00000005", "symbology": "Code128", "isPrimary": true }
+      ]
+    }
+  ],
+  "suppliers": [
+    {
+      "code": "SUP-RET-001",
+      "name": "Lanka Retail Distributors (Pvt) Ltd",
+      "email": "orders@lankaretaildistributors.lk",
+      "phone": "+94 11 234 5678",
+      "addressLine1": "No. 250, Industrial Zone, Orugodawatta",
+      "city": "Colombo",
+      "postalCode": "00300",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Saman Perera"
+    }
+  ],
+  "customers": [
+    {
+      "code": "CUST-RET-001",
+      "name": "Cargills Supermarkets PLC",
+      "email": "procurement@cargillsretail.lk",
+      "phone": "+94 11 456 7890",
+      "addressLine1": "No. 40, York Street, Colombo 01",
+      "city": "Colombo",
+      "postalCode": "00100",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Nimal Fernando"
+    }
+  ],
+  "priceCards": [
+    {
+      "code": "PPC-SUP-RET-001",
+      "name": "Lanka Retail Distributors Contract Pricing FY26",
+      "priceCardType": "Purchase",
+      "currency": "LKR",
+      "description": "Contract purchase prices for Lanka Retail Distributors",
+      "lines": [
+        { "productCode": "RET-001", "uomCode": "BAG", "unitPrice": 1500.00 },
+        { "productCode": "RET-002", "uomCode": "BTL", "unitPrice": 850.00 },
+        { "productCode": "RET-003", "uomCode": "PKT", "unitPrice": 320.00 },
+        { "productCode": "RET-004", "uomCode": "BTL", "unitPrice": 70.00 },
+        { "productCode": "RET-005", "uomCode": "PCS", "unitPrice": 50.00 }
+      ]
+    },
+    {
+      "code": "SPC-RETAIL-STD",
+      "name": "Standard Retail Store Price Card FY26",
+      "priceCardType": "Sales",
+      "currency": "LKR",
+      "description": "Standard consumer retail pricing",
+      "lines": [
+        { "productCode": "RET-001", "uomCode": "BAG", "unitPrice": 1850.00 },
+        { "productCode": "RET-002", "uomCode": "BTL", "unitPrice": 1050.00 },
+        { "productCode": "RET-003", "uomCode": "PKT", "unitPrice": 400.00 },
+        { "productCode": "RET-004", "uomCode": "BTL", "unitPrice": 100.00 },
+        { "productCode": "RET-005", "uomCode": "PCS", "unitPrice": 80.00 }
+      ]
+    }
+  ],
+  "warehouses": [
+    {
+      "code": "RETAIL-WH1",
+      "name": "Central Retail Warehouse",
+      "isPrimary": true,
+      "addressLine1": "No. 100, Galle Road",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "ZONE-REC",
+          "name": "Inbound Receiving Zone",
+          "description": "Receiving and staging dock zone",
+          "locations": [
+            { "code": "LOC-REC-01", "name": "Receiving Dock 01", "locationTypeCode": "STAGING" }
+          ]
+        },
+        {
+          "code": "ZONE-STK",
+          "name": "Main Pallet Rack Storage Zone",
+          "description": "High density storage and picking zone",
+          "locations": [
+            { "code": "LOC-STK-01", "name": "Main Rack A-01", "locationTypeCode": "RACK" }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "RETAIL-WH2",
+      "name": "Annex Retail Warehouse",
+      "isPrimary": false,
+      "addressLine1": "No. 45, Duplication Road",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "ZONE-WH2",
+          "name": "Annex Storage Zone",
+          "description": "Overflow and secondary inventory zone",
+          "locations": [
+            { "code": "LOC-WH2-01", "name": "WH2 Storage Rack 01", "locationTypeCode": "SHELF" }
+          ]
+        }
+      ]
+    }
+  ]
+}

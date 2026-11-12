@@ -78,11 +78,11 @@ public class UserService : IUserService
                 "Username is already registered in this scope.");
 
         var existingEmail =
-            await _repository.GetByEmailAsync(email);
+            await _repository.GetByEmailAsync(tenantId, email);
 
         if (existingEmail != null)
             throw new InvalidOperationException(
-                "Email is already registered.");
+                "Email is already registered in this scope.");
 
         var user = new User
         {

@@ -1,91 +1,408 @@
 <div class="company-setup-page">
   <app-page-header
-    title="Company & Branch Onboarding"
-    subtitle="Configure organization identity, operating branches, and foundational operational masters."
+    title="Tenant Onboarding & Activation Hub"
+    subtitle="Sequential setup of organization identity, base currency, departmental users, and supply chain master data."
     [breadcrumbs]="breadcrumbs"
   ></app-page-header>
 
   @if (loading()) {
-    <app-loading-state message="Loading company and branch configuration from backend..."></app-loading-state>
+    <app-loading-state message="Loading tenant onboarding status..."></app-loading-state>
   } @else if (error()) {
     <app-error-state [message]="error()!" (retry)="loadOnboardingState()"></app-error-state>
   } @else {
-    <!-- Readiness Overview Banner -->
+    <!-- Onboarding Progression Header -->
     <div class="setup-hero erp-card">
       <div class="hero-left">
         <div class="hero-icon">
-          <i class="pi pi-check-circle"></i>
+          <i class="pi pi-compass"></i>
         </div>
         <div>
-          <h2>Organization Readiness & Setup</h2>
+          <h2>Tenant Onboarding Guide</h2>
           <p>
             Operating Tenant: <strong>{{ scopeService.activeTenantName() }}</strong>
             &nbsp;&bull;&nbsp;
-            Status: <strong>{{ companies().length > 0 ? 'Active Operational Workspace' : 'Setup Required' }}</strong>
+            Status: <strong>{{ companies().length > 0 && productCount() > 0 ? 'Fully Activated' : 'Onboarding in Progress' }}</strong>
           </p>
         </div>
       </div>
       <div class="hero-actions">
-        @if (companies().length === 0) {
-          <button type="button" class="p-button p-button-sm p-button-success" (click)="onInitializeDefault()">
-            <i class="pi pi-bolt p-button-icon-left"></i>
-            <span class="p-button-label">Quick Setup (Company & Branch)</span>
-          </button>
-        }
-        <a routerLink="/app/master-data" class="p-button p-button-sm p-button-primary">
+        <a routerLink="/app/master-data" class="p-button p-button-sm p-button-outlined p-button-secondary">
           <i class="pi pi-database p-button-icon-left"></i>
-          <span class="p-button-label">Explore Master Data</span>
+          <span class="p-button-label">View Master Catalog</span>
         </a>
       </div>
     </div>
 
-    <!-- Onboarding Step Progression Cards -->
-    <div class="steps-grid">
-      @for (step of steps(); track step.stepNumber) {
-        <div class="step-card erp-card" [class.step-completed]="step.status === 'completed'" [class.step-current]="step.status === 'in_progress'">
-          <div class="step-top">
-            <div class="step-badge-number">
-              @if (step.status === 'completed') {
-                <i class="pi pi-check"></i>
-              } @else {
-                {{ step.stepNumber }}
-              }
+    <!-- Sequential Stepper Tabs -->
+    <div class="onboarding-stepper-bar erp-card">
+      <div
+        class="stepper-tab"
+        [class.active]="activeOnboardingStep() === 1"
+        [class.completed]="companies().length > 0"
+        (click)="goToStep(1)"
+      >
+        <div class="step-num">
+          @if (companies().length > 0) { <i class="pi pi-check"></i> } @else { 1 }
+        </div>
+        <div class="step-label">
+          <strong>1. Organization & Currency</strong>
+          <span>Company, Branch & LKR</span>
+        </div>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <div
+        class="stepper-tab"
+        [class.active]="activeOnboardingStep() === 2"
+        [class.completed]="userProvisioningSuccess()"
+        (click)="goToStep(2)"
+      >
+        <div class="step-num">
+          @if (userProvisioningSuccess()) { <i class="pi pi-check"></i> } @else { 2 }
+        </div>
+        <div class="step-label">
+          <strong>2. Departmental Users</strong>
+          <span>Standard Roles & Scopes</span>
+        </div>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <div
+        class="stepper-tab"
+        [class.active]="activeOnboardingStep() === 3"
+        [class.completed]="productCount() > 0 && warehouseCount() > 0"
+        (click)="goToStep(3)"
+      >
+        <div class="step-num">
+          @if (productCount() > 0 && warehouseCount() > 0) { <i class="pi pi-check"></i> } @else { 3 }
+        </div>
+        <div class="step-label">
+          <strong>3. Master Data Setup</strong>
+          <span>Retail Gate 6 Baseline</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Inline Step Section -->
+    <div class="active-step-panel erp-card">
+      @if (formError()) {
+        <div class="setup-alert setup-alert-error">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>{{ formError() }}</span>
+        </div>
+      }
+
+      <!-- STEP 1: ORGANIZATION & BASE CURRENCY -->
+      @if (activeOnboardingStep() === 1) {
+        <div class="step-content">
+          <div class="step-header">
+            <div class="step-title-group">
+              <span class="step-pill">Step 1 of 3</span>
+              <h3>Operating Company & Base Currency Setup</h3>
+              <p>Register your operating company, primary operational branch, and establish your tenant base currency (LKR).</p>
             </div>
-            <app-status-badge
-              [label]="step.badgeText"
-              [severity]="step.status === 'completed' ? 'success' : (step.status === 'in_progress' ? 'info' : 'neutral')"
-            ></app-status-badge>
-          </div>
-          <div class="step-body">
-            <div class="step-icon">
-              <i [class]="step.icon"></i>
-            </div>
-            <h3>{{ step.title }}</h3>
-            <p>{{ step.description }}</p>
-          </div>
-          <div class="step-footer">
-            @if (step.stepNumber === 1 && companies().length === 0) {
-              <button type="button" class="step-action-btn" (click)="openAddCompanyModal()">
-                + Add Company <i class="pi pi-arrow-right"></i>
-              </button>
-            } @else if (step.stepNumber === 2 && branches().length === 0) {
-              <button type="button" class="step-action-btn" (click)="openAddBranchModal()">
-                + Add Branch <i class="pi pi-arrow-right"></i>
-              </button>
-            } @else if (step.route) {
-              <a [routerLink]="step.route" class="step-action-link">
-                Configure <i class="pi pi-arrow-right"></i>
-              </a>
-            } @else {
-              <span class="step-status-note">{{ step.status === 'completed' ? 'Verified & Active' : 'Setup Required' }}</span>
+            @if (companies().length > 0) {
+              <div class="step-status-chip success">
+                <i class="pi pi-check-circle"></i> Organization Active
+              </div>
             }
+          </div>
+
+          <div class="step-form-grid">
+            <div class="form-section">
+              <h4><i class="pi pi-building"></i> Operating Company</h4>
+              <div class="field-row">
+                <label for="step1CompName">Company Legal Name <span class="required-star">*</span></label>
+                <input
+                  pInputText
+                  id="step1CompName"
+                  [(ngModel)]="initCompanyName"
+                  placeholder="e.g. Lanka Retail Mart (Pvt) Ltd"
+                  class="w-full"
+                />
+              </div>
+              <div class="field-grid-2">
+                <div class="field-row">
+                  <label for="step1CompCode">Company Code <span class="required-star">*</span></label>
+                  <input
+                    pInputText
+                    id="step1CompCode"
+                    [(ngModel)]="initCompanyCode"
+                    placeholder="e.g. RETAIL"
+                    class="w-full"
+                  />
+                </div>
+                <div class="field-row">
+                  <label for="step1Currency">Base Operating Currency <span class="required-star">*</span></label>
+                  <select
+                    id="step1Currency"
+                    [(ngModel)]="initCompanyCurrencyCode"
+                    class="w-full p-inputtext select-input"
+                  >
+                    @for (curr of activeCurrencies(); track curr.currencyCode) {
+                      <option [value]="curr.currencyCode">
+                        {{ curr.currencyCode }} — {{ curr.currencyName }} ({{ curr.symbol }})
+                      </option>
+                    }
+                  </select>
+                  <small class="field-hint">Guaranteed base currency for all operational pricing and ledger records.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h4><i class="pi pi-sitemap"></i> Primary Operating Facility / Branch</h4>
+              <div class="field-row">
+                <label for="step1BranchName">Branch / Plant Name <span class="required-star">*</span></label>
+                <input
+                  pInputText
+                  id="step1BranchName"
+                  [(ngModel)]="initBranchName"
+                  placeholder="e.g. Colombo Main Branch"
+                  class="w-full"
+                />
+              </div>
+              <div class="field-row">
+                <label for="step1BranchCode">Branch Code <span class="required-star">*</span></label>
+                <input
+                  pInputText
+                  id="step1BranchCode"
+                  [(ngModel)]="initBranchCode"
+                  placeholder="e.g. MAIN"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="step-footer-actions">
+            @if (companies().length > 0) {
+              <p-button
+                type="button"
+                label="Continue to Users"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                severity="secondary"
+                (onClick)="goToStep(2)"
+              ></p-button>
+            }
+            <p-button
+              type="button"
+              [label]="companies().length > 0 ? 'Update Organization & Continue' : 'Create & Continue to Users'"
+              icon="pi pi-check"
+              severity="primary"
+              [loading]="saving()"
+              (onClick)="saveStep1Organization()"
+            ></p-button>
+          </div>
+        </div>
+      }
+
+      <!-- STEP 2: USER PROVISIONING -->
+      @if (activeOnboardingStep() === 2) {
+        <div class="step-content">
+          <div class="step-header">
+            <div class="step-title-group">
+              <span class="step-pill">Step 2 of 3</span>
+              <h3>Standard Departmental User Provisioning</h3>
+              <p>Automatically provision standard operational accounts with appropriate role permissions and company/branch scopes.</p>
+            </div>
+            @if (userProvisioningSuccess()) {
+              <div class="step-status-chip success">
+                <i class="pi pi-check-circle"></i> Users Provisioned
+              </div>
+            }
+          </div>
+
+          <div class="info-card">
+            <i class="pi pi-info-circle"></i>
+            <div>
+              <strong>Standard Role Accounts Included</strong>
+              <p>
+                Provisions 11 role-tailored accounts for Procurement (Manager & Staff), Inventory (Manager & Staff), Sales (Manager & Staff), Warehouse Operations, Finance, and Approver segregations.
+                Pre-existing admin credentials are never overwritten or deleted.
+              </p>
+            </div>
+          </div>
+
+          @if (userProvisioningResult()) {
+            <div class="user-results-table">
+              <h4>Provisioned User Accounts</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Assigned Scope</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (u of userProvisioningResult()!.users; track u.userId) {
+                    <tr>
+                      <td><code>{{ u.username }}</code></td>
+                      <td>{{ u.roleName }}</td>
+                      <td>Company & Branch Scoped</td>
+                      <td><span class="status-badge success">{{ u.status }}</span></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <div class="step-footer-actions">
+            <p-button
+              type="button"
+              label="Back to Organization"
+              icon="pi pi-arrow-left"
+              severity="secondary"
+              [text]="true"
+              (onClick)="goToStep(1)"
+            ></p-button>
+            <p-button
+              type="button"
+              label="Provision Standard Users"
+              icon="pi pi-users"
+              severity="primary"
+              [loading]="userProvisioningLoading()"
+              (onClick)="saveStep2Users()"
+            ></p-button>
+            @if (userProvisioningSuccess() || companies().length > 0) {
+              <p-button
+                type="button"
+                label="Continue to Master Data"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                severity="success"
+                (onClick)="goToStep(3)"
+              ></p-button>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- STEP 3: MASTER DATA SETUP -->
+      @if (activeOnboardingStep() === 3) {
+        <div class="step-content">
+          <div class="step-header">
+            <div class="step-title-group">
+              <span class="step-pill">Step 3 of 3</span>
+              <h3>Supply Chain Master Data Setup</h3>
+              <p>Initialize baseline operational master data (currencies, tax codes, categories, units of measure, products, barcodes, warehouses, suppliers, customers, and price cards).</p>
+            </div>
+            @if (productCount() > 0 && warehouseCount() > 0) {
+              <div class="step-status-chip success">
+                <i class="pi pi-check-circle"></i> Catalog Ready
+              </div>
+            }
+          </div>
+
+          @if (masterDataError()) {
+            <div class="setup-alert setup-alert-error">
+              <i class="pi pi-exclamation-triangle"></i>
+              <span>{{ masterDataError() }}</span>
+            </div>
+          }
+
+          <div class="step-form-grid">
+            <div class="form-section">
+              <h4><i class="pi pi-sliders-h"></i> Industry Profile Template</h4>
+              <div class="field-row">
+                <label for="profileDropdown">Select Industry Profile <span class="required-star">*</span></label>
+                <select
+                  id="profileDropdown"
+                  [(ngModel)]="selectedIndustryProfile"
+                  class="w-full p-inputtext select-input"
+                  [disabled]="masterDataLoading()"
+                >
+                  @for (opt of availableProfiles; track opt.code) {
+                    <option [value]="opt.code">{{ opt.name }}</option>
+                  }
+                </select>
+                <small class="field-hint">Seeds complete Gate 6 baseline: reuses existing LKR base currency, seeds secondary FX rates, 6 categories, 5 batch/standard products, barcodes, 2 warehouses with bins, suppliers, customers, and price cards.</small>
+              </div>
+
+              <div class="field-row">
+                <label>Target Execution Scope</label>
+                <div class="scope-display-pill">
+                  <span><strong>Tenant:</strong> {{ scopeService.activeTenantName() }}</span>
+                  <span><strong>Company:</strong> {{ scopeService.selectedCompany()?.name || 'Default Primary Company' }}</span>
+                  <span><strong>Branch:</strong> {{ scopeService.isAllBranches() ? 'Default Primary Branch' : (scopeService.selectedBranch()?.name || 'All') }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          @if (masterDataLoading()) {
+            <div class="setup-progress-indicator">
+              <i class="pi pi-spin pi-spinner setup-spinner"></i>
+              <div>
+                <strong>Seeding Supply Chain Master Data...</strong>
+                <p>Executing idempotent validation and persistence across products, warehouses, locations, suppliers, customers, and price cards.</p>
+              </div>
+            </div>
+          }
+
+          @if (masterDataResult()) {
+            <div class="setup-results-body">
+              <div class="setup-alert setup-alert-success">
+                <i class="pi pi-check-circle"></i>
+                <div>
+                  <strong>Master Data Setup Complete</strong>
+                  <p>All catalog specifications have been validated and seeded into the domain database.</p>
+                </div>
+              </div>
+
+              <div class="results-stats-grid">
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.categoriesProcessed }}</span><span class="stat-label">Categories</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.brandsProcessed }}</span><span class="stat-label">Brands</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.uomsProcessed }}</span><span class="stat-label">UOMs</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.conversionsProcessed }}</span><span class="stat-label">Conversions</span></div>
+                <div class="result-stat-card highlight"><span class="stat-number">{{ masterDataResult()!.productsProcessed }}</span><span class="stat-label">Products</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.identifiersProcessed }}</span><span class="stat-label">Barcodes</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.warehousesProcessed }}</span><span class="stat-label">Warehouses</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.locationsProcessed }}</span><span class="stat-label">Locations</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.suppliersProcessed }}</span><span class="stat-label">Suppliers</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.customersProcessed }}</span><span class="stat-label">Customers</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.priceCardsProcessed }}</span><span class="stat-label">Price Cards</span></div>
+                <div class="result-stat-card"><span class="stat-number">{{ masterDataResult()!.taxCodesProcessed }}</span><span class="stat-label">Tax Codes</span></div>
+              </div>
+            </div>
+          }
+
+          <div class="step-footer-actions">
+            <p-button
+              type="button"
+              label="Back to Users"
+              icon="pi pi-arrow-left"
+              severity="secondary"
+              [text]="true"
+              (onClick)="goToStep(2)"
+            ></p-button>
+            <p-button
+              label="View Seeded Master Data"
+              icon="pi pi-external-link"
+              severity="secondary"
+              [outlined]="true"
+              routerLink="/app/master-data"
+            ></p-button>
+            <p-button
+              type="button"
+              label="Start Master Data Setup"
+              icon="pi pi-bolt"
+              severity="primary"
+              [loading]="masterDataLoading()"
+              (onClick)="saveStep3MasterData()"
+            ></p-button>
           </div>
         </div>
       }
     </div>
 
-    <!-- Authorized Companies Section -->
-    <!-- Authorized Companies Section using Reusable AppDataTableComponent -->
+    <!-- Operating Companies & Branches Management Section (Below Onboarding) -->
     <div class="detail-section erp-card">
       <div class="section-head section-head-with-actions">
         <div>
@@ -93,18 +410,41 @@
           <p class="section-subtext">Verified entities under tenant isolation boundary.</p>
         </div>
         <div class="section-actions">
-          @if (companies().length === 0) {
-            <button type="button" class="p-button p-button-sm p-button-success" (click)="onInitializeDefault()">
-              <i class="pi pi-bolt p-button-icon-left"></i>
-              <span class="p-button-label">Quick Setup (Company & Branch)</span>
-            </button>
-          }
-          <button type="button" class="p-button p-button-sm p-button-primary" (click)="openAddCompanyModal()">
+          <button type="button" class="p-button p-button-sm p-button-primary" (click)="toggleAddCompanyInline()">
             <i class="pi pi-plus p-button-icon-left"></i>
             <span class="p-button-label">Add Company</span>
           </button>
         </div>
       </div>
+
+      <!-- Inline Add Company Form -->
+      @if (showAddCompanyInline()) {
+        <div class="inline-form-box">
+          <h4>Register Additional Company</h4>
+          <div class="field-grid-3">
+            <div class="field-row">
+              <label>Company Name <span class="required-star">*</span></label>
+              <input pInputText [(ngModel)]="newCompanyName" placeholder="e.g. Retail Annex Ltd" class="w-full" />
+            </div>
+            <div class="field-row">
+              <label>Company Code <span class="required-star">*</span></label>
+              <input pInputText [(ngModel)]="newCompanyCode" placeholder="e.g. ANNEX" class="w-full" />
+            </div>
+            <div class="field-row">
+              <label>Base Currency</label>
+              <select [(ngModel)]="newCompanyCurrencyCode" class="w-full p-inputtext select-input">
+                @for (curr of activeCurrencies(); track curr.currencyCode) {
+                  <option [value]="curr.currencyCode">{{ curr.currencyCode }} — {{ curr.currencyName }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="inline-actions">
+            <p-button type="button" label="Cancel" severity="secondary" [text]="true" (onClick)="toggleAddCompanyInline()"></p-button>
+            <p-button type="button" label="Save Company" icon="pi pi-check" severity="primary" [loading]="saving()" (onClick)="saveNewCompany()"></p-button>
+          </div>
+        </div>
+      }
 
       <div class="table-container">
         <app-data-table
@@ -115,55 +455,54 @@
           [showFilters]="true"
           [showSorting]="true"
           [paginator]="true"
-          [showColumnChooser]="true"
-          [showExport]="true"
-          [showViewSwitcher]="true"
-          cardIcon="pi pi-building"
-          cardTitleField="name"
-          cardSubtitleField="code"
-          [rows]="5"
-          [rowsPerPageOptions]="[5, 10, 20]"
-          [searchPlaceholder]="'Search company name, code or currency...'"
-          [emptyTitle]="'No Registered Operating Companies'"
-          [emptyDescription]="'Get started by adding a company or initializing default company setup.'"
-        >
-          <ng-template #rowActions let-comp>
-            @if (scopeService.selectedCompany()?.id === comp.id) {
-              <span class="active-scope-badge"><i class="pi pi-check-circle"></i> Current Company</span>
-            } @else {
-              <p-button
-                label="Select Company"
-                icon="pi pi-check"
-                size="small"
-                [outlined]="true"
-                severity="primary"
-                (onClick)="setActiveCompany(comp)"
-              ></p-button>
-            }
-          </ng-template>
-        </app-data-table>
+          [rowActions]="companyActions"
+        ></app-data-table>
       </div>
     </div>
 
-    <!-- Operating Branches Section using Reusable AppDataTableComponent -->
+    <!-- Operating Branches Management Section -->
     <div class="detail-section erp-card">
       <div class="section-head section-head-with-actions">
         <div>
-          <h3>Operating Branches & Facilities</h3>
-          <p class="section-subtext">Location scope boundaries authorized for active company: <strong>{{ scopeService.selectedCompany()?.name || 'None' }}</strong></p>
+          <h3>Operating Facilities & Branches</h3>
+          <p class="section-subtext">Branches, retail plants, and storage facilities linked to active company.</p>
         </div>
         <div class="section-actions">
-          <button
-            type="button"
-            class="p-button p-button-sm p-button-primary"
-            [disabled]="companies().length === 0"
-            (click)="openAddBranchModal()"
-          >
+          <button type="button" class="p-button p-button-sm p-button-primary" (click)="toggleAddBranchInline()">
             <i class="pi pi-plus p-button-icon-left"></i>
             <span class="p-button-label">Add Branch</span>
           </button>
         </div>
       </div>
+
+      <!-- Inline Add Branch Form -->
+      @if (showAddBranchInline()) {
+        <div class="inline-form-box">
+          <h4>Link Operating Branch</h4>
+          <div class="field-grid-3">
+            <div class="field-row">
+              <label>Target Company</label>
+              <select [(ngModel)]="newBranchCompanyId" class="w-full p-inputtext select-input">
+                @for (comp of companies(); track comp.id) {
+                  <option [value]="comp.id">{{ comp.name }} ({{ comp.code }})</option>
+                }
+              </select>
+            </div>
+            <div class="field-row">
+              <label>Branch Name <span class="required-star">*</span></label>
+              <input pInputText [(ngModel)]="newBranchName" placeholder="e.g. Kandy Outlet" class="w-full" />
+            </div>
+            <div class="field-row">
+              <label>Branch Code <span class="required-star">*</span></label>
+              <input pInputText [(ngModel)]="newBranchCode" placeholder="e.g. KND" class="w-full" />
+            </div>
+          </div>
+          <div class="inline-actions">
+            <p-button type="button" label="Cancel" severity="secondary" [text]="true" (onClick)="toggleAddBranchInline()"></p-button>
+            <p-button type="button" label="Save Branch" icon="pi pi-check" severity="primary" [loading]="saving()" (onClick)="saveNewBranch()"></p-button>
+          </div>
+        </div>
+      }
 
       <div class="table-container">
         <app-data-table
@@ -174,309 +513,9 @@
           [showFilters]="true"
           [showSorting]="true"
           [paginator]="true"
-          [showColumnChooser]="true"
-          [showExport]="true"
-          [showViewSwitcher]="true"
-          cardIcon="pi pi-sitemap"
-          cardTitleField="name"
-          cardSubtitleField="code"
-          [rows]="5"
-          [rowsPerPageOptions]="[5, 10, 20]"
-          [searchPlaceholder]="'Search branch name or code...'"
-          [emptyTitle]="'No Operating Branches'"
-          [emptyDescription]="'Add a branch for the active company to enable operational transactions.'"
-        >
-          <ng-template #rowActions let-branch>
-            @if (!scopeService.isAllBranches() && scopeService.selectedBranch()?.id === branch.id) {
-              <span class="active-scope-badge"><i class="pi pi-check-circle"></i> Current Branch</span>
-            } @else {
-              <p-button
-                label="Select Branch"
-                icon="pi pi-check"
-                size="small"
-                [outlined]="true"
-                severity="primary"
-                (onClick)="setActiveBranch(branch)"
-              ></p-button>
-            }
-          </ng-template>
-        </app-data-table>
+          [rowActions]="branchActions"
+        ></app-data-table>
       </div>
     </div>
-
-    <!-- Modal: Register Operating Company -->
-    <p-dialog
-      header="Register Operating Company"
-      [visible]="showAddCompanyDialog()"
-      (visibleChange)="showAddCompanyDialog.set($event)"
-      [modal]="true"
-      [style]="{ width: '480px' }"
-      [closable]="true"
-      [draggable]="false"
-      [resizable]="false"
-    >
-      <div class="modal-form-body">
-        @if (formError()) {
-          <div class="form-error-banner">
-            <i class="pi pi-exclamation-triangle"></i>
-            <span>{{ formError() }}</span>
-          </div>
-        }
-        <div class="field-row">
-          <label for="companyName">Company Name <span class="required-star">*</span></label>
-          <input
-            pInputText
-            id="companyName"
-            [(ngModel)]="newCompanyName"
-            placeholder="e.g. Apex Industrial Manufacturing Ltd"
-            class="w-full"
-            (keydown.enter)="saveCompany()"
-            autofocus
-          />
-        </div>
-        <div class="field-row">
-          <label for="companyCode">Company Code <span class="required-star">*</span></label>
-          <input
-            pInputText
-            id="companyCode"
-            [(ngModel)]="newCompanyCode"
-            placeholder="e.g. APEX-MFG"
-            class="w-full"
-            (keydown.enter)="saveCompany()"
-          />
-        </div>
-        <div class="field-row">
-          <label for="companyCurrency">Company Base Currency <span class="required-star">*</span></label>
-          <select
-            id="companyCurrency"
-            [(ngModel)]="newCompanyCurrencyId"
-            class="w-full p-inputtext select-input"
-            [disabled]="currenciesLoading()"
-            required
-          >
-            <option value="" disabled>Select an active currency</option>
-            @for (currency of activeCurrencies(); track currency.currencyId) {
-              <option [value]="currency.currencyId">{{ currency.currencyCode }} — {{ currency.currencyName }}</option>
-            }
-          </select>
-        </div>
-      </div>
-
-      <ng-template #footer pTemplate="footer">
-        <div class="dialog-actions-container">
-          <p-button
-            label="Cancel"
-            [text]="true"
-            severity="secondary"
-            (onClick)="showAddCompanyDialog.set(false)"
-          ></p-button>
-          <p-button
-            label="Register Company"
-            icon="pi pi-check"
-            severity="primary"
-            [loading]="saving()"
-            [disabled]="currenciesLoading() || activeCurrencies().length === 0"
-            (onClick)="saveCompany()"
-          ></p-button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
-    <!-- Modal: Link Operating Branch -->
-    <p-dialog
-      header="Link Operating Branch / Plant"
-      [visible]="showAddBranchDialog()"
-      (visibleChange)="showAddBranchDialog.set($event)"
-      [modal]="true"
-      [style]="{ width: '480px' }"
-      [closable]="true"
-      [draggable]="false"
-      [resizable]="false"
-    >
-      <div class="modal-form-body">
-        @if (formError()) {
-          <div class="form-error-banner">
-            <i class="pi pi-exclamation-triangle"></i>
-            <span>{{ formError() }}</span>
-          </div>
-        }
-        <div class="field-row">
-          <label for="branchCompany">Operating Company <span class="required-star">*</span></label>
-          <select
-            id="branchCompany"
-            [(ngModel)]="newBranchCompanyId"
-            class="w-full p-inputtext select-input"
-          >
-            @for (comp of companies(); track comp.id) {
-              <option [value]="comp.id">{{ comp.name }} ({{ comp.code }})</option>
-            }
-          </select>
-          <small class="field-hint">Select the parent company to link this operating branch/facility to.</small>
-        </div>
-
-        <div class="field-row">
-          <label for="branchName">Branch / Plant Name <span class="required-star">*</span></label>
-          <input
-            pInputText
-            id="branchName"
-            [(ngModel)]="newBranchName"
-            placeholder="e.g. Second Branch"
-            class="w-full"
-            (keydown.enter)="saveBranch()"
-            autofocus
-          />
-        </div>
-        <div class="field-row">
-          <label for="branchCode">Branch Code <span class="required-star">*</span></label>
-          <input
-            pInputText
-            id="branchCode"
-            [(ngModel)]="newBranchCode"
-            placeholder="e.g. SCDBCH"
-            class="w-full"
-            (keydown.enter)="saveBranch()"
-          />
-        </div>
-      </div>
-
-      <ng-template #footer pTemplate="footer">
-        <div class="dialog-actions-container">
-          <p-button
-            label="Cancel"
-            [text]="true"
-            severity="secondary"
-            (onClick)="showAddBranchDialog.set(false)"
-          ></p-button>
-          <p-button
-            label="Link Branch"
-            icon="pi pi-check"
-            severity="primary"
-            [loading]="saving()"
-            (onClick)="saveBranch()"
-          ></p-button>
-        </div>
-      </ng-template>
-    </p-dialog>
-
-    <!-- Modal: Initial Organization Setup Wizard (Company & Branch) -->
-    <p-dialog
-      header="Initialize Organization & Branch Setup"
-      [visible]="showInitWizardDialog()"
-      (visibleChange)="showInitWizardDialog.set($event)"
-      [modal]="true"
-      [style]="{ width: '520px' }"
-      [closable]="true"
-      [draggable]="false"
-      [resizable]="false"
-    >
-      <div class="modal-form-body">
-        @if (formError()) {
-          <div class="form-error-banner">
-            <i class="pi pi-exclamation-triangle"></i>
-            <span>{{ formError() }}</span>
-          </div>
-        }
-        <p class="modal-hint">
-          Configure your primary operating legal entity and your first facility/branch to activate operational transactions.
-        </p>
-
-        <!-- Company Section in Wizard -->
-        <div class="wizard-group">
-          <div class="wizard-group-title">
-            <i class="pi pi-building"></i>
-            <span>1. Primary Operating Company</span>
-          </div>
-          <div class="field-row">
-            <label for="initCompanyName">Company Legal Name <span class="required-star">*</span></label>
-            <input
-              pInputText
-              id="initCompanyName"
-              [(ngModel)]="initCompanyName"
-              placeholder="e.g. Apex Manufacturing (Pvt) Ltd"
-              class="w-full"
-              (keydown.enter)="saveInitWizard()"
-              autofocus
-            />
-          </div>
-          <div class="field-grid-2">
-            <div class="field-row">
-              <label for="initCompanyCode">Company Code <span class="required-star">*</span></label>
-              <input
-                pInputText
-                id="initCompanyCode"
-                [(ngModel)]="initCompanyCode"
-                placeholder="e.g. APX-MFG"
-                class="w-full"
-                (keydown.enter)="saveInitWizard()"
-              />
-            </div>
-            <div class="field-row">
-              <label for="initCompanyCurrency">Company Base Currency <span class="required-star">*</span></label>
-              <select
-                id="initCompanyCurrency"
-                [(ngModel)]="initCompanyCurrencyId"
-                class="w-full p-inputtext select-input"
-                [disabled]="currenciesLoading()"
-                required
-              >
-                <option value="" disabled>Select an active currency</option>
-                @for (currency of activeCurrencies(); track currency.currencyId) {
-                  <option [value]="currency.currencyId">{{ currency.currencyCode }} — {{ currency.currencyName }}</option>
-                }
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Branch Section in Wizard -->
-        <div class="wizard-group">
-          <div class="wizard-group-title">
-            <i class="pi pi-sitemap"></i>
-            <span>2. Initial Facility / Operating Branch</span>
-          </div>
-          <div class="field-row">
-            <label for="initBranchName">Branch / Plant Name <span class="required-star">*</span></label>
-            <input
-              pInputText
-              id="initBranchName"
-              [(ngModel)]="initBranchName"
-              placeholder="e.g. Colombo Headquarters Plant"
-              class="w-full"
-              (keydown.enter)="saveInitWizard()"
-            />
-          </div>
-          <div class="field-row">
-            <label for="initBranchCode">Branch Code <span class="required-star">*</span></label>
-            <input
-              pInputText
-              id="initBranchCode"
-              [(ngModel)]="initBranchCode"
-              placeholder="e.g. CMB-HQ-01"
-              class="w-full"
-              (keydown.enter)="saveInitWizard()"
-            />
-          </div>
-        </div>
-      </div>
-
-      <ng-template #footer pTemplate="footer">
-        <div class="dialog-actions-container">
-          <p-button
-            label="Cancel"
-            [text]="true"
-            severity="secondary"
-            (onClick)="showInitWizardDialog.set(false)"
-          ></p-button>
-          <p-button
-            label="Initialize & Activate"
-            icon="pi pi-check"
-            severity="primary"
-            [loading]="saving()"
-            [disabled]="currenciesLoading() || activeCurrencies().length === 0"
-            (onClick)="saveInitWizard()"
-          ></p-button>
-        </div>
-      </ng-template>
-    </p-dialog>
   }
 </div>

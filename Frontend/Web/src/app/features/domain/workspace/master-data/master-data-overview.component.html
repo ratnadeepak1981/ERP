@@ -15,6 +15,16 @@
         <h2>Supply Chain Masters</h2>
         <p>Manage products, suppliers, units, warehouses and operational reference data.</p>
       </div>
+      <div class="banner-actions">
+        <button
+          type="button"
+          class="setup-action-btn"
+          (click)="toggleSetupPanel()"
+        >
+          <i class="pi pi-bolt"></i>
+          <span>{{ showSetupPanel() ? 'Close Setup Panel' : 'Master Data Setup' }}</span>
+        </button>
+      </div>
     </div>
     <div class="banner-scope-pill">
       <span>
@@ -26,6 +36,135 @@
       </span>
     </div>
   </div>
+
+  <!-- Inline Master Data Setup Section (NO POPUPS) -->
+  @if (showSetupPanel()) {
+    <div class="setup-inline-card erp-card">
+      <div class="setup-inline-header">
+        <div class="header-title">
+          <i class="pi pi-bolt" style="font-size: 18px; color: #0f6cbd;"></i>
+          <div>
+            <h3>Supply Chain Master Data Setup</h3>
+            <p>Seed or update foundational operational master data for the active company and branch.</p>
+          </div>
+        </div>
+        <button pButton type="button" icon="pi pi-times" severity="secondary" [text]="true" (click)="closeSetupDialog()"></button>
+      </div>
+
+      @if (setupError()) {
+        <div class="setup-alert setup-alert-error">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>{{ setupError() }}</span>
+        </div>
+      }
+
+      @if (!setupResult()) {
+        <div class="setup-dialog-body">
+          <div class="setup-field-group">
+            <div class="setup-field-row">
+              <label for="profileDropdown">Industry Profile Template <span class="required-star">*</span></label>
+              <select
+                id="profileDropdown"
+                [(ngModel)]="selectedProfileCode"
+                class="w-full p-inputtext select-input"
+                [disabled]="setupLoading()"
+              >
+                @for (p of availableProfiles; track p.code) {
+                  <option [value]="p.code">{{ p.name }}</option>
+                }
+              </select>
+              <small class="field-hint">Default: <code>Retail (Gate 6 Baseline)</code>. Reuses existing base currency (LKR) and seeds categories, products, packaging, barcodes, warehouses, suppliers, customers, and price cards.</small>
+            </div>
+
+            <div class="setup-field-row">
+              <label>Target Execution Scope</label>
+              <div class="scope-display-pill">
+                <span><strong>Tenant:</strong> {{ scopeService.activeTenantName() }}</span>
+                <span><strong>Company:</strong> {{ scopeService.selectedCompany()?.name || 'Default Primary Company' }}</span>
+                <span><strong>Branch:</strong> {{ scopeService.isAllBranches() ? 'Default Primary Branch' : (scopeService.selectedBranch()?.name || 'All') }}</span>
+              </div>
+            </div>
+          </div>
+
+          @if (setupLoading()) {
+            <div class="setup-progress-indicator">
+              <i class="pi pi-spin pi-spinner setup-spinner"></i>
+              <div>
+                <strong>Seeding Master Data...</strong>
+                <p>Executing idempotent setup across categories, products, packaging, suppliers, customers, price cards, and warehouse storage locations.</p>
+              </div>
+            </div>
+          }
+
+          <div class="setup-actions-bar">
+            <p-button
+              type="button"
+              label="Cancel"
+              severity="secondary"
+              [text]="true"
+              [disabled]="setupLoading()"
+              (onClick)="closeSetupDialog()"
+            ></p-button>
+            <p-button
+              type="button"
+              label="Start Master Data Setup"
+              icon="pi pi-bolt"
+              severity="primary"
+              [loading]="setupLoading()"
+              (onClick)="runMasterDataSetup()"
+            ></p-button>
+          </div>
+        </div>
+      } @else {
+        <!-- Results View -->
+        <div class="setup-results-body">
+          <div class="setup-alert setup-alert-success">
+            <i class="pi pi-check-circle"></i>
+            <div>
+              <strong>Master Data Setup Complete</strong>
+              <p>All catalog specifications have been validated, resolved, and verified in the domain database.</p>
+            </div>
+          </div>
+
+          <div class="results-stats-grid">
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.categoriesProcessed }}</span><span class="stat-label">Categories</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.brandsProcessed }}</span><span class="stat-label">Brands</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.uomsProcessed }}</span><span class="stat-label">UOMs</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.conversionsProcessed }}</span><span class="stat-label">Conversions</span></div>
+            <div class="result-stat-card highlight"><span class="stat-number">{{ setupResult()!.productsProcessed }}</span><span class="stat-label">Products</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.identifiersProcessed }}</span><span class="stat-label">Barcodes</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.warehousesProcessed }}</span><span class="stat-label">Warehouses</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.locationsProcessed }}</span><span class="stat-label">Locations</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.suppliersProcessed }}</span><span class="stat-label">Suppliers</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.customersProcessed }}</span><span class="stat-label">Customers</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.priceCardsProcessed }}</span><span class="stat-label">Price Cards</span></div>
+            <div class="result-stat-card"><span class="stat-number">{{ setupResult()!.taxCodesProcessed }}</span><span class="stat-label">Tax Codes</span></div>
+          </div>
+
+          @if (setupResult()!.messages.length > 0) {
+            <div class="results-messages-list">
+              <h4>Execution Details</h4>
+              <ul>
+                @for (msg of setupResult()!.messages; track msg) {
+                  <li>{{ msg }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          <div class="setup-actions-bar">
+            <p-button
+              type="button"
+              label="Close Setup Panel"
+              icon="pi pi-check"
+              severity="primary"
+              (onClick)="closeSetupDialog()"
+            ></p-button>
+          </div>
+        </div>
+      }
+    </div>
+  }
 
   <!-- 8 Card Grid matching Image 3 -->
   <div class="masters-grid">
