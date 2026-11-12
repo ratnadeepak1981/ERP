@@ -22,10 +22,34 @@ public sealed record StandardRoleTemplate(
 /// </summary>
 public static class StandardRoleTemplates
 {
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     public const string TenantAdminKey = "TENANT_ADMIN";
     public const string TenantAuditorKey = "TENANT_AUDITOR";
+
+    /// <summary>
+    /// Tenant-boundary master data read baseline. Every authenticated tenant
+    /// user operating a standard role may read ordinary, non-sensitive master
+    /// data inside their own tenant; the permission check still runs, and
+    /// controllers enforce the tenant/company/branch boundary from the token.
+    /// This is a read-only baseline: it never implies create, edit, delete,
+    /// approve, post or override.
+    ///
+    /// Deliberately excluded and kept explicitly permission-controlled:
+    /// - <c>USER.VIEW</c> and <c>ROLE.VIEW</c> (access-control administration);
+    /// - <c>CONTACT.VIEW</c> (party personal contact details);
+    /// - <c>SUPPLIER_PRICE.VIEW</c> and <c>PRICE_CARD.VIEW</c> (commercial
+    ///   cost and selling-price data);
+    /// - all CRM and transaction permissions.
+    /// </summary>
+    public static IReadOnlyList<string> MasterDataViewBaseline { get; } = new[]
+    {
+        "COMPANY.VIEW", "BRANCH.VIEW", "COUNTRY.VIEW",
+        "CURRENCY.VIEW", "UOM.VIEW", "TAX_CODE.VIEW", "PAYMENT_TERM.VIEW",
+        "CATEGORY.VIEW", "BRAND.VIEW", "PRODUCT.VIEW", "BATCH.VIEW",
+        "WAREHOUSE.VIEW", "LOCATION.VIEW",
+        "SUPPLIER.VIEW", "CUSTOMER.VIEW", "ADDRESS.VIEW"
+    };
 
     public static IReadOnlyList<StandardRoleTemplate> All { get; } = Build();
 
@@ -216,7 +240,8 @@ public static class StandardRoleTemplates
                     {
                         "PROCUREMENT.SETTINGS.VIEW", "PROCUREMENT.SETTINGS.EDIT",
                         "SUPPLIER.VIEW", "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW",
-                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "BATCH.VIEW"
+                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "BATCH.VIEW",
+                        "PRICE_CARD.VIEW"
                     })),
 
             new(
@@ -236,7 +261,8 @@ public static class StandardRoleTemplates
                         "GRN.CONFIRM", "GRN.CANCEL",
                         "PROCUREMENT.SETTINGS.VIEW",
                         "SUPPLIER.VIEW", "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW",
-                        "WAREHOUSE.VIEW", "INVENTORY.VIEW"
+                        "WAREHOUSE.VIEW", "INVENTORY.VIEW",
+                        "PRICE_CARD.VIEW"
                     })),
 
             new(
@@ -336,7 +362,17 @@ public static class StandardRoleTemplates
                 })
         };
 
-        return templates;
+        // Tenant-boundary master data read baseline: every standard tenant role
+        // receives the ordinary read-only master data view permissions. This is
+        // additive only and never removes role-specific permissions.
+        return templates
+            .Select(template => template with
+            {
+                PermissionCodes = Combine(
+                    template.PermissionCodes.ToArray(),
+                    MasterDataViewBaseline.ToArray())
+            })
+            .ToList();
     }
 
     private static string[] Combine(params string[][] groups)
