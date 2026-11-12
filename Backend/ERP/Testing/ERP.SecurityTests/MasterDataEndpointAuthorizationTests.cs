@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using API.Features.Domain;
+using Security.Bootstrap.Roles;
 using Xunit;
 
 namespace ERP.SecurityTests;
@@ -162,5 +164,130 @@ public class MasterDataEndpointAuthorizationTests : IClassFixture<TestSecurityFi
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // =====================================================================
+    // Tenant-boundary master data read baseline
+    // =====================================================================
+
+    private static string[] PermissionsFor(string templateKey)
+    {
+        return StandardRoleTemplates.Find(templateKey)!.PermissionCodes.ToArray();
+    }
+
+    [Fact]
+    public async Task ProcurementOfficerBaseline_CanReadTransactionLookups()
+    {
+        var client = CreateClient(
+            TestConstants.TenantAlphaId,
+            new[] { "Procurement Officer" },
+            PermissionsFor("PROCUREMENT_OFFICER"));
+
+        var endpoints = new[]
+        {
+            "/api/currencies",
+            "/api/uom",
+            "/api/tax-codes?includeInactive=true&applicability=Purchase",
+            "/api/master-data/price-cards?type=1&isActive=true&pageSize=100"
+        };
+
+        foreach (var endpoint in endpoints)
+        {
+            var response = await client.GetAsync(endpoint);
+            Assert.True(
+                response.StatusCode == HttpStatusCode.OK,
+                $"Expected 200 for '{endpoint}' with the Procurement Officer baseline but got " +
+                $"{(int)response.StatusCode} {response.StatusCode}.");
+        }
+    }
+
+    [Fact]
+    public async Task SalesOfficerBaseline_CanReadTaxCodesAndCurrencies()
+    {
+        var client = CreateClient(
+            TestConstants.TenantAlphaId,
+            new[] { "Sales Officer" },
+            PermissionsFor("SALES_OFFICER"));
+
+        foreach (var endpoint in new[]
+                 {
+                     "/api/tax-codes?includeInactive=true&applicability=Sales",
+                     "/api/currencies",
+                     "/api/uom"
+                 })
+        {
+            var response = await client.GetAsync(endpoint);
+            Assert.True(
+                response.StatusCode == HttpStatusCode.OK,
+                $"Expected 200 for '{endpoint}' with the Sales Officer baseline but got " +
+                $"{(int)response.StatusCode} {response.StatusCode}.");
+        }
+    }
+
+    [Fact]
+    public async Task MasterDataBaseline_DoesNotGrantWriteOperations()
+    {
+        var client = CreateClient(
+            TestConstants.TenantAlphaId,
+            new[] { "Procurement Officer" },
+            PermissionsFor("PROCUREMENT_OFFICER"));
+
+        // Read access must not imply maintenance access.
+        var createCurrency = await client.PostAsJsonAsync("/api/currencies", new
+        {
+            currencyCode = "ZZZ",
+            currencyName = "Forbidden Currency",
+            symbol = "Z",
+            decimalPlaces = 2
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, createCurrency.StatusCode);
+    }
+
+    [Fact]
+    public async Task LookupWithoutViewPermission_StillReturnsForbidden()
+    {
+        // Product-only permission set: no lookup view permissions at all.
+        var client = CreateClient(
+            TestConstants.TenantAlphaId,
+            new[] { "Custom" },
+            new[] { "PRODUCT.VIEW" });
+
+        foreach (var endpoint in new[]
+                 {
+                     "/api/currencies",
+                     "/api/uom",
+                     "/api/tax-codes",
+                     "/api/master-data/price-cards"
+                 })
+        {
+            var response = await client.GetAsync(endpoint);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task MasterDataLookupBaseline_DoesNotLeakAcrossTenants()
+    {
+        // A Tenant Beta user holding the full Procurement Officer baseline must
+        // only see Tenant Beta master data through lookup endpoints.
+        var betaClient = CreateClient(
+            TestConstants.TenantBetaId,
+            new[] { "Procurement Officer" },
+            PermissionsFor("PROCUREMENT_OFFICER"));
+
+        var response = await betaClient.GetAsync("/api/suppliers");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var data = await response.ReadDataJsonElementAsync(_jsonOpts);
+        Assert.Equal(JsonValueKind.Array, data.ValueKind);
+
+        var supplierCodes = data.EnumerateArray()
+            .Select(item => item.TryGetProperty("supplierCode", out var code) ? code.GetString() : null)
+            .Where(code => code != null)
+            .ToList();
+
+        Assert.Contains("SUPP_BETA", supplierCodes);
+        Assert.DoesNotContain("SUPP_ALPHA", supplierCodes);
     }
 }

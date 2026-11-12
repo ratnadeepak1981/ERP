@@ -249,6 +249,67 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
         Assert.Contains("SALES_INVOICE.CONFIRM", salesManager.PermissionCodes);
     }
 
+    [Fact]
+    public void StandardRoleTemplates_AllRoles_ReceiveNonSensitiveMasterDataReadBaseline()
+    {
+        var baseline = StandardRoleTemplates.MasterDataViewBaseline;
+
+        Assert.NotEmpty(baseline);
+
+        // The baseline is read-only by construction.
+        Assert.All(baseline, code =>
+            Assert.Equal(PermissionOperation.View, PermissionOperation.FromCode(code)));
+
+        // Sensitive, administrative and commercial data stay explicitly controlled.
+        foreach (var restricted in new[]
+                 {
+                     "USER.VIEW", "ROLE.VIEW", "CONTACT.VIEW",
+                     "SUPPLIER_PRICE.VIEW", "PRICE_CARD.VIEW", "PRICE_CARD.OVERRIDE"
+                 })
+        {
+            Assert.DoesNotContain(restricted, baseline);
+        }
+
+        foreach (var template in StandardRoleTemplates.All)
+        {
+            var codes = template.PermissionCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var code in baseline)
+            {
+                Assert.True(
+                    codes.Contains(code),
+                    $"Role '{template.Key}' is missing master data read baseline permission '{code}'.");
+            }
+        }
+
+        // Lookup reads required by the procurement and sales transaction forms.
+        foreach (var roleKey in new[] { "PROCUREMENT_OFFICER", "PROCUREMENT_MANAGER" })
+        {
+            var role = StandardRoleTemplates.Find(roleKey)!;
+            foreach (var code in new[] { "CURRENCY.VIEW", "UOM.VIEW", "TAX_CODE.VIEW", "PRICE_CARD.VIEW" })
+            {
+                Assert.True(
+                    role.PermissionCodes.Contains(code, StringComparer.OrdinalIgnoreCase),
+                    $"Role '{roleKey}' is missing lookup permission '{code}'.");
+            }
+        }
+
+        foreach (var roleKey in new[] { "SALES_OFFICER", "SALES_MANAGER" })
+        {
+            var role = StandardRoleTemplates.Find(roleKey)!;
+            Assert.True(
+                role.PermissionCodes.Contains("TAX_CODE.VIEW", StringComparer.OrdinalIgnoreCase),
+                $"Role '{roleKey}' is missing lookup permission 'TAX_CODE.VIEW'.");
+        }
+
+        // The read baseline must never introduce mutation or approval capability.
+        Assert.DoesNotContain(baseline, code =>
+            !string.Equals(
+                PermissionOperation.FromCode(code),
+                PermissionOperation.View,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
     // =====================================================================
     // 3. Tenant provisioning of role copies
     // =====================================================================
@@ -260,9 +321,17 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
 
         foreach (var tenantId in new[] { TestConstants.TenantAlphaId, TestConstants.TenantBetaId })
         {
-            var roles = await db.Roles
-                .Where(x => x.TenantId == tenantId && x.TemplateKey != null)
-                .ToListAsync();
+            // Upgrades never delete a tenant copy whose template was retired, so
+            // only assert the copies for the current template catalogue.
+            var currentTemplateKeys = StandardRoleTemplates.All
+                .Select(x => x.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var roles = (await db.Roles
+                    .Where(x => x.TenantId == tenantId && x.TemplateKey != null)
+                    .ToListAsync())
+                .Where(x => currentTemplateKeys.Contains(x.TemplateKey!))
+                .ToList();
 
             Assert.Equal(StandardRoleTemplates.All.Count, roles.Count);
 
@@ -739,26 +808,62 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
     [Fact]
     public async Task RevokedPermission_IsNotIncludedInNewLoginToken()
     {
-        Guid roleId;
+        // Use a dedicated user and role so the assertion is independent of any
+        // other role assignments that may exist for shared seeded users.
+        var userId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var username = $"f1revoke{Guid.NewGuid():N}"[..16];
         Guid permissionId;
 
         using (var db = CreateSecurityDb())
         {
-            roleId = await db.Roles
-                .Where(x =>
-                    x.TenantId == TestConstants.TenantAlphaId &&
-                    x.TemplateKey == StandardRoleTemplates.TenantAdminKey)
-                .Select(x => x.Id)
-                .SingleAsync();
-
             permissionId = await db.Permissions
                 .Where(x => x.Code == "PRODUCT.VIEW")
                 .Select(x => x.Id)
                 .SingleAsync();
+
+            db.Roles.Add(new Role
+            {
+                Id = roleId,
+                TenantId = TestConstants.TenantAlphaId,
+                Name = $"F1 Revoke {Guid.NewGuid():N}"[..24],
+                Description = "F1 revoked permission test role.",
+                IsSystemRole = false,
+                IsActive = true
+            });
+
+            db.Users.Add(new User
+            {
+                Id = userId,
+                TenantId = TestConstants.TenantAlphaId,
+                Username = username,
+                Email = $"{username}@tenant.local",
+                PasswordHash = new PasswordService().HashPassword("Password@123"),
+                IsActive = true
+            });
+
+            db.UserRoles.Add(new UserRole
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                RoleId = roleId
+            });
+
+            db.RolePermissions.Add(new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = roleId,
+                PermissionId = permissionId
+            });
+
+            await db.SaveChangesAsync();
         }
 
         try
         {
+            var (_, before) = await LoginAsync($"{username}@tenant.local");
+            Assert.Contains("PRODUCT.VIEW", before.Permissions);
+
             using (var db = CreateSecurityDb())
             {
                 var assignment = await db.RolePermissions.FirstAsync(x =>
@@ -767,24 +872,36 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
                 await db.SaveChangesAsync();
             }
 
-            var (_, login) = await LoginAsync("admin_a@tenant.local");
-            Assert.DoesNotContain("PRODUCT.VIEW", login.Permissions);
+            var (_, after) = await LoginAsync($"{username}@tenant.local");
+            Assert.DoesNotContain("PRODUCT.VIEW", after.Permissions);
         }
         finally
         {
             using var cleanupDb = CreateSecurityDb();
-            var exists = await cleanupDb.RolePermissions.AnyAsync(x =>
-                x.RoleId == roleId && x.PermissionId == permissionId);
-            if (!exists)
+
+            var assignments = await cleanupDb.UserRoles
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+            cleanupDb.UserRoles.RemoveRange(assignments);
+
+            var rolePermissions = await cleanupDb.RolePermissions
+                .Where(x => x.RoleId == roleId)
+                .ToListAsync();
+            cleanupDb.RolePermissions.RemoveRange(rolePermissions);
+
+            var user = await cleanupDb.Users.FirstOrDefaultAsync(x => x.Id == userId);
+            if (user != null)
             {
-                cleanupDb.RolePermissions.Add(new RolePermission
-                {
-                    Id = Guid.NewGuid(),
-                    RoleId = roleId,
-                    PermissionId = permissionId
-                });
-                await cleanupDb.SaveChangesAsync();
+                cleanupDb.Users.Remove(user);
             }
+
+            var role = await cleanupDb.Roles.FirstOrDefaultAsync(x => x.Id == roleId);
+            if (role != null)
+            {
+                cleanupDb.Roles.Remove(role);
+            }
+
+            await cleanupDb.SaveChangesAsync();
         }
     }
 
@@ -891,8 +1008,9 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
             Assert.NotEqual(HttpStatusCode.Forbidden, allowed.StatusCode);
             Assert.NotEqual(HttpStatusCode.Unauthorized, allowed.StatusCode);
 
-            // A permission held by neither role is still denied.
-            var denied = await client.GetAsync("/api/currencies");
+            // A permission held by neither role is still denied. USER.VIEW is
+            // deliberately excluded from the master data read baseline.
+            var denied = await client.GetAsync("/api/User");
             Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
         }
         finally
