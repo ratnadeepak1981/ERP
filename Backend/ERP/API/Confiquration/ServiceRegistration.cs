@@ -53,6 +53,7 @@ public static class ServiceRegistration
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
+        services.AddScoped<ITenantUserSetupService, TenantUserSetupService>();
 
         services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
         services.AddScoped<ISubscriptionParameterService, SubscriptionParameterService>();
@@ -68,6 +69,8 @@ public static class ServiceRegistration
         services.AddScoped<IBillingNotificationService, DummyBillingNotificationService>();
 
         services.AddScoped<Domain.Features.MasterData.Company.ICompanyService, ERP.Application.Features.MasterData.Company.CompanyService>();
+        services.AddScoped<Domain.Features.Setup.ITenantOrganizationSetupService, ERP.Application.Features.Setup.TenantOrganizationSetupService>();
+        services.AddScoped<Domain.Features.Setup.ITenantMasterDataSetupService, ERP.Application.Features.Setup.TenantMasterDataSetupService>();
         services.AddScoped<IUserScopeService, UserScopeService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<Domain.Features.MasterData.Product.IProductService, ERP.Application.Features.MasterData.Product.ProductService>();

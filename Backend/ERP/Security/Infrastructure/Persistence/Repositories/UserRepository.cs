@@ -32,6 +32,16 @@ public class UserRepository : IUserRepository
                 x.Email == email);
     }
 
+    public Task<User?> GetByEmailAsync(
+        Guid? tenantId,
+        string email)
+    {
+        return _context.Users
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == tenantId &&
+                x.Email == email);
+    }
+
     public Task<List<string>> GetRolesAsync(
         Guid userId)
     {

@@ -6,6 +6,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { CompanySetupComponent } from './company-setup.component';
 import { CompanyService } from '../../../../core/services/company.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
+import { TenantSetupService } from '../../../../core/services/tenant-setup.service';
 import { of } from 'rxjs';
 
 describe('CompanySetupComponent', () => {
@@ -22,7 +23,8 @@ describe('CompanySetupComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         CompanyService,
-        MasterDataService
+        MasterDataService,
+        TenantSetupService
       ]
     }).compileComponents();
 
@@ -50,18 +52,29 @@ describe('CompanySetupComponent', () => {
     expect(component).toBeTruthy();
     expect(component.companies().length).toBe(1);
     expect(component.branches().length).toBe(1);
-    expect(component.steps().length).toBe(4);
+    expect(component.steps().length).toBe(3);
     expect(component.steps()[0].status).toBe('completed');
     expect(component.activeCurrencies()).toHaveLength(1);
   });
 
-  it('requires an active base currency before creating a company', () => {
-    component.newCompanyName = 'New Company';
-    component.newCompanyCode = 'NEW';
-    component.newCompanyCurrencyId = '';
+  it('guarantees LKR base currency when tenant has zero existing domain currencies', () => {
+    vi.spyOn(masterDataService, 'getCurrencies').mockReturnValue(of([]));
+    vi.spyOn(companyService, 'getCompanies').mockReturnValue(of([]));
 
-    component.saveCompany();
+    fixture.detectChanges();
 
-    expect(component.formError()).toBe('Select an active company base currency.');
+    expect(component.activeCurrencies().length).toBeGreaterThanOrEqual(1);
+    const lkr = component.activeCurrencies().find(c => c.currencyCode === 'LKR');
+    expect(lkr).toBeTruthy();
+    expect(component.initCompanyCurrencyCode).toBe('LKR');
+  });
+
+  it('supports sequential navigation through steps 1, 2, and 3 without modal popups', () => {
+    expect(component.activeOnboardingStep()).toBe(1);
+    component.goToStep(2);
+    expect(component.activeOnboardingStep()).toBe(2);
+    component.goToStep(3);
+    expect(component.activeOnboardingStep()).toBe(3);
+    expect(component.selectedIndustryProfile).toBe('retail');
   });
 });
