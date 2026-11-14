@@ -216,6 +216,8 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
       label: 'Putaway',
       icon: 'pi pi-box',
       severity: 'primary',
+      visible: (row: StockReceiptDto) =>
+        (row.status === StockReceiptStatus.Posted || (row.status as any) === 2) && this.canPutaway(),
       action: (row: StockReceiptDto) => this.navigateToPutaway(row)
     }
   ];
@@ -225,6 +227,13 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
       return true;
     }
     return this.authService.hasPermission('PRODUCT.EDIT');
+  }
+
+  canPutaway(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+      return true;
+    }
+    return this.authService.hasPermission('PUTAWAY.POST');
   }
 
   ngOnInit(): void {

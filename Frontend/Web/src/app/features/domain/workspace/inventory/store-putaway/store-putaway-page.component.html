@@ -14,34 +14,36 @@
         routerLink="/app/inventory/store-putaway"
       ></p-button>
 
-      @if (!isReadOnlyMode() && !isAccessDenied()) {
-        <p-button
-          label="Save Draft"
-          icon="pi pi-save"
-          severity="secondary"
-          [outlined]="true"
-          [disabled]="saving() || workingLines().length === 0"
-          [loading]="saving()"
-          (onClick)="saveDraft()"
-        ></p-button>
+      @if (canEdit()) {
+        @if (!isReadOnlyMode() && !isAccessDenied()) {
+          <p-button
+            label="Save Draft"
+            icon="pi pi-save"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="saving() || workingLines().length === 0"
+            [loading]="saving()"
+            (onClick)="saveDraft()"
+          ></p-button>
 
-        <p-button
-          label="Confirm Putaway"
-          icon="pi pi-check"
-          severity="success"
-          [disabled]="saving() || workingLines().length === 0"
-          [loading]="saving()"
-          (onClick)="confirmPutaway()"
-        ></p-button>
-      } @else if (isDraftRecord()) {
-        <p-button
-          label="Confirm Putaway"
-          icon="pi pi-check"
-          severity="success"
-          [disabled]="saving()"
-          [loading]="saving()"
-          (onClick)="confirmExistingDraft()"
-        ></p-button>
+          <p-button
+            label="Confirm Putaway"
+            icon="pi pi-check"
+            severity="success"
+            [disabled]="saving() || workingLines().length === 0 || hasNoEligibleDestinations()"
+            [loading]="saving()"
+            (onClick)="confirmPutaway()"
+          ></p-button>
+        } @else if (isDraftRecord()) {
+          <p-button
+            label="Confirm Putaway"
+            icon="pi pi-check"
+            severity="success"
+            [disabled]="saving()"
+            [loading]="saving()"
+            (onClick)="confirmExistingDraft()"
+          ></p-button>
+        }
       }
     </div>
   </app-page-header>
@@ -206,16 +208,71 @@
       </form>
     </section>
 
-    <!-- Section 2: Detail Lines -->
+    <!-- Section 2: Original Receipt Location (READ-ONLY) -->
+    <section class="erp-card receipt-source-location-card">
+      <div class="card-header-bar">
+        <div class="title-with-badge">
+          <i class="pi pi-map-marker location-header-icon"></i>
+          <h2 class="section-title">Original Receipt Location</h2>
+          <span class="readonly-badge">READ ONLY &bull; POPULATED FROM RECEIPT</span>
+        </div>
+      </div>
+
+      @if (sourceReceiptLocationDetails(); as src) {
+        <div class="receipt-location-grid">
+          <div class="location-info-item">
+            <span class="info-label">Warehouse Facility</span>
+            <span class="info-value">{{ src.warehouseCode }} — {{ src.warehouseName }}</span>
+          </div>
+
+          <div class="location-info-item">
+            <span class="info-label">Warehouse Zone</span>
+            <span class="info-value">{{ src.zoneName }}</span>
+          </div>
+
+          <div class="location-info-item">
+            <span class="info-label">Receiving Location</span>
+            <span class="info-value highlight-text">{{ src.locationCode }} ({{ src.locationName }})</span>
+          </div>
+
+          <div class="location-info-item">
+            <span class="info-label">Location Classification</span>
+            <span class="info-value">
+              <span class="classification-pill">{{ src.locationTypeName }}</span>
+            </span>
+          </div>
+
+          <div class="location-info-item full-width">
+            <span class="info-label">Location Hierarchy Path</span>
+            <span class="info-value hierarchy-text">
+              <i class="pi pi-sitemap mr-1"></i>
+              {{ src.hierarchyPath }}
+            </span>
+          </div>
+        </div>
+
+        <div class="receipt-location-notice">
+          <i class="pi pi-info-circle"></i>
+          <span>This is the authoritative receiving location where items were accepted and staged. Select an eligible destination storage bin (TO) below to relocate stock.</span>
+        </div>
+      } @else {
+        <div class="receipt-location-empty">
+          <i class="pi pi-inbox"></i>
+          <span>Select a source receipt in the header above to load its registered receiving location and staged stock lines.</span>
+        </div>
+      }
+    </section>
+
+    <!-- Section 3: Detail Lines -->
     <section class="erp-card putaway-lines-card">
       <div class="card-header-bar lines-card-header">
         <div>
-          <h2 class="section-title">2. Putaway Detail Lines</h2>
+          <h2 class="section-title">3. Putaway Detail Lines</h2>
           <span class="detail-subtitle">
             Allocate each item to its designated storage bin (Zone &rarr; Area &rarr; Rack &rarr; Level &rarr; Bin)
           </span>
         </div>
-        @if (!isReadOnlyMode() && workingLines().length > 0) {
+        @if (canEdit() && !isReadOnlyMode() && workingLines().length > 0) {
           <div class="line-header-actions">
             <p-button
               label="Split Line to Multiple Bins"
@@ -230,6 +287,16 @@
         }
       </div>
 
+      @if (hasNoEligibleDestinations() && !isReadOnlyMode()) {
+        <div class="no-destinations-warning">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div class="warning-text">
+            <strong>No Eligible Destination Storage Bins Available</strong>
+            <p>Warehouse facility <em>{{ currentWarehouseName() }}</em> has no active storage bins distinct from the source location that are configured to store inventory and accept Put Away. Please configure additional storage locations in Master Data before completing this transfer.</p>
+          </div>
+        </div>
+      }
+
       <app-editable-data-table
         [data]="workingLines()"
         [columns]="detailColumns()"
@@ -242,12 +309,36 @@
         emptyTitle="No receipt items loaded"
         emptyDescription="Select a confirmed Source Receipt above to populate line items for warehouse putaway."
       ></app-editable-data-table>
+
+      @if (workingLines().length > 0) {
+        <div class="physical-movement-summary">
+          <div class="movement-summary-title">
+            <i class="pi pi-arrows-alt"></i>
+            <span>Planned Stock Movements (FROM &rarr; TO)</span>
+          </div>
+          <div class="movement-pill-list">
+            <div *ngFor="let line of workingLines()" class="movement-pill">
+              <span class="product-badge">{{ line.productCode }}</span>
+              <span class="qty-badge">{{ line.putawayQuantity }} {{ line.unitOfMeasure }}</span>
+              <span class="loc-from">
+                <i class="pi pi-box"></i>
+                {{ line.sourceLocationCode || line.sourceLocationName || 'Staging' }}
+              </span>
+              <i class="pi pi-arrow-right arrow-icon"></i>
+              <span class="loc-to" [class.unassigned]="!line.destinationLocationId">
+                <i class="pi pi-inbox"></i>
+                {{ getDestinationLocationLabel(line.destinationLocationId) }}
+              </span>
+            </div>
+          </div>
+        </div>
+      }
     </section>
 
-    <!-- Section 3: Footer / Summary -->
+    <!-- Section 4: Footer / Summary -->
     <section class="erp-card putaway-footer-card">
       <div class="card-header-bar">
-        <h2 class="section-title">3. Footer / Summary</h2>
+        <h2 class="section-title">4. Footer / Summary</h2>
       </div>
 
       <div class="summary-content-grid">
@@ -288,34 +379,36 @@
           routerLink="/app/inventory/store-putaway"
         ></p-button>
 
-        @if (!isReadOnlyMode()) {
-          <p-button
-            label="Save Draft"
-            icon="pi pi-save"
-            severity="secondary"
-            [outlined]="true"
-            [disabled]="saving() || workingLines().length === 0"
-            [loading]="saving()"
-            (onClick)="saveDraft()"
-          ></p-button>
+        @if (canEdit()) {
+          @if (!isReadOnlyMode()) {
+            <p-button
+              label="Save Draft"
+              icon="pi pi-save"
+              severity="secondary"
+              [outlined]="true"
+              [disabled]="saving() || workingLines().length === 0"
+              [loading]="saving()"
+              (onClick)="saveDraft()"
+            ></p-button>
 
-          <p-button
-            label="Confirm Putaway"
-            icon="pi pi-check"
-            severity="success"
-            [disabled]="saving() || workingLines().length === 0"
-            [loading]="saving()"
-            (onClick)="confirmPutaway()"
-          ></p-button>
-        } @else if (isDraftRecord()) {
-          <p-button
-            label="Confirm Putaway"
-            icon="pi pi-check"
-            severity="success"
-            [disabled]="saving()"
-            [loading]="saving()"
-            (onClick)="confirmExistingDraft()"
-          ></p-button>
+            <p-button
+              label="Confirm Putaway"
+              icon="pi pi-check"
+              severity="success"
+              [disabled]="saving() || workingLines().length === 0 || hasNoEligibleDestinations()"
+              [loading]="saving()"
+              (onClick)="confirmPutaway()"
+            ></p-button>
+          } @else if (isDraftRecord()) {
+            <p-button
+              label="Confirm Putaway"
+              icon="pi pi-check"
+              severity="success"
+              [disabled]="saving()"
+              [loading]="saving()"
+              (onClick)="confirmExistingDraft()"
+            ></p-button>
+          }
         }
       </div>
     </section>

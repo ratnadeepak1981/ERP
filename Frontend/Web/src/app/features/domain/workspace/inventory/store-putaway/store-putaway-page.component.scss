@@ -227,3 +227,239 @@
     border: 1px solid #fecaca;
   }
 }
+
+// Original Receipt Location (READ-ONLY) Styles
+.receipt-source-location-card {
+  border-left: 4px solid var(--primary-color, #0f6cbd);
+  background-color: var(--surface-card, #ffffff);
+
+  .location-header-icon {
+    font-size: 1.15rem;
+    color: var(--primary-color, #0f6cbd);
+  }
+
+  .readonly-badge {
+    padding: 0.2rem 0.65rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border-radius: 9999px;
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+  }
+}
+
+.receipt-location-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.location-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .info-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-color-secondary, #64748b);
+  }
+
+  .info-value {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-color, #1e293b);
+
+    &.highlight-text {
+      font-weight: 600;
+      color: var(--primary-color, #0f6cbd);
+    }
+
+    &.hierarchy-text {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.4rem 0.75rem;
+      background-color: var(--surface-ground, #f8fafc);
+      border: 1px solid var(--surface-border, #e2e8f0);
+      border-radius: 6px;
+      font-family: monospace, sans-serif;
+      font-size: 0.8125rem;
+      color: #334155;
+    }
+  }
+
+  .classification-pill {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 4px;
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+  }
+}
+
+.receipt-location-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: #0369a1;
+
+  i {
+    font-size: 1rem;
+  }
+}
+
+.receipt-location-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1.25rem;
+  color: var(--text-color-secondary, #64748b);
+  font-size: 0.875rem;
+  font-style: italic;
+
+  i {
+    font-size: 1.25rem;
+    opacity: 0.7;
+  }
+}
+
+// Warning when no distinct eligible destinations exist in the warehouse
+.no-destinations-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+
+  i {
+    font-size: 1.25rem;
+    margin-top: 2px;
+    color: #d97706;
+  }
+
+  .warning-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+
+    strong {
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      color: #b45309;
+    }
+  }
+}
+
+// Planned Stock Movements (FROM -> TO)
+.physical-movement-summary {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--surface-ground, #f8fafc);
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: 6px;
+
+  .movement-summary-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-color-secondary, #64748b);
+    margin-bottom: 0.75rem;
+  }
+
+  .movement-pill-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .movement-pill {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding: 0.5rem 0.85rem;
+    background-color: var(--surface-card, #ffffff);
+    border: 1px solid var(--surface-border, #cbd5e1);
+    border-radius: 6px;
+    font-size: 0.875rem;
+
+    .product-badge {
+      font-weight: 600;
+      color: var(--text-color, #1e293b);
+    }
+
+    .qty-badge {
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      background-color: #e2e8f0;
+      color: #334155;
+      font-size: 0.8125rem;
+    }
+
+    .loc-from {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      font-size: 0.8125rem;
+    }
+
+    .arrow-icon {
+      color: #94a3b8;
+      font-size: 0.8125rem;
+    }
+
+    .loc-to {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      background-color: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      font-size: 0.8125rem;
+
+      &.unassigned {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border-color: #fecaca;
+        font-style: italic;
+      }
+    }
+  }
+}

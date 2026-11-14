@@ -1209,6 +1209,13 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  canPutaway(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+      return true;
+    }
+    return this.authService.hasPermission('PUTAWAY.POST');
+  }
+
   createPutawayFromGrn(): void {
     const grn = this.currentGrn();
     if (!grn) return;

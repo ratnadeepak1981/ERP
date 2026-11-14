@@ -138,9 +138,42 @@ export class TenantLayoutComponent implements OnInit {
 
   // Track expanded menu labels
   readonly expandedItems = signal<Record<string, boolean>>({
+    Procurement: true,
     Inventory: true,
+    Sales: true,
     'Master Data': true
   });
+
+  constructor() {
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(e => {
+        const url = e.urlAfterRedirects || e.url;
+        this.autoExpandActiveParents(url);
+      });
+  }
+
+  private autoExpandActiveParents(url: string): void {
+    if (!url) return;
+    const checkItem = (item: NavItem) => {
+      if (item.children && item.children.length > 0) {
+        const matchesChild = item.children.some(c => url.startsWith(c.route));
+        const matchesParent = item.route && url.startsWith(item.route);
+        if (matchesChild || matchesParent) {
+          this.expandedItems.update(state => {
+            if (state[item.label] === true) return state;
+            return { ...state, [item.label]: true };
+          });
+        }
+      }
+    };
+
+    for (const group of this.navGroups()) {
+      for (const item of group.items) {
+        checkItem(item);
+      }
+    }
+  }
 
   isItemExpanded(item: NavItem): boolean {
     if (this.expandedItems()[item.label] !== undefined) {
@@ -167,8 +200,9 @@ export class TenantLayoutComponent implements OnInit {
 
   isParentActive(item: NavItem): boolean {
     const url = this.currentUrlSignal() || this.router.url;
+    if (!url) return false;
     if (item.route && url.startsWith(item.route)) return true;
-    if (item.children) {
+    if (item.children && item.children.length > 0) {
       return item.children.some(c => url.startsWith(c.route));
     }
     return false;
@@ -192,34 +226,68 @@ export class TenantLayoutComponent implements OnInit {
       }
     ];
 
-    if (this.canViewProcurement()) {
-      items.push({ label: 'Procurement Overview', icon: 'pi pi-chart-line', route: '/app/procurement' });
-      if (this.canViewPurchaseRequisitions()) {
-        items.push({ label: 'Purchase Requisitions', icon: 'pi pi-file-edit', route: '/app/procurement/purchase-requisitions' });
-      }
-      items.push({ label: 'Purchase Orders', icon: 'pi pi-shopping-cart', route: '/app/procurement/purchase-orders' });
+    const procurementChildren: NavItem[] = [];
+    if (this.canViewProcurementOverview()) {
+      procurementChildren.push({ label: 'Overview', icon: 'pi pi-chart-line', route: '/app/procurement' });
+    }
+    if (this.canViewPurchaseRequisitions()) {
+      procurementChildren.push({ label: 'Purchase Requisitions', icon: 'pi pi-file-edit', route: '/app/procurement/purchase-requisitions' });
+    }
+    if (this.canViewPurchaseOrders()) {
+      procurementChildren.push({ label: 'Purchase Orders', icon: 'pi pi-shopping-cart', route: '/app/procurement/purchase-orders' });
+    }
+    if (this.canViewGoodsReceipts()) {
+      procurementChildren.push({ label: 'Product Receipts (GRN)', icon: 'pi pi-arrow-circle-down', route: '/app/procurement/goods-receipts' });
     }
 
-    if (this.canViewSales()) {
-      items.push({ label: 'Sales Overview', icon: 'pi pi-chart-line', route: '/app/sales' });
-      items.push({ label: 'Sales Orders', icon: 'pi pi-shopping-bag', route: '/app/sales/orders' });
-      items.push({ label: 'Dispatch Notes', icon: 'pi pi-send', route: '/app/sales/dispatches' });
-      items.push({ label: 'Sales Invoices', icon: 'pi pi-file-invoice', route: '/app/sales/invoices' });
+    if (procurementChildren.length > 0) {
+      items.push({
+        label: 'Procurement',
+        icon: 'pi pi-shopping-cart',
+        route: '/app/procurement',
+        children: procurementChildren
+      });
     }
+
+    const inventoryChildren: NavItem[] = [
+      { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/inventory' },
+      { label: 'Stock Receipt', icon: 'pi pi-arrow-circle-down', route: '/app/inventory/stock-receipts' }
+    ];
+
+    if (this.canViewStoragePutaway()) {
+      inventoryChildren.push({ label: 'Storage & Putaway', icon: 'pi pi-inbox', route: '/app/inventory/store-putaway' });
+    }
+
+    inventoryChildren.push(
+      { label: 'Stock Transfers', icon: 'pi pi-arrow-right-arrow-left', route: '/app/inventory/transfers' },
+      { label: 'Stock Count & Adjustment', icon: 'pi pi-check-square', route: '/app/inventory/count-adjust' },
+      { label: 'Stock Issue', icon: 'pi pi-arrow-circle-up', route: '/app/inventory/issue-stock' },
+      { label: 'Stock by Storage Location', icon: 'pi pi-table', route: '/app/inventory/reports/stock-by-storage-location' },
+      { label: 'Stock by Staging Location', icon: 'pi pi-list', route: '/app/inventory/reports/stock-by-staging-location' },
+      { label: 'Stock Ledger', icon: 'pi pi-book', route: '/app/inventory/reports/stock-ledger' }
+    );
 
     items.push({
       label: 'Inventory',
       icon: 'pi pi-box',
       route: '/app/inventory',
-      children: [
-        { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/inventory' },
-        { label: 'Stock Receipt', icon: 'pi pi-arrow-circle-down', route: '/app/inventory/stock-receipts' },
-        { label: 'Storage & Putaway', icon: 'pi pi-inbox', route: '/app/inventory/store-putaway' },
-        { label: 'Stock Transfers', icon: 'pi pi-arrow-right-arrow-left', route: '/app/inventory/transfers' },
-        { label: 'Stock Count & Adjustment', icon: 'pi pi-check-square', route: '/app/inventory/count-adjust' },
-        { label: 'Stock Issue', icon: 'pi pi-arrow-circle-up', route: '/app/inventory/issue-stock' }
-      ]
+      children: inventoryChildren
     });
+
+    if (this.canViewSales()) {
+      items.push({
+        label: 'Sales',
+        icon: 'pi pi-dollar',
+        route: '/app/sales',
+        children: [
+          { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/sales' },
+          { label: 'Sales Orders', icon: 'pi pi-shopping-bag', route: '/app/sales/orders' },
+          { label: 'Dispatch Notes', icon: 'pi pi-send', route: '/app/sales/dispatches' },
+          { label: 'Sales Invoices', icon: 'pi pi-file-invoice', route: '/app/sales/invoices' }
+        ]
+      });
+    }
+
     return items;
   }
 
@@ -234,12 +302,52 @@ export class TenantLayoutComponent implements OnInit {
     return true;
   }
 
-  canViewProcurement(): boolean {
+  canViewPurchaseOrders(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
     const perms = this.authService.permissions();
-    if (perms && perms.length > 0 && !perms.includes('PURCHASE_ORDER.VIEW') && !perms.includes('PURCHASE_REQUISITION.VIEW') && !perms.includes('Product.Read')) {
+    if (perms && perms.length > 0 && !perms.includes('PURCHASE_ORDER.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
+  canViewGoodsReceipts(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('GRN.VIEW') && !perms.includes('GOODS_RECEIPT.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
+  canViewProcurementOverview(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('PROCUREMENT.VIEW') && !perms.includes('PURCHASE_ORDER.VIEW') && !perms.includes('Product.Read')) {
+      return false;
+    }
+    return true;
+  }
+
+  canViewProcurement(): boolean {
+    return this.canViewProcurementOverview() ||
+      this.canViewPurchaseRequisitions() ||
+      this.canViewPurchaseOrders() ||
+      this.canViewGoodsReceipts();
+  }
+
+  canViewStoragePutaway(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('INVENTORY.VIEW')) {
       return false;
     }
     return true;

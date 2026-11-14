@@ -58,6 +58,7 @@ export interface EditablePutawayLine {
   putawayQuantity: number;
   sourceLocationId?: string;
   sourceLocationCode?: string;
+  sourceLocationName?: string;
   destinationLocationId: string;
   destinationLocationCode: string;
   destinationLocationName?: string;
@@ -142,15 +143,15 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
   readonly breadcrumbs = computed(() => [
     { label: 'Workspace', routerLink: '/app/dashboard' },
     { label: 'Inventory', routerLink: '/app/inventory' },
-    { label: 'Stores Putaway', routerLink: '/app/inventory/store-putaway' },
+    { label: 'Storage & Putaway', routerLink: '/app/inventory/store-putaway' },
     { label: this.mode() === 'create' ? 'New Putaway' : (this.currentRecord()?.putawayNumber || 'Putaway Details') }
   ]);
 
   // Page Title & Subtitle
   readonly pageTitle = computed(() => {
-    if (this.mode() === 'create') return 'New Stores Putaway';
+    if (this.mode() === 'create') return 'New Storage & Putaway';
     const num = this.currentRecord()?.putawayNumber;
-    return num ? `Stores Putaway — ${num}` : 'Stores Putaway Details';
+    return num ? `Storage & Putaway — ${num}` : 'Storage & Putaway Details';
   });
 
   readonly isReadOnlyMode = computed(() => this.mode() === 'view');
@@ -164,12 +165,85 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
     this.workingLines().reduce((acc, l) => acc + (Number(l.putawayQuantity) || 0), 0)
   );
 
-  // Destination Location Options for editable table
+  // Helper to get destination options for a line, strictly excluding the line's own source location
+  getDestinationOptionsForLine(row?: EditablePutawayLine): SelectOption[] {
+    const whId = this.headerForm.controls.warehouseId.value;
+    const srcId = row?.sourceLocationId;
+    return this.warehouseLocations()
+      .filter(l => {
+        if (!l.isActive) return false;
+        if (whId && l.warehouseId && l.warehouseId !== whId) return false;
+        if (l.isReceivingLocation) return false;
+        if (l.canPutAway === false) return false;
+        if (l.canStoreInventory === false) return false;
+        const locId = l.warehouseLocationId ?? l.locationId;
+        if (srcId && locId === srcId) return false;
+        return true;
+      })
+      .map(l => ({
+        label: this.formatLocationHierarchy(l),
+        value: l.warehouseLocationId ?? l.locationId
+      }));
+  }
+
+  // Default Destination Location Options for editable table:
+  // Must be active, belong to the selected warehouse, not a receiving dock, and allow putaway & storage.
   readonly destinationLocationOptions = computed<SelectOption[]>(() => {
-    return this.warehouseLocations().map(l => ({
-      label: this.formatLocationHierarchy(l),
-      value: l.warehouseLocationId ?? l.locationId
-    }));
+    const firstLine = this.workingLines()[0];
+    return this.getDestinationOptionsForLine(firstLine);
+  });
+
+  // Determines whether any line has no eligible destination bins in the current warehouse
+  readonly hasNoEligibleDestinations = computed<boolean>(() => {
+    const lines = this.workingLines();
+    if (lines.length === 0) return false;
+    return lines.some(l => this.getDestinationOptionsForLine(l).length === 0);
+  });
+
+  // Current warehouse display name for warnings and headers
+  readonly currentWarehouseName = computed<string>(() => {
+    const whId = this.headerForm.controls.warehouseId.value;
+    const wh = this.warehouses().find(w => w.warehouseId === whId);
+    return wh ? `${wh.warehouseCode} — ${wh.warehouseName}` : (whId || 'Warehouse');
+  });
+
+  // Formats label for physical movement summary
+  getDestinationLocationLabel(destId?: string): string {
+    if (!destId) return '(Select Destination Bin)';
+    const loc = this.warehouseLocations().find(
+      l => (l.warehouseLocationId ?? l.locationId) === destId
+    );
+    if (!loc) return destId;
+    return loc.locationName && loc.locationName !== loc.locationCode
+      ? `${loc.locationCode} (${loc.locationName})`
+      : loc.locationCode;
+  }
+
+  // Authoritative Original Receipt Location details (READ ONLY)
+  readonly sourceReceiptLocationDetails = computed(() => {
+    const lines = this.workingLines();
+    if (lines.length === 0) return null;
+
+    const firstLine = lines[0];
+    const srcLocId = firstLine?.sourceLocationId;
+    const whId = this.headerForm.controls.warehouseId.value;
+    const wh = this.warehouses().find(w => w.warehouseId === whId);
+
+    const loc = srcLocId
+      ? this.warehouseLocations().find(l => (l.warehouseLocationId ?? l.locationId) === srcLocId)
+      : null;
+
+    return {
+      warehouseCode: wh?.warehouseCode || loc?.zoneCode || 'WH',
+      warehouseName: wh?.warehouseName || 'Warehouse Facility',
+      zoneCode: loc?.zoneCode || '',
+      zoneName: loc?.zoneName || (loc?.zoneCode ? `Zone ${loc.zoneCode}` : 'General Receiving Area'),
+      locationCode: loc?.locationCode || firstLine?.sourceLocationCode || srcLocId || 'RECEIVING',
+      locationName: loc?.locationName || firstLine?.sourceLocationName || 'Receiving Area',
+      locationTypeCode: loc?.locationTypeCode || '',
+      locationTypeName: loc?.locationTypeName || loc?.locationTypeCode || 'Receiving Staging Area',
+      hierarchyPath: loc ? this.formatLocationHierarchy(loc) : `${wh?.warehouseCode || 'WH'} / ${firstLine?.sourceLocationCode || 'RECEIVING'}`
+    };
   });
 
   // Detail Columns
@@ -180,21 +254,33 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
       {
         field: 'productCode',
         header: 'Product / SKU',
-        width: '260px',
+        width: '240px',
         editable: false,
         format: (_val, row) => `${row.productCode} — ${row.productName}`
       },
       {
         field: 'unitOfMeasure',
         header: 'UOM',
-        width: '80px',
+        width: '70px',
         editable: false,
         align: 'center'
       },
       {
+        field: 'sourceLocationCode',
+        header: 'Source Staging (FROM)',
+        width: '180px',
+        editable: false,
+        format: (_val, row) => {
+          if (!row.sourceLocationCode && !row.sourceLocationName) return 'Receiving Dock';
+          return row.sourceLocationName && row.sourceLocationName !== row.sourceLocationCode
+            ? `${row.sourceLocationCode} (${row.sourceLocationName})`
+            : (row.sourceLocationCode || 'Receiving Dock');
+        }
+      },
+      {
         field: 'sourceQuantity',
         header: 'Received Qty',
-        width: '120px',
+        width: '110px',
         editable: false,
         align: 'right',
         format: val => Number(val || 0).toLocaleString()
@@ -202,7 +288,7 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
       {
         field: 'alreadyPutawayQuantity',
         header: 'Already Put Away',
-        width: '130px',
+        width: '120px',
         editable: false,
         align: 'right',
         format: val => Number(val || 0).toLocaleString()
@@ -210,7 +296,7 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
       {
         field: 'outstandingQuantity',
         header: 'Outstanding Qty',
-        width: '130px',
+        width: '120px',
         editable: false,
         align: 'right',
         format: val => Number(val || 0).toLocaleString()
@@ -218,7 +304,7 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
       {
         field: 'putawayQuantity',
         header: 'Putaway Qty *',
-        width: '130px',
+        width: '120px',
         editable: !isReadOnly,
         editType: 'number',
         align: 'right',
@@ -235,19 +321,30 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
       },
       {
         field: 'destinationLocationId',
-        header: 'Destination Location (Zone → Rack → Bin) *',
-        width: '320px',
+        header: 'Destination Location (TO) *',
+        width: '340px',
         editable: !isReadOnly,
         editType: 'select',
         editOptions: this.destinationLocationOptions(),
-        format: val => {
+        getEditOptions: row => this.getDestinationOptionsForLine(row),
+        format: (val, row) => {
+          if (!val) {
+            const avail = this.getDestinationOptionsForLine(row);
+            return avail.length === 0 ? 'No eligible storage bins available' : 'Select storage bin...';
+          }
           const loc = this.warehouseLocations().find(
             l => (l.warehouseLocationId ?? l.locationId) === val
           );
-          return loc ? this.formatLocationHierarchy(loc) : (val || 'Select bin...');
+          return loc ? this.formatLocationHierarchy(loc) : (val || 'Select storage bin...');
         },
         validators: [
-          val => (val ? null : 'Destination storage bin is required')
+          (val, row) => {
+            if (!val) return 'Destination storage bin is required';
+            if (row?.sourceLocationId && val === row.sourceLocationId) {
+              return 'Destination cannot be identical to source receipt location';
+            }
+            return null;
+          }
         ]
       }
     ];
@@ -265,6 +362,10 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
         } else {
           this.mode.set('create');
           this.putawayId.set(null);
+          if (!this.canEdit()) {
+            this.isAccessDenied.set(true);
+            return;
+          }
           this.initNewRecord();
         }
       })
@@ -277,6 +378,10 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
 
   initModeAndData(): void {
     if (!this.canView()) {
+      this.isAccessDenied.set(true);
+      return;
+    }
+    if (this.mode() === 'create' && !this.canEdit()) {
       this.isAccessDenied.set(true);
       return;
     }
@@ -379,7 +484,30 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
 
     this.masterDataService.getWarehouseLocations(whId).subscribe({
       next: locs => {
-        this.warehouseLocations.set(locs || []);
+        const loaded = locs || [];
+        this.warehouseLocations.set(loaded);
+
+        // If lines are already loaded, ensure destination IDs are valid and not identical to source
+        const lines = this.workingLines();
+        if (lines.length > 0) {
+          const updated = lines.map(l => {
+            if (!l.destinationLocationId || l.destinationLocationId === l.sourceLocationId) {
+              const defaultDest = loaded.find(
+                loc => loc.isActive &&
+                       (loc.warehouseLocationId ?? loc.locationId) !== l.sourceLocationId &&
+                       !loc.isReceivingLocation &&
+                       loc.canPutAway !== false &&
+                       loc.canStoreInventory !== false
+              );
+              return {
+                ...l,
+                destinationLocationId: defaultDest ? (defaultDest.warehouseLocationId ?? defaultDest.locationId) : ''
+              };
+            }
+            return l;
+          });
+          this.workingLines.set(updated);
+        }
       },
       error: err => {
         this.warehouseLocations.set([]);
@@ -461,12 +589,22 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: lines => {
         this.loading.set(false);
-        // Pre-assign default destination location if available
-        const defaultDest = this.warehouseLocations().find(l => !l.isReceivingLocation && l.isActive);
-        const mapped = lines.map(l => ({
-          ...l,
-          destinationLocationId: defaultDest ? (defaultDest.warehouseLocationId ?? defaultDest.locationId) : ''
-        }));
+        // Pre-assign default destination location if available:
+        // Must be active, not receiving location, allow putaway & storage, AND NOT be identical to source
+        const mapped = lines.map(l => {
+          const defaultDest = this.warehouseLocations().find(
+            loc => loc.isActive &&
+                   (loc.warehouseLocationId ?? loc.locationId) !== l.sourceLocationId &&
+                   !loc.isReceivingLocation &&
+                   loc.canPutAway !== false &&
+                   loc.canStoreInventory !== false
+          );
+          return {
+            ...l,
+            sourceLocationName: l.sourceLocationName || '',
+            destinationLocationId: defaultDest ? (defaultDest.warehouseLocationId ?? defaultDest.locationId) : ''
+          };
+        });
         this.workingLines.set(mapped);
       },
       error: () => {
@@ -481,14 +619,16 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
 
   formatLocationHierarchy(loc: WarehouseLocationItem): string {
     if (!loc) return '';
+    if (loc.hierarchyPath) {
+      return `${loc.hierarchyPath} (${loc.locationName || loc.locationCode})`;
+    }
     if (loc.zoneName) {
-      return `${loc.zoneName} → ${loc.locationCode} (${loc.locationName})`;
+      return `${loc.zoneName} / ${loc.locationCode} (${loc.locationName})`;
     }
-    const segs = loc.locationCode.split('-');
-    if (segs.length >= 3) {
-      return `${loc.locationCode} (Rack ${segs[0]} → Level ${segs[1]} → Bin ${segs[2]})`;
+    if (loc.locationName && loc.locationName !== loc.locationCode) {
+      return `${loc.locationCode} — ${loc.locationName}`;
     }
-    return `${loc.locationCode} — ${loc.locationName}`;
+    return loc.locationCode;
   }
 
   splitLine(targetLineId?: string): void {
@@ -604,9 +744,20 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
     if (!asDraft) {
       for (const line of lines) {
         if (!line.destinationLocationId) {
+          const avail = this.getDestinationOptionsForLine(line);
+          const reason = avail.length === 0
+            ? 'No eligible destination storage bins exist in this warehouse distinct from the source location. Destination location is required.'
+            : 'Destination location is required.';
           this.feedbackMessage.set({
             type: 'error',
-            text: `Destination location is required for item ${line.productCode || line.productName}.`
+            text: `${reason} Please select a valid destination storage bin for item ${line.productCode || line.productName}.`
+          });
+          return;
+        }
+        if (line.sourceLocationId && line.destinationLocationId && line.sourceLocationId === line.destinationLocationId) {
+          this.feedbackMessage.set({
+            type: 'error',
+            text: `Source and destination locations cannot be identical for item ${line.productCode || line.productName}. Please select a different destination storage bin.`
           });
           return;
         }
@@ -683,7 +834,7 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
-    return this.authService.hasPermission('WAREHOUSE.VIEW') || this.authService.hasPermission('PRODUCT.VIEW');
+    return this.authService.hasPermission('INVENTORY.VIEW');
   }
 
   canEdit(): boolean {
@@ -691,6 +842,6 @@ export class StorePutawayPageComponent implements OnInit, OnDestroy {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
       return true;
     }
-    return this.authService.hasPermission('WAREHOUSE.MANAGE_LOCATIONS') || this.authService.hasPermission('PRODUCT.EDIT');
+    return this.authService.hasPermission('PUTAWAY.POST');
   }
 }
