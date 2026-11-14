@@ -133,50 +133,6 @@
   }
 }
 
-.confirm-dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  .dialog-notice {
-    margin: 0;
-    padding: 10px 14px;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 6px;
-    color: #1e40af;
-    font-size: 13px;
-    line-height: 1.4;
-  }
-
-  .dialog-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px 14px;
-    background: var(--surface-ground, #f8fafc);
-    border: 1px solid var(--surface-border, #e2e8f0);
-    border-radius: 6px;
-    font-size: 13px;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-color-secondary, #64748b);
-    }
-
-    .full-width {
-      width: 100%;
-    }
-  }
-}
-
 .message-banner {
   display: flex;
   align-items: center;

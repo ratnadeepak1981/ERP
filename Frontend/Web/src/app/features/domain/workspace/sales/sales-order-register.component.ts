@@ -13,7 +13,7 @@ import { AppEmptyStateComponent } from '../../../../shared/components/empty-stat
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
 import { SalesOrderService } from '../../../../core/services/sales-order.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
-import { ActionDialogComponent } from '../../../../shared/components/action-dialog/action-dialog.component';
+import { ConfirmationDialogComponent, ConfirmationDialogConfig, ConfirmationDialogResult } from '../../../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import {
@@ -40,7 +40,7 @@ export type SOStatusFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'fulf
     AppErrorStateComponent,
     AppEmptyStateComponent,
     AccessDeniedComponent,
-    ActionDialogComponent
+    ConfirmationDialogComponent
   ],
   templateUrl: './sales-order-register.component.html',
   styleUrl: './sales-order-register.component.scss',
@@ -150,6 +150,30 @@ export class SalesOrderRegisterComponent implements OnInit, OnDestroy {
       default:
         return 'secondary';
     }
+  });
+
+  readonly confirmDialogConfig = computed<ConfirmationDialogConfig | null>(() => {
+    const action = this.remarksAction();
+    const order = this.remarksTargetOrder();
+    if (!action || !order) return null;
+
+    return {
+      action,
+      title: this.remarksDialogTitle(),
+      message: action === 'confirm'
+        ? `Are you sure you want to confirm sales order ${order.orderNumber}?`
+        : action === 'reject'
+        ? `Are you sure you want to reject sales order ${order.orderNumber}?`
+        : `Are you sure you want to cancel sales order ${order.orderNumber}?`,
+      subMessage: `Order: ${order.orderNumber} | Customer: ${order.customerName || 'Standard Customer'}`,
+      commentLabel: action === 'reject' ? 'Rejection Reason' : 'Remarks',
+      commentPlaceholder: this.remarksPlaceholder(),
+      commentRequired: action === 'reject',
+      confirmLabel: this.remarksSubmitLabel(),
+      confirmIcon: this.remarksSubmitIcon(),
+      confirmSeverity: this.remarksSubmitSeverity(),
+      cancelLabel: 'Cancel'
+    };
   });
 
   // Filtered Orders Computed
@@ -456,15 +480,15 @@ export class SalesOrderRegisterComponent implements OnInit, OnDestroy {
     this.remarksError.set(null);
   }
 
-  submitRemarksAction(): void {
-    const action = this.remarksAction();
+  submitRemarksAction(dialogResult?: ConfirmationDialogResult): void {
+    const action = dialogResult?.action || this.remarksAction();
     const order = this.remarksTargetOrder();
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
 
     if (!action || !order || !company || !branch) return;
 
-    const remarks = this.remarksText().trim();
+    const remarks = dialogResult ? dialogResult.comment.trim() : this.remarksText().trim();
     if (action === 'reject' && !remarks) {
       this.remarksError.set('Rejection remarks are required.');
       return;

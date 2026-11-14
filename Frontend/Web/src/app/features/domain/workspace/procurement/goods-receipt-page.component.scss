@@ -205,6 +205,52 @@
   }
 }
 
+/* Fully Received PO Notice Banner */
+.fully-received-banner {
+  border-left: 4px solid var(--erp-primary, #0f6cbd);
+  background: #eff6fc;
+  padding: 16px 20px;
+
+  .fully-received-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    .fully-received-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+
+      .fully-received-icon {
+        font-size: 24px;
+        color: var(--erp-primary, #0f6cbd);
+        flex-shrink: 0;
+      }
+
+      .fully-received-content {
+        .fully-received-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #0f6cbd;
+          margin: 0 0 4px 0;
+        }
+
+        .fully-received-desc {
+          font-size: 13px;
+          color: #334155;
+          margin: 0;
+        }
+      }
+    }
+
+    .fully-received-actions {
+      flex-shrink: 0;
+    }
+  }
+}
+
 /* Footer Summary Section */
 .footer-summary-section {
   display: flex;

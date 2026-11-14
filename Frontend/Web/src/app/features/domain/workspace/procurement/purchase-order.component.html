@@ -449,78 +449,13 @@
     </ng-template>
   </p-dialog>
 
-  <!-- REMARKS DIALOG (For Approve / Reject / Cancel) -->
-  <p-dialog
-    [(visible)]="remarksDialogVisible"
-    [modal]="true"
-    [header]="(remarksAction() === 'approve' ? 'Approve' : remarksAction() === 'reject' ? 'Reject' : 'Cancel') + ' Purchase Order'"
-    [style]="{ width: '480px', maxWidth: '95vw' }"
-    [draggable]="false"
-    [resizable]="false"
-  >
-    @if (remarksError()) {
-      <div class="form-error-banner">
-        <i class="pi pi-exclamation-triangle"></i>
-        <span>{{ remarksError() }}</span>
-      </div>
-    }
-
-    <div class="remarks-form">
-      <p class="remarks-instructions text-sm text-secondary">
-        @if (remarksAction() === 'approve') {
-          Provide any approval notes or instructions for fulfillment (optional):
-        } @else if (remarksAction() === 'reject') {
-          Please provide a reason for rejecting purchase order
-          <strong>{{ remarksTargetOrder()?.orderNumber }}</strong> (required):
-        } @else {
-          Specify the reason for cancelling purchase order
-          <strong>{{ remarksTargetOrder()?.orderNumber }}</strong>:
-        }
-      </p>
-
-      <div class="form-group">
-        <label for="poRemarks">Remarks</label>
-        <textarea
-          id="poRemarks"
-          rows="4"
-          class="p-inputtext p-inputtext-sm w-full"
-          [ngModel]="remarksText()"
-          (ngModelChange)="remarksText.set($event)"
-          placeholder="Enter remarks..."
-          [disabled]="actionInProgress()"
-        ></textarea>
-      </div>
-    </div>
-
-    <ng-template #footer pTemplate="footer">
-      <button
-        type="button"
-        class="p-button p-button-sm p-button-outlined"
-        (click)="remarksDialogVisible.set(false)"
-        [disabled]="actionInProgress()"
-      >
-        Dismiss
-      </button>
-
-      <button
-        type="button"
-        class="p-button p-button-sm"
-        [ngClass]="{
-          'p-button-success': remarksAction() === 'approve',
-          'p-button-danger': remarksAction() === 'reject' || remarksAction() === 'cancel'
-        }"
-        (click)="onConfirmRemarks()"
-        [disabled]="actionInProgress()"
-      >
-        <i class="pi p-button-icon-left" [ngClass]="{
-          'pi-check': remarksAction() === 'approve',
-          'pi-times': remarksAction() === 'reject',
-          'pi-ban': remarksAction() === 'cancel'
-        }"></i>
-        <span class="p-button-label">
-          Confirm {{ remarksAction() === 'approve' ? 'Approval' : remarksAction() === 'reject' ? 'Rejection' : 'Cancellation' }}
-        </span>
-      </button>
-    </ng-template>
-  </p-dialog>
+  <!-- REUSABLE REMARKS DIALOG (For Approve / Reject / Cancel) -->
+  <app-confirmation-dialog
+    [(visible)]="confirmDialogVisible"
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    [errorMessage]="confirmDialogError()"
+    (confirmed)="onConfirmRemarks($event)"
+    (cancelled)="closeRemarksDialog()"
+  ></app-confirmation-dialog>
 </div>

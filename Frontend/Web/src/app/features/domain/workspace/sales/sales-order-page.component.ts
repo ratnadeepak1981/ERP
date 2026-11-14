@@ -12,7 +12,7 @@ import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } 
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { ActionDialogComponent } from '../../../../shared/components/action-dialog/action-dialog.component';
+import { ConfirmationDialogComponent, ConfirmationDialogConfig, ConfirmationDialogResult } from '../../../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppReactiveFormComponent } from '../../../../shared/components/forms/reactive-form.component';
 import { FormFieldConfig } from '../../../../shared/components/forms/form-field-config.model';
@@ -67,7 +67,7 @@ export interface EditableSOLine {
     FormsModule,
     ReactiveFormsModule,
     RouterModule,
-    ActionDialogComponent,
+    ConfirmationDialogComponent,
     AppPageHeaderComponent,
     AppReactiveFormComponent,
     AppEditableDataTableComponent,
@@ -651,6 +651,33 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
     }
   });
 
+  readonly confirmDialogConfig = computed<ConfirmationDialogConfig | null>(() => {
+    const action = this.remarksAction();
+    if (!action) return null;
+    const ordNum = this.headerForm.get('orderNumber')?.value || this.currentOrder()?.orderNumber || 'Sales Order';
+    const currency = this.activeCurrency();
+    const total = this.totalOrderAmount();
+    const formattedTotal = (total || 0).toLocaleString('en-US', { style: 'currency', currency });
+
+    return {
+      action,
+      title: this.remarksDialogTitle(),
+      message: action === 'confirm'
+        ? `Are you sure you want to confirm sales order ${ordNum}?`
+        : action === 'reject'
+        ? `Are you sure you want to reject sales order ${ordNum}?`
+        : `Are you sure you want to cancel sales order ${ordNum}?`,
+      subMessage: `Order: ${ordNum} | Total: ${formattedTotal}`,
+      commentLabel: action === 'reject' ? 'Rejection Reason' : 'Remarks',
+      commentPlaceholder: this.remarksPlaceholder(),
+      commentRequired: action === 'reject',
+      confirmLabel: this.remarksSubmitLabel(),
+      confirmIcon: this.remarksSubmitIcon(),
+      confirmSeverity: this.remarksSubmitSeverity(),
+      cancelLabel: 'Cancel'
+    };
+  });
+
   ngOnInit(): void {
     this.detectRouteMode();
     this.loadMasterData();
@@ -1068,15 +1095,15 @@ export class SalesOrderPageComponent implements OnInit, OnDestroy {
     this.remarksError.set(null);
   }
 
-  submitRemarksAction(): void {
-    const action = this.remarksAction();
+  submitRemarksAction(dialogResult?: ConfirmationDialogResult): void {
+    const action = dialogResult?.action || this.remarksAction();
     const ord = this.currentOrder();
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
 
     if (!action || !ord || !company || !branch) return;
 
-    const remarks = this.remarksText().trim();
+    const remarks = dialogResult ? dialogResult.comment.trim() : this.remarksText().trim();
     if (action === 'reject' && !remarks) {
       this.remarksError.set('Rejection remarks are required.');
       return;

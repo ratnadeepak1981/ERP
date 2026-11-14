@@ -889,5 +889,257 @@ describe('PurchaseOrderPageComponent', () => {
 
       expect(createSpy).not.toHaveBeenCalled();
     });
+
+    it('should track duplicate PR lines for the same product independently and not deduct across sibling lines', () => {
+      fixture.detectChanges();
+
+      const mockRequisitionWithDuplicates: PurchaseRequisitionDto = {
+        id: 'pr-dup-1',
+        tenantId: 't1',
+        companyId: mockCompanyA.id,
+        branchId: mockBranchA.id,
+        requisitionNumber: 'PR-2026-DUP',
+        requisitionDate: '2026-10-18T00:00:00Z',
+        requestorUserId: 'u1',
+        status: PurchaseRequisitionStatus.Approved,
+        totalAmount: 3000.0,
+        isActive: true,
+        items: [
+          {
+            id: 'pri-line-1',
+            purchaseRequisitionId: 'pr-dup-1',
+            productId: 'p1',
+            productCode: 'RAW-001',
+            productName: 'Steel Sheet 2mm',
+            quantity: 100,
+            estimatedUnitPrice: 20.0,
+            estimatedLineTotal: 2000.0,
+            isActive: true
+          },
+          {
+            id: 'pri-line-2',
+            purchaseRequisitionId: 'pr-dup-1',
+            productId: 'p1',
+            productCode: 'RAW-001',
+            productName: 'Steel Sheet 2mm',
+            quantity: 50,
+            estimatedUnitPrice: 20.0,
+            estimatedLineTotal: 1000.0,
+            isActive: true
+          }
+        ]
+      };
+
+      // Existing PO that ordered 40 units specifically from Line 1
+      const existingPOForLine1: PurchaseOrderDto = {
+        id: 'po-line-1-order',
+        tenantId: 't1',
+        companyId: mockCompanyA.id,
+        branchId: mockBranchA.id,
+        supplierId: 's1',
+        supplierName: 'Industrial Metals Ltd',
+        orderNumber: 'PO-2026-001',
+        orderDate: '2026-10-19T00:00:00Z',
+        status: PurchaseOrderStatus.Draft,
+        totalAmount: 800.0,
+        isActive: true,
+        items: [
+          {
+            id: 'poi-line-1',
+            purchaseOrderId: 'po-line-1-order',
+            productId: 'p1',
+            productCode: 'RAW-001',
+            productName: 'Steel Sheet 2mm',
+            quantity: 40,
+            unitPrice: 20.0,
+            lineTotal: 800.0,
+            notes: '[PR: PR-2026-DUP Line: pri-line-1]',
+            isActive: true
+          }
+        ]
+      };
+
+      vi.spyOn(prService, 'getRequisition').mockReturnValue(of(mockRequisitionWithDuplicates));
+      vi.spyOn(poService, 'getOrders').mockReturnValue(of([existingPOForLine1]));
+
+      component.loadSourceRequisition('pr-dup-1');
+
+      expect(component.workingLines().length).toBe(2);
+      const line1 = component.workingLines().find(l => l.sourceRequisitionItemId === 'pri-line-1');
+      const line2 = component.workingLines().find(l => l.sourceRequisitionItemId === 'pri-line-2');
+
+      expect(line1).toBeDefined();
+      expect(line1?.quantity).toBe(60); // 100 - 40
+      expect(line1?.maxAllowedQuantity).toBe(60);
+
+      expect(line2).toBeDefined();
+      expect(line2?.quantity).toBe(50); // Untouched 50! Sibling line with same product was not deducted
+      expect(line2?.maxAllowedQuantity).toBe(50);
+    });
+
+    it('should successfully prepopulate PR in All Branches mode by resolving fallback branch', () => {
+      fixture.detectChanges();
+
+      // Put scopeService into All Branches mode (branch is null)
+      scopeService.selectedBranch.set(null);
+      scopeService.isAllBranches.set(true);
+      expect(scopeService.selectedBranch()).toBeNull();
+      expect(scopeService.canOperateTransactions()).toBe(false);
+
+      // Set queryParams to contain branchId of mockBranchA
+      (component['route'].snapshot as any).queryParams = {
+        branchId: mockBranchA.id
+      };
+
+      const mockRequisition: PurchaseRequisitionDto = {
+        id: 'pr-all-branches',
+        tenantId: 't1',
+        companyId: mockCompanyA.id,
+        branchId: mockBranchA.id,
+        requisitionNumber: 'PR-2026-ALLBR',
+        requisitionDate: '2026-10-18T00:00:00Z',
+        requestorUserId: 'u1',
+        status: PurchaseRequisitionStatus.Approved,
+        totalAmount: 1000.0,
+        isActive: true,
+        items: [
+          {
+            id: 'pri-ab-1',
+            purchaseRequisitionId: 'pr-all-branches',
+            productId: 'p1',
+            productCode: 'RAW-001',
+            productName: 'Steel Sheet 2mm',
+            quantity: 50,
+            estimatedUnitPrice: 20.0,
+            estimatedLineTotal: 1000.0,
+            isActive: true
+          }
+        ]
+      };
+
+      vi.spyOn(prService, 'getRequisition').mockReturnValue(of(mockRequisition));
+      vi.spyOn(poService, 'getOrders').mockReturnValue(of([]));
+
+      component.loadSourceRequisition('pr-all-branches');
+
+      // Verify that branch context was resolved and updated
+      expect(scopeService.selectedBranch()).toEqual(mockBranchA);
+      expect(scopeService.isAllBranches()).toBe(false);
+      expect(scopeService.canOperateTransactions()).toBe(true);
+      expect(component.selectedBranchId()).toBe(mockBranchA.id);
+
+      // Verify lines were loaded
+      expect(component.workingLines().length).toBe(1);
+      expect(component.workingLines()[0].quantity).toBe(50);
+    });
+
+    it('should enrich productCode and productName on PR lines where PR item lacked them', () => {
+      fixture.detectChanges();
+
+      // PR item has productId 'p1' but missing productCode and productName
+      const mockRequisitionWithoutNames: PurchaseRequisitionDto = {
+        id: 'pr-no-names',
+        tenantId: 't1',
+        companyId: mockCompanyA.id,
+        branchId: mockBranchA.id,
+        requisitionNumber: 'PR-2026-NONAME',
+        requisitionDate: '2026-10-18T00:00:00Z',
+        requestorUserId: 'u1',
+        status: PurchaseRequisitionStatus.Approved,
+        totalAmount: 200.0,
+        isActive: true,
+        items: [
+          {
+            id: 'pri-nn-1',
+            purchaseRequisitionId: 'pr-no-names',
+            productId: 'p1',
+            productCode: '', // Empty in PR DTO
+            productName: '', // Empty in PR DTO
+            quantity: 10,
+            estimatedUnitPrice: 20.0,
+            estimatedLineTotal: 200.0,
+            isActive: true
+          }
+        ]
+      };
+
+      vi.spyOn(prService, 'getRequisition').mockReturnValue(of(mockRequisitionWithoutNames));
+      vi.spyOn(poService, 'getOrders').mockReturnValue(of([]));
+
+      component.loadSourceRequisition('pr-no-names');
+
+      expect(component.workingLines().length).toBe(1);
+      const line = component.workingLines()[0];
+      // Expect enriched from mockProducts ('RAW-001' and 'Steel Sheet 2mm')
+      expect(line.productCode).toBe('RAW-001');
+      expect(line.productName).toBe('Steel Sheet 2mm');
+    });
+
+    it('should reactively enrich productCode and productName when product master arrives after PR', () => {
+      fixture.detectChanges();
+
+      // Products initially empty
+      component.products.set([]);
+
+      const mockRequisitionWithoutNames: PurchaseRequisitionDto = {
+        id: 'pr-async-prod',
+        tenantId: 't1',
+        companyId: mockCompanyA.id,
+        branchId: mockBranchA.id,
+        requisitionNumber: 'PR-2026-ASYNC',
+        requisitionDate: '2026-10-18T00:00:00Z',
+        requestorUserId: 'u1',
+        status: PurchaseRequisitionStatus.Approved,
+        totalAmount: 200.0,
+        isActive: true,
+        items: [
+          {
+            id: 'pri-async-1',
+            purchaseRequisitionId: 'pr-async-prod',
+            productId: 'p1',
+            productCode: '',
+            productName: '',
+            quantity: 10,
+            estimatedUnitPrice: 20.0,
+            estimatedLineTotal: 200.0,
+            isActive: true
+          }
+        ]
+      };
+
+      vi.spyOn(prService, 'getRequisition').mockReturnValue(of(mockRequisitionWithoutNames));
+      vi.spyOn(poService, 'getOrders').mockReturnValue(of([]));
+
+      component.loadSourceRequisition('pr-async-prod');
+
+      // Now products arrive via subscription logic
+      component.products.set(mockProducts);
+      const current = component.workingLines();
+      component.workingLines.set(component['enrichLinesWithProductMaster'](current));
+
+      expect(component.workingLines().length).toBe(1);
+      expect(component.workingLines()[0].productCode).toBe('RAW-001');
+      expect(component.workingLines()[0].productName).toBe('Steel Sheet 2mm');
+    });
+
+    it('should allow manual PO row editing and creation without any PR dependencies', () => {
+      fixture.detectChanges();
+
+      expect(component.sourceRequisition()).toBeNull();
+      const line = component.workingLines()[0];
+      expect(line.sourceRequisitionItemId).toBeUndefined();
+
+      // User selects a product directly
+      line.productId = 'p1';
+      line.productCode = 'RAW-001';
+      line.productName = 'Steel Sheet 2mm';
+      line.quantity = 25;
+      line.unitCost = 20;
+      component.calculateRow(line);
+
+      expect(line.lineTotal).toBe(500);
+      expect(line.notes).toBeUndefined();
+      expect(line.maxAllowedQuantity).toBeUndefined();
+    });
   });
 });

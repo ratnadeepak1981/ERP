@@ -5,7 +5,6 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { SharedModule } from 'primeng/api';
 import { AppPageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
@@ -13,6 +12,11 @@ import { AppDataTableComponent } from '../../../../../shared/components/data-tab
 import { AppLoadingStateComponent } from '../../../../../shared/components/loading-state/loading-state.component';
 import { AppErrorStateComponent } from '../../../../../shared/components/error-state/error-state.component';
 import { AccessDeniedComponent } from '../../../../../shared/components/access-denied/access-denied.component';
+import {
+  ConfirmationDialogComponent,
+  ConfirmationDialogConfig,
+  ConfirmationDialogResult
+} from '../../../../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { SalesInvoiceService } from '../../../../../core/services/sales-invoice.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
@@ -34,7 +38,7 @@ export type InvoiceStatusFilter = 'all' | 'draft' | 'confirmed' | 'cancelled' | 
     FormsModule,
     ButtonModule,
     InputTextModule,
-    DialogModule,
+    ConfirmationDialogComponent,
     SharedModule,
     TooltipModule,
     AppPageHeaderComponent,
@@ -76,6 +80,28 @@ export class SalesInvoiceRegisterComponent implements OnInit, OnDestroy {
   readonly confirmDialogVisible = signal<boolean>(false);
   readonly targetInvoice = signal<SalesInvoiceDto | null>(null);
   readonly confirmNotes = signal<string>('');
+  readonly confirmDialogError = signal<string | null>(null);
+
+  readonly confirmDialogConfig = computed<ConfirmationDialogConfig | null>(() => {
+    const inv = this.targetInvoice();
+    if (!inv) return null;
+    const invNum = inv.invoiceNumber || 'Draft';
+    const totalFmt = inv.totalAmount != null ? `${inv.currency || '$'} ${Number(inv.totalAmount).toFixed(2)}` : '';
+    const custName = inv.customerName || 'N/A';
+    return {
+      action: 'confirm',
+      title: 'Confirm Sales Invoice',
+      message: `Are you sure you want to confirm sales invoice ${invNum}? Once confirmed, the invoice amount of ${totalFmt} is formally finalized.`,
+      subMessage: `Customer: ${custName} | Order #: ${inv.orderNumber || 'N/A'}`,
+      commentLabel: 'Remarks / Confirmation Note',
+      commentPlaceholder: 'Enter optional remarks...',
+      commentRequired: false,
+      confirmLabel: 'Confirm Invoice',
+      confirmIcon: 'pi pi-check',
+      confirmSeverity: 'success',
+      cancelLabel: 'Cancel'
+    };
+  });
 
   // Breadcrumbs
   readonly breadcrumbs = [
@@ -280,23 +306,28 @@ export class SalesInvoiceRegisterComponent implements OnInit, OnDestroy {
   openConfirmDialog(inv: SalesInvoiceDto): void {
     this.targetInvoice.set(inv);
     this.confirmNotes.set('');
+    this.confirmDialogError.set(null);
     this.confirmDialogVisible.set(true);
   }
 
   closeConfirmDialog(): void {
     this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
     this.targetInvoice.set(null);
   }
 
-  executeConfirm(): void {
+  executeConfirm(dialogResult?: ConfirmationDialogResult): void {
     const inv = this.targetInvoice();
     const comp = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
     if (!inv || !comp?.id || !branch?.id) return;
 
+    const notes = dialogResult ? dialogResult.comment.trim() : this.confirmNotes().trim();
+
     this.actionInProgress.set(true);
+    this.confirmDialogError.set(null);
     this.invoiceService
-      .confirmInvoice(comp.id, branch.id, inv.id, this.confirmNotes().trim() || undefined)
+      .confirmInvoice(comp.id, branch.id, inv.id, notes || undefined)
       .subscribe({
         next: updated => {
           this.actionInProgress.set(false);
@@ -309,8 +340,10 @@ export class SalesInvoiceRegisterComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.actionInProgress.set(false);
+          const errMsg = err?.error?.message || err?.message || 'Failed to confirm sales invoice.';
+          this.confirmDialogError.set(errMsg);
           this.message.set({
-            text: err?.error?.message || err?.message || 'Failed to confirm sales invoice.',
+            text: errMsg,
             severity: 'danger'
           });
         }
