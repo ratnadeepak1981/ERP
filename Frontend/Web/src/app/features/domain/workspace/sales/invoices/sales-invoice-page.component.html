@@ -361,52 +361,13 @@
     </div>
   }
 
-  <!-- Confirm Dialog -->
-  <p-dialog
+  <!-- Reusable Confirmation Dialog (No PrimeNG) -->
+  <app-confirmation-dialog
     [(visible)]="confirmDialogVisible"
-    [modal]="true"
-    header="Confirm Sales Invoice"
-    [style]="{ width: '480px', maxWidth: '95vw' }"
-    [closable]="!actionInProgress()"
-  >
-    <div class="confirm-dialog-body">
-      <p class="dialog-notice">
-        Are you sure you want to confirm this invoice? Once confirmed, the invoice amount of
-        <strong>{{ grandTotalAmount() | currency:'USD':'symbol':'1.2-2' }}</strong> is formally finalized.
-      </p>
-
-      <div class="form-group">
-        <label for="dialogConfirmNotes">Remarks / Confirmation Note (Optional)</label>
-        <textarea
-          id="dialogConfirmNotes"
-          class="p-inputtext p-inputtext-sm full-width"
-          rows="2"
-          [ngModel]="confirmNotes()"
-          (ngModelChange)="confirmNotes.set($event)"
-          placeholder="Enter optional remarks..."
-          [disabled]="actionInProgress()"
-        ></textarea>
-      </div>
-    </div>
-
-    <ng-template pTemplate="footer">
-      <p-button
-        label="Cancel"
-        [outlined]="true"
-        size="small"
-        severity="secondary"
-        [disabled]="actionInProgress()"
-        (onClick)="closeConfirmDialog()"
-      ></p-button>
-
-      <p-button
-        label="Yes, Confirm Invoice"
-        icon="pi pi-check"
-        size="small"
-        severity="success"
-        [loading]="actionInProgress()"
-        (onClick)="executeConfirm()"
-      ></p-button>
-    </ng-template>
-  </p-dialog>
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    [errorMessage]="confirmDialogError()"
+    (confirmed)="executeConfirm($event)"
+    (cancelled)="closeConfirmDialog()"
+  ></app-confirmation-dialog>
 </div>

@@ -42,7 +42,7 @@ import {
   getGrnStatusSeverity
 } from '../../../../core/models/goods-receipt-note.models';
 import { PurchaseOrderDto, PurchaseOrderStatus } from '../../../../core/models/purchase-order.models';
-import { TrackingMode, ProductItem } from '../../../../core/models/scope.models';
+import { TrackingMode, ProductItem, Branch } from '../../../../core/models/scope.models';
 import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
 import {
   BatchSerialTrackingDialogComponent,
@@ -118,6 +118,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
   private readonly subs = new Subscription();
   private readonly productMasterCache = new Map<string, ProductItem>();
+  private enrichmentToken = 0;
 
   // Mode & Route State
   readonly mode = signal<GRNPageMode>('create');
@@ -127,8 +128,17 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   readonly sourcePo = signal<PurchaseOrderDto | null>(null);
   readonly editingDraft = signal<boolean>(false);
   readonly confirmDeleteDraft = signal<boolean>(false);
+
+  readonly isFullyReceived = computed<boolean>(() => {
+    if (this.mode() !== 'create') return false;
+    const po = this.sourcePo();
+    const lines = this.workingLines();
+    if (!po || lines.length === 0) return false;
+    return lines.every(l => (Number(l.outstandingQuantity) || 0) <= 0);
+  });
+
   readonly canEditDraft = computed(() =>
-    this.mode() === 'create' ||
+    (this.mode() === 'create' && !this.isFullyReceived()) ||
     (this.mode() === 'view' &&
       this.editingDraft() &&
       Number(this.currentGrn()?.status) === GoodsReceiptNoteStatus.Draft)
@@ -307,7 +317,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         sortable: true,
         align: 'right',
         width: '130px',
-        editable: !isView,
+        editable: !isView && !this.isFullyReceived(),
         editType: 'number',
         validators: [
           (val: any, row?: EditableGRNLine) => {
@@ -399,6 +409,23 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         this.detectRoute();
       })
     );
+
+    // Prefetch product master data for catalogue enrichment
+    this.subs.add(
+      this.masterDataService.getProducts().subscribe({
+        next: prods => {
+          for (const p of prods) {
+            if (p.productId) {
+              this.productMasterCache.set(p.productId.toLowerCase(), p);
+            }
+          }
+          if (this.workingLines().length > 0) {
+            this.enrichWorkingLines(prods);
+          }
+        },
+        error: () => {}
+      })
+    );
   }
 
   ngOnDestroy(): void {
@@ -428,8 +455,30 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   // Load source PO and validate receipt eligibility
   loadSourcePurchaseOrder(poId: string): void {
     const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) {
+    let branch = this.scopeService.selectedBranch();
+    if (!company) {
+      this.poIneligibleError.set('Operating company and branch must be selected.');
+      return;
+    }
+
+    if (!branch) {
+      const queryBranchId = this.route.snapshot?.queryParamMap?.get('branchId') ||
+        (this.route.snapshot?.queryParams as any)?.['branchId'];
+      const branches = this.scopeService.branches();
+      let targetBranch = queryBranchId ? branches.find(b => b.id === queryBranchId) : null;
+      if (!targetBranch && queryBranchId) {
+        targetBranch = { id: queryBranchId, name: 'Branch', companyId: company.id } as Branch;
+      } else if (!targetBranch && branches.length === 1) {
+        targetBranch = branches[0];
+      }
+
+      if (targetBranch) {
+        this.scopeService.selectBranch(targetBranch);
+        branch = targetBranch;
+      }
+    }
+
+    if (!branch) {
       this.poIneligibleError.set('Operating company and branch must be selected.');
       return;
     }
@@ -438,6 +487,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     this.error.set(null);
     this.poIneligibleError.set(null);
     this.isAccessDenied.set(false);
+    this.enrichmentToken++;
 
     this.poService.getOrder(company.id, branch.id, poId).subscribe({
       next: po => {
@@ -489,71 +539,140 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const lines: EditableGRNLine[] = activeItems.map(item => {
+    const allFullyReceived = activeItems.every(item => {
+      const ord = Number(item.quantity) || 0;
+      const prevRec = Number(item.receivedQuantity) || 0;
+      return Math.max(0, ord - prevRec) <= 0;
+    });
+
+    const lines: EditableGRNLine[] = activeItems.map((item, index) => {
       const ordered = Number(item.quantity) || 0;
       const prevReceived = Number(item.receivedQuantity) || 0;
       const outstanding = Math.max(0, ordered - prevReceived);
+      const receivedNow = allFullyReceived ? 0 : outstanding;
+
+      // Deterministic unique line identity per PO line
+      const lineId = item.id ? item.id : `po-line-${po.id || 'order'}-${index}`;
+      const purchaseOrderItemId = item.id || lineId;
+
+      const cachedProd = item.productId ? this.productMasterCache.get(item.productId.toLowerCase()) : undefined;
+      const isGenericCode = !item.productCode || item.productCode === 'ITEM';
+      const isGenericName = !item.productName || item.productName === 'Material Item' || item.productName === 'Material';
+
+      const productCode = !isGenericCode
+        ? item.productCode!
+        : (cachedProd?.productCode || item.productId || 'ITEM');
+
+      const productName = !isGenericName
+        ? item.productName!
+        : (cachedProd?.productName || (cachedProd?.productCode ? cachedProd.productName : (item.productId ? `Product (${item.productId})` : 'Product')));
+
+      const unitOfMeasure = item.unitOfMeasureCode || cachedProd?.unitOfMeasure || '';
+      const unitOfMeasureId = item.unitOfMeasureId ?? cachedProd?.unitOfMeasureId ?? null;
+
+      const unitCost = Number(item.unitPrice) || 0;
+      const discountRate = Number(item.discountRate) || 0;
+      const netLineAmount =
+        Number(item.subTotal ?? (ordered * unitCost)) - Number(item.discountAmount || 0);
+      const lineTotal = Math.round(
+        (netLineAmount * receivedNow / (ordered || 1)) * 100
+      ) / 100;
 
       return {
-        lineId: item.id || 'line-' + Math.random().toString(36).substring(2, 9),
-        purchaseOrderItemId: item.id || '',
+        lineId,
+        purchaseOrderItemId,
         productId: item.productId,
-        productCode: item.productCode || 'ITEM',
-        productName: item.productName || 'Material Item',
-        unitOfMeasure: item.unitOfMeasureCode || '',
-        unitOfMeasureId: item.unitOfMeasureId ?? null,
+        productCode,
+        productName,
+        unitOfMeasure,
+        unitOfMeasureId,
         orderedQuantity: ordered,
         previouslyReceivedQuantity: prevReceived,
         outstandingQuantity: outstanding,
-        receivedQuantityNow: outstanding, // Defaults to receiving full outstanding quantity
-        unitCost: Number(item.unitPrice) || 0, // Server-copied unit price, strictly read-only
-        discountRate: Number(item.discountRate) || 0,
-        netLineAmount:
-          Number(item.subTotal ?? (ordered * (Number(item.unitPrice) || 0))) -
-          Number(item.discountAmount || 0),
-        lineTotal: Math.round(
-          (Number(item.subTotal ?? (ordered * (Number(item.unitPrice) || 0))) -
-            Number(item.discountAmount || 0)) *
-          outstanding / (ordered || 1) * 100
-        ) / 100
+        receivedQuantityNow: receivedNow, // 0 if fully received, otherwise full outstanding
+        unitCost, // Server-copied unit price, strictly read-only
+        discountRate,
+        netLineAmount,
+        lineTotal
       };
     });
 
-    const receivable = lines.filter(l => l.outstandingQuantity > 0);
-    if (receivable.length === 0) {
-      this.poIneligibleError.set(`All items on Purchase Order ${po.orderNumber} have already been fully received.`);
-    }
-
+    // Fully received POs retain all lines for historical reference in read-only mode
     this.workingLines.set(lines);
-    this.loadProductTrackingModes(lines);
+    this.loadProductTrackingModes(lines, po.id, null);
   }
 
-  // Load Product Master to configure authoritative Tracking Modes
-  private loadProductTrackingModes(lines: EditableGRNLine[]): void {
+  // Load Product Master to configure authoritative Tracking Modes and reconcile product details
+  private loadProductTrackingModes(lines: EditableGRNLine[], targetPoId?: string | null, targetGrnId?: string | null): void {
     if (!lines || lines.length === 0) return;
+
+    const token = ++this.enrichmentToken;
+    const currentMode = this.mode();
+    const expectedPoId = targetPoId ?? this.purchaseOrderId();
+    const expectedGrnId = targetGrnId ?? this.grnId();
 
     this.masterDataService.getProducts().subscribe({
       next: products => {
-        const prodMap = new Map(products.map(p => [p.productId, p]));
+        // Prevent stale asynchronous responses from overwriting a newer PO or receipt
+        if (token !== this.enrichmentToken) return;
+        if (currentMode === 'create' && this.purchaseOrderId() !== expectedPoId) return;
+        if (currentMode === 'view' && this.grnId() !== expectedGrnId) return;
+
         for (const p of products) {
-          this.productMasterCache.set(p.productId, p);
+          if (p.productId) {
+            this.productMasterCache.set(p.productId.toLowerCase(), p);
+          }
         }
 
-        this.workingLines.update(currLines =>
-          currLines.map(l => {
-            const prod = prodMap.get(l.productId);
-            const mode = prod ? Number(prod.trackingMode) || TrackingMode.None : TrackingMode.None;
-            return {
-              ...l,
-              trackingMode: mode
-            };
-          })
-        );
+        this.enrichWorkingLines(products);
       },
       error: () => {
-        // Fallback: If bulk product load encounters issue, lines preserve default TrackingMode.None
+        // Fallback: If bulk product load encounters issue, lines preserve current values
       }
     });
+  }
+
+  private enrichWorkingLines(products: ProductItem[]): void {
+    if (!products || products.length === 0) return;
+    const prodMap = new Map<string, ProductItem>();
+    for (const p of products) {
+      if (p.productId) {
+        prodMap.set(p.productId.toLowerCase(), p);
+      }
+    }
+
+    this.workingLines.update(currLines =>
+      currLines.map(l => {
+        const prod = l.productId ? prodMap.get(l.productId.toLowerCase()) : undefined;
+        const mode = prod ? Number(prod.trackingMode) || TrackingMode.None : (l.trackingMode ?? TrackingMode.None);
+
+        const isGenericCode = !l.productCode || l.productCode === 'ITEM' || (l.productId && l.productCode.toLowerCase() === l.productId.toLowerCase());
+        const isGenericName = !l.productName || l.productName === 'Material Item' || l.productName === 'Material' || l.productName.startsWith('Product (');
+
+        const enrichedCode = isGenericCode
+          ? (prod?.productCode || l.productCode || l.productId)
+          : l.productCode;
+
+        const enrichedName = isGenericName
+          ? (prod?.productName || (prod?.productCode ? prod.productName : (l.productId ? `Product (${l.productId})` : l.productName)))
+          : l.productName;
+
+        const enrichedUom = (!l.unitOfMeasure && prod?.unitOfMeasure)
+          ? prod.unitOfMeasure
+          : (l.unitOfMeasure || '');
+
+        const enrichedUomId = l.unitOfMeasureId ?? prod?.unitOfMeasureId ?? null;
+
+        return {
+          ...l,
+          productCode: enrichedCode,
+          productName: enrichedName,
+          unitOfMeasure: enrichedUom,
+          unitOfMeasureId: enrichedUomId,
+          trackingMode: mode
+        };
+      })
+    );
   }
 
   // Tracking Helpers & Validation
@@ -695,7 +814,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
     for (const l of grn.lines || []) {
       const alloc: BatchSerialAllocation = {
-        id: l.goodsReceiptNoteLineId || 'alloc-' + Math.random().toString(36).substring(2, 9),
+        id: l.goodsReceiptNoteLineId || `alloc-${l.purchaseOrderItemId || 'line'}-${groupedMap.size}`,
         batchNumber: l.batchNumber || '',
         serialNumber: l.serialNumber || '',
         quantity: Number(l.quantityReceived) || 1,
@@ -707,13 +826,28 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
       const existing = groupedMap.get(l.purchaseOrderItemId);
       if (!existing) {
+        const cachedProd = l.productId ? this.productMasterCache.get(l.productId.toLowerCase()) : undefined;
+        const isGenericCode = !l.productCode || l.productCode === 'ITEM';
+        const isGenericName = !l.productName || l.productName === 'Material' || l.productName === 'Material Item';
+
+        const productCode = !isGenericCode
+          ? l.productCode!
+          : (cachedProd?.productCode || l.productId || 'ITEM');
+
+        const productName = !isGenericName
+          ? l.productName!
+          : (cachedProd?.productName || (cachedProd?.productCode ? cachedProd.productName : (l.productId ? `Product (${l.productId})` : 'Material')));
+
+        const unitOfMeasure = l.unitOfMeasure || cachedProd?.unitOfMeasure || '';
+        const unitOfMeasureId = l.unitOfMeasureId ?? cachedProd?.unitOfMeasureId ?? null;
+
         const editableLine: EditableGRNLine = {
-          lineId: l.goodsReceiptNoteLineId || 'line-' + Math.random().toString(36).substring(2, 9),
+          lineId: l.goodsReceiptNoteLineId || `line-${l.purchaseOrderItemId || 'saved'}-${groupedMap.size}`,
           purchaseOrderItemId: l.purchaseOrderItemId,
           productId: l.productId,
-          productCode: l.productCode || 'ITEM',
-          productName: l.productName || 'Material',
-          unitOfMeasure: l.unitOfMeasure || '',
+          productCode,
+          productName,
+          unitOfMeasure,
           orderedQuantity: Number(l.quantityReceived) || 0,
           previouslyReceivedQuantity: 0,
           outstandingQuantity: Number(l.quantityReceived) || 0,
@@ -724,7 +858,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
           lineTotal: l.lineTotal,
           warehouseId: l.warehouseId,
           warehouseLocationId: l.warehouseLocationId,
-          unitOfMeasureId: l.unitOfMeasureId ?? null,
+          unitOfMeasureId,
           remarks: l.remarks ?? undefined,
           trackingAllocations: (l.batchNumber || l.serialNumber) ? [alloc] : []
         };
@@ -746,7 +880,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
 
     const lines = Array.from(groupedMap.values()).map(g => g.headerLine);
     this.workingLines.set(lines);
-    this.loadProductTrackingModes(lines);
+    this.loadProductTrackingModes(lines, null, grn.goodsReceiptNoteId);
   }
 
   private loadPurchaseOrderForDraft(grn: GoodsReceiptNoteDto): void {
@@ -812,6 +946,14 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   saveReceipt(andConfirm: boolean = false): void {
     if (!this.scopeService.canOperateTransactions()) {
       this.showMessage('Please select an operating company and branch first.', 'warn');
+      return;
+    }
+
+    if (this.isFullyReceived()) {
+      this.showMessage(
+        `Cannot create a receipt. All items on Purchase Order ${this.sourcePo()?.orderNumber} have already been fully received.`,
+        'danger'
+      );
       return;
     }
 

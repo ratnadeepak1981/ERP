@@ -10,7 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, Observable } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
@@ -25,6 +25,7 @@ import { AppLoadingStateComponent } from '../../../../shared/components/loading-
 import { AppErrorStateComponent } from '../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
+import { ConfirmationDialogComponent, ConfirmationDialogConfig, ConfirmationDialogResult } from '../../../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { PurchaseOrderService } from '../../../../core/services/purchase-order.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
 import { PriceCardItem, PriceCardType, PriceResolutionResult, ResolvePriceRequest } from '../../../../core/models/price-card.models';
@@ -92,7 +93,8 @@ export interface EditablePOLine {
     AppStatusBadgeComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
-    AccessDeniedComponent
+    AccessDeniedComponent,
+    ConfirmationDialogComponent
   ],
   templateUrl: './purchase-order-page.component.html',
   styleUrl: './purchase-order-page.component.scss',
@@ -193,7 +195,12 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly remarksText = signal<string>('');
   readonly remarksError = signal<string | null>(null);
 
-  // Dedicated Dialog States
+  // Reusable Confirmation Dialog States (No PrimeNG)
+  readonly confirmDialogVisible = signal<boolean>(false);
+  readonly confirmDialogConfig = signal<ConfirmationDialogConfig | null>(null);
+  readonly confirmDialogError = signal<string | null>(null);
+
+  // Dedicated Dialog States (Maintained for backward compatibility)
   readonly approveDialogVisible = signal<boolean>(false);
   readonly approveRemarks = signal<string>('');
   readonly approveError = signal<string | null>(null);
@@ -827,8 +834,34 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
   loadSourceRequisition(prId: string): void {
     const comp = this.scopeService.selectedCompany();
-    const br = this.scopeService.selectedBranch();
-    if (!comp || !br) return;
+    if (!comp) {
+      this.showMessage('A company must be selected to create a Purchase Order from a requisition.', 'warn');
+      return;
+    }
+
+    let br = this.scopeService.selectedBranch();
+    if (!br) {
+      const queryBranchId = this.route.snapshot?.queryParamMap?.get('branchId') ||
+        (this.route.snapshot?.queryParams as any)?.['branchId'];
+      const branches = this.scopeService.branches();
+      let targetBranch = queryBranchId ? branches.find(b => b.id === queryBranchId) : null;
+      if (!targetBranch && queryBranchId) {
+        targetBranch = { id: queryBranchId, name: 'Branch', companyId: comp.id } as Branch;
+      } else if (!targetBranch && branches.length === 1) {
+        targetBranch = branches[0];
+      }
+
+      if (targetBranch) {
+        this.selectedBranchId.set(targetBranch.id);
+        this.scopeService.selectBranch(targetBranch);
+        br = targetBranch;
+      }
+    }
+
+    if (!br) {
+      this.showMessage('A branch must be selected or provided by the source requisition to create a Purchase Order.', 'warn');
+      return;
+    }
 
     this.prService.getRequisition(comp.id, br.id, prId).subscribe({
       next: req => {
@@ -867,13 +900,12 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
               for (const ord of activeOrders) {
                 for (const ordItem of ord.items || []) {
                   const notes = (ordItem.notes || '').toLowerCase();
-                  if (
-                    notes.includes(`line: ${itemId.toLowerCase()}`) ||
-                    notes.includes(`line:${itemId.toLowerCase()}`) ||
-                    notes.includes(itemId.toLowerCase()) ||
-                    (notes.includes(reqNum.toLowerCase()) && ordItem.productId.toLowerCase() === item.productId.toLowerCase())
-                  ) {
-                    ordered += Number(ordItem.quantity) || 0;
+                  if (itemId) {
+                    const lineTagWithSpace = `line: ${itemId.toLowerCase()}`;
+                    const lineTagWithoutSpace = `line:${itemId.toLowerCase()}`;
+                    if (notes.includes(lineTagWithSpace) || notes.includes(lineTagWithoutSpace)) {
+                      ordered += Number(ordItem.quantity) || 0;
+                    }
                   }
                 }
               }
@@ -906,7 +938,8 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
             }
 
             if (eligibleLines.length > 0) {
-              this.workingLines.set(eligibleLines);
+              const enrichedLines = this.enrichLinesWithProductMaster(eligibleLines);
+              this.workingLines.set(enrichedLines);
               this.headerForm.patchValue({
                 notes: `Created from Purchase Requisition: ${reqNum}` + (req.notes ? `\nRequisition Notes: ${req.notes}` : '')
               });
@@ -1093,6 +1126,12 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
             productName: line.productName || found.productName,
             unitOfMeasureId: line.unitOfMeasureId || found.unitOfMeasureId || null
           };
+        } else {
+          return {
+            ...line,
+            productCode: line.productCode || line.productId,
+            productName: line.productName || `Product (${line.productId})`
+          };
         }
       }
       return line;
@@ -1190,7 +1229,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       next: products => {
         this.products.set(products);
         const current = this.workingLines();
-        if (current.some(l => l.productId && (!l.productCode || !l.productName))) {
+        if (current.some(l => l.productId && (!l.productCode || !l.productName || l.productName.startsWith('Product (')))) {
           this.workingLines.set(this.enrichLinesWithProductMaster(current));
         }
       },
@@ -1496,7 +1535,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     const ord = this.currentOrder();
     if (ord) {
       this.router.navigate(['/app/procurement/goods-receipts/new'], {
-        queryParams: { purchaseOrderId: ord.id }
+        queryParams: {
+          purchaseOrderId: ord.id,
+          branchId: ord.branchId
+        }
       });
     }
   }
@@ -1536,7 +1578,25 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Reusable Confirmation Dialog Actions (Approve / Reject / Cancel)
   openApproveDialog(): void {
+    const ord = this.currentOrder();
+    this.confirmDialogConfig.set({
+      action: 'approve',
+      title: 'Confirm Purchase Order Approval',
+      message: `Are you sure you want to approve Purchase Order ${ord?.orderNumber || ''}? Provide optional comments or authorization notes to proceed with approval.`,
+      commentLabel: 'Approval Remarks',
+      commentPlaceholder: 'Enter optional approval remarks...',
+      commentRequired: false,
+      confirmLabel: 'Confirm Approval',
+      confirmIcon: 'pi pi-check',
+      confirmSeverity: 'success',
+      cancelLabel: 'Cancel'
+    });
+    this.confirmDialogError.set(null);
+    this.confirmDialogVisible.set(true);
+
+    // Keep legacy signals updated for backward compatibility
     this.approveRemarks.set('');
     this.approveError.set(null);
     this.remarksAction.set('approve');
@@ -1547,40 +1607,38 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   onApproveDialogHide(): void {
+    this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
     this.approveDialogVisible.set(false);
     this.remarksDialogVisible.set(false);
     this.approveError.set(null);
   }
 
   confirmApprove(): void {
-    const ord = this.currentOrder();
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!ord || !company || !branch) return;
-
-    const remarks = (this.approveRemarks().trim() || this.remarksText().trim());
-    this.actionInProgress.set(true);
-    this.approveError.set(null);
-    this.remarksError.set(null);
-
-    this.poService.approveOrder(company.id, branch.id, ord.id, remarks).subscribe({
-      next: updated => {
-        this.actionInProgress.set(false);
-        this.approveDialogVisible.set(false);
-        this.remarksDialogVisible.set(false);
-        this.currentOrder.set(updated);
-        this.showMessage(`Purchase Order ${ord.orderNumber} approved successfully.`, 'success');
-      },
-      error: err => {
-        this.actionInProgress.set(false);
-        const errMsg = this.getCleanErrorMessage(err, 'Failed to approve order.');
-        this.approveError.set(errMsg);
-        this.remarksError.set(errMsg);
-      }
+    this.handleOrderDecision({
+      action: 'approve',
+      comment: this.approveRemarks().trim() || this.remarksText().trim()
     });
   }
 
   openRejectDialog(): void {
+    const ord = this.currentOrder();
+    this.confirmDialogConfig.set({
+      action: 'reject',
+      title: 'Reject Purchase Order',
+      message: `Mandatory: explain the operational justification for rejecting Purchase Order ${ord?.orderNumber || ''}.`,
+      commentLabel: 'Rejection Reason',
+      commentPlaceholder: 'Enter required rejection reason...',
+      commentRequired: true,
+      confirmLabel: 'Confirm Rejection',
+      confirmIcon: 'pi pi-times',
+      confirmSeverity: 'danger',
+      cancelLabel: 'Cancel'
+    });
+    this.confirmDialogError.set(null);
+    this.confirmDialogVisible.set(true);
+
+    // Keep legacy signals updated for backward compatibility
     this.rejectRemarks.set('');
     this.rejectError.set(null);
     this.remarksAction.set('reject');
@@ -1591,47 +1649,38 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   onRejectDialogHide(): void {
+    this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
     this.rejectDialogVisible.set(false);
     this.remarksDialogVisible.set(false);
     this.rejectError.set(null);
   }
 
   confirmReject(): void {
-    const ord = this.currentOrder();
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!ord || !company || !branch) return;
-
-    const remarks = (this.rejectRemarks().trim() || this.remarksText().trim());
-    if (!remarks) {
-      const errMsg = 'Remarks are mandatory when rejecting a purchase order.';
-      this.rejectError.set(errMsg);
-      this.remarksError.set(errMsg);
-      return;
-    }
-
-    this.actionInProgress.set(true);
-    this.rejectError.set(null);
-    this.remarksError.set(null);
-
-    this.poService.rejectOrder(company.id, branch.id, ord.id, remarks).subscribe({
-      next: updated => {
-        this.actionInProgress.set(false);
-        this.rejectDialogVisible.set(false);
-        this.remarksDialogVisible.set(false);
-        this.currentOrder.set(updated);
-        this.showMessage(`Purchase Order ${ord.orderNumber} rejected successfully.`, 'success');
-      },
-      error: err => {
-        this.actionInProgress.set(false);
-        const errMsg = this.getCleanErrorMessage(err, 'Failed to reject order.');
-        this.rejectError.set(errMsg);
-        this.remarksError.set(errMsg);
-      }
+    this.handleOrderDecision({
+      action: 'reject',
+      comment: this.rejectRemarks().trim() || this.remarksText().trim()
     });
   }
 
   openCancelDialog(): void {
+    const ord = this.currentOrder();
+    this.confirmDialogConfig.set({
+      action: 'cancel',
+      title: 'Cancel Purchase Order',
+      message: `Confirm cancellation of Purchase Order ${ord?.orderNumber || ''}.`,
+      commentLabel: 'Cancellation Remarks',
+      commentPlaceholder: 'Enter optional cancellation remarks...',
+      commentRequired: false,
+      confirmLabel: 'Confirm Cancellation',
+      confirmIcon: 'pi pi-ban',
+      confirmSeverity: 'danger',
+      cancelLabel: 'Dismiss'
+    });
+    this.confirmDialogError.set(null);
+    this.confirmDialogVisible.set(true);
+
+    // Keep legacy signals updated for backward compatibility
     this.cancelRemarks.set('');
     this.cancelError.set(null);
     this.remarksAction.set('cancel');
@@ -1642,34 +1691,68 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   onCancelDialogHide(): void {
+    this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
     this.cancelDialogVisible.set(false);
     this.remarksDialogVisible.set(false);
     this.cancelError.set(null);
   }
 
   confirmCancel(): void {
+    this.handleOrderDecision({
+      action: 'cancel',
+      comment: this.cancelRemarks().trim() || this.remarksText().trim()
+    });
+  }
+
+  closeOrderDecision(): void {
+    this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
+    this.approveDialogVisible.set(false);
+    this.rejectDialogVisible.set(false);
+    this.cancelDialogVisible.set(false);
+    this.remarksDialogVisible.set(false);
+  }
+
+  handleOrderDecision(result: ConfirmationDialogResult): void {
+    const action = result.action;
+    const remarks = result.comment;
     const ord = this.currentOrder();
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
     if (!ord || !company || !branch) return;
 
-    const remarks = (this.cancelRemarks().trim() || this.remarksText().trim());
     this.actionInProgress.set(true);
+    this.confirmDialogError.set(null);
+    this.approveError.set(null);
+    this.rejectError.set(null);
     this.cancelError.set(null);
     this.remarksError.set(null);
 
-    this.poService.cancelOrder(company.id, branch.id, ord.id, remarks).subscribe({
-      next: updated => {
+    let obs: Observable<PurchaseOrderDto>;
+    if (action === 'approve') {
+      obs = this.poService.approveOrder(company.id, branch.id, ord.id, remarks || undefined);
+    } else if (action === 'reject') {
+      obs = this.poService.rejectOrder(company.id, branch.id, ord.id, remarks);
+    } else {
+      obs = this.poService.cancelOrder(company.id, branch.id, ord.id, remarks || undefined);
+    }
+
+    obs.subscribe({
+      next: (updated: PurchaseOrderDto) => {
         this.actionInProgress.set(false);
-        this.cancelDialogVisible.set(false);
-        this.remarksDialogVisible.set(false);
+        this.closeOrderDecision();
         this.currentOrder.set(updated);
-        this.showMessage(`Purchase Order ${ord.orderNumber} cancelled successfully.`, 'success');
+        const actionPast = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'cancelled';
+        this.showMessage(`Purchase Order ${ord.orderNumber} ${actionPast} successfully.`, 'success');
       },
-      error: err => {
+      error: (err: any) => {
         this.actionInProgress.set(false);
-        const errMsg = this.getCleanErrorMessage(err, 'Failed to cancel order.');
-        this.cancelError.set(errMsg);
+        const errMsg = this.getCleanErrorMessage(err, `Failed to ${action} order.`);
+        this.confirmDialogError.set(errMsg);
+        if (action === 'approve') this.approveError.set(errMsg);
+        else if (action === 'reject') this.rejectError.set(errMsg);
+        else this.cancelError.set(errMsg);
         this.remarksError.set(errMsg);
       }
     });

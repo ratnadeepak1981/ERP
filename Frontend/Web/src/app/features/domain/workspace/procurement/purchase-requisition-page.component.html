@@ -602,117 +602,13 @@
     </div>
   }
 
-  <!-- Semantic HTML Modal Dialog for Workflow Decisions (No PrimeNG) -->
-  @if (decisionAction()) {
-    <div class="pr-modal-backdrop" (click)="closeDecision()">
-      <div class="pr-modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-        <div class="pr-modal-header">
-          <h3 class="pr-modal-title">
-            @if (decisionAction() === 'approve') {
-              <i class="pi pi-check-circle text-success"></i>
-              <span>Approve Purchase Requisition</span>
-            } @else if (decisionAction() === 'reject') {
-              <i class="pi pi-times-circle text-danger"></i>
-              <span>Reject Purchase Requisition</span>
-            } @else if (decisionAction() === 'cancel') {
-              <i class="pi pi-ban text-danger"></i>
-              <span>Cancel Purchase Requisition</span>
-            } @else {
-              <i class="pi pi-trash text-danger"></i>
-              <span>Delete Draft Requisition</span>
-            }
-          </h3>
-          <button type="button" class="modal-close-btn" (click)="closeDecision()" aria-label="Close">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-
-        <div class="pr-modal-body">
-          @if (decisionError()) {
-            <div class="modal-error-banner">
-              <i class="pi pi-exclamation-triangle"></i>
-              <span>{{ decisionError() }}</span>
-            </div>
-          }
-
-          @if (decisionAction() === 'approve') {
-            <p class="decision-prompt">
-              Are you sure you want to authorize purchase requisition
-              <strong>{{ currentRequisition()?.requisitionNumber }}</strong>
-              for <strong>{{ totalAmount() | currency:(scopeService.selectedCompany()?.baseCurrencyCode || 'USD'):'symbol':'1.2-2' }}</strong>?
-            </p>
-            <div class="form-field">
-              <label for="approveRemarks" class="field-label">Approval Remarks <span class="optional-tag">(Optional)</span></label>
-              <textarea
-                id="approveRemarks"
-                class="erp-form-control erp-textarea"
-                rows="3"
-                [(ngModel)]="decisionRemarks"
-                placeholder="Add authorization remarks or special procurement instructions..."
-              ></textarea>
-            </div>
-          } @else if (decisionAction() === 'reject') {
-            <p class="decision-prompt">
-              Rejecting requisition <strong>{{ currentRequisition()?.requisitionNumber }}</strong> will return it to the requester.
-            </p>
-            <div class="form-field">
-              <label for="rejectRemarks" class="field-label">Reason for Rejection <span class="required-star">*</span></label>
-              <textarea
-                id="rejectRemarks"
-                class="erp-form-control erp-textarea"
-                rows="3"
-                [(ngModel)]="decisionRemarks"
-                placeholder="State the reason for rejecting this requisition (mandatory)..."
-              ></textarea>
-            </div>
-          } @else if (decisionAction() === 'cancel') {
-            <p class="decision-prompt">
-              Cancelling requisition <strong>{{ currentRequisition()?.requisitionNumber }}</strong> is permanent.
-            </p>
-            <div class="form-field">
-              <label for="cancelRemarks" class="field-label">Cancellation Remarks <span class="optional-tag">(Optional)</span></label>
-              <textarea
-                id="cancelRemarks"
-                class="erp-form-control erp-textarea"
-                rows="3"
-                [(ngModel)]="decisionRemarks"
-                placeholder="Optional notes regarding cancellation..."
-              ></textarea>
-            </div>
-          } @else if (decisionAction() === 'delete') {
-            <p class="decision-prompt text-danger">
-              Are you sure you want to delete draft requisition <strong>{{ currentRequisition()?.requisitionNumber }}</strong>?
-              This action cannot be undone.
-            </p>
-          }
-        </div>
-
-        <div class="pr-modal-footer">
-          <button
-            type="button"
-            class="erp-btn erp-btn-secondary"
-            [disabled]="actionInProgress()"
-            (click)="closeDecision()"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            class="erp-btn"
-            [ngClass]="decisionAction() === 'approve' ? 'erp-btn-success' : 'erp-btn-danger'"
-            [disabled]="actionInProgress()"
-            (click)="executeDecision()"
-          >
-            @if (actionInProgress()) {
-              <i class="pi pi-spin pi-spinner"></i>
-            }
-            <span>
-              {{ decisionAction() === 'approve' ? 'Confirm Approval' : decisionAction() === 'reject' ? 'Confirm Rejection' : decisionAction() === 'cancel' ? 'Confirm Cancellation' : 'Delete Draft' }}
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  }
+  <!-- Reusable Confirmation Dialog for Workflow Decisions (No PrimeNG) -->
+  <app-confirmation-dialog
+    [(visible)]="confirmDialogVisible"
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    [errorMessage]="confirmDialogError()"
+    (confirmed)="executeDecision($event)"
+    (cancelled)="closeDecision()"
+  ></app-confirmation-dialog>
 </div>

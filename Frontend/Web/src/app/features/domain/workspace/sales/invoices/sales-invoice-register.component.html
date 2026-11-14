@@ -134,60 +134,12 @@
   }
 
   <!-- Confirm Dialog -->
-  <p-dialog
-    [(visible)]="confirmDialogVisible"
-    [modal]="true"
-    header="Confirm Sales Invoice"
-    [style]="{ width: '480px', maxWidth: '95vw' }"
-    [closable]="!actionInProgress()"
-  >
-    <div class="confirm-dialog-content">
-      <p class="dialog-notice">
-        Confirming this invoice validates all line prices, taxes, and discounts, locking the invoice into
-        <strong>Confirmed</strong> status for customer account receivable processing.
-      </p>
-
-      @if (targetInvoice()) {
-        <div class="dialog-details">
-          <div><strong>Invoice #:</strong> {{ targetInvoice()!.invoiceNumber }}</div>
-          <div><strong>Order #:</strong> {{ targetInvoice()!.orderNumber }}</div>
-          <div><strong>Customer:</strong> {{ targetInvoice()!.customerName }}</div>
-          <div><strong>Total:</strong> {{ targetInvoice()!.totalAmount | currency:targetInvoice()!.currency:'symbol':'1.2-2' }}</div>
-        </div>
-      }
-
-      <div class="form-group">
-        <label for="confirmNotesInput">Remarks (Optional)</label>
-        <textarea
-          id="confirmNotesInput"
-          class="p-inputtext p-inputtext-sm full-width"
-          rows="2"
-          [ngModel]="confirmNotes()"
-          (ngModelChange)="confirmNotes.set($event)"
-          placeholder="Confirmation reference or approval notes..."
-          [disabled]="actionInProgress()"
-        ></textarea>
-      </div>
-    </div>
-
-    <ng-template pTemplate="footer">
-      <p-button
-        label="Cancel"
-        [outlined]="true"
-        size="small"
-        severity="secondary"
-        [disabled]="actionInProgress()"
-        (onClick)="closeConfirmDialog()"
-      ></p-button>
-
-      <p-button
-        label="Confirm Invoice"
-        icon="pi pi-check"
-        size="small"
-        severity="success"
-        [loading]="actionInProgress()"
-        (onClick)="executeConfirm()"
-      ></p-button>
-    </ng-template>
-  </p-dialog>
+  <app-confirmation-dialog
+    [visible]="confirmDialogVisible()"
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    [errorMessage]="confirmDialogError()"
+    (confirmed)="executeConfirm($event)"
+    (cancelled)="closeConfirmDialog()"
+  ></app-confirmation-dialog>
 </div>

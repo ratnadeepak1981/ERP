@@ -1,0 +1,296 @@
+// Confirmation Dialog Styling (Without PrimeNG)
+// Adheres strictly to ApexERP design tokens and theme architecture
+
+.erp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 16px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.erp-modal-dialog {
+  background: var(--erp-bg-surface, #ffffff);
+  color: var(--erp-text-main, #0f172a);
+  border-radius: var(--erp-radius-lg, 8px);
+  border: 1px solid var(--erp-border, #e2e8f0);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleUp 0.15s ease-out;
+}
+
+// Header
+.erp-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--erp-border, #e2e8f0);
+  background: var(--erp-bg-surface, #ffffff);
+
+  .erp-modal-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--erp-text-main, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .dialog-title-icon {
+      font-size: 16px;
+    }
+  }
+
+  .erp-modal-close-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--erp-text-secondary, #64748b);
+    padding: 6px;
+    border-radius: var(--erp-radius-sm, 4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: var(--erp-bg-secondary, #f1f5f9);
+      color: var(--erp-text-main, #0f172a);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// Body
+.erp-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .dialog-prompt {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--erp-text-main, #0f172a);
+  }
+
+  .dialog-submessage {
+    font-size: 13px;
+    color: var(--erp-text-secondary, #64748b);
+    background: var(--erp-bg-secondary, #f8fafc);
+    padding: 10px 14px;
+    border-radius: var(--erp-radius-md, 6px);
+    border-left: 3px solid var(--erp-border, #cbd5e1);
+  }
+
+  // Error Banner
+  .modal-error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--erp-radius-md, 6px);
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 13px;
+    line-height: 1.4;
+
+    .error-icon {
+      font-size: 15px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .error-text {
+      flex: 1;
+    }
+  }
+
+  // Field & Textarea
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--erp-text-main, #334155);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .required-indicator {
+        color: #dc2626;
+        font-size: 12px;
+      }
+
+      .optional-indicator {
+        color: var(--erp-text-secondary, #64748b);
+        font-weight: 400;
+        font-size: 12px;
+      }
+    }
+
+    .erp-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--erp-border, #cbd5e1);
+      border-radius: var(--erp-radius-md, 6px);
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 13.5px;
+      line-height: 1.4;
+      color: var(--erp-text-main, #0f172a);
+      background: var(--erp-bg-surface, #ffffff);
+      resize: vertical;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+      &:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+      }
+
+      &.input-error {
+        border-color: #dc2626;
+        background: #fffcfc;
+
+        &:focus {
+          box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+        }
+      }
+
+      &:disabled {
+        background: var(--erp-bg-secondary, #f8fafc);
+        color: var(--erp-text-secondary, #94a3b8);
+        cursor: not-allowed;
+      }
+    }
+
+    .field-error-text {
+      color: #dc2626;
+      font-size: 12px;
+    }
+  }
+}
+
+// Footer
+.erp-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--erp-bg-secondary, #f8fafc);
+  border-top: 1px solid var(--erp-border, #e2e8f0);
+}
+
+// Native Button Styles
+.erp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: var(--erp-radius-md, 6px);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  .btn-icon {
+    font-size: 12px;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &.erp-btn-primary {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+
+    &:hover:not(:disabled) {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+    }
+  }
+
+  &.erp-btn-success {
+    background: #16a34a;
+    color: #ffffff;
+    border-color: #16a34a;
+
+    &:hover:not(:disabled) {
+      background: #15803d;
+      border-color: #15803d;
+    }
+  }
+
+  &.erp-btn-danger {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
+
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+      border-color: #b91c1c;
+    }
+  }
+
+  &.erp-btn-secondary {
+    background: var(--erp-bg-surface, #ffffff);
+    color: var(--erp-text-main, #334155);
+    border-color: var(--erp-border, #cbd5e1);
+
+    &:hover:not(:disabled) {
+      background: var(--erp-bg-secondary, #f1f5f9);
+      border-color: #94a3b8;
+    }
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
