@@ -177,86 +177,13 @@
   }
 
   <!-- Action Confirmation Modal (No PrimeNG) -->
-  @if (confirmModal()) {
-    <div class="erp-modal-backdrop" (click)="closeConfirmModal()">
-      <div class="erp-modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-        <div class="erp-modal-header">
-          <h3 class="erp-modal-title">
-            @if (confirmModal()!.type === 'submit') {
-              Submit Purchase Requisition
-            } @else if (confirmModal()!.type === 'delete') {
-              Delete Purchase Requisition Draft
-            } @else {
-              Cancel Purchase Requisition
-            }
-          </h3>
-          <button type="button" class="erp-modal-close" (click)="closeConfirmModal()" aria-label="Close">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-
-        <div class="erp-modal-body">
-          @if (confirmModal()!.error) {
-            <div class="modal-error-banner">
-              <i class="pi pi-times-circle"></i>
-              <span>{{ confirmModal()!.error }}</span>
-            </div>
-          }
-
-          @if (confirmModal()!.type === 'submit') {
-            <p>
-              Are you sure you want to submit requisition
-              <strong>{{ confirmModal()!.requisition.requisitionNumber }}</strong>
-              for management approval? Once submitted, line items cannot be modified until reviewed.
-            </p>
-          } @else if (confirmModal()!.type === 'delete') {
-            <p class="text-danger">
-              Are you sure you want to delete draft requisition
-              <strong>{{ confirmModal()!.requisition.requisitionNumber }}</strong>?
-              This draft will be permanently deactivated.
-            </p>
-          } @else if (confirmModal()!.type === 'cancel') {
-            <p>
-              Are you sure you want to cancel requisition
-              <strong>{{ confirmModal()!.requisition.requisitionNumber }}</strong>?
-            </p>
-            <div class="form-group">
-              <label for="cancelRemarks">Cancellation Reason (Optional)</label>
-              <textarea
-                id="cancelRemarks"
-                class="erp-textarea"
-                rows="3"
-                placeholder="Enter cancellation reason..."
-                [ngModel]="confirmModal()!.remarks"
-                (ngModelChange)="confirmModal()!.remarks = $event"
-              ></textarea>
-            </div>
-          }
-        </div>
-
-        <div class="erp-modal-footer">
-          <button
-            type="button"
-            class="erp-btn erp-btn-secondary"
-            [disabled]="actionInProgress()"
-            (click)="closeConfirmModal()"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="erp-btn"
-            [ngClass]="confirmModal()!.type === 'delete' || confirmModal()!.type === 'cancel' ? 'erp-btn-danger' : 'erp-btn-primary'"
-            [disabled]="actionInProgress()"
-            (click)="executeConfirmModal()"
-          >
-            @if (actionInProgress()) {
-              <i class="pi pi-spin pi-spinner"></i>
-            }
-            <span>Confirm</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  }
+  <!-- Reusable Confirmation Dialog (No PrimeNG) -->
+  <app-confirmation-dialog
+    [(visible)]="confirmDialogVisible"
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    [errorMessage]="confirmDialogError()"
+    (confirmed)="executeConfirmModal($event)"
+    (cancelled)="closeConfirmModal()"
+  ></app-confirmation-dialog>
 </div>

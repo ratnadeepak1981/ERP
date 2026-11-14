@@ -16,6 +16,7 @@ import { AppLoadingStateComponent } from '../../../../shared/components/loading-
 import { AppErrorStateComponent } from '../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
+import { ConfirmationDialogComponent, ConfirmationDialogConfig, ConfirmationDialogResult } from '../../../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { PurchaseOrderService } from '../../../../core/services/purchase-order.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
@@ -63,7 +64,8 @@ export type POStatusFilter = 'all' | 'draft' | 'submitted' | 'approved' | 'fulfi
     AppLoadingStateComponent,
     AppErrorStateComponent,
     AppEmptyStateComponent,
-    AccessDeniedComponent
+    AccessDeniedComponent,
+    ConfirmationDialogComponent
   ],
   templateUrl: './purchase-order.component.html',
   styleUrl: './purchase-order.component.scss',
@@ -116,6 +118,11 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
   // Dialog State: Details View
   readonly detailsDialogVisible = signal<boolean>(false);
   readonly selectedOrder = signal<PurchaseOrderDto | null>(null);
+
+  // Reusable Confirmation Dialog State (No PrimeNG)
+  readonly confirmDialogVisible = signal<boolean>(false);
+  readonly confirmDialogConfig = signal<ConfirmationDialogConfig | null>(null);
+  readonly confirmDialogError = signal<string | null>(null);
 
   // Dialog State: Remarks (Approve / Reject / Cancel)
   readonly remarksDialogVisible = signal<boolean>(false);
@@ -629,7 +636,10 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
   navigateToProductReceipt(order: PurchaseOrderDto): void {
     if (this.router) {
       this.router.navigate(['/app/procurement/goods-receipts/new'], {
-        queryParams: { purchaseOrderId: order.id }
+        queryParams: {
+          purchaseOrderId: order.id,
+          branchId: order.branchId
+        }
       });
     }
   }
@@ -794,31 +804,78 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Open Remarks Dialog (Approve, Reject, Cancel)
+  // Open Remarks Dialog (Approve, Reject, Cancel) - Migrated to Reusable Confirmation Dialog
   openRemarksDialog(action: 'approve' | 'reject' | 'cancel', order: PurchaseOrderDto): void {
+    let config: ConfirmationDialogConfig;
+    if (action === 'approve') {
+      config = {
+        action: 'approve',
+        title: 'Approve Purchase Order',
+        message: `Are you sure you want to approve purchase order ${order.orderNumber}? Provide any approval notes or instructions for fulfillment (optional):`,
+        commentLabel: 'Approval Notes',
+        commentPlaceholder: 'Enter optional approval notes...',
+        confirmLabel: 'Confirm Approval',
+        confirmIcon: 'pi pi-check',
+        confirmSeverity: 'success',
+        commentRequired: false
+      };
+    } else if (action === 'reject') {
+      config = {
+        action: 'reject',
+        title: 'Reject Purchase Order',
+        message: `Please provide a reason for rejecting purchase order ${order.orderNumber} (required):`,
+        commentLabel: 'Rejection Reason',
+        commentPlaceholder: 'Enter required rejection reason...',
+        confirmLabel: 'Confirm Rejection',
+        confirmIcon: 'pi pi-times',
+        confirmSeverity: 'danger',
+        commentRequired: true
+      };
+    } else {
+      config = {
+        action: 'cancel',
+        title: 'Cancel Purchase Order',
+        message: `Specify the reason for cancelling purchase order ${order.orderNumber}:`,
+        commentLabel: 'Cancellation Reason',
+        commentPlaceholder: 'Enter cancellation reason...',
+        confirmLabel: 'Confirm Cancellation',
+        confirmIcon: 'pi pi-ban',
+        confirmSeverity: 'danger',
+        commentRequired: false
+      };
+    }
+
     this.remarksAction.set(action);
     this.remarksTargetOrder.set(order);
     this.remarksText.set('');
     this.remarksError.set(null);
+    this.confirmDialogConfig.set(config);
+    this.confirmDialogError.set(null);
+    this.confirmDialogVisible.set(true);
     this.remarksDialogVisible.set(true);
   }
 
+  closeRemarksDialog(): void {
+    this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
+    this.remarksDialogVisible.set(false);
+    this.remarksAction.set(null);
+    this.remarksTargetOrder.set(null);
+  }
+
   // Confirm Remarks Decision
-  onConfirmRemarks(): void {
-    const action = this.remarksAction();
+  onConfirmRemarks(dialogResult?: ConfirmationDialogResult): void {
+    const action = dialogResult?.action || this.remarksAction();
     const order = this.remarksTargetOrder();
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
     if (!action || !order || !company || !branch) return;
 
-    const remarks = this.remarksText().trim();
-    if (action === 'reject' && !remarks) {
-      this.remarksError.set('Remarks are required when rejecting an order.');
-      return;
-    }
+    const remarks = dialogResult ? dialogResult.comment.trim() : this.remarksText().trim();
 
     this.actionInProgress.set(true);
     this.remarksError.set(null);
+    this.confirmDialogError.set(null);
 
     let obs;
     if (action === 'approve') {
@@ -832,7 +889,7 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
     obs.subscribe({
       next: updated => {
         this.actionInProgress.set(false);
-        this.remarksDialogVisible.set(false);
+        this.closeRemarksDialog();
         const actionVerb = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'cancelled';
         this.showMessage(`Purchase Order ${order.orderNumber} ${actionVerb} successfully.`, 'success');
         if (this.detailsDialogVisible() && this.selectedOrder()?.id === order.id) {
@@ -842,7 +899,9 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.actionInProgress.set(false);
-        this.remarksError.set(this.getCleanErrorMessage(err, `Failed to ${action} order.`));
+        const errMsg = this.getCleanErrorMessage(err, `Failed to ${action} order.`);
+        this.remarksError.set(errMsg);
+        this.confirmDialogError.set(errMsg);
       }
     });
   }

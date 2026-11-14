@@ -351,41 +351,13 @@
     </div>
   }
 
-  <!-- REMARKS DIALOG (Confirm / Reject / Cancel) -->
-  <app-action-dialog
+  <!-- REUSABLE CONFIRMATION DIALOG (Confirm / Reject / Cancel) -->
+  <app-confirmation-dialog
     [(visible)]="remarksDialogVisible"
-    [title]="remarksDialogTitle()"
-    [confirmLabel]="remarksSubmitLabel()"
-    [confirmIcon]="remarksSubmitIcon()"
-    [confirmSeverity]="remarksSubmitSeverity()"
+    [config]="confirmDialogConfig()"
     [loading]="actionInProgress()"
-    (onConfirm)="submitRemarksAction()"
-    (onCancel)="closeRemarksDialog()"
-  >
-    <div class="remarks-dialog-content">
-      <div class="dialog-order-summary">
-        <span><strong>Order:</strong> {{ headerForm.get('orderNumber')?.value }}</span>
-        <span><strong>Total:</strong> {{ totalOrderAmount() | currency:activeCurrency():'symbol':'1.2-2' }}</span>
-      </div>
-
-      <div class="form-group">
-        <label for="remarksText">
-          Remarks {{ remarksAction() === 'reject' ? '(Required)' : '(Optional)' }}
-        </label>
-        <textarea
-          id="remarksText"
-          class="erp-input"
-          rows="3"
-          [placeholder]="remarksPlaceholder()"
-          [ngModel]="remarksText()"
-          (ngModelChange)="remarksText.set($event)"
-          [disabled]="actionInProgress()"
-        ></textarea>
-      </div>
-
-      @if (remarksError()) {
-        <div class="field-error">{{ remarksError() }}</div>
-      }
-    </div>
-  </app-action-dialog>
+    [errorMessage]="remarksError()"
+    (confirmed)="submitRemarksAction($event)"
+    (cancelled)="closeRemarksDialog()"
+  ></app-confirmation-dialog>
 </div>

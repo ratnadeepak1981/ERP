@@ -1,0 +1,103 @@
+@if (visible && config) {
+  <div class="erp-modal-backdrop" (click)="handleCancel()">
+    <div
+      class="erp-modal-dialog"
+      (click)="$event.stopPropagation()"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-labelledby]="'confirmDialogTitle'"
+    >
+      <!-- Dialog Header -->
+      <div class="erp-modal-header">
+        <h3 id="confirmDialogTitle" class="erp-modal-title">
+          @if (config.confirmIcon) {
+            <i [class]="config.confirmIcon + ' dialog-title-icon'"></i>
+          }
+          <span>{{ config.title }}</span>
+        </h3>
+        <button
+          type="button"
+          class="erp-modal-close-btn"
+          [disabled]="loading"
+          (click)="handleCancel()"
+          aria-label="Close dialog"
+        >
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+
+      <!-- Dialog Body -->
+      <div class="erp-modal-body">
+        <!-- Inline API Error Banner -->
+        @if (errorMessage) {
+          <div class="modal-error-banner" role="alert">
+            <i class="pi pi-exclamation-triangle error-icon"></i>
+            <span class="error-text">{{ errorMessage }}</span>
+          </div>
+        }
+
+        <!-- Primary Confirmation Message -->
+        <p class="dialog-prompt">{{ config.message }}</p>
+
+        <!-- Optional Supplementary Details Message -->
+        @if (config.subMessage) {
+          <div class="dialog-submessage">
+            <span>{{ config.subMessage }}</span>
+          </div>
+        }
+
+        <!-- Comment / Remarks Field -->
+        <div class="form-field">
+          <label for="confirmationDialogComment" class="field-label">
+            <span>{{ defaultCommentLabel }}</span>
+            @if (config.commentRequired) {
+              <span class="required-indicator">* (Required)</span>
+            } @else {
+              <span class="optional-indicator">(Optional)</span>
+            }
+          </label>
+          <textarea
+            #commentInput
+            id="confirmationDialogComment"
+            class="erp-textarea"
+            [class.input-error]="validationError"
+            [rows]="config.commentRows || 3"
+            [(ngModel)]="comment"
+            (ngModelChange)="onCommentChange()"
+            [placeholder]="defaultPlaceholder"
+            [disabled]="loading"
+          ></textarea>
+          @if (validationError) {
+            <span class="field-error-text">{{ validationError }}</span>
+          }
+        </div>
+      </div>
+
+      <!-- Dialog Footer Actions -->
+      <div class="erp-modal-footer">
+        <button
+          type="button"
+          class="erp-btn erp-btn-secondary"
+          [disabled]="loading"
+          (click)="handleCancel()"
+        >
+          {{ defaultCancelLabel }}
+        </button>
+
+        <button
+          type="button"
+          [class]="confirmButtonClass"
+          [disabled]="loading"
+          (click)="handleConfirm()"
+        >
+          @if (loading) {
+            <i class="pi pi-spin pi-spinner btn-icon"></i>
+          } @else if (config.confirmIcon) {
+            <i [class]="config.confirmIcon + ' btn-icon'"></i>
+          }
+          <span>{{ defaultConfirmLabel }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}

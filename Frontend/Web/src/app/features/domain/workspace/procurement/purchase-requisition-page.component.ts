@@ -17,6 +17,7 @@ import { AppStatusBadgeComponent } from '../../../../shared/components/status-ba
 import { AppLoadingStateComponent } from '../../../../shared/components/loading-state/loading-state.component';
 import { AppErrorStateComponent } from '../../../../shared/components/error-state/error-state.component';
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
+import { ConfirmationDialogComponent, ConfirmationDialogConfig, ConfirmationDialogResult } from '../../../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { PurchaseRequisitionService } from '../../../../core/services/purchase-requisition.service';
 import { PurchaseOrderService } from '../../../../core/services/purchase-order.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
@@ -72,7 +73,8 @@ export interface EditablePRLine {
     AppStatusBadgeComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
-    AccessDeniedComponent
+    AccessDeniedComponent,
+    ConfirmationDialogComponent
   ],
   templateUrl: './purchase-requisition-page.component.html',
   styleUrl: './purchase-requisition-page.component.scss',
@@ -146,7 +148,10 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
   // PR-to-PO Fulfillment Map: itemId -> { ordered: number; remaining: number }
   readonly lineFulfillments = signal<Map<string, { ordered: number; remaining: number }>>(new Map());
 
-  // Modal / Contextual Decision States (No PrimeNG)
+  // Reusable Confirmation Dialog States (No PrimeNG)
+  readonly confirmDialogVisible = signal<boolean>(false);
+  readonly confirmDialogConfig = signal<ConfirmationDialogConfig | null>(null);
+  readonly confirmDialogError = signal<string | null>(null);
   readonly decisionAction = signal<'approve' | 'reject' | 'cancel' | 'delete' | null>(null);
   readonly decisionRemarks = signal<string>('');
   readonly decisionError = signal<string | null>(null);
@@ -872,19 +877,87 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Decision Modal Actions
+  // Decision Modal Actions (Migrated to Reusable Confirmation Dialog)
   openDecision(action: 'approve' | 'reject' | 'cancel' | 'delete'): void {
+    const req = this.currentRequisition();
+    const reqNum = req?.requisitionNumber || 'Requisition';
+    const currency = this.scopeService.selectedCompany()?.baseCurrencyCode || 'USD';
+    const totalFmt = (this.totalAmount() || 0).toLocaleString('en-US', { style: 'currency', currency });
+
+    let config: ConfirmationDialogConfig;
+    switch (action) {
+      case 'approve':
+        config = {
+          action: 'approve',
+          title: 'Approve Purchase Requisition',
+          message: `Are you sure you want to authorize purchase requisition ${reqNum} for ${totalFmt}?`,
+          commentLabel: 'Approval Remarks',
+          commentPlaceholder: 'Add authorization remarks or special procurement instructions...',
+          commentRequired: false,
+          confirmLabel: 'Confirm Approval',
+          confirmIcon: 'pi pi-check',
+          confirmSeverity: 'success',
+          cancelLabel: 'Cancel'
+        };
+        break;
+      case 'reject':
+        config = {
+          action: 'reject',
+          title: 'Reject Purchase Requisition',
+          message: `Rejecting requisition ${reqNum} will return it to the requester.`,
+          commentLabel: 'Reason for Rejection',
+          commentPlaceholder: 'State the reason for rejecting this requisition (mandatory)...',
+          commentRequired: true,
+          confirmLabel: 'Confirm Rejection',
+          confirmIcon: 'pi pi-times',
+          confirmSeverity: 'danger',
+          cancelLabel: 'Cancel'
+        };
+        break;
+      case 'cancel':
+        config = {
+          action: 'cancel',
+          title: 'Cancel Purchase Requisition',
+          message: `Cancelling requisition ${reqNum} is permanent.`,
+          commentLabel: 'Cancellation Remarks',
+          commentPlaceholder: 'Optional notes regarding cancellation...',
+          commentRequired: false,
+          confirmLabel: 'Confirm Cancellation',
+          confirmIcon: 'pi pi-ban',
+          confirmSeverity: 'danger',
+          cancelLabel: 'Cancel'
+        };
+        break;
+      case 'delete':
+        config = {
+          action: 'delete',
+          title: 'Delete Draft Requisition',
+          message: `Are you sure you want to delete draft requisition ${reqNum}? This action cannot be undone.`,
+          commentLabel: 'Remarks',
+          commentPlaceholder: 'Optional deletion remarks...',
+          commentRequired: false,
+          confirmLabel: 'Delete Draft',
+          confirmIcon: 'pi pi-trash',
+          confirmSeverity: 'danger',
+          cancelLabel: 'Cancel'
+        };
+        break;
+    }
+
     this.decisionAction.set(action);
-    this.decisionRemarks.set('');
-    this.decisionError.set(null);
+    this.confirmDialogConfig.set(config);
+    this.confirmDialogError.set(null);
+    this.confirmDialogVisible.set(true);
   }
 
   closeDecision(): void {
+    this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
     this.decisionAction.set(null);
   }
 
-  executeDecision(): void {
-    const action = this.decisionAction();
+  executeDecision(result?: ConfirmationDialogResult): void {
+    const action = result?.action || this.decisionAction();
     const req = this.currentRequisition();
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
@@ -893,14 +966,10 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
 
     if (!action || !req || !companyId || !branchId) return;
 
-    const remarks = this.decisionRemarks().trim();
-    if (action === 'reject' && !remarks) {
-      this.decisionError.set('Remarks are required when rejecting a requisition.');
-      return;
-    }
+    const remarks = result ? result.comment.trim() : this.decisionRemarks().trim();
 
     this.actionInProgress.set(true);
-    this.decisionError.set(null);
+    this.confirmDialogError.set(null);
 
     let obs: Observable<any>;
     if (action === 'approve') {
@@ -928,7 +997,9 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.actionInProgress.set(false);
-        this.decisionError.set(this.getCleanErrorMessage(err, `Failed to ${action} requisition.`));
+        const errMsg = this.getCleanErrorMessage(err, `Failed to ${action} requisition.`);
+        this.confirmDialogError.set(errMsg);
+        this.decisionError.set(errMsg);
       }
     });
   }
@@ -972,7 +1043,10 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
     const req = this.currentRequisition();
     if (req) {
       this.router.navigate(['/app/procurement/purchase-orders/new'], {
-        queryParams: { purchaseRequisitionId: req.id }
+        queryParams: {
+          purchaseRequisitionId: req.id,
+          branchId: req.branchId
+        }
       });
     }
   }

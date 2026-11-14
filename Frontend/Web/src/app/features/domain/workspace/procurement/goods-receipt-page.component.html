@@ -153,6 +153,32 @@
     </div>
   } @else {
     <div class="grn-form-container">
+      @if (isFullyReceived()) {
+        <div class="erp-card fully-received-banner">
+          <div class="fully-received-body">
+            <div class="fully-received-left">
+              <i class="pi pi-check-circle fully-received-icon"></i>
+              <div class="fully-received-content">
+                <h3 class="fully-received-title">Purchase Order Fully Received</h3>
+                <p class="fully-received-desc">
+                  All line items on Purchase Order {{ sourcePo()?.orderNumber }} have been fully received.
+                  Line item history is displayed below for reference in read-only mode.
+                </p>
+              </div>
+            </div>
+            <div class="fully-received-actions">
+              <p-button
+                label="Return to Purchase Orders"
+                icon="pi pi-arrow-left"
+                size="small"
+                severity="secondary"
+                (onClick)="navigateBack()"
+              ></p-button>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Inherited Scope Context (Read-only) -->
       <section class="erp-card scope-context-section">
         <div class="scope-context-item">
@@ -263,7 +289,7 @@
             [disabled]="actionInProgress()"
           ></p-button>
 
-          @if (mode() === 'create') {
+          @if (mode() === 'create' && !isFullyReceived()) {
             <p-button
               label="Save as Draft"
               icon="pi pi-save"
@@ -280,6 +306,13 @@
               [loading]="actionInProgress()"
               [disabled]="!scopeService.canOperateTransactions()"
               (onClick)="saveReceipt(true)"
+            ></p-button>
+          } @else if (mode() === 'create' && isFullyReceived()) {
+            <p-button
+              label="Return to Purchase Orders"
+              icon="pi pi-arrow-left"
+              severity="primary"
+              (onClick)="navigateBack()"
             ></p-button>
           } @else if (mode() === 'view' && isDraft() && editingDraft()) {
             <p-button

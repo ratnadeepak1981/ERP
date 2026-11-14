@@ -9,6 +9,7 @@ import { AppLoadingStateComponent } from '../../../../shared/components/loading-
 import { AppErrorStateComponent } from '../../../../shared/components/error-state/error-state.component';
 import { AppEmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
+import { ConfirmationDialogComponent, ConfirmationDialogConfig, ConfirmationDialogResult } from '../../../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { PurchaseRequisitionService } from '../../../../core/services/purchase-requisition.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -41,7 +42,8 @@ export interface PRConfirmModalState {
     AppLoadingStateComponent,
     AppErrorStateComponent,
     AppEmptyStateComponent,
-    AccessDeniedComponent
+    AccessDeniedComponent,
+    ConfirmationDialogComponent
   ],
   templateUrl: './purchase-requisition.component.html',
   styleUrl: './purchase-requisition.component.scss',
@@ -72,7 +74,10 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
   readonly searchTerm = signal<string>('');
   readonly activeStatusFilter = signal<PRStatusFilter>('all');
 
-  // Confirmation Modal State (No PrimeNG - Pure Semantic HTML Modal)
+  // Confirmation Modal State (Using Reusable Confirmation Dialog)
+  readonly confirmDialogVisible = signal<boolean>(false);
+  readonly confirmDialogConfig = signal<ConfirmationDialogConfig | null>(null);
+  readonly confirmDialogError = signal<string | null>(null);
   readonly confirmModal = signal<PRConfirmModalState | null>(null);
 
   // Breadcrumbs
@@ -210,7 +215,10 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
       action: (row: PurchaseRequisitionDto) => {
         if (this.router) {
           this.router.navigate(['/app/procurement/purchase-orders/new'], {
-            queryParams: { purchaseRequisitionId: row.id }
+            queryParams: {
+              purchaseRequisitionId: row.id,
+              branchId: row.branchId
+            }
           });
         }
       }
@@ -349,18 +357,60 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
 
   // Modal Actions
   openConfirmModal(type: 'submit' | 'delete' | 'cancel', req: PurchaseRequisitionDto): void {
+    let config: ConfirmationDialogConfig;
+    if (type === 'submit') {
+      config = {
+        action: 'submit',
+        title: 'Submit Purchase Requisition',
+        message: `Are you sure you want to submit requisition ${req.requisitionNumber} for management approval? Once submitted, line items cannot be modified until reviewed.`,
+        confirmLabel: 'Submit for Approval',
+        confirmIcon: 'pi pi-send',
+        confirmSeverity: 'primary',
+        commentLabel: 'Remarks',
+        commentPlaceholder: 'Enter optional submission remarks...',
+        commentRequired: false
+      };
+    } else if (type === 'delete') {
+      config = {
+        action: 'delete',
+        title: 'Delete Draft Requisition',
+        message: `Are you sure you want to delete draft requisition ${req.requisitionNumber}? This draft will be permanently deactivated.`,
+        confirmLabel: 'Delete Draft',
+        confirmIcon: 'pi pi-trash',
+        confirmSeverity: 'danger',
+        commentRequired: false
+      };
+    } else {
+      config = {
+        action: 'cancel',
+        title: 'Cancel Purchase Requisition',
+        message: `Are you sure you want to cancel requisition ${req.requisitionNumber}?`,
+        commentLabel: 'Cancellation Reason',
+        commentPlaceholder: 'Enter cancellation reason (optional)...',
+        confirmLabel: 'Cancel Requisition',
+        confirmIcon: 'pi pi-ban',
+        confirmSeverity: 'danger',
+        commentRequired: false
+      };
+    }
+
     this.confirmModal.set({
       type,
       requisition: req,
       remarks: ''
     });
+    this.confirmDialogConfig.set(config);
+    this.confirmDialogError.set(null);
+    this.confirmDialogVisible.set(true);
   }
 
   closeConfirmModal(): void {
+    this.confirmDialogVisible.set(false);
+    this.confirmDialogError.set(null);
     this.confirmModal.set(null);
   }
 
-  executeConfirmModal(): void {
+  executeConfirmModal(dialogResult?: ConfirmationDialogResult): void {
     const state = this.confirmModal();
     if (!state) return;
 
@@ -369,7 +419,10 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
     const branchId = branch?.id || state.requisition.branchId;
     if (!company || !branchId) return;
 
+    const remarks = dialogResult ? dialogResult.comment.trim() : (state.remarks || '').trim();
+
     this.actionInProgress.set(true);
+    this.confirmDialogError.set(null);
 
     if (state.type === 'submit') {
       this.prService.submitRequisition(company.id, branchId, state.requisition.id).subscribe({
@@ -381,7 +434,9 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.actionInProgress.set(false);
-          state.error = this.getCleanErrorMessage(err, 'Failed to submit requisition.');
+          const errMsg = this.getCleanErrorMessage(err, 'Failed to submit requisition.');
+          this.confirmDialogError.set(errMsg);
+          state.error = errMsg;
           this.confirmModal.set({ ...state });
         }
       });
@@ -395,12 +450,14 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.actionInProgress.set(false);
-          state.error = this.getCleanErrorMessage(err, 'Failed to delete requisition.');
+          const errMsg = this.getCleanErrorMessage(err, 'Failed to delete requisition.');
+          this.confirmDialogError.set(errMsg);
+          state.error = errMsg;
           this.confirmModal.set({ ...state });
         }
       });
     } else if (state.type === 'cancel') {
-      this.prService.cancelRequisition(company.id, branchId, state.requisition.id, state.remarks).subscribe({
+      this.prService.cancelRequisition(company.id, branchId, state.requisition.id, remarks || undefined).subscribe({
         next: () => {
           this.actionInProgress.set(false);
           this.closeConfirmModal();
@@ -409,7 +466,9 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.actionInProgress.set(false);
-          state.error = this.getCleanErrorMessage(err, 'Failed to cancel requisition.');
+          const errMsg = this.getCleanErrorMessage(err, 'Failed to cancel requisition.');
+          this.confirmDialogError.set(errMsg);
+          state.error = errMsg;
           this.confirmModal.set({ ...state });
         }
       });
