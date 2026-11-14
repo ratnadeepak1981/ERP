@@ -511,6 +511,27 @@ export const workspaceRoutes: Routes = [
               )
           }
         ]
+      },
+      {
+        path: 'reports/stock-by-storage-location',
+        loadComponent: () =>
+          import('./inventory/reports/stock-by-storage-location/stock-by-storage-location.component').then(
+            m => m.StockByStorageLocationComponent
+          )
+      },
+      {
+        path: 'reports/stock-by-staging-location',
+        loadComponent: () =>
+          import('./inventory/reports/stock-by-staging-location/stock-by-staging-location.component').then(
+            m => m.StockByStagingLocationComponent
+          )
+      },
+      {
+        path: 'reports/stock-ledger',
+        loadComponent: () =>
+          import('./inventory/reports/stock-ledger/stock-ledger.component').then(
+            m => m.StockLedgerComponent
+          )
       }
     ]
   },

@@ -26,6 +26,7 @@ import { AppEditableDataTableComponent } from '../../../../../shared/components/
 import { DataTableColumn, SelectOption } from '../../../../../shared/models/data-table-config.model';
 import { LookupItem } from '../../../../../shared/components/lookup-dropdown/lookup-item.model';
 import { InventoryService } from '../../../../../core/services/inventory.service';
+import { PutawayService } from '../../../../../core/services/putaway.service';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
@@ -38,6 +39,7 @@ import {
   StockIssuePurpose,
   StockReceiptDto,
   StockReceiptReason,
+  StockReceiptStatus,
   CreateStockIssueRequest,
   CreateStockReceiptRequest,
   getStockIssuePurposeName,
@@ -81,6 +83,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
   @ViewChild(AppEditableDataTableComponent) editableTable?: AppEditableDataTableComponent<StockTransactionLineItem>;
 
   readonly inventoryService = inject(InventoryService);
+  readonly putawayService = inject(PutawayService);
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
@@ -126,6 +129,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
   // View Mode Data
   readonly viewReceipt = signal<StockReceiptDto | null>(null);
   readonly viewIssue = signal<StockIssueDto | null>(null);
+  readonly isReceiptEligibleForPutaway = signal<boolean>(false);
 
   // Configuration options depending on transaction type
   readonly isReceipt = computed(() => this.transactionType === 'receipt');
@@ -842,6 +846,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
             this.error.set('Stock receipt record not found.');
           } else {
             this.viewReceipt.set(receipt);
+            this.checkReceiptPutawayEligibility(receipt);
           }
         },
         error: err => {
@@ -967,6 +972,52 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
 
   getIssuePurposeName(purpose: StockIssuePurpose | number): string {
     return getStockIssuePurposeName(purpose);
+  }
+
+  canPutaway(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+      return true;
+    }
+    return this.authService.hasPermission('PUTAWAY.POST');
+  }
+
+  canCreatePutawayFromReceipt(): boolean {
+    if (this.mode !== 'view' || !this.isReceipt()) return false;
+    const receipt = this.viewReceipt();
+    if (!receipt) return false;
+    const isPosted = receipt.status === StockReceiptStatus.Posted || (receipt.status as any) === 2;
+    if (!isPosted) return false;
+    if (!this.canPutaway()) return false;
+    return this.isReceiptEligibleForPutaway();
+  }
+
+  private checkReceiptPutawayEligibility(receipt: StockReceiptDto): void {
+    if (!this.canPutaway()) {
+      this.isReceiptEligibleForPutaway.set(false);
+      return;
+    }
+    const isPosted = receipt.status === StockReceiptStatus.Posted || (receipt.status as any) === 2;
+    if (!isPosted || !receipt.warehouseLocationId || (receipt.quantity || 0) <= 0) {
+      this.isReceiptEligibleForPutaway.set(false);
+      return;
+    }
+
+    this.putawayService.getLinesForSourceReceipt(
+      receipt.stockReceiptId,
+      receipt.receiptNumber,
+      'StockReceipt',
+      undefined,
+      undefined
+    ).subscribe({
+      next: lines => {
+        const hasOutstanding = lines.some(l => Number(l.outstandingQuantity) > 0);
+        this.isReceiptEligibleForPutaway.set(hasOutstanding);
+      },
+      error: () => {
+        // Fallback: allow putaway action if receipt is posted with non-empty location & positive qty
+        this.isReceiptEligibleForPutaway.set(true);
+      }
+    });
   }
 
   createPutawayFromReceipt(): void {

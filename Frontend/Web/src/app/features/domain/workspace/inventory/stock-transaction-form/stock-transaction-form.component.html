@@ -27,7 +27,7 @@
       ></p-button>
 
       <p-button
-        *ngIf="mode === 'view' && isReceipt()"
+        *ngIf="canCreatePutawayFromReceipt()"
         label="Create Putaway"
         icon="pi pi-box"
         severity="primary"

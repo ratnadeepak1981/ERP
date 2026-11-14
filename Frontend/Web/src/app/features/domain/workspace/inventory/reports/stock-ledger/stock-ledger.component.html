@@ -1,0 +1,259 @@
+<!-- Access Denied State -->
+@if (isAccessDenied()) {
+  <app-access-denied
+    title="Access Denied"
+    [message]="accessDeniedMessage()"
+    returnUrl="/app/inventory"
+    returnLabel="Return to Inventory"
+  ></app-access-denied>
+} @else {
+  <div class="ledger-container">
+    <!-- Page Header -->
+    <app-page-header
+      [breadcrumbs]="breadcrumbs()"
+      title="Stock Ledger – Product by Location"
+      subtitle="Detailed chronological stock transaction history, movement quantities, and authoritative cost valuation for a specific product at a warehouse location."
+    >
+      <div actions class="header-actions">
+        <button
+          pButton
+          label="Refresh"
+          icon="pi pi-refresh"
+          class="p-button-outlined p-button-sm"
+          (click)="loadLedger()"
+          [disabled]="loading() || !hasRequiredFilters()"
+        ></button>
+      </div>
+    </app-page-header>
+
+    <!-- Workspace Context Banner -->
+    <div class="workspace-context-card">
+      <div class="context-item">
+        <i class="pi pi-building context-icon"></i>
+        <div class="context-details">
+          <span class="context-label">Company</span>
+          <span class="context-value">{{ currentCompanyName() }}</span>
+        </div>
+      </div>
+      <div class="context-separator"></div>
+      <div class="context-item">
+        <i class="pi pi-sitemap context-icon"></i>
+        <div class="context-details">
+          <span class="context-label">Branch</span>
+          <span class="context-value">{{ currentBranchName() }}</span>
+        </div>
+      </div>
+      @if (reportData(); as rep) {
+        <div class="context-separator"></div>
+        <div class="context-item">
+          <i class="pi pi-tag context-icon"></i>
+          <div class="context-details">
+            <span class="context-label">Hierarchy Path</span>
+            <span class="context-value">{{ rep.hierarchyPath || rep.locationCode }}</span>
+          </div>
+        </div>
+        <div class="context-separator"></div>
+        <div class="context-item">
+          <i class="pi pi-shield context-icon"></i>
+          <div class="context-details">
+            <span class="context-label">Valuation Method</span>
+            <span class="context-value badge-pill">{{ rep.valuationMethod }}</span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Error State -->
+    @if (error()) {
+      <app-error-state
+        [message]="error()!"
+        (retry)="loadLedger()"
+      ></app-error-state>
+    }
+
+    <!-- Filter Bar -->
+    <div class="filter-card">
+      <div class="filter-controls">
+        <div class="filter-group">
+          <label for="product-filter" class="filter-label">Product Item <span class="required">*</span></label>
+          <select
+            id="product-filter"
+            class="filter-select"
+            [ngModel]="selectedProductId()"
+            (ngModelChange)="onProductChange($event)"
+          >
+            @for (p of products(); track p.value) {
+              <option [value]="p.value">{{ p.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="warehouse-filter" class="filter-label">Warehouse Facility <span class="required">*</span></label>
+          <select
+            id="warehouse-filter"
+            class="filter-select"
+            [ngModel]="selectedWarehouseId()"
+            (ngModelChange)="onWarehouseChange($event)"
+          >
+            @for (w of warehouses(); track w.value) {
+              <option [value]="w.value">{{ w.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="location-filter" class="filter-label">Storage / Staging Location</label>
+          <select
+            id="location-filter"
+            class="filter-select"
+            [ngModel]="selectedLocationId()"
+            (ngModelChange)="onLocationChange($event)"
+            [disabled]="!selectedWarehouseId()"
+          >
+            @for (l of locations(); track l.value) {
+              <option [value]="l.value">{{ l.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group date-group">
+          <label for="date-from" class="filter-label">Date From</label>
+          <input
+            id="date-from"
+            type="date"
+            class="filter-input"
+            [ngModel]="dateFrom()"
+            (ngModelChange)="onDateFromChange($event)"
+          />
+        </div>
+
+        <div class="filter-group date-group">
+          <label for="date-to" class="filter-label">Date To</label>
+          <input
+            id="date-to"
+            type="date"
+            class="filter-input"
+            [ngModel]="dateTo()"
+            (ngModelChange)="onDateToChange($event)"
+          />
+        </div>
+
+        <div class="filter-group search-group">
+          <label for="search-term" class="filter-label">Search</label>
+          <div class="search-input-wrapper">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              id="search-term"
+              type="text"
+              class="filter-input search-input"
+              placeholder="Doc ref, batch, type..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="onSearch($event)"
+            />
+          </div>
+        </div>
+
+        <div class="filter-actions">
+          <button
+            pButton
+            label="Reset"
+            icon="pi pi-filter-slash"
+            class="p-button-text p-button-secondary p-button-sm"
+            (click)="resetFilters()"
+          ></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parameter Prompt State when parameters are missing -->
+    @if (!hasRequiredFilters()) {
+      <div class="prompt-card">
+        <div class="prompt-icon">
+          <i class="pi pi-info-circle"></i>
+        </div>
+        <div class="prompt-content">
+          <h3>Select Product and Warehouse</h3>
+          <p>
+            The Stock Ledger provides authoritative chronological transaction history and financial valuation across all warehouse locations or for a specific location.
+          </p>
+          <p class="prompt-subtext">
+            Please select a <strong>Product Item</strong> and <strong>Warehouse Facility</strong> above to generate the ledger.
+          </p>
+        </div>
+      </div>
+    } @else if (loading()) {
+      <app-loading-state message="Loading authoritative stock transactions and valuation..."></app-loading-state>
+    } @else if (reportData(); as report) {
+      <!-- Summary Metrics Grid -->
+      <div class="metrics-grid">
+        <div class="metric-card opening">
+          <div class="metric-icon opening-icon">
+            <i class="pi pi-clock"></i>
+          </div>
+          <div class="metric-content">
+            <span class="metric-label">Opening Balance</span>
+            <div class="metric-values">
+              <span class="metric-qty">{{ openingQuantity() | number }} {{ report.unitOfMeasure }}</span>
+              <span class="metric-value">{{ currency() }} {{ openingValue() | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-card inward">
+          <div class="metric-icon inward-icon">
+            <i class="pi pi-arrow-circle-down"></i>
+          </div>
+          <div class="metric-content">
+            <span class="metric-label">Period Inward (+)</span>
+            <div class="metric-values">
+              <span class="metric-qty success">+{{ totalQuantityIn() | number }} {{ report.unitOfMeasure }}</span>
+              <span class="metric-value">{{ currency() }} {{ totalInwardValue() | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-card outward">
+          <div class="metric-icon outward-icon">
+            <i class="pi pi-arrow-circle-up"></i>
+          </div>
+          <div class="metric-content">
+            <span class="metric-label">Period Outward (-)</span>
+            <div class="metric-values">
+              <span class="metric-qty warning">-{{ totalQuantityOut() | number }} {{ report.unitOfMeasure }}</span>
+              <span class="metric-value">{{ currency() }} {{ totalOutwardValue() | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-card closing">
+          <div class="metric-icon closing-icon">
+            <i class="pi pi-box"></i>
+          </div>
+          <div class="metric-content">
+            <span class="metric-label">Closing Balance</span>
+            <div class="metric-values">
+              <span class="metric-qty bold">{{ closingQuantity() | number }} {{ report.unitOfMeasure }}</span>
+              <span class="metric-value bold">{{ currency() }} {{ closingValue() | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail Ledger Data Table -->
+      <div class="table-container">
+        <app-data-table
+          [data]="report.items"
+          [columns]="columns"
+          [loading]="loading()"
+          [paginator]="true"
+          [rows]="25"
+          [rowsPerPageOptions]="[10, 25, 50, 100]"
+          [showGlobalSearch]="true"
+          emptyTitle="No Stock Transactions Recorded"
+          emptyDescription="There are no stock movements recorded for this product at the selected location in the specified period."
+        ></app-data-table>
+      </div>
+    }
+  </div>
+}

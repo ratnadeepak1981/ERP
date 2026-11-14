@@ -11,7 +11,11 @@ import {
   CreateStockIssueRequest,
   StockReceiptDto,
   CreateStockReceiptRequest,
-  StockReceiptReason
+  StockReceiptReason,
+  StockByLocationReportQuery,
+  StockByLocationReportDto,
+  StockLedgerReportQuery,
+  StockLedgerReportDto
 } from '../models/inventory.models';
 
 export interface StockIssueQueryParams {
@@ -194,6 +198,111 @@ export class InventoryService {
       map(res => {
         if (!res?.data) return [];
         return Array.isArray(res.data) ? res.data : [res.data];
+      })
+    );
+  }
+
+  /**
+   * Retrieves the current stock by location report (storage, staging, or all)
+   */
+  getStockByLocationReport(params?: StockByLocationReportQuery): Observable<StockByLocationReportDto> {
+    const url = buildApiUrl('/inventory/reports/stock-by-location');
+    let httpParams = new HttpParams();
+    if (params?.warehouseId) httpParams = httpParams.set('warehouseId', params.warehouseId);
+    if (params?.companyId) httpParams = httpParams.set('companyId', params.companyId);
+    if (params?.branchId) httpParams = httpParams.set('branchId', params.branchId);
+    if (params?.locationId) httpParams = httpParams.set('locationId', params.locationId);
+    if (params?.productId) httpParams = httpParams.set('productId', params.productId);
+    if (params?.categoryId) httpParams = httpParams.set('categoryId', params.categoryId);
+    if (params?.locationClassification) {
+      httpParams = httpParams.set('locationClassification', params.locationClassification);
+    }
+    if (params?.search) httpParams = httpParams.set('search', params.search);
+    if (params?.page !== undefined && params?.page !== null) {
+      httpParams = httpParams.set('page', params.page.toString());
+    }
+    if (params?.pageSize !== undefined && params?.pageSize !== null) {
+      httpParams = httpParams.set('pageSize', params.pageSize.toString());
+    }
+    if (params?.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
+    if (params?.sortDirection) httpParams = httpParams.set('sortDirection', params.sortDirection);
+
+    return this.http.get<ApiResponse<StockByLocationReportDto>>(url, { params: httpParams }).pipe(
+      map(res => {
+        if (!res?.data) {
+          return {
+            items: [],
+            totalCount: 0,
+            totalQuantityOnHand: 0,
+            totalQuantityAvailable: 0,
+            totalStockValue: 0,
+            currency: 'LKR',
+            page: 1,
+            pageSize: 25
+          };
+        }
+        return res.data;
+      })
+    );
+  }
+
+  /**
+   * Retrieves the product-wise, location-wise stock ledger transaction history and valuation
+   */
+  getStockLedgerReport(params: StockLedgerReportQuery): Observable<StockLedgerReportDto> {
+    const url = buildApiUrl('/inventory/reports/stock-ledger');
+    let httpParams = new HttpParams()
+      .set('productId', params.productId)
+      .set('warehouseId', params.warehouseId);
+
+    if (params.warehouseLocationId) {
+      httpParams = httpParams.set('warehouseLocationId', params.warehouseLocationId);
+    }
+
+    if (params.companyId) httpParams = httpParams.set('companyId', params.companyId);
+    if (params.branchId) httpParams = httpParams.set('branchId', params.branchId);
+    if (params.dateFrom) httpParams = httpParams.set('dateFrom', params.dateFrom);
+    if (params.dateTo) httpParams = httpParams.set('dateTo', params.dateTo);
+    if (params.search) httpParams = httpParams.set('search', params.search);
+    if (params.page !== undefined && params.page !== null) {
+      httpParams = httpParams.set('page', params.page.toString());
+    }
+    if (params.pageSize !== undefined && params.pageSize !== null) {
+      httpParams = httpParams.set('pageSize', params.pageSize.toString());
+    }
+
+    return this.http.get<ApiResponse<StockLedgerReportDto>>(url, { params: httpParams }).pipe(
+      map(res => {
+        if (!res?.data) {
+          return {
+            productId: params.productId,
+            productCode: '',
+            productName: '',
+            unitOfMeasure: '',
+            warehouseId: params.warehouseId,
+            warehouseCode: '',
+            warehouseName: '',
+            warehouseLocationId: params.warehouseLocationId ?? null,
+            locationCode: '',
+            locationName: '',
+            hierarchyPath: '',
+            valuationMethod: 'FIFO',
+            currency: 'LKR',
+            openingQuantity: 0,
+            openingValue: 0,
+            totalQuantityIn: 0,
+            totalInwardValue: 0,
+            totalQuantityOut: 0,
+            totalOutwardValue: 0,
+            closingQuantity: 0,
+            closingValue: 0,
+            items: [],
+            totalCount: 0,
+            page: 1,
+            pageSize: 25
+          };
+        }
+        return res.data;
       })
     );
   }

@@ -76,7 +76,7 @@ export class StorePutawayRegisterComponent implements OnInit, OnDestroy {
   readonly breadcrumbs = [
     { label: 'Workspace', routerLink: '/app/dashboard' },
     { label: 'Inventory', routerLink: '/app/inventory' },
-    { label: 'Stores Putaway' }
+    { label: 'Storage & Putaway' }
   ];
 
   readonly statusOptions = [
@@ -234,13 +234,13 @@ export class StorePutawayRegisterComponent implements OnInit, OnDestroy {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
-    return this.authService.hasPermission('WAREHOUSE.VIEW') || this.authService.hasPermission('PRODUCT.VIEW');
+    return this.authService.hasPermission('INVENTORY.VIEW');
   }
 
   canCreate(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
       return true;
     }
-    return this.authService.hasPermission('WAREHOUSE.MANAGE_LOCATIONS') || this.authService.hasPermission('PRODUCT.EDIT');
+    return this.authService.hasPermission('PUTAWAY.POST');
   }
 }

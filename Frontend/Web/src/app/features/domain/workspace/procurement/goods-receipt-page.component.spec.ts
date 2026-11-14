@@ -741,7 +741,7 @@ describe('GoodsReceiptPageComponent', () => {
       // Verify fully received state and read-only protection
       expect(component.isFullyReceived()).toBe(true);
       expect(component.canEditDraft()).toBe(false);
-      const fields = component.headerFormFields();
+      const fields = component.formFields();
       expect(fields.find(f => f.name === 'deliveryNoteNumber')?.disabled).toBe(true);
       expect(fields.find(f => f.name === 'remarks')?.disabled).toBe(true);
 

@@ -360,6 +360,16 @@ public class InventoryService : IInventoryService
         return await _persistenceCoordinator.GetStockReceiptByIdAsync(tenantId, receiptId);
     }
 
+    public async Task<StockByLocationReportDto> GetStockByLocationReportAsync(Guid tenantId, StockByLocationReportQuery query)
+    {
+        return await _persistenceCoordinator.GetStockByLocationReportAsync(tenantId, query);
+    }
+
+    public async Task<StockLedgerReportDto> GetStockLedgerReportAsync(Guid tenantId, StockLedgerReportQuery query)
+    {
+        return await _persistenceCoordinator.GetStockLedgerReportAsync(tenantId, query);
+    }
+
     public async Task<List<StockReceiptDto>> CreateStockReceiptAsync(Guid tenantId, CreateStockReceiptRequest request)
     {
         if (request == null)

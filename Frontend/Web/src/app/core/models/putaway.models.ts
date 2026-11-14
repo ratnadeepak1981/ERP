@@ -71,6 +71,7 @@ export interface PutawayLineDto {
   putawayQuantity: number;
   sourceLocationId?: string;
   sourceLocationCode?: string;
+  sourceLocationName?: string;
   destinationLocationId: string;
   destinationLocationCode: string;
   destinationLocationName?: string;
