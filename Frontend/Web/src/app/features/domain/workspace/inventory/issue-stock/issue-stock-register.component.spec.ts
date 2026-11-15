@@ -153,4 +153,47 @@ describe('IssueStockRegisterComponent', () => {
 
     expect(component.isAccessDenied()).toBe(true);
   });
+
+  describe('Stock Issue Permission & Visibility Tests (Flow A)', () => {
+    it('should allow create issue when user has STOCK_ISSUE.POST even without PRODUCT.EDIT (Inventory Manager/Officer)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'STOCK_ISSUE.POST');
+
+      expect(component.canCreateIssue()).toBe(true);
+    });
+
+    it('should disallow create issue when user has PRODUCT.EDIT but lacks STOCK_ISSUE.POST', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'PRODUCT.EDIT');
+
+      expect(component.canCreateIssue()).toBe(false);
+    });
+
+    it('should disallow create issue when user has only INVENTORY.VIEW (Auditor / Warehouse Config Officer)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'INVENTORY.VIEW');
+
+      expect(component.canCreateIssue()).toBe(false);
+    });
+
+    it('should set access denied on init when user lacks INVENTORY.VIEW', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+
+      const deniedFixture = TestBed.createComponent(IssueStockRegisterComponent);
+      const deniedComp = deniedFixture.componentInstance;
+      deniedFixture.detectChanges();
+
+      expect(deniedComp.isAccessDenied()).toBe(true);
+      expect(deniedComp.canViewIssues()).toBe(false);
+    });
+  });
 });

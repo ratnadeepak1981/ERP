@@ -41,6 +41,10 @@ public interface ISecurityBootstrapRepository
         Guid tenantId,
         string username);
 
+    Task<User?> GetTenantUserByEmailAsync(
+        Guid tenantId,
+        string email);
+
     // =========================
     // RBAC Lookups
     // =========================

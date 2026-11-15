@@ -25,6 +25,8 @@ export interface ProvisioningQueueItem {
   status: 'Pending' | 'In Progress' | 'Completed' | 'Failed';
   isProvisioned?: boolean;
   databaseName?: string | null;
+  adminUsername?: string | null;
+  adminEmail?: string | null;
 }
 
 export interface ProvisioningMetrics {

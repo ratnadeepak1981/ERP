@@ -463,15 +463,42 @@ public class SecurityBootstrapService
                 "A conflicting custom role with the same name may exist.");
         }
 
-        var user = await _repository.GetTenantAdminUserAsync(tenantId, username);
-        if (user == null)
+        string trimmedUsername = username.Trim();
+        string trimmedEmail = email.Trim().ToLowerInvariant();
+
+        var userByUsername = await _repository.GetTenantAdminUserAsync(tenantId, trimmedUsername);
+        var userByEmail = await _repository.GetTenantUserByEmailAsync(tenantId, trimmedEmail);
+
+        User user;
+        if (userByUsername != null && userByEmail != null)
+        {
+            if (userByUsername.Id != userByEmail.Id)
+            {
+                throw new InvalidOperationException(
+                    $"Conflicting account identity: username '{trimmedUsername}' and email '{trimmedEmail}' belong to different user accounts for tenant {tenantId}.");
+            }
+
+            // Both identify the exact same existing account: idempotent retry, preserve credentials
+            user = userByUsername;
+        }
+        else if (userByUsername != null && userByEmail == null)
+        {
+            throw new InvalidOperationException(
+                $"Account conflict: a user with username '{trimmedUsername}' already exists for tenant {tenantId} with a different email address.");
+        }
+        else if (userByUsername == null && userByEmail != null)
+        {
+            throw new InvalidOperationException(
+                $"Account conflict: a user with email '{trimmedEmail}' already exists for tenant {tenantId} with a different username.");
+        }
+        else
         {
             user = new User
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                Username = username.Trim(),
-                Email = email.Trim(),
+                Username = trimmedUsername,
+                Email = trimmedEmail,
                 PasswordHash = _passwordService.HashPassword(password),
                 IsActive = true
             };

@@ -222,21 +222,33 @@ export class StockReceiptRegisterComponent implements OnInit, OnDestroy {
     }
   ];
 
-  canCreateReceipt(): boolean {
-    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+  canViewReceipts(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
-    return this.authService.hasPermission('PRODUCT.EDIT');
+    return this.authService.hasPermission('INVENTORY.VIEW');
+  }
+
+  canCreateReceipt(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    return this.authService.hasPermission('STOCK_RECEIPT.POST');
   }
 
   canPutaway(): boolean {
-    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
     return this.authService.hasPermission('PUTAWAY.POST');
   }
 
   ngOnInit(): void {
+    if (!this.canViewReceipts()) {
+      this.isAccessDenied.set(true);
+      return;
+    }
+
     this.loadStockReceipts();
     this.subs.add(
       this.scopeService.scopeChange$.subscribe(() => {

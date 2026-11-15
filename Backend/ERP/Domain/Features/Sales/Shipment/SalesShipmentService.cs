@@ -1248,75 +1248,173 @@ public class SalesShipmentService : ISalesShipmentService
             request.VehicleNumber,
             request.Notes);
 
-        foreach (var (item, product, remaining) in unfulfilledLines)
+        if (request.Items != null && request.Items.Count > 0)
         {
-            bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
-            if (isBatch)
-            {
-                var eligibleBatches = await _inventoryRepository.GetEligibleBatchesAsync(
-                    tenantId,
-                    product.ProductId,
-                    request.WarehouseId,
-                    request.WarehouseLocationId,
-                    dateAsOf);
+            // Explicit line allocations supplied by operator (e.g. from BatchSerialTrackingDialog)
+            // Validate zero over-shipment tolerance against order lines
+            var groupedByOrderLine = request.Items
+                .GroupBy(i => i.SalesOrderItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
 
-                decimal unitFactor = 1m;
-                if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+            foreach (var kvp in groupedByOrderLine)
+            {
+                var targetLine = unfulfilledLines.FirstOrDefault(l => l.Item.Id == kvp.Key);
+                if (targetLine == default)
                 {
-                    unitFactor = await ConvertSalesQuantityAsync(
-                        tenantId,
-                        companyId,
-                        product.ProductId,
-                        item.UnitOfMeasureId.Value,
-                        product.UnitOfMeasureId.Value,
-                        1m);
+                    throw new InvalidOperationException(
+                        $"Order item '{kvp.Key}' is not an unfulfilled physical goods item on this Sales Order.");
                 }
 
-                decimal neededInBase = Math.Round(remaining * unitFactor, 4, MidpointRounding.AwayFromZero);
-                foreach (var b in eligibleBatches)
+                if (kvp.Value <= 0)
                 {
-                    if (neededInBase <= 0) break;
-                    decimal takeInBase = Math.Min(neededInBase, b.QuantityAvailable);
-                    if (takeInBase <= 0) continue;
+                    throw new ArgumentException("Quantity dispatched must be greater than zero.");
+                }
 
-                    decimal takeInTxUom = unitFactor == 1m
-                        ? takeInBase
-                        : Math.Round(takeInBase / unitFactor, 4, MidpointRounding.AwayFromZero);
+                if (kvp.Value > targetLine.RemainingQty)
+                {
+                    throw new InvalidOperationException(
+                        $"Attempted quantity {kvp.Value} exceeds remaining unfulfilled quantity {targetLine.RemainingQty} for product '{targetLine.Product.ProductCode}'. Over-shipment tolerance is 0%.");
+                }
+            }
 
+            foreach (var reqItem in request.Items)
+            {
+                var targetLine = unfulfilledLines.First(l => l.Item.Id == reqItem.SalesOrderItemId);
+                var product = targetLine.Product;
+
+                var effectiveWarehouseId = reqItem.WarehouseId != Guid.Empty ? reqItem.WarehouseId : request.WarehouseId;
+                var effectiveLocationId = reqItem.WarehouseLocationId != Guid.Empty ? reqItem.WarehouseLocationId : request.WarehouseLocationId;
+
+                await ValidateWarehouseAndLocationAsync(tenantId, effectiveWarehouseId, effectiveLocationId);
+
+                // Authoritative batch validation if batch-tracked
+                if (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial)
+                {
+                    if (string.IsNullOrWhiteSpace(reqItem.BatchNumber))
+                    {
+                        throw new InvalidOperationException($"Batch number is required for batch-tracked product '{product.ProductCode}'.");
+                    }
+
+                    string normBatch = reqItem.BatchNumber.Trim();
+                    var batch = await _inventoryRepository.GetBatchAsync(tenantId, product.ProductId, normBatch);
+                    if (batch == null)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' does not exist for product '{product.ProductCode}'.");
+                    }
+
+                    if (!batch.IsActive)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' is inactive and cannot be dispatched.");
+                    }
+
+                    if (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < dateAsOf.Date)
+                    {
+                        throw new InvalidOperationException($"Batch '{normBatch}' for product '{product.ProductCode}' expired on {batch.ExpiryDate.Value:yyyy-MM-dd} and cannot be dispatched.");
+                    }
+                }
+
+                // Authoritative serial validation if serial-tracked
+                if (product.TrackingMode == TrackingMode.Serial || product.TrackingMode == TrackingMode.BatchAndSerial)
+                {
+                    if (string.IsNullOrWhiteSpace(reqItem.SerialNumber))
+                    {
+                        throw new InvalidOperationException($"Serial number is required for serial-tracked product '{product.ProductCode}'.");
+                    }
+
+                    if (Math.Abs(reqItem.QuantityDispatched) != 1.0m)
+                    {
+                        throw new InvalidOperationException($"Serial-tracked items must have quantity of 1. Specified: {reqItem.QuantityDispatched}.");
+                    }
+                }
+
+                var shipmentItem = SalesShipmentItem.Create(
+                    shipment.Id,
+                    targetLine.Item.Id,
+                    product.ProductId,
+                    effectiveWarehouseId,
+                    effectiveLocationId,
+                    reqItem.QuantityDispatched,
+                    reqItem.UnitOfMeasureId ?? targetLine.Item.UnitOfMeasureId,
+                    batchNumber: reqItem.BatchNumber?.Trim(),
+                    serialNumber: reqItem.SerialNumber?.Trim(),
+                    notes: reqItem.Notes ?? request.Notes);
+
+                shipment.AddItem(shipmentItem);
+            }
+        }
+        else
+        {
+            // Default automatic FEFO allocation loop
+            foreach (var (item, product, remaining) in unfulfilledLines)
+            {
+                bool isBatch = product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial;
+                if (isBatch)
+                {
+                    var eligibleBatches = await _inventoryRepository.GetEligibleBatchesAsync(
+                        tenantId,
+                        product.ProductId,
+                        request.WarehouseId,
+                        request.WarehouseLocationId,
+                        dateAsOf);
+
+                    decimal unitFactor = 1m;
+                    if (item.UnitOfMeasureId.HasValue && product.UnitOfMeasureId.HasValue && item.UnitOfMeasureId.Value != product.UnitOfMeasureId.Value)
+                    {
+                        unitFactor = await ConvertSalesQuantityAsync(
+                            tenantId,
+                            companyId,
+                            product.ProductId,
+                            item.UnitOfMeasureId.Value,
+                            product.UnitOfMeasureId.Value,
+                            1m);
+                    }
+
+                    decimal neededInBase = Math.Round(remaining * unitFactor, 4, MidpointRounding.AwayFromZero);
+                    foreach (var b in eligibleBatches)
+                    {
+                        if (neededInBase <= 0) break;
+                        decimal takeInBase = Math.Min(neededInBase, b.QuantityAvailable);
+                        if (takeInBase <= 0) continue;
+
+                        decimal takeInTxUom = unitFactor == 1m
+                            ? takeInBase
+                            : Math.Round(takeInBase / unitFactor, 4, MidpointRounding.AwayFromZero);
+
+                        var shipmentItem = SalesShipmentItem.Create(
+                            shipment.Id,
+                            item.Id,
+                            product.ProductId,
+                            request.WarehouseId,
+                            request.WarehouseLocationId,
+                            takeInTxUom,
+                            item.UnitOfMeasureId,
+                            batchNumber: b.BatchNumber,
+                            notes: request.Notes);
+
+                        shipment.AddItem(shipmentItem);
+                        neededInBase -= takeInBase;
+                    }
+
+                    if (neededInBase > 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Insufficient eligible batch stock at location for product '{product.ProductCode}'. Required: {remaining * unitFactor}, Shortage: {neededInBase}.");
+                    }
+                }
+                else
+                {
                     var shipmentItem = SalesShipmentItem.Create(
                         shipment.Id,
                         item.Id,
                         product.ProductId,
                         request.WarehouseId,
                         request.WarehouseLocationId,
-                        takeInTxUom,
+                        remaining,
                         item.UnitOfMeasureId,
-                        batchNumber: b.BatchNumber,
                         notes: request.Notes);
 
                     shipment.AddItem(shipmentItem);
-                    neededInBase -= takeInBase;
                 }
-
-                if (neededInBase > 0)
-                {
-                    throw new InvalidOperationException(
-                        $"Insufficient eligible batch stock at location for product '{product.ProductCode}'. Required: {remaining * unitFactor}, Shortage: {neededInBase}.");
-                }
-            }
-            else
-            {
-                var shipmentItem = SalesShipmentItem.Create(
-                    shipment.Id,
-                    item.Id,
-                    product.ProductId,
-                    request.WarehouseId,
-                    request.WarehouseLocationId,
-                    remaining,
-                    item.UnitOfMeasureId,
-                    notes: request.Notes);
-
-                shipment.AddItem(shipmentItem);
             }
         }
 

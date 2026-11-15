@@ -27,6 +27,12 @@ public class TenantEntityConfiguration
         builder.Property(x => x.Subdomain)
             .HasMaxLength(63);
 
+        builder.Property(x => x.AdminUsername)
+            .HasMaxLength(100);
+
+        builder.Property(x => x.AdminEmail)
+            .HasMaxLength(200);
+
         builder.HasIndex(x => x.Subdomain)
             .IsUnique()
             .HasFilter("[Subdomain] IS NOT NULL");

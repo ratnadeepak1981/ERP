@@ -1,4 +1,23 @@
 <div class="stock-transaction-page">
+  <!-- Tracking Column Cell Template -->
+  <ng-template #trackingCellTemplate let-row="row">
+    @if (!row.trackingMode || row.trackingMode === 0) {
+      <span class="tracking-pill untracked">Not Tracked</span>
+    } @else {
+      <button
+        type="button"
+        class="tracking-action-btn"
+        [class.configured]="isLineTrackingComplete(row)"
+        [class.pending]="!isLineTrackingComplete(row)"
+        (click)="openTrackingDialog(row, $event)"
+        [title]="mode === 'create' ? 'Click to configure batch/serial tracking' : 'Click to view batch/serial tracking'"
+      >
+        <i class="pi" [ngClass]="isLineTrackingComplete(row) ? 'pi-check-circle' : 'pi-exclamation-triangle'"></i>
+        <span>{{ getLineTrackingSummary(row) }}</span>
+      </button>
+    }
+  </ng-template>
+
   <!-- Header -->
   <app-page-header
     [title]="
@@ -250,7 +269,7 @@
         <span>
           {{ isIssue()
             ? 'Ensure all lines have a selected product, source storage location, and issue quantities within available on-hand stock.'
-            : 'Ensure all lines have a selected product, destination storage location, and valid quantities.' }}
+            : 'Ensure all lines have a selected product, destination storage location, valid quantities, and complete batch/serial tracking allocations.' }}
         </span>
       </div>
 

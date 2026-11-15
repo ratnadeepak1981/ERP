@@ -36,6 +36,8 @@ import { TableCellComponent } from '../subcomponents/table-cell/table-cell.compo
       @if (showToolbar) {
         <app-mat-table-toolbar
           [allowAddRow]="allowAddRow"
+          [addRowLabel]="addRowLabel"
+          [showSaveActions]="showSaveActions"
           [dirtyCount]="stateService.dirtyCount()"
           [totalLines]="stateService.rowCount()"
           (addRow)="onAddRow()"
@@ -159,8 +161,10 @@ export class AppMaterialEditableDataTableComponent<T = any> implements OnInit, O
   @Input() columns: MaterialTableColumn<T>[] = [];
   @Input() rowKey: string = 'id';
   @Input() allowAddRow: boolean = true;
+  @Input() addRowLabel?: string;
   @Input() allowDeleteRow: boolean = true;
   @Input() showToolbar: boolean = true;
+  @Input() showSaveActions: boolean = true;
   @Input() showRowNumbers: boolean = true;
   @Input() showFooter: boolean = true;
   @Input() defaultNewRow?: () => T;

@@ -155,6 +155,8 @@ export interface SalesOrderDispatchLineAvailabilityDto {
   shortageQuantity: number;
   canFulfil: boolean;
   unitOfMeasureId?: string | null;
+  unitOfMeasure?: string;
+  trackingMode?: number;
 }
 
 export interface SalesOrderDispatchAvailabilityDto {
@@ -189,4 +191,5 @@ export interface DispatchOrderRequest {
   deliveryAddress?: string;
   vehicleNumber?: string;
   notes?: string;
+  items?: CreateSalesShipmentItemRequest[];
 }

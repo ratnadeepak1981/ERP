@@ -143,8 +143,8 @@ export class TenantProvisioningComponent implements OnInit {
 
   // Single-Tenant Provisioning Dialog Form State
   showProvisionDialog = false;
-  adminUserName = 'admin';
-  adminEmail = 'admin@tenant.local';
+  adminUserName = '';
+  adminEmail = '';
   adminPassword = '';
   validationError = '';
 
@@ -314,13 +314,25 @@ export class TenantProvisioningComponent implements OnInit {
   openProvisionDialog(tenantId?: string): void {
     if (tenantId) {
       this.selectedTenantId.set(tenantId);
-      // Pre-fill email domain if known from queue
-      const item = this.queueItems().find(i => i.id === tenantId);
-      if (item) {
-        this.adminEmail = `admin@${item.code.toLowerCase().replace(/[^a-z0-9]/g, '')}.local`;
+    }
+    const targetId = this.selectedTenantId().trim();
+    this.adminPassword = '';
+    this.validationError = '';
+
+    const item = this.queueItems().find(i => i.id === targetId);
+    if (item) {
+      this.adminUserName = (item.adminUsername || '').trim();
+      this.adminEmail = (item.adminEmail || '').trim();
+      if (!this.adminUserName || !this.adminEmail) {
+        this.validationError = 'Onboarding administrator username and email were not found for this tenant. Cannot proceed with provisioning.';
+      }
+    } else {
+      this.adminUserName = '';
+      this.adminEmail = '';
+      if (targetId) {
+        this.validationError = 'Selected tenant was not found in the provisioning queue.';
       }
     }
-    this.validationError = '';
     this.showProvisionDialog = true;
   }
 
@@ -342,24 +354,13 @@ export class TenantProvisioningComponent implements OnInit {
       return;
     }
 
-    if (!this.adminUserName.trim()) {
-      this.validationError = 'Admin username is required.';
+    if (!this.adminUserName.trim() || !this.adminEmail.trim()) {
+      this.validationError = 'Onboarding administrator username and email were not found. Cannot proceed with provisioning.';
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!this.adminEmail.trim()) {
-      this.validationError = 'Admin email address is required.';
-      return;
-    }
-
-    if (!emailRegex.test(this.adminEmail.trim())) {
-      this.validationError = 'Please provide a valid administrator email address.';
-      return;
-    }
-
-    if (!this.adminPassword || this.adminPassword.trim().length < 3) {
-      this.validationError = 'Admin password must be at least 3 characters.';
+    if (!this.adminPassword || this.adminPassword.trim().length === 0) {
+      this.validationError = 'Please enter the initial tenant admin password (e.g. 123).';
       return;
     }
 
@@ -446,8 +447,8 @@ export class TenantProvisioningComponent implements OnInit {
         tenantId: q.id,
         name: q.name,
         code: q.code,
-        adminUserName: 'admin',
-        adminEmail: `admin@${q.code.toLowerCase().replace(/[^a-z0-9]/g, '')}.local`,
+        adminUserName: (q.adminUsername || '').trim(),
+        adminEmail: (q.adminEmail || '').trim(),
         adminPassword: '',
         status: 'Pending'
       }));
@@ -477,18 +478,17 @@ export class TenantProvisioningComponent implements OnInit {
     this.bulkValidationError = '';
 
     // Validate distinct credentials for each tenant
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     for (const item of items) {
       if (!item.adminUserName.trim()) {
-        this.bulkValidationError = `Username is required for ${item.name}.`;
+        this.bulkValidationError = `Onboarding username was not found for ${item.name}. Cannot proceed.`;
         return;
       }
-      if (!emailRegex.test(item.adminEmail.trim())) {
-        this.bulkValidationError = `Valid email is required for ${item.name}.`;
+      if (!item.adminEmail.trim()) {
+        this.bulkValidationError = `Onboarding email was not found for ${item.name}. Cannot proceed.`;
         return;
       }
-      if (!item.adminPassword || item.adminPassword.trim().length < 3) {
-        this.bulkValidationError = `Password (minimum 3 characters) is required for ${item.name}.`;
+      if (!item.adminPassword || item.adminPassword.trim().length === 0) {
+        this.bulkValidationError = `Initial password (e.g. 123) is required for ${item.name}.`;
         return;
       }
     }

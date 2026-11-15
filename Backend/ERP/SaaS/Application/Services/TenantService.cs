@@ -78,6 +78,41 @@ public class TenantService : ITenantService
                 nameof(request.SubscriptionPlanId));
         }
 
+        if (string.IsNullOrWhiteSpace(request.AdminUsername))
+        {
+            throw new ArgumentException(
+                "Tenant Admin username is required.",
+                nameof(request.AdminUsername));
+        }
+
+        if (request.AdminUsername.Trim().Length < 3 || request.AdminUsername.Trim().Length > 50)
+        {
+            throw new ArgumentException(
+                "Tenant Admin username must be between 3 and 50 characters.",
+                nameof(request.AdminUsername));
+        }
+
+        if (!Regex.IsMatch(request.AdminUsername.Trim(), @"^[a-zA-Z0-9_.-]+$"))
+        {
+            throw new ArgumentException(
+                "Tenant Admin username may only contain letters, numbers, underscores, periods, and hyphens.",
+                nameof(request.AdminUsername));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AdminEmail))
+        {
+            throw new ArgumentException(
+                "Tenant Admin email is required.",
+                nameof(request.AdminEmail));
+        }
+
+        if (!Regex.IsMatch(request.AdminEmail.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+        {
+            throw new ArgumentException(
+                "Tenant Admin email is not a valid email address.",
+                nameof(request.AdminEmail));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.CompanyStructure) &&
             !string.Equals(request.CompanyStructure, "Single", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(request.CompanyStructure, "Multi", StringComparison.OrdinalIgnoreCase))
@@ -128,7 +163,9 @@ public class TenantService : ITenantService
             Name = request.Name.Trim(),
             Code = tenantCode,
             IsActive = true,
-            Subdomain = targetSubdomain
+            Subdomain = targetSubdomain,
+            AdminUsername = request.AdminUsername.Trim(),
+            AdminEmail = request.AdminEmail.Trim().ToLowerInvariant()
         };
 
         var transaction =

@@ -147,6 +147,11 @@ public static class TenantAdminRolePermissionSeed
             "BATCH.CREATE",
             "BATCH.EDIT",
 
+            "INVENTORY.VIEW",
+            "STOCK_RECEIPT.POST",
+            "STOCK_ISSUE.POST",
+            "PUTAWAY.POST",
+
             "STOCK_COUNT.VIEW",
             "STOCK_COUNT.CREATE",
             "STOCK_COUNT.EDIT",

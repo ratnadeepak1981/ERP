@@ -18,6 +18,10 @@ namespace SaaS.Core.Models
 
         public string? Subdomain { get; set; }
 
+        public string? AdminUsername { get; set; }
+
+        public string? AdminEmail { get; set; }
+
         public ICollection<TenantDomain> Domains { get; set; } = new List<TenantDomain>();
 
     }

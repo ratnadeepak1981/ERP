@@ -8,6 +8,7 @@ import {
   InventoryRecentTransactionDto,
   StockIssueDto,
   AvailableStockDto,
+  EligibleBatchDto,
   CreateStockIssueRequest,
   StockReceiptDto,
   CreateStockReceiptRequest,
@@ -151,6 +152,30 @@ export class InventoryService {
       map(res => {
         if (!res?.data) return [];
         return Array.isArray(res.data) ? res.data : [res.data];
+      })
+    );
+  }
+
+  /**
+   * Retrieves active, non-expired eligible batches ordered by FEFO for stock issue
+   */
+  getEligibleBatches(
+    productId: string,
+    warehouseId?: string,
+    locationId?: string,
+    asOfDate?: string
+  ): Observable<EligibleBatchDto[]> {
+    const url = buildApiUrl('/inventory/batches/eligible');
+    let params = new HttpParams().set('productId', productId);
+
+    if (warehouseId) params = params.set('warehouseId', warehouseId);
+    if (locationId) params = params.set('locationId', locationId);
+    if (asOfDate) params = params.set('asOfDate', asOfDate);
+
+    return this.http.get<ApiResponse<EligibleBatchDto[]>>(url, { params }).pipe(
+      map(res => {
+        if (!res?.data) return [];
+        return Array.isArray(res.data) ? res.data : [];
       })
     );
   }

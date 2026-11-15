@@ -46,6 +46,10 @@ public class TenantDetailsDto
 
     public string? Subdomain { get; set; }
 
+    public string? AdminUsername { get; set; }
+
+    public string? AdminEmail { get; set; }
+
     public string? IndustryType { get; set; }
 
     public string? CompanyStructure { get; set; }

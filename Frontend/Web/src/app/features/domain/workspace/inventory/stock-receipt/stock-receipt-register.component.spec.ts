@@ -191,4 +191,47 @@ describe('StockReceiptRegisterComponent', () => {
       expect(isVisible).toBe(false);
     });
   });
+
+  describe('Stock Receipt Permission & Visibility Tests (Flow A)', () => {
+    it('should allow create receipt when user has STOCK_RECEIPT.POST even without PRODUCT.EDIT (Inventory Manager/Officer)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'STOCK_RECEIPT.POST');
+
+      expect(component.canCreateReceipt()).toBe(true);
+    });
+
+    it('should disallow create receipt when user has PRODUCT.EDIT but lacks STOCK_RECEIPT.POST', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'PRODUCT.EDIT');
+
+      expect(component.canCreateReceipt()).toBe(false);
+    });
+
+    it('should disallow create receipt when user has only INVENTORY.VIEW (Auditor / Warehouse Config Officer)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'INVENTORY.VIEW');
+
+      expect(component.canCreateReceipt()).toBe(false);
+    });
+
+    it('should set access denied on init when user lacks INVENTORY.VIEW', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+
+      const deniedFixture = TestBed.createComponent(StockReceiptRegisterComponent);
+      const deniedComp = deniedFixture.componentInstance;
+      deniedFixture.detectChanges();
+
+      expect(deniedComp.isAccessDenied()).toBe(true);
+      expect(deniedComp.canViewReceipts()).toBe(false);
+    });
+  });
 });
