@@ -46,9 +46,18 @@ export class MasterDataOverviewComponent {
   readonly setupResult = signal<TenantMasterDataSetupResult | null>(null);
   selectedProfileCode = 'retail';
 
-  readonly availableProfiles = [
+/*  readonly availableProfiles = [
     { code: 'retail', name: 'Retail (Gate 6 Baseline) — Default' }
   ];
+*/
+  
+readonly availableProfiles = [
+  { code: 'retail', name: 'Retail (Gate 6 Baseline) — Default' },
+  { code: 'manufacturing', name: 'Manufacturing & Assembly' },
+  { code: 'wholesale', name: 'Wholesale & Distribution' },
+  { code: 'pharmacy', name: 'Pharmacy & Medical Supplies' },
+  { code: 'service', name: 'Service & Maintenance' }
+];
 
   readonly breadcrumbs = [
     { label: 'Workspace', routerLink: '/app/dashboard' },

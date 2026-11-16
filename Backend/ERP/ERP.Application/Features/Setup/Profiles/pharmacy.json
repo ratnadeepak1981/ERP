@@ -1,0 +1,759 @@
+{
+  "profileCode": "pharmacy",
+  "profileName": "Pharmacy & Medical Supplies",
+  "currencies": [
+    {
+      "code": "LKR",
+      "name": "Sri Lankan Rupee",
+      "symbol": "Rs",
+      "decimalPlaces": 2,
+      "isBase": true
+    },
+    {
+      "code": "USD",
+      "name": "US Dollar",
+      "symbol": "$",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "GBP",
+      "name": "British Pound",
+      "symbol": "£",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "INR",
+      "name": "Indian Rupee",
+      "symbol": "₹",
+      "decimalPlaces": 2,
+      "isBase": false
+    }
+  ],
+  "exchangeRates": [
+    {
+      "fromCurrency": "USD",
+      "toCurrency": "LKR",
+      "rate": 305.00
+    },
+    {
+      "fromCurrency": "EUR",
+      "toCurrency": "LKR",
+      "rate": 330.00
+    },
+    {
+      "fromCurrency": "GBP",
+      "toCurrency": "LKR",
+      "rate": 385.00
+    },
+    {
+      "fromCurrency": "INR",
+      "toCurrency": "LKR",
+      "rate": 3.65
+    }
+  ],
+  "paymentTerms": [
+    {
+      "code": "NET30",
+      "name": "Net 30 Days",
+      "days": 30,
+      "description": "Standard pharmacy supplier credit"
+    },
+    {
+      "code": "IMMEDIATE",
+      "name": "Immediate Payment",
+      "days": 0,
+      "description": "Immediate payment"
+    },
+    {
+      "code": "NET15",
+      "name": "Net 15 Days",
+      "days": 15,
+      "description": "Short-term supplier settlement"
+    },
+    {
+      "code": "NET60",
+      "name": "Net 60 Days",
+      "days": 60,
+      "description": "Extended supplier credit"
+    }
+  ],
+  "taxCodes": [
+    {
+      "code": "TAX-EXEMPT",
+      "name": "Exempt",
+      "rate": 0.00,
+      "description": "Illustrative exempt medical goods"
+    },
+    {
+      "code": "VAT-18",
+      "name": "Value Added Tax 18%",
+      "rate": 18.00,
+      "description": "Illustrative standard VAT configuration; verify applicability"
+    },
+    {
+      "code": "VAT-8",
+      "name": "Value Added Tax 8%",
+      "rate": 8.00,
+      "description": "Illustrative concessionary rate; verify applicability"
+    }
+  ],
+  "categories": [
+    {
+      "code": "OTC-MEDICINES",
+      "name": "Over-the-Counter Medicines",
+      "description": "Non-prescription pharmacy products"
+    },
+    {
+      "code": "PRESCRIPTION",
+      "name": "Prescription Medicines",
+      "description": "Prescription-controlled pharmacy inventory"
+    },
+    {
+      "code": "MEDICAL-SUPPLIES",
+      "name": "Medical Supplies",
+      "description": "General medical consumables"
+    },
+    {
+      "code": "FIRST-AID",
+      "name": "First Aid Products",
+      "description": "First aid and wound care supplies"
+    },
+    {
+      "code": "PERSONAL-CARE",
+      "name": "Personal Care",
+      "description": "Hygiene and personal care products"
+    }
+  ],
+  "brands": [
+    {
+      "code": "BRAND-HEALTH",
+      "name": "HealthPlus",
+      "description": "Illustrative healthcare product brand"
+    },
+    {
+      "code": "BRAND-MEDIC",
+      "name": "MediCare",
+      "description": "Illustrative medical supply brand"
+    },
+    {
+      "code": "BRAND-CARE",
+      "name": "DailyCare",
+      "description": "Illustrative personal care brand"
+    },
+    {
+      "code": "BRAND-FIRSTAID",
+      "name": "FirstAidPro",
+      "description": "Illustrative first aid brand"
+    },
+    {
+      "code": "BRAND-CLINIC",
+      "name": "ClinicChoice",
+      "description": "Illustrative clinic supply brand"
+    }
+  ],
+  "unitsOfMeasure": [
+    {
+      "code": "PCS",
+      "name": "Pieces",
+      "description": "Individual units"
+    },
+    {
+      "code": "EA",
+      "name": "Each",
+      "description": "Single item"
+    },
+    {
+      "code": "BOX",
+      "name": "Box",
+      "description": "Box of products"
+    },
+    {
+      "code": "PKT",
+      "name": "Packet",
+      "description": "Small packet"
+    },
+    {
+      "code": "BTL",
+      "name": "Bottle",
+      "description": "Bottled product"
+    },
+    {
+      "code": "STRIP",
+      "name": "Strip",
+      "description": "Medicine strip"
+    },
+    {
+      "code": "TUBE",
+      "name": "Tube",
+      "description": "Tube packaging"
+    },
+    {
+      "code": "ML",
+      "name": "Milliliter",
+      "description": "Volume unit"
+    },
+    {
+      "code": "LTR",
+      "name": "Liter",
+      "description": "Volume unit"
+    },
+    {
+      "code": "G",
+      "name": "Gram",
+      "description": "Weight unit"
+    },
+    {
+      "code": "KG",
+      "name": "Kilogram",
+      "description": "Weight unit"
+    },
+    {
+      "code": "CTN",
+      "name": "Carton",
+      "description": "Bulk carton"
+    }
+  ],
+  "conversions": [
+    {
+      "fromUom": "BOX",
+      "toUom": "STRIP",
+      "conversionFactor": 10.0
+    },
+    {
+      "fromUom": "CTN",
+      "toUom": "BOX",
+      "conversionFactor": 24.0
+    },
+    {
+      "fromUom": "LTR",
+      "toUom": "ML",
+      "conversionFactor": 1000.0
+    },
+    {
+      "fromUom": "KG",
+      "toUom": "G",
+      "conversionFactor": 1000.0
+    }
+  ],
+  "products": [
+    {
+      "code": "PHA-001",
+      "name": "Paracetamol 500mg Tablets",
+      "categoryCode": "OTC-MEDICINES",
+      "brandCode": "BRAND-HEALTH",
+      "baseUom": "STRIP",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 85.00,
+      "sellingPrice": 110.00,
+      "taxCode": "TAX-EXEMPT",
+      "packagings": [
+        {
+          "packagingCode": "PHA-001-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 10.0,
+          "barcode": "44792001001010"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0001",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-002",
+      "name": "Vitamin C 500mg Tablets",
+      "categoryCode": "OTC-MEDICINES",
+      "brandCode": "BRAND-HEALTH",
+      "baseUom": "STRIP",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 120.00,
+      "sellingPrice": 160.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-002-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 10.0,
+          "barcode": "44792001002017"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0002",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-003",
+      "name": "Cough Syrup 100ml",
+      "categoryCode": "OTC-MEDICINES",
+      "brandCode": "BRAND-MEDIC",
+      "baseUom": "BTL",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 380.00,
+      "sellingPrice": 480.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-003-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 24.0,
+          "barcode": "44792001003014"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0003",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-004",
+      "name": "Antiseptic Solution 100ml",
+      "categoryCode": "FIRST-AID",
+      "brandCode": "BRAND-FIRSTAID",
+      "baseUom": "BTL",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 420.00,
+      "sellingPrice": 550.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-004-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 12.0,
+          "barcode": "44792001004011"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0004",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-005",
+      "name": "Amoxicillin 500mg Capsules",
+      "categoryCode": "PRESCRIPTION",
+      "brandCode": "BRAND-CLINIC",
+      "baseUom": "STRIP",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 180.00,
+      "sellingPrice": 240.00,
+      "taxCode": "TAX-EXEMPT",
+      "packagings": [
+        {
+          "packagingCode": "PHA-005-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 10.0,
+          "barcode": "44792001005018"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0005",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-006",
+      "name": "Disposable Examination Gloves",
+      "categoryCode": "MEDICAL-SUPPLIES",
+      "brandCode": "BRAND-MEDIC",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 18.00,
+      "sellingPrice": 25.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-006-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 100.0,
+          "barcode": "44792001006015"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0006",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-007",
+      "name": "Surgical Face Masks",
+      "categoryCode": "MEDICAL-SUPPLIES",
+      "brandCode": "BRAND-CLINIC",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 12.00,
+      "sellingPrice": 18.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-007-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 50.0,
+          "barcode": "44792001007012"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0007",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-008",
+      "name": "Cotton Wool 100g",
+      "categoryCode": "FIRST-AID",
+      "brandCode": "BRAND-FIRSTAID",
+      "baseUom": "PKT",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 140.00,
+      "sellingPrice": 190.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-008-CTN",
+          "packagingUom": "CTN",
+          "multiplier": 24.0,
+          "barcode": "44792001008019"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0008",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-009",
+      "name": "Medical Adhesive Tape",
+      "categoryCode": "FIRST-AID",
+      "brandCode": "BRAND-FIRSTAID",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 95.00,
+      "sellingPrice": 135.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-009-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 12.0,
+          "barcode": "44792001009016"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0009",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "PHA-010",
+      "name": "Hand Sanitizer 500ml",
+      "categoryCode": "PERSONAL-CARE",
+      "brandCode": "BRAND-CARE",
+      "baseUom": "BTL",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 350.00,
+      "sellingPrice": 450.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "PHA-010-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 12.0,
+          "barcode": "44792001010013"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "PHA-BAR-0010",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    }
+  ],
+  "suppliers": [
+    {
+      "code": "SUP-PHA-001",
+      "name": "Lanka Medical Distributors (Pvt) Ltd",
+      "email": "purchasing@example.local",
+      "phone": "+94 11 420 0000",
+      "addressLine1": "No. 120, Medical Supplies Road",
+      "city": "Colombo",
+      "postalCode": "01000",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Medical Supplier Contact"
+    }
+  ],
+  "customers": [
+    {
+      "code": "CUST-PHA-001",
+      "name": "Northern Community Pharmacy",
+      "email": "accounts@example.local",
+      "phone": "+94 21 220 1000",
+      "addressLine1": "No. 25, Hospital Road",
+      "city": "Jaffna",
+      "postalCode": "40000",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Pharmacy Manager"
+    }
+  ],
+  "priceCards": [
+    {
+      "code": "PPC-PHA-001",
+      "name": "Pharmacy Purchase Prices",
+      "priceCardType": "Purchase",
+      "currency": "LKR",
+      "description": "Illustrative pharmacy supplier purchase prices",
+      "lines": [
+        {
+          "productCode": "PHA-001",
+          "uomCode": "STRIP",
+          "unitPrice": 85.00
+        },
+        {
+          "productCode": "PHA-002",
+          "uomCode": "STRIP",
+          "unitPrice": 120.00
+        },
+        {
+          "productCode": "PHA-003",
+          "uomCode": "BTL",
+          "unitPrice": 380.00
+        },
+        {
+          "productCode": "PHA-004",
+          "uomCode": "BTL",
+          "unitPrice": 420.00
+        },
+        {
+          "productCode": "PHA-005",
+          "uomCode": "STRIP",
+          "unitPrice": 180.00
+        },
+        {
+          "productCode": "PHA-006",
+          "uomCode": "PCS",
+          "unitPrice": 18.00
+        },
+        {
+          "productCode": "PHA-007",
+          "uomCode": "PCS",
+          "unitPrice": 12.00
+        },
+        {
+          "productCode": "PHA-008",
+          "uomCode": "PKT",
+          "unitPrice": 140.00
+        },
+        {
+          "productCode": "PHA-009",
+          "uomCode": "PCS",
+          "unitPrice": 95.00
+        },
+        {
+          "productCode": "PHA-010",
+          "uomCode": "BTL",
+          "unitPrice": 350.00
+        }
+      ]
+    },
+    {
+      "code": "SPC-PHA-STD",
+      "name": "Pharmacy Sales Prices",
+      "priceCardType": "Sales",
+      "currency": "LKR",
+      "description": "Illustrative pharmacy selling prices",
+      "lines": [
+        {
+          "productCode": "PHA-001",
+          "uomCode": "STRIP",
+          "unitPrice": 110.00
+        },
+        {
+          "productCode": "PHA-002",
+          "uomCode": "STRIP",
+          "unitPrice": 160.00
+        },
+        {
+          "productCode": "PHA-003",
+          "uomCode": "BTL",
+          "unitPrice": 480.00
+        },
+        {
+          "productCode": "PHA-004",
+          "uomCode": "BTL",
+          "unitPrice": 550.00
+        },
+        {
+          "productCode": "PHA-005",
+          "uomCode": "STRIP",
+          "unitPrice": 240.00
+        },
+        {
+          "productCode": "PHA-006",
+          "uomCode": "PCS",
+          "unitPrice": 25.00
+        },
+        {
+          "productCode": "PHA-007",
+          "uomCode": "PCS",
+          "unitPrice": 18.00
+        },
+        {
+          "productCode": "PHA-008",
+          "uomCode": "PKT",
+          "unitPrice": 190.00
+        },
+        {
+          "productCode": "PHA-009",
+          "uomCode": "PCS",
+          "unitPrice": 135.00
+        },
+        {
+          "productCode": "PHA-010",
+          "uomCode": "BTL",
+          "unitPrice": 450.00
+        }
+      ]
+    }
+  ],
+  "warehouses": [
+    {
+      "code": "PHA-WH1",
+      "name": "Main Pharmacy Warehouse",
+      "isPrimary": true,
+      "addressLine1": "No. 120, Medical Supplies Road",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "PHA-ZONE-REC",
+          "name": "Receiving Zone",
+          "description": "Inbound medicine and medical supply inspection",
+          "locations": [
+            {
+              "code": "PHA-LOC-REC-01",
+              "name": "Receiving Bay 01",
+              "locationTypeCode": "STAGING"
+            }
+          ]
+        },
+        {
+          "code": "PHA-ZONE-MED",
+          "name": "Medicine Storage",
+          "description": "Batch-controlled medicine storage",
+          "locations": [
+            {
+              "code": "PHA-LOC-MED-01",
+              "name": "Medicine Rack 01",
+              "locationTypeCode": "RACK"
+            }
+          ]
+        },
+        {
+          "code": "PHA-ZONE-SUP",
+          "name": "Medical Supplies",
+          "description": "Medical consumables and first aid products",
+          "locations": [
+            {
+              "code": "PHA-LOC-SUP-01",
+              "name": "Medical Supplies Shelf 01",
+              "locationTypeCode": "SHELF"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "PHA-WH2",
+      "name": "Secondary Pharmacy Store",
+      "isPrimary": false,
+      "addressLine1": "No. 25, Hospital Road",
+      "city": "Jaffna",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "PHA-ZONE-SEC",
+          "name": "Secondary Storage",
+          "description": "Reserve pharmacy stock",
+          "locations": [
+            {
+              "code": "PHA-LOC-SEC-01",
+              "name": "Reserve Shelf 01",
+              "locationTypeCode": "SHELF"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

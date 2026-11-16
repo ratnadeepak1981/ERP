@@ -1,0 +1,764 @@
+{
+  "profileCode": "wholesale",
+  "profileName": "Wholesale & Distribution",
+  "currencies": [
+    {
+      "code": "LKR",
+      "name": "Sri Lankan Rupee",
+      "symbol": "Rs",
+      "decimalPlaces": 2,
+      "isBase": true
+    },
+    {
+      "code": "USD",
+      "name": "US Dollar",
+      "symbol": "$",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "GBP",
+      "name": "British Pound",
+      "symbol": "£",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "INR",
+      "name": "Indian Rupee",
+      "symbol": "₹",
+      "decimalPlaces": 2,
+      "isBase": false
+    }
+  ],
+  "exchangeRates": [
+    {
+      "fromCurrency": "USD",
+      "toCurrency": "LKR",
+      "rate": 305.00
+    },
+    {
+      "fromCurrency": "EUR",
+      "toCurrency": "LKR",
+      "rate": 330.00
+    },
+    {
+      "fromCurrency": "GBP",
+      "toCurrency": "LKR",
+      "rate": 385.00
+    },
+    {
+      "fromCurrency": "INR",
+      "toCurrency": "LKR",
+      "rate": 3.65
+    }
+  ],
+  "paymentTerms": [
+    {
+      "code": "NET30",
+      "name": "Net 30 Days",
+      "days": 30,
+      "description": "Standard wholesale credit terms"
+    },
+    {
+      "code": "IMMEDIATE",
+      "name": "Immediate Payment",
+      "days": 0,
+      "description": "Immediate cash or bank settlement"
+    },
+    {
+      "code": "NET15",
+      "name": "Net 15 Days",
+      "days": 15,
+      "description": "Short-term distributor settlement"
+    },
+    {
+      "code": "NET60",
+      "name": "Net 60 Days",
+      "days": 60,
+      "description": "Extended wholesale credit terms"
+    }
+  ],
+  "taxCodes": [
+    {
+      "code": "TAX-EXEMPT",
+      "name": "Zero-Rated / Exempt",
+      "rate": 0.00,
+      "description": "Illustrative exempt goods"
+    },
+    {
+      "code": "VAT-18",
+      "name": "Value Added Tax 18%",
+      "rate": 18.00,
+      "description": "Standard VAT rate configured for this sample template"
+    },
+    {
+      "code": "VAT-8",
+      "name": "Value Added Tax 8%",
+      "rate": 8.00,
+      "description": "Illustrative concessionary rate; verify applicability"
+    }
+  ],
+  "categories": [
+    {
+      "code": "FOOD-BULK",
+      "name": "Bulk Food Products",
+      "description": "Bulk packaged food and grocery products"
+    },
+    {
+      "code": "BEVERAGES",
+      "name": "Beverages",
+      "description": "Bottled and packaged beverages"
+    },
+    {
+      "code": "HOUSEHOLD",
+      "name": "Household Supplies",
+      "description": "Wholesale household and cleaning products"
+    },
+    {
+      "code": "PERSONAL-CARE",
+      "name": "Personal Care",
+      "description": "Personal hygiene and care products"
+    },
+    {
+      "code": "OFFICE-SUPPLIES",
+      "name": "Office Supplies",
+      "description": "General office and business supplies"
+    }
+  ],
+  "brands": [
+    {
+      "code": "BRAND-CEYLON",
+      "name": "Ceylon Choice",
+      "description": "Illustrative wholesale grocery brand"
+    },
+    {
+      "code": "BRAND-GOLD",
+      "name": "Golden Harvest",
+      "description": "Illustrative food and beverage brand"
+    },
+    {
+      "code": "BRAND-CLEAN",
+      "name": "CleanPro",
+      "description": "Illustrative household cleaning brand"
+    },
+    {
+      "code": "BRAND-CARE",
+      "name": "DailyCare",
+      "description": "Illustrative personal care brand"
+    },
+    {
+      "code": "BRAND-OFFICE",
+      "name": "OfficeLine",
+      "description": "Illustrative office supplies brand"
+    }
+  ],
+  "unitsOfMeasure": [
+    {
+      "code": "PCS",
+      "name": "Pieces",
+      "description": "Individual units"
+    },
+    {
+      "code": "EA",
+      "name": "Each",
+      "description": "Single item"
+    },
+    {
+      "code": "BOX",
+      "name": "Box",
+      "description": "Wholesale box"
+    },
+    {
+      "code": "CTN",
+      "name": "Carton",
+      "description": "Bulk shipping carton"
+    },
+    {
+      "code": "BAG",
+      "name": "Bag",
+      "description": "Bulk bag"
+    },
+    {
+      "code": "PKT",
+      "name": "Packet",
+      "description": "Retail packet"
+    },
+    {
+      "code": "BTL",
+      "name": "Bottle",
+      "description": "Bottled product"
+    },
+    {
+      "code": "LTR",
+      "name": "Liter",
+      "description": "Volume unit"
+    },
+    {
+      "code": "KG",
+      "name": "Kilogram",
+      "description": "Weight unit"
+    },
+    {
+      "code": "G",
+      "name": "Gram",
+      "description": "Small weight unit"
+    },
+    {
+      "code": "BDL",
+      "name": "Bundle",
+      "description": "Bundled products"
+    },
+    {
+      "code": "PAL",
+      "name": "Pallet",
+      "description": "Palletized bulk goods"
+    }
+  ],
+  "conversions": [
+    {
+      "fromUom": "CTN",
+      "toUom": "PCS",
+      "conversionFactor": 24.0
+    },
+    {
+      "fromUom": "BOX",
+      "toUom": "PKT",
+      "conversionFactor": 12.0
+    },
+    {
+      "fromUom": "KG",
+      "toUom": "G",
+      "conversionFactor": 1000.0
+    },
+    {
+      "fromUom": "PAL",
+      "toUom": "CTN",
+      "conversionFactor": 40.0
+    },
+    {
+      "fromUom": "BDL",
+      "toUom": "PCS",
+      "conversionFactor": 10.0
+    }
+  ],
+  "products": [
+    {
+      "code": "WHO-001",
+      "name": "Basmati Rice 25kg",
+      "categoryCode": "FOOD-BULK",
+      "brandCode": "BRAND-GOLD",
+      "baseUom": "BAG",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 7800.00,
+      "sellingPrice": 9200.00,
+      "taxCode": "TAX-EXEMPT",
+      "packagings": [
+        {
+          "packagingCode": "WHO-001-PAL",
+          "packagingUom": "PAL",
+          "multiplier": 40.0,
+          "barcode": "34792001001011"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0001",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-002",
+      "name": "Vegetable Cooking Oil 5L",
+      "categoryCode": "FOOD-BULK",
+      "brandCode": "BRAND-CEYLON",
+      "baseUom": "BTL",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 3200.00,
+      "sellingPrice": 3850.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-002-CTN",
+          "packagingUom": "CTN",
+          "multiplier": 4.0,
+          "barcode": "34792001002018"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0002",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-003",
+      "name": "Refined Sugar 10kg",
+      "categoryCode": "FOOD-BULK",
+      "brandCode": "BRAND-CEYLON",
+      "baseUom": "BAG",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 2800.00,
+      "sellingPrice": 3350.00,
+      "taxCode": "TAX-EXEMPT",
+      "packagings": [
+        {
+          "packagingCode": "WHO-003-PAL",
+          "packagingUom": "PAL",
+          "multiplier": 30.0,
+          "barcode": "34792001003015"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0003",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-004",
+      "name": "Bottled Drinking Water 1.5L",
+      "categoryCode": "BEVERAGES",
+      "brandCode": "BRAND-GOLD",
+      "baseUom": "BTL",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 110.00,
+      "sellingPrice": 150.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-004-CTN",
+          "packagingUom": "CTN",
+          "multiplier": 12.0,
+          "barcode": "34792001004012"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0004",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-005",
+      "name": "Powdered Milk 1kg",
+      "categoryCode": "FOOD-BULK",
+      "brandCode": "BRAND-GOLD",
+      "baseUom": "PKT",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 2200.00,
+      "sellingPrice": 2600.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-005-CTN",
+          "packagingUom": "CTN",
+          "multiplier": 10.0,
+          "barcode": "34792001005019"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0005",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-006",
+      "name": "Laundry Detergent 5kg",
+      "categoryCode": "HOUSEHOLD",
+      "brandCode": "BRAND-CLEAN",
+      "baseUom": "BAG",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 1800.00,
+      "sellingPrice": 2250.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-006-CTN",
+          "packagingUom": "CTN",
+          "multiplier": 4.0,
+          "barcode": "34792001006016"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0006",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-007",
+      "name": "Liquid Hand Wash 500ml",
+      "categoryCode": "PERSONAL-CARE",
+      "brandCode": "BRAND-CARE",
+      "baseUom": "BTL",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 280.00,
+      "sellingPrice": 380.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-007-CTN",
+          "packagingUom": "CTN",
+          "multiplier": 24.0,
+          "barcode": "34792001007013"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0007",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-008",
+      "name": "A4 Copier Paper Ream",
+      "categoryCode": "OFFICE-SUPPLIES",
+      "brandCode": "BRAND-OFFICE",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 950.00,
+      "sellingPrice": 1200.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-008-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 5.0,
+          "barcode": "34792001008010"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0008",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-009",
+      "name": "Multipurpose Cleaning Liquid 1L",
+      "categoryCode": "HOUSEHOLD",
+      "brandCode": "BRAND-CLEAN",
+      "baseUom": "LTR",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 420.00,
+      "sellingPrice": 550.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-009-CTN",
+          "packagingUom": "CTN",
+          "multiplier": 12.0,
+          "barcode": "34792001009017"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0009",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "WHO-010",
+      "name": "Plastic Storage Crate",
+      "categoryCode": "HOUSEHOLD",
+      "brandCode": "BRAND-CEYLON",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 1250.00,
+      "sellingPrice": 1600.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "WHO-010-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 4.0,
+          "barcode": "34792001010014"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "WHO-BAR-0010",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    }
+  ],
+  "suppliers": [
+    {
+      "code": "SUP-WHO-001",
+      "name": "Ceylon Wholesale Distributors (Pvt) Ltd",
+      "email": "purchasing@example.local",
+      "phone": "+94 11 410 0000",
+      "addressLine1": "No. 80, Warehouse Road",
+      "city": "Colombo",
+      "postalCode": "01000",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Wholesale Supplier Contact"
+    }
+  ],
+  "customers": [
+    {
+      "code": "CUST-WHO-001",
+      "name": "Northern Retail Stores (Pvt) Ltd",
+      "email": "accounts@example.local",
+      "phone": "+94 21 220 0000",
+      "addressLine1": "No. 15, Market Road",
+      "city": "Jaffna",
+      "postalCode": "40000",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Wholesale Customer Contact"
+    }
+  ],
+  "priceCards": [
+    {
+      "code": "PPC-WHO-001",
+      "name": "Wholesale Supplier Purchase Prices",
+      "priceCardType": "Purchase",
+      "currency": "LKR",
+      "description": "Illustrative bulk purchase prices",
+      "lines": [
+        {
+          "productCode": "WHO-001",
+          "uomCode": "BAG",
+          "unitPrice": 7800.00
+        },
+        {
+          "productCode": "WHO-002",
+          "uomCode": "BTL",
+          "unitPrice": 3200.00
+        },
+        {
+          "productCode": "WHO-003",
+          "uomCode": "BAG",
+          "unitPrice": 2800.00
+        },
+        {
+          "productCode": "WHO-004",
+          "uomCode": "BTL",
+          "unitPrice": 110.00
+        },
+        {
+          "productCode": "WHO-005",
+          "uomCode": "PKT",
+          "unitPrice": 2200.00
+        },
+        {
+          "productCode": "WHO-006",
+          "uomCode": "BAG",
+          "unitPrice": 1800.00
+        },
+        {
+          "productCode": "WHO-007",
+          "uomCode": "BTL",
+          "unitPrice": 280.00
+        },
+        {
+          "productCode": "WHO-008",
+          "uomCode": "PCS",
+          "unitPrice": 950.00
+        },
+        {
+          "productCode": "WHO-009",
+          "uomCode": "LTR",
+          "unitPrice": 420.00
+        },
+        {
+          "productCode": "WHO-010",
+          "uomCode": "PCS",
+          "unitPrice": 1250.00
+        }
+      ]
+    },
+    {
+      "code": "SPC-WHO-STD",
+      "name": "Wholesale Distributor Sales Prices",
+      "priceCardType": "Sales",
+      "currency": "LKR",
+      "description": "Illustrative wholesale selling prices",
+      "lines": [
+        {
+          "productCode": "WHO-001",
+          "uomCode": "BAG",
+          "unitPrice": 9200.00
+        },
+        {
+          "productCode": "WHO-002",
+          "uomCode": "BTL",
+          "unitPrice": 3850.00
+        },
+        {
+          "productCode": "WHO-003",
+          "uomCode": "BAG",
+          "unitPrice": 3350.00
+        },
+        {
+          "productCode": "WHO-004",
+          "uomCode": "BTL",
+          "unitPrice": 150.00
+        },
+        {
+          "productCode": "WHO-005",
+          "uomCode": "PKT",
+          "unitPrice": 2600.00
+        },
+        {
+          "productCode": "WHO-006",
+          "uomCode": "BAG",
+          "unitPrice": 2250.00
+        },
+        {
+          "productCode": "WHO-007",
+          "uomCode": "BTL",
+          "unitPrice": 380.00
+        },
+        {
+          "productCode": "WHO-008",
+          "uomCode": "PCS",
+          "unitPrice": 1200.00
+        },
+        {
+          "productCode": "WHO-009",
+          "uomCode": "LTR",
+          "unitPrice": 550.00
+        },
+        {
+          "productCode": "WHO-010",
+          "uomCode": "PCS",
+          "unitPrice": 1600.00
+        }
+      ]
+    }
+  ],
+  "warehouses": [
+    {
+      "code": "WHO-WH1",
+      "name": "Main Wholesale Distribution Warehouse",
+      "isPrimary": true,
+      "addressLine1": "No. 80, Warehouse Road",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "WHO-ZONE-REC",
+          "name": "Receiving Zone",
+          "description": "Inbound goods receiving and inspection",
+          "locations": [
+            {
+              "code": "WHO-LOC-REC-01",
+              "name": "Receiving Bay 01",
+              "locationTypeCode": "STAGING"
+            }
+          ]
+        },
+        {
+          "code": "WHO-ZONE-BULK",
+          "name": "Bulk Storage Zone",
+          "description": "Pallet and bulk carton storage",
+          "locations": [
+            {
+              "code": "WHO-LOC-BULK-01",
+              "name": "Bulk Rack 01",
+              "locationTypeCode": "RACK"
+            }
+          ]
+        },
+        {
+          "code": "WHO-ZONE-PICK",
+          "name": "Order Picking Zone",
+          "description": "Picking and dispatch preparation",
+          "locations": [
+            {
+              "code": "WHO-LOC-PICK-01",
+              "name": "Picking Shelf 01",
+              "locationTypeCode": "SHELF"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "WHO-WH2",
+      "name": "Secondary Distribution Warehouse",
+      "isPrimary": false,
+      "addressLine1": "No. 25, Distribution Park",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "WHO-ZONE-SEC",
+          "name": "Secondary Bulk Storage",
+          "description": "Overflow and reserve stock storage",
+          "locations": [
+            {
+              "code": "WHO-LOC-SEC-01",
+              "name": "Reserve Rack 01",
+              "locationTypeCode": "RACK"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
