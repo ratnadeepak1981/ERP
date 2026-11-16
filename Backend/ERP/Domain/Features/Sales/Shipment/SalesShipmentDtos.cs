@@ -241,4 +241,5 @@ public class DispatchOrderRequest
     public string? DeliveryAddress { get; set; }
     public string? VehicleNumber { get; set; }
     public string? Notes { get; set; }
+    public List<CreateSalesShipmentItemRequest>? Items { get; set; }
 }

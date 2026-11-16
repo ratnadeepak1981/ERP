@@ -176,6 +176,16 @@ public class ProductService : IProductService
             }
         }
 
+        if (request.TrackingMode != product.TrackingMode)
+        {
+            decimal totalOnHand = await _repository.GetTotalOnHandQuantityAsync(tenantId, productId);
+            if (totalOnHand > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot change tracking mode for product '{product.ProductCode}' because active on-hand inventory exists ({totalOnHand} units). Inventory must be fully cleared or adjusted out before modifying tracking mode.");
+            }
+        }
+
         product.Update(
             name,
             request.CategoryId,

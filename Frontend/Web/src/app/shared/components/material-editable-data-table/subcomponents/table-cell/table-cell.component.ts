@@ -12,6 +12,7 @@ import { MaterialTableColumn } from '../../models/material-data-table.models';
 import { TableEditingService } from '../../core/table-editing.service';
 import { TableValidationService } from '../../core/table-validation.service';
 import { TableTextEditorComponent } from '../table-text-editor/table-text-editor.component';
+import { TableDateEditorComponent } from '../table-date-editor/table-date-editor.component';
 import { TableNumberEditorComponent } from '../table-number-editor/table-number-editor.component';
 import { TableSelectEditorComponent } from '../table-select-editor/table-select-editor.component';
 import { TableLookupEditorComponent } from '../table-lookup-editor/table-lookup-editor.component';
@@ -23,6 +24,7 @@ import { TableRowActionsComponent } from '../table-row-actions/table-row-actions
   imports: [
     CommonModule,
     TableTextEditorComponent,
+    TableDateEditorComponent,
     TableNumberEditorComponent,
     TableSelectEditorComponent,
     TableLookupEditorComponent,
@@ -80,6 +82,15 @@ import { TableRowActionsComponent } from '../table-row-actions/table-row-actions
               (cancel)="onCancel()"
               (tab)="onTab($event)"
             ></app-mat-table-number-editor>
+          }
+          @case ('date') {
+            <app-mat-table-date-editor
+              [value]="value"
+              (valueChange)="onValueChange($event)"
+              (commit)="onCommit()"
+              (cancel)="onCancel()"
+              (tab)="onTab($event)"
+            ></app-mat-table-date-editor>
           }
           @default {
             <app-mat-table-text-editor

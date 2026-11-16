@@ -386,14 +386,19 @@ export class RegisterComponent implements OnInit {
       this.adminEmailError.set(null);
     }
 
-    // 6. Validate Password & Confirmation (if entered)
-    if (this.adminPassword || this.adminConfirmPassword) {
-      if (!this.validatePassword()) {
-        isValid = false;
-      }
-      if (!this.validateConfirmPassword()) {
-        isValid = false;
-      }
+    // 6. Validate Administrator Username (Mandatory)
+    const trimmedUsername = this.adminUsername.trim();
+    if (!trimmedUsername) {
+      this.adminUsernameError.set('Administrator username is required.');
+      isValid = false;
+    } else if (trimmedUsername.length < 3 || trimmedUsername.length > 50) {
+      this.adminUsernameError.set('Username must be between 3 and 50 characters.');
+      isValid = false;
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(trimmedUsername)) {
+      this.adminUsernameError.set('Username may only contain letters, numbers, underscores, periods, and hyphens.');
+      isValid = false;
+    } else {
+      this.adminUsernameError.set(null);
     }
 
     return isValid;
@@ -416,11 +421,12 @@ export class RegisterComponent implements OnInit {
     const payload: CreateTenantRequest = {
       name: this.tenantName.trim(),
       subscriptionPlanId: this.selectedPlanId(),
+      adminUsername: this.adminUsername.trim(),
+      adminEmail: this.adminEmail.trim(),
       industryType: this.industryType,
       companyStructure: this.companyStructure,
       eCommerceEnabled: this.eCommerceEnabled,
       adminFullName: this.adminFullName.trim(),
-      adminEmail: this.adminEmail.trim(),
       adminPhone: this.adminPhone?.trim() || undefined
     };
 

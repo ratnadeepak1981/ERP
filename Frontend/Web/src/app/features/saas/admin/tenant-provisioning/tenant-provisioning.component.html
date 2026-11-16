@@ -464,27 +464,31 @@
       </div>
 
       <div class="form-group">
-        <label for="adminUsernameInput">Tenant Admin Username <span class="required">*</span></label>
+        <label for="adminUsernameInput">Tenant Admin Username <span class="badge-read-only" style="font-size: 11px; color: #64748b; font-weight: normal;">(Onboarding identity - Read Only)</span></label>
         <input
           id="adminUsernameInput"
           type="text"
           pInputText
           class="w-full"
-          [(ngModel)]="adminUserName"
-          placeholder="admin"
+          [value]="adminUserName"
+          [readonly]="true"
+          disabled
         />
+        <small style="font-size: 11px; color: #64748b;">Retrieved from tenant onboarding registration.</small>
       </div>
 
       <div class="form-group">
-        <label for="adminEmailInput">Tenant Admin Email <span class="required">*</span></label>
+        <label for="adminEmailInput">Tenant Admin Email <span class="badge-read-only" style="font-size: 11px; color: #64748b; font-weight: normal;">(Onboarding identity - Read Only)</span></label>
         <input
           id="adminEmailInput"
           type="email"
           pInputText
           class="w-full"
-          [(ngModel)]="adminEmail"
-          placeholder="admin@tenant.local"
+          [value]="adminEmail"
+          [readonly]="true"
+          disabled
         />
+        <small style="font-size: 11px; color: #64748b;">Retrieved from tenant onboarding registration.</small>
       </div>
 
       <div class="form-group">
@@ -496,7 +500,7 @@
           [toggleMask]="true"
           styleClass="w-full"
           inputStyleClass="w-full"
-          placeholder="Enter secure initial password"
+          placeholder="Enter initial password (e.g. 123)"
         ></p-password>
       </div>
     </div>
@@ -514,6 +518,7 @@
           icon="pi pi-check"
           severity="primary"
           [loading]="provisioningInProgress()"
+          [disabled]="!!validationError || !adminUserName || !adminEmail || !adminPassword"
           (onClick)="executeProvisioning()"
         ></p-button>
       </div>
@@ -599,29 +604,31 @@
 
                 <div class="tenant-inputs-grid">
                   <div class="form-group-sm">
-                    <label>Username</label>
+                    <label>Username (Onboarding)</label>
                     <input
                       type="text"
                       pInputText
                       class="p-inputtext-sm w-full"
-                      [(ngModel)]="item.adminUserName"
-                      placeholder="admin"
+                      [value]="item.adminUserName"
+                      [readonly]="true"
+                      disabled
                     />
                   </div>
 
                   <div class="form-group-sm">
-                    <label>Email</label>
+                    <label>Email (Onboarding)</label>
                     <input
                       type="email"
                       pInputText
                       class="p-inputtext-sm w-full"
-                      [(ngModel)]="item.adminEmail"
-                      placeholder="admin@tenant.local"
+                      [value]="item.adminEmail"
+                      [readonly]="true"
+                      disabled
                     />
                   </div>
 
                   <div class="form-group-sm">
-                    <label>Password</label>
+                    <label>Password <span class="required">*</span></label>
                     <p-password
                       [(ngModel)]="item.adminPassword"
                       [feedback]="false"

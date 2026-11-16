@@ -4,6 +4,7 @@ import {
   StockReceiptDto,
   StockReceiptReason
 } from '../../../../../core/models/inventory.models';
+import { BatchSerialAllocation } from '../../../../../core/models/goods-receipt-note.models';
 
 export type StockTransactionType = 'receipt' | 'issue';
 export type StockTransactionMode = 'create' | 'view';
@@ -25,6 +26,8 @@ export interface StockTransactionLineItem {
   manufacturingDate?: string | Date | null;
   expiryDate?: string | Date | null;
   remarks?: string;
+  trackingMode?: number;
+  trackingAllocations?: BatchSerialAllocation[];
 }
 
 export interface ReasonOrPurposeOption {

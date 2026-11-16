@@ -107,32 +107,34 @@ describe('RegisterComponent', () => {
     component.tenantName = 'Acme Corp';
     component.adminFullName = 'John Admin';
     component.adminEmail = 'admin@acme.com';
+    component.adminUsername = 'john_admin';
 
     const isValid = component.validateForm();
     expect(isValid).toBe(false);
     expect(component.planIdError()).toContain('valid subscription plan must be selected');
   });
 
-  it('should validate password complexity and confirmation matching', () => {
-    component.adminPassword = 'weak';
-    expect(component.validatePassword()).toBe(false);
-    expect(component.adminPasswordError()).toContain('at least 8 characters');
+  it('should validate administrator username requirements', () => {
+    component.selectedPlanId.set(validPlanId);
+    component.tenantName = 'Acme Corp';
+    component.adminFullName = 'John Admin';
+    component.adminEmail = 'admin@acme.com';
 
-    component.adminPassword = 'NoSpecialOrDigits';
-    expect(component.validatePassword()).toBe(false);
-    expect(component.adminPasswordError()).toContain('uppercase, lowercase, numbers, and special');
+    component.adminUsername = '';
+    expect(component.validateForm()).toBe(false);
+    expect(component.adminUsernameError()).toContain('Administrator username is required');
 
-    component.adminPassword = 'ValidPassword123#';
-    expect(component.validatePassword()).toBe(true);
-    expect(component.adminPasswordError()).toBeNull();
+    component.adminUsername = 'ab';
+    expect(component.validateForm()).toBe(false);
+    expect(component.adminUsernameError()).toContain('between 3 and 50 characters');
 
-    component.adminConfirmPassword = 'MismatchPassword123#';
-    expect(component.validateConfirmPassword()).toBe(false);
-    expect(component.adminConfirmPasswordError()).toContain('Passwords do not match');
+    component.adminUsername = 'invalid user!';
+    expect(component.validateForm()).toBe(false);
+    expect(component.adminUsernameError()).toContain('letters, numbers, underscores');
 
-    component.adminConfirmPassword = 'ValidPassword123#';
-    expect(component.validateConfirmPassword()).toBe(true);
-    expect(component.adminConfirmPasswordError()).toBeNull();
+    component.adminUsername = 'john_admin';
+    expect(component.validateForm()).toBe(true);
+    expect(component.adminUsernameError()).toBeNull();
   });
 
   it('should prevent duplicate submissions while request is in progress', () => {
@@ -179,6 +181,7 @@ describe('RegisterComponent', () => {
     component.tenantName = ' Acme Precision Ltd ';
     component.adminFullName = 'Johnathan Miller';
     component.adminEmail = 'admin@acme.com';
+    component.adminUsername = 'jmiller_admin';
     component.industryType = 'Manufacturing';
     component.companyStructure = 'Single';
     component.eCommerceEnabled = true;
@@ -192,7 +195,8 @@ describe('RegisterComponent', () => {
       companyStructure: 'Single',
       eCommerceEnabled: true,
       adminFullName: 'Johnathan Miller',
-      adminEmail: 'admin@acme.com'
+      adminEmail: 'admin@acme.com',
+      adminUsername: 'jmiller_admin'
     }));
     expect(component.registrationResult()?.tenant.name).toBe('Acme Precision Ltd');
   });
@@ -207,12 +211,13 @@ describe('RegisterComponent', () => {
     component.tenantName = 'Acme Precision Ltd';
     component.adminFullName = 'John Admin';
     component.adminEmail = 'admin@acme.com';
+    component.adminUsername = 'john_admin';
 
     component.onRegister();
 
     expect(component.isSubmitting()).toBe(false);
     expect(component.apiError()).toContain('Registration Conflict');
-    expect(component.tenantNameError()).toContain('organization with this name is already registered');
+    expect(component.tenantNameError()).toContain('organization name already exists');
     expect(component.subdomainError()).toBeNull();
 
     fixture.detectChanges();
@@ -251,6 +256,7 @@ describe('RegisterComponent', () => {
     component.tenantName = 'Acme Precision Ltd';
     component.adminFullName = 'John Admin';
     component.adminEmail = 'admin@acme.com';
+    component.adminUsername = 'john_admin';
 
     component.onRegister();
     fixture.detectChanges();
@@ -318,13 +324,15 @@ describe('RegisterComponent', () => {
     component.subdomain = 'my-custom-sub';
     component.adminFullName = 'John Admin';
     component.adminEmail = 'admin@acme.com';
+    component.adminUsername = 'john_admin';
 
     component.onRegister();
 
     expect(registerSpy).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Acme Corp',
       subscriptionPlanId: validPlanId,
-      subdomain: 'my-custom-sub'
+      subdomain: 'my-custom-sub',
+      adminUsername: 'john_admin'
     }));
   });
 
@@ -367,6 +375,7 @@ describe('RegisterComponent', () => {
     component.tenantName = 'Acme Precision Ltd';
     component.adminFullName = 'John Admin';
     component.adminEmail = 'admin@acme.com';
+    component.adminUsername = 'john_admin';
 
     component.onRegister();
     fixture.detectChanges();

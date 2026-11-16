@@ -347,6 +347,8 @@ public class SalesOrderDomainUnitTests
             return Task.CompletedTask;
         }
 
+        public Task<decimal> GetTotalOnHandQuantityAsync(Guid tenantId, Guid productId) => Task.FromResult(0m);
+
         public Task SaveChangesAsync() => Task.CompletedTask;
     }
 

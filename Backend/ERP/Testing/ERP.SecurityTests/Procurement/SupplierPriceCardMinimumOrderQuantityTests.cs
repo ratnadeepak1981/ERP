@@ -354,6 +354,7 @@ public class SupplierPriceCardMinimumOrderQuantityTests
         public Task<bool> CategoryExistsAsync(Guid tenantId, Guid categoryId) => Task.FromResult(true);
         public Task<bool> BrandExistsAsync(Guid tenantId, Guid brandId) => Task.FromResult(true);
         public Task AddAsync(Product product) => Task.CompletedTask;
+        public Task<decimal> GetTotalOnHandQuantityAsync(Guid tenantId, Guid productId) => Task.FromResult(0m);
         public Task SaveChangesAsync() => Task.CompletedTask;
     }
 

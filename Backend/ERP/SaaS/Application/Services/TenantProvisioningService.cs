@@ -60,6 +60,45 @@ public class TenantProvisioningService
                 "Active subscription does not exist for the tenant.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.AdminPassword))
+        {
+            throw new ArgumentException("Admin password is required for provisioning.", nameof(request.AdminPassword));
+        }
+
+        string targetUsername = !string.IsNullOrWhiteSpace(tenant.AdminUsername)
+            ? tenant.AdminUsername
+            : request.AdminUserName;
+
+        string targetEmail = !string.IsNullOrWhiteSpace(tenant.AdminEmail)
+            ? tenant.AdminEmail
+            : request.AdminEmail;
+
+        if (string.IsNullOrWhiteSpace(targetUsername))
+        {
+            throw new InvalidOperationException("Tenant Admin username is missing for this tenant. Cannot provision.");
+        }
+
+        if (string.IsNullOrWhiteSpace(targetEmail))
+        {
+            throw new InvalidOperationException("Tenant Admin email is missing for this tenant. Cannot provision.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(tenant.AdminUsername) &&
+            !string.IsNullOrWhiteSpace(request.AdminUserName) &&
+            !string.Equals(tenant.AdminUsername.Trim(), request.AdminUserName.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Provisioning username '{request.AdminUserName}' does not match onboarding username '{tenant.AdminUsername}'.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(tenant.AdminEmail) &&
+            !string.IsNullOrWhiteSpace(request.AdminEmail) &&
+            !string.Equals(tenant.AdminEmail.Trim(), request.AdminEmail.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Provisioning email '{request.AdminEmail}' does not match onboarding email '{tenant.AdminEmail}'.");
+        }
+
         if (await _tenantDatabaseRepository
             .ExistsByTenantIdAsync(tenantId))
         {
@@ -153,8 +192,8 @@ public class TenantProvisioningService
             await _tenantAdminProvisioningService
                 .EnsureTenantAdminAsync(
                     tenantId,
-                    request.AdminUserName,
-                    request.AdminEmail,
+                    targetUsername,
+                    targetEmail,
                     request.AdminPassword);
         }
         catch

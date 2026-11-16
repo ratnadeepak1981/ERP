@@ -1,12 +1,13 @@
 export interface CreateTenantRequest {
   name: string;
   subscriptionPlanId: string;
+  adminUsername: string;
+  adminEmail: string;
   subdomain?: string;
   industryType?: string;
   companyStructure?: string;
   eCommerceEnabled?: boolean;
   adminFullName?: string;
-  adminEmail?: string;
   adminPhone?: string;
 }
 

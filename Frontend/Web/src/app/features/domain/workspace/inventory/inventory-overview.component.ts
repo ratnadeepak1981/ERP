@@ -228,7 +228,7 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
           pathGroup: 'inbound',
           convergesTo: 'store-putaway',
           route: '/app/inventory/stock-receipts',
-          requiredPermissions: ['PRODUCT.VIEW']
+          requiredPermissions: ['INVENTORY.VIEW']
         },
         {
           id: 'store-putaway',
@@ -276,7 +276,7 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
           status: 'active',
           statusLabel: 'Stock Deduction',
           route: '/app/inventory/issue-stock',
-          requiredPermissions: ['PRODUCT.VIEW']
+          requiredPermissions: ['INVENTORY.VIEW']
         }
       ]
     },
@@ -290,7 +290,7 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
       createActionLabel: 'Receive Stock',
       createActionIcon: 'pi pi-plus',
       createActionRoute: '/app/inventory/stock-receipts/new',
-      createActionPermission: 'PRODUCT.EDIT'
+      createActionPermission: 'STOCK_RECEIPT.POST'
     },
     navigationLinks: [
       {
@@ -299,7 +299,7 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
         route: '/app/inventory/stock-receipts',
         outlined: true,
         severity: 'secondary',
-        requiredPermissions: ['PRODUCT.VIEW']
+        requiredPermissions: ['INVENTORY.VIEW']
       },
       {
         label: 'Storage & Putaway',
@@ -331,7 +331,7 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
         route: '/app/inventory/issue-stock',
         outlined: true,
         severity: 'secondary',
-        requiredPermissions: ['PRODUCT.VIEW']
+        requiredPermissions: ['INVENTORY.VIEW']
       },
       {
         label: 'Goods Receiving (GRN)',

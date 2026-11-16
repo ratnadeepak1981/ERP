@@ -231,6 +231,7 @@
                     <th style="width: 120px; text-align: right;">Remaining Demand</th>
                     <th style="width: 130px; text-align: right;">Available at Location</th>
                     <th style="width: 120px; text-align: right;">Shortage</th>
+                    <th style="width: 150px; text-align: center;">Tracking Details</th>
                     <th style="width: 120px; text-align: center;">Status</th>
                   </tr>
                 </thead>
@@ -251,6 +252,23 @@
                           <span class="shortage-pill">-{{ line.shortageQuantity | number:'1.2-4' }}</span>
                         } @else {
                           <span class="zero-shortage">0</span>
+                        }
+                      </td>
+                      <td style="text-align: center;">
+                        @if (!line.trackingMode || line.trackingMode === 0) {
+                          <span class="tracking-pill untracked">Not Tracked</span>
+                        } @else {
+                          <button
+                            type="button"
+                            class="tracking-action-btn"
+                            [class.configured]="isLineTrackingComplete(line)"
+                            [class.pending]="!isLineTrackingComplete(line)"
+                            (click)="openTrackingDialog(line, $event)"
+                            [title]="mode() === 'create' ? 'Click to configure batch/serial tracking' : 'Click to view batch/serial tracking'"
+                          >
+                            <i class="pi" [ngClass]="isLineTrackingComplete(line) ? 'pi-check-circle' : 'pi-exclamation-triangle'"></i>
+                            <span>{{ getLineTrackingSummary(line) }}</span>
+                          </button>
                         }
                       </td>
                       <td style="text-align: center;">

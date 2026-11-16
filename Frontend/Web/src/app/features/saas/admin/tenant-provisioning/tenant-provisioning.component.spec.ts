@@ -99,23 +99,19 @@ describe('TenantProvisioningComponent', () => {
     component.executeProvisioning();
     expect(component.validationError).toContain('Invalid Tenant Identifier format');
 
-    // Empty username
+    // Empty username or email
     component.selectedTenantId.set('11111111-2222-3333-4444-555555555555');
     component.adminUserName = '';
-    component.executeProvisioning();
-    expect(component.validationError).toContain('Admin username is required');
-
-    // Invalid email
-    component.adminUserName = 'admin';
-    component.adminEmail = 'invalid-email-format';
-    component.executeProvisioning();
-    expect(component.validationError).toContain('valid administrator email address');
-
-    // Short / missing password
     component.adminEmail = 'admin@tenant.local';
-    component.adminPassword = '12';
     component.executeProvisioning();
-    expect(component.validationError).toContain('Admin password must be at least 3 characters');
+    expect(component.validationError).toContain('Onboarding administrator username and email were not found');
+
+    // Missing password
+    component.adminUserName = 'admin';
+    component.adminEmail = 'admin@tenant.local';
+    component.adminPassword = '';
+    component.executeProvisioning();
+    expect(component.validationError).toContain('Please enter the initial tenant admin password');
   });
 
   it('should wipe sensitive password from component state immediately upon execution', () => {
@@ -184,6 +180,8 @@ describe('TenantProvisioningComponent', () => {
     );
 
     component.selectedTenantId.set('99999999-9999-9999-9999-999999999999');
+    component.adminUserName = 'admin';
+    component.adminEmail = 'admin@tenant.local';
     component.adminPassword = 'Password123!';
 
     component.executeProvisioning();
@@ -202,6 +200,8 @@ describe('TenantProvisioningComponent', () => {
     );
 
     component.selectedTenantId.set('99999999-9999-9999-9999-999999999999');
+    component.adminUserName = 'admin';
+    component.adminEmail = 'admin@tenant.local';
     component.adminPassword = 'Password123!';
 
     component.executeProvisioning();
@@ -248,8 +248,8 @@ describe('TenantProvisioningComponent', () => {
 
   it('should open bulk provisioning dialog and populate selected tenants', () => {
     const queueData: any[] = [
-      { id: '11111111-1111-1111-1111-111111111111', name: 'Acme Corp', code: 'ACME', status: 'Pending' },
-      { id: '22222222-2222-2222-2222-222222222222', name: 'Beta Ltd', code: 'BETA', status: 'Pending' }
+      { id: '11111111-1111-1111-1111-111111111111', name: 'Acme Corp', code: 'ACME', adminUsername: 'acmeadmin', adminEmail: 'admin@acme.local', status: 'Pending' },
+      { id: '22222222-2222-2222-2222-222222222222', name: 'Beta Ltd', code: 'BETA', adminUsername: 'betaadmin', adminEmail: 'admin@beta.local', status: 'Pending' }
     ];
 
     component.queueItems.set(queueData);
@@ -260,6 +260,7 @@ describe('TenantProvisioningComponent', () => {
     expect(component.showBulkDialog).toBe(true);
     expect(component.bulkItems().length).toBe(2);
     expect(component.bulkItems()[0].name).toBe('Acme Corp');
+    expect(component.bulkItems()[0].adminUserName).toBe('acmeadmin');
     expect(component.bulkItems()[0].adminEmail).toBe('admin@acme.local');
     expect(component.bulkSummary().total).toBe(2);
     expect(component.bulkSummary().remaining).toBe(2);
@@ -267,8 +268,8 @@ describe('TenantProvisioningComponent', () => {
 
   it('should execute bulk provisioning sequentially and calculate accurate progress and metrics', async () => {
     const queueData: any[] = [
-      { id: '11111111-1111-1111-1111-111111111111', name: 'Acme Corp', code: 'ACME', status: 'Pending' },
-      { id: '22222222-2222-2222-2222-222222222222', name: 'Beta Ltd', code: 'BETA', status: 'Pending' }
+      { id: '11111111-1111-1111-1111-111111111111', name: 'Acme Corp', code: 'ACME', adminUsername: 'acmeadmin', adminEmail: 'admin@acme.local', status: 'Pending' },
+      { id: '22222222-2222-2222-2222-222222222222', name: 'Beta Ltd', code: 'BETA', adminUsername: 'betaadmin', adminEmail: 'admin@beta.local', status: 'Pending' }
     ];
 
     component.queueItems.set(queueData);

@@ -86,6 +86,23 @@ export interface AvailableStockDto {
   quantityAvailable: number;
 }
 
+export interface EligibleBatchDto {
+  productId: string;
+  productCode: string;
+  productName: string;
+  batchNumber: string;
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  warehouseLocationId: string;
+  locationCode: string;
+  locationName: string;
+  quantityOnHand: number;
+  quantityAvailable: number;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
+}
+
 export interface CreateStockIssueLineRequest {
   productId: string;
   warehouseLocationId: string;

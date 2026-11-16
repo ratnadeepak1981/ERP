@@ -252,7 +252,7 @@
           <div class="form-row-2">
             <div class="form-field" [class.has-error]="adminUsernameError()">
               <label for="adminUsername">
-                Admin Username <span class="optional-label">(Default: email prefix)</span>
+                Admin Username <span class="required-star">*</span>
               </label>
               <input
                 pInputText
@@ -263,6 +263,7 @@
                 placeholder="nimal_admin"
                 class="w-full"
                 [disabled]="isSubmitting()"
+                required
               />
               @if (adminUsernameError()) {
                 <small class="field-error-msg">{{ adminUsernameError() }}</small>
@@ -283,69 +284,6 @@
                 class="w-full"
                 [disabled]="isSubmitting()"
               />
-            </div>
-          </div>
-
-          <!-- Administrator Password & Confirmation Row -->
-          <div class="form-row-2">
-            <div class="form-field" [class.has-error]="adminPasswordError()">
-              <label for="adminPassword">
-                Administrator Password <span class="optional-label">(Optional for trial)</span>
-              </label>
-              <div class="password-wrapper">
-                <input
-                  pInputText
-                  id="adminPassword"
-                  [type]="showPassword ? 'text' : 'password'"
-                  [(ngModel)]="adminPassword"
-                  (input)="validatePassword()"
-                  name="adminPassword"
-                  placeholder="Enter password (optional)"
-                  class="w-full"
-                  [disabled]="isSubmitting()"
-                />
-                <button
-                  type="button"
-                  class="pwd-toggle-btn"
-                  (click)="showPassword = !showPassword"
-                  tabindex="-1"
-                >
-                  <i [class]="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
-                </button>
-              </div>
-              @if (adminPasswordError()) {
-                <small class="field-error-msg">{{ adminPasswordError() }}</small>
-              }
-            </div>
-
-            <div class="form-field" [class.has-error]="adminConfirmPasswordError()">
-              <label for="adminConfirmPassword">
-                Confirm Password
-              </label>
-              <div class="password-wrapper">
-                <input
-                  pInputText
-                  id="adminConfirmPassword"
-                  [type]="showConfirmPassword ? 'text' : 'password'"
-                  [(ngModel)]="adminConfirmPassword"
-                  (input)="validateConfirmPassword()"
-                  name="adminConfirmPassword"
-                  placeholder="Re-enter password"
-                  class="w-full"
-                  [disabled]="isSubmitting()"
-                />
-                <button
-                  type="button"
-                  class="pwd-toggle-btn"
-                  (click)="showConfirmPassword = !showConfirmPassword"
-                  tabindex="-1"
-                >
-                  <i [class]="showConfirmPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
-                </button>
-              </div>
-              @if (adminConfirmPasswordError()) {
-                <small class="field-error-msg">{{ adminConfirmPasswordError() }}</small>
-              }
             </div>
           </div>
         </fieldset>

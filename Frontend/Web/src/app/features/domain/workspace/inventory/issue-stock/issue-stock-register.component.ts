@@ -213,14 +213,26 @@ export class IssueStockRegisterComponent implements OnInit, OnDestroy {
     }
   ];
 
-  canCreateIssue(): boolean {
-    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+  canViewIssues(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
-    return this.authService.hasPermission('PRODUCT.EDIT');
+    return this.authService.hasPermission('INVENTORY.VIEW');
+  }
+
+  canCreateIssue(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    return this.authService.hasPermission('STOCK_ISSUE.POST');
   }
 
   ngOnInit(): void {
+    if (!this.canViewIssues()) {
+      this.isAccessDenied.set(true);
+      return;
+    }
+
     this.loadStockIssues();
     this.subs.add(
       this.scopeService.scopeChange$.subscribe(() => {

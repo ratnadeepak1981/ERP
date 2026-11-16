@@ -82,6 +82,13 @@ public class ProductRepository : IProductRepository
         await _context.Products.AddAsync(product);
     }
 
+    public async Task<decimal> GetTotalOnHandQuantityAsync(Guid tenantId, Guid productId)
+    {
+        return await _context.InventoryBalances
+            .Where(b => b.TenantId == tenantId && b.ProductId == productId && b.QuantityOnHand > 0)
+            .SumAsync(b => (decimal?)b.QuantityOnHand) ?? 0m;
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

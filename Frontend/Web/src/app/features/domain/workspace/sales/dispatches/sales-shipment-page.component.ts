@@ -12,6 +12,7 @@ import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } 
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { MatDialog } from '@angular/material/dialog';
 import { AppPageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { AppStatusBadgeComponent } from '../../../../../shared/components/status-badge/status-badge.component';
 import { AppLoadingStateComponent } from '../../../../../shared/components/loading-state/loading-state.component';
@@ -32,10 +33,20 @@ import {
   SalesOrderDispatchAvailabilityDto,
   SalesOrderDispatchLineAvailabilityDto,
   EligibleLocationDto,
-  DispatchOrderRequest
+  DispatchOrderRequest,
+  CreateSalesShipmentItemRequest
 } from '../../../../../core/models/sales-shipment.models';
 import { SalesOrderDto } from '../../../../../core/models/sales-order.models';
-import { CustomerItem, ProductItem, WarehouseItem, WarehouseLocationItem } from '../../../../../core/models/scope.models';
+import { CustomerItem, ProductItem, WarehouseItem, WarehouseLocationItem, TrackingMode } from '../../../../../core/models/scope.models';
+import { BatchSerialAllocation } from '../../../../../core/models/goods-receipt-note.models';
+import {
+  BatchSerialTrackingDialogComponent,
+  BatchSerialDialogData
+} from '../../procurement/batch-serial-dialog/batch-serial-dialog.component';
+
+export interface DispatchLineWithTracking extends SalesOrderDispatchLineAvailabilityDto {
+  trackingAllocations?: BatchSerialAllocation[];
+}
 
 export interface EditableShipmentLine {
   lineId: string;
@@ -44,6 +55,7 @@ export interface EditableShipmentLine {
   productCode: string;
   productName: string;
   unitOfMeasureId?: string | null;
+  unitOfMeasure?: string;
   orderedQuantity: number;
   quantityDispatched: number;
   warehouseId: string;
@@ -51,6 +63,8 @@ export interface EditableShipmentLine {
   batchNumber?: string | null;
   serialNumber?: string | null;
   notes?: string | null;
+  trackingMode?: number;
+  trackingAllocations?: BatchSerialAllocation[];
 }
 
 @Component({
@@ -79,6 +93,7 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
   readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
+  private readonly matDialog = inject(MatDialog);
 
   private readonly subs = new Subscription();
 
@@ -163,14 +178,14 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
   });
 
   // Computed displayed lines for Dispatch Availability
-  readonly displayedLines = computed<SalesOrderDispatchLineAvailabilityDto[]>(() => {
+  readonly displayedLines = computed<DispatchLineWithTracking[]>(() => {
     const avail = this.availability();
     if (!avail || !avail.lines) return [];
     if (this.showAllLines()) {
-      return avail.lines;
+      return avail.lines as DispatchLineWithTracking[];
     }
-    const shortages = avail.lines.filter(l => l.shortageQuantity > 0 || !l.canFulfil);
-    return shortages.length > 0 ? shortages : avail.lines;
+    const shortages = (avail.lines as DispatchLineWithTracking[]).filter(l => l.shortageQuantity > 0 || !l.canFulfil);
+    return shortages.length > 0 ? shortages : (avail.lines as DispatchLineWithTracking[]);
   });
 
   readonly shortageCount = computed<number>(() => {
@@ -184,17 +199,129 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
     return avail?.lines ? avail.lines.length : 0;
   });
 
-  // Can Dispatch boolean flag
-  readonly canDispatch = computed<boolean>(() => {
-    return (
-      this.mode() === 'create' &&
-      !!this.sourceOrderId() &&
-      !!this.selectedLocationId() &&
-      !!this.selectedWarehouseId() &&
-      this.availability()?.canFulfil === true &&
-      !this.actionInProgress() &&
-      !this.revalidatingStock()
+  // Tracking Helpers & Validation
+  isLineTrackingComplete(line: DispatchLineWithTracking): boolean {
+    const mode = Number(line.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) return true;
+
+    const targetQty = Number(line.remainingQuantity) || 0;
+    if (targetQty <= 0) return true;
+
+    const allocs = line.trackingAllocations || [];
+    if (allocs.length === 0) return false;
+
+    const totalAlloc = allocs.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+    if (Math.abs(totalAlloc - targetQty) > 0.0001) return false;
+
+    for (const a of allocs) {
+      if ((mode === TrackingMode.Batch || mode === TrackingMode.BatchAndSerial) && (!a.batchNumber || !a.batchNumber.trim())) {
+        return false;
+      }
+      if ((mode === TrackingMode.Serial || mode === TrackingMode.BatchAndSerial)) {
+        if (!a.serialNumber || !a.serialNumber.trim()) return false;
+        if (Number(a.quantity) !== 1) return false;
+      }
+    }
+    return true;
+  }
+
+  getLineTrackingSummary(line: DispatchLineWithTracking): string {
+    const mode = Number(line.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) return 'Not Tracked';
+
+    const allocs = line.trackingAllocations || [];
+    const allocated = allocs.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+    const target = Number(line.remainingQuantity) || 0;
+
+    if (allocated === target && target > 0) {
+      return mode === TrackingMode.Batch
+        ? `Batches (${allocs.length}) ✓`
+        : `Serials (${allocs.length}) ✓`;
+    }
+    return `Configure (${allocated}/${target})`;
+  }
+
+  openTrackingDialog(line: DispatchLineWithTracking, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    const mode = Number(line.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) return;
+
+    const targetQty = Number(line.remainingQuantity) || 0;
+    if (targetQty <= 0) {
+      this.message.set({ text: 'No remaining quantity required for dispatch.', severity: 'warn' });
+      return;
+    }
+
+    const whId = this.selectedWarehouseId() || (this.warehouses().length > 0 ? this.warehouses()[0].warehouseId : '');
+    const locId = this.selectedLocationId() || '';
+
+    const dialogRef = this.matDialog.open<BatchSerialTrackingDialogComponent, BatchSerialDialogData, BatchSerialAllocation[]>(
+      BatchSerialTrackingDialogComponent,
+      {
+        width: '920px',
+        maxWidth: '96vw',
+        disableClose: true,
+        data: {
+          productCode: line.productCode,
+          productName: line.productName,
+          unitOfMeasure: line.unitOfMeasure || 'PCS',
+          trackingMode: mode,
+          targetQuantity: targetQty,
+          readOnly: this.mode() === 'view',
+          allocations: line.trackingAllocations || [],
+          dialogMode: 'issue',
+          transactionTitle: 'Dispatch Note',
+          productId: line.productId,
+          warehouseId: whId,
+          warehouseLocationId: locId
+        }
+      }
     );
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        line.trackingAllocations = result;
+        // Trigger signal reactivity on availability
+        const currentAvail = this.availability();
+        if (currentAvail) {
+          this.availability.set({
+            ...currentAvail,
+            lines: [...currentAvail.lines]
+          });
+        }
+      }
+    });
+  }
+
+  // Can Dispatch boolean flag: enforces stock fulfillment & tracking completeness
+  readonly canDispatch = computed<boolean>(() => {
+    if (
+      this.mode() !== 'create' ||
+      !this.sourceOrderId() ||
+      !this.selectedLocationId() ||
+      !this.selectedWarehouseId() ||
+      this.availability()?.canFulfil !== true ||
+      this.actionInProgress() ||
+      this.revalidatingStock()
+    ) {
+      return false;
+    }
+
+    // Validate tracking completeness for all tracked lines with remaining demand
+    const lines = (this.availability()?.lines || []) as DispatchLineWithTracking[];
+    for (const l of lines) {
+      if (l.remainingQuantity > 0 && (Number(l.trackingMode) || 0) !== TrackingMode.None) {
+        if (!this.isLineTrackingComplete(l)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   });
 
   ngOnInit(): void {
@@ -255,8 +382,26 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
             }
           });
         }
+
+        // Synchronize tracking mode on current availability lines if already loaded
+        this.enrichAvailabilityLines(this.availability());
       }
     });
+  }
+
+  private enrichAvailabilityLines(avail: SalesOrderDispatchAvailabilityDto | null): void {
+    if (!avail || !avail.lines) return;
+    const prods = this.products();
+    for (const l of avail.lines as DispatchLineWithTracking[]) {
+      const p = prods.find(x => x.productId === l.productId || x.productCode === l.productCode);
+      if (p) {
+        l.trackingMode = Number(p.trackingMode) || TrackingMode.None;
+        l.unitOfMeasure = p.unitOfMeasure || 'PCS';
+      }
+      if (!l.trackingAllocations) {
+        l.trackingAllocations = [];
+      }
+    }
   }
 
   private initFromOrder(orderId: string): void {
@@ -277,6 +422,7 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
         }
 
         this.sourceOrder.set(order);
+        this.enrichAvailabilityLines(avail);
         this.availability.set(avail);
 
         const rand = Math.floor(1000 + Math.random() * 9000);
@@ -338,6 +484,7 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
     this.shipmentService.getOrderDispatchAvailability(comp.id, branch.id, orderId, locationId).subscribe({
       next: (updatedAvail: SalesOrderDispatchAvailabilityDto) => {
         this.revalidatingStock.set(false);
+        this.enrichAvailabilityLines(updatedAvail);
         this.availability.set(updatedAvail);
         if (updatedAvail.selectedWarehouseId) {
           this.selectedWarehouseId.set(updatedAvail.selectedWarehouseId);
@@ -388,6 +535,46 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
     const formVal = this.headerForm.getRawValue();
     this.actionInProgress.set(true);
 
+    // Expand tracked allocations into individual CreateSalesShipmentItemRequest lines
+    const explicitItems: CreateSalesShipmentItemRequest[] = [];
+    const lines = (this.availability()?.lines || []) as DispatchLineWithTracking[];
+    let hasExplicitTracking = false;
+
+    for (const l of lines) {
+      if (l.remainingQuantity <= 0) continue;
+      const mode = Number(l.trackingMode) || TrackingMode.None;
+
+      if (mode !== TrackingMode.None && l.trackingAllocations && l.trackingAllocations.length > 0) {
+        hasExplicitTracking = true;
+        for (const a of l.trackingAllocations) {
+          explicitItems.push({
+            salesOrderItemId: l.salesOrderItemId,
+            productId: l.productId,
+            warehouseId: whId,
+            warehouseLocationId: locId,
+            quantityDispatched: Number(a.quantity),
+            unitOfMeasureId: l.unitOfMeasureId || null,
+            batchNumber: a.batchNumber?.trim() || null,
+            serialNumber: a.serialNumber?.trim() || null,
+            notes: a.remarks || formVal.notes || null
+          });
+        }
+      } else {
+        // Products with TrackingMode.None or untracked
+        explicitItems.push({
+          salesOrderItemId: l.salesOrderItemId,
+          productId: l.productId,
+          warehouseId: whId,
+          warehouseLocationId: locId,
+          quantityDispatched: l.remainingQuantity,
+          unitOfMeasureId: l.unitOfMeasureId || null,
+          batchNumber: null,
+          serialNumber: null,
+          notes: formVal.notes || null
+        });
+      }
+    }
+
     const req: DispatchOrderRequest = {
       warehouseId: whId,
       warehouseLocationId: locId,
@@ -399,7 +586,8 @@ export class SalesShipmentPageComponent implements OnInit, OnDestroy {
       recipientName: formVal.recipientName || undefined,
       deliveryAddress: formVal.deliveryAddress || undefined,
       vehicleNumber: formVal.vehicleNumber || undefined,
-      notes: formVal.notes || undefined
+      notes: formVal.notes || undefined,
+      items: hasExplicitTracking ? explicitItems : undefined
     };
 
     this.shipmentService.dispatchFromOrder(comp.id, branch.id, orderId, req).subscribe({

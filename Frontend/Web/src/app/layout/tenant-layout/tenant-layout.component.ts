@@ -342,6 +342,17 @@ export class TenantLayoutComponent implements OnInit {
       this.canViewGoodsReceipts();
   }
 
+  canViewInventory(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('INVENTORY.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
   canViewStoragePutaway(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;

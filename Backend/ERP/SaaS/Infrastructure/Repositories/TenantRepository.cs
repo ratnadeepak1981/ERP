@@ -102,7 +102,10 @@ public class TenantRepository : ITenantRepository
                           StorageMode = sub != null ? sub.StorageMode.ToString() : "None",
                           Status = (td != null && td.IsActive) ? "Completed" : "Pending",
                           IsProvisioned = td != null && td.IsActive,
-                          DatabaseName = td != null ? td.DatabaseName : null
+                          DatabaseName = td != null ? td.DatabaseName : null,
+                          AdminUsername = tenant.AdminUsername,
+                          AdminEmail = tenant.AdminEmail,
+                          Subdomain = tenant.Subdomain
                       }).ToListAsync();
     }
 
@@ -135,7 +138,10 @@ public class TenantRepository : ITenantRepository
             DatabaseName = db?.DatabaseName,
             DatabaseServer = db?.DatabaseServer,
             DatabaseIsActive = db?.IsActive ?? false,
-            ConfigurationExists = config != null
+            ConfigurationExists = config != null,
+            AdminUsername = tenant.AdminUsername,
+            AdminEmail = tenant.AdminEmail,
+            Subdomain = tenant.Subdomain
         };
     }
 

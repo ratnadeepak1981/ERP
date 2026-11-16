@@ -751,7 +751,9 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
           trackingMode: mode,
           targetQuantity: targetQty,
           readOnly: !this.canEditDraft(),
-          allocations: row.trackingAllocations || []
+          allocations: row.trackingAllocations || [],
+          dialogMode: 'receipt',
+          transactionTitle: 'Goods Receipt Note (GRN)'
         }
       }
     );
