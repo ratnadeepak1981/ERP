@@ -1,0 +1,497 @@
+{
+  "profileCode": "service",
+  "profileName": "Service & Maintenance Business",
+  "currencies": [
+    {
+      "code": "LKR",
+      "name": "Sri Lankan Rupee",
+      "symbol": "Rs",
+      "decimalPlaces": 2,
+      "isBase": true
+    },
+    {
+      "code": "USD",
+      "name": "US Dollar",
+      "symbol": "$",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "GBP",
+      "name": "British Pound",
+      "symbol": "£",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "INR",
+      "name": "Indian Rupee",
+      "symbol": "₹",
+      "decimalPlaces": 2,
+      "isBase": false
+    }
+  ],
+  "exchangeRates": [
+    {
+      "fromCurrency": "USD",
+      "toCurrency": "LKR",
+      "rate": 305.00
+    },
+    {
+      "fromCurrency": "EUR",
+      "toCurrency": "LKR",
+      "rate": 330.00
+    },
+    {
+      "fromCurrency": "GBP",
+      "toCurrency": "LKR",
+      "rate": 385.00
+    },
+    {
+      "fromCurrency": "INR",
+      "toCurrency": "LKR",
+      "rate": 3.65
+    }
+  ],
+  "paymentTerms": [
+    {
+      "code": "NET30",
+      "name": "Net 30 Days",
+      "days": 30,
+      "description": "Standard service customer credit terms"
+    },
+    {
+      "code": "IMMEDIATE",
+      "name": "Immediate Payment",
+      "days": 0,
+      "description": "Immediate payment"
+    },
+    {
+      "code": "NET15",
+      "name": "Net 15 Days",
+      "days": 15,
+      "description": "Short-term payment terms"
+    },
+    {
+      "code": "NET60",
+      "name": "Net 60 Days",
+      "days": 60,
+      "description": "Extended service customer credit"
+    }
+  ],
+  "taxCodes": [
+    {
+      "code": "TAX-EXEMPT",
+      "name": "Exempt",
+      "rate": 0.00,
+      "description": "Illustrative exempt service configuration"
+    },
+    {
+      "code": "VAT-18",
+      "name": "Value Added Tax 18%",
+      "rate": 18.00,
+      "description": "Illustrative standard VAT configuration; verify applicability"
+    },
+    {
+      "code": "VAT-8",
+      "name": "Value Added Tax 8%",
+      "rate": 8.00,
+      "description": "Illustrative concessionary rate; verify applicability"
+    }
+  ],
+  "categories": [
+    {
+      "code": "INSTALLATION",
+      "name": "Installation Services",
+      "description": "Equipment and system installation"
+    },
+    {
+      "code": "MAINTENANCE",
+      "name": "Maintenance Services",
+      "description": "Preventive and scheduled maintenance"
+    },
+    {
+      "code": "REPAIR",
+      "name": "Repair Services",
+      "description": "Repair and corrective maintenance"
+    },
+    {
+      "code": "IT-SERVICES",
+      "name": "IT Services",
+      "description": "IT support and technical services"
+    },
+    {
+      "code": "CONSULTING",
+      "name": "Consulting Services",
+      "description": "Professional and technical consultation"
+    }
+  ],
+  "brands": [
+    {
+      "code": "BRAND-TECH",
+      "name": "TechSolutions",
+      "description": "Illustrative technical service brand"
+    },
+    {
+      "code": "BRAND-CARE",
+      "name": "ServiceCare",
+      "description": "Illustrative maintenance service brand"
+    },
+    {
+      "code": "BRAND-PRO",
+      "name": "ProServices",
+      "description": "Illustrative professional service brand"
+    }
+  ],
+  "unitsOfMeasure": [
+    {
+      "code": "JOB",
+      "name": "Job",
+      "description": "One completed service job"
+    },
+    {
+      "code": "HOUR",
+      "name": "Hour",
+      "description": "Hourly service charge"
+    },
+    {
+      "code": "DAY",
+      "name": "Day",
+      "description": "Daily service charge"
+    },
+    {
+      "code": "VISIT",
+      "name": "Visit",
+      "description": "One service visit"
+    },
+    {
+      "code": "MONTH",
+      "name": "Month",
+      "description": "Monthly service subscription"
+    },
+    {
+      "code": "YEAR",
+      "name": "Year",
+      "description": "Annual service contract"
+    }
+  ],
+  "products": [
+    {
+      "code": "SRV-001",
+      "name": "Equipment Installation",
+      "categoryCode": "INSTALLATION",
+      "brandCode": "BRAND-TECH",
+      "baseUom": "JOB",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 8500.00,
+      "sellingPrice": 12000.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-002",
+      "name": "Equipment Preventive Maintenance",
+      "categoryCode": "MAINTENANCE",
+      "brandCode": "BRAND-CARE",
+      "baseUom": "VISIT",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 4500.00,
+      "sellingPrice": 6500.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-003",
+      "name": "Equipment Repair",
+      "categoryCode": "REPAIR",
+      "brandCode": "BRAND-CARE",
+      "baseUom": "JOB",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 6000.00,
+      "sellingPrice": 9000.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-004",
+      "name": "Electrical Inspection",
+      "categoryCode": "MAINTENANCE",
+      "brandCode": "BRAND-PRO",
+      "baseUom": "VISIT",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 3500.00,
+      "sellingPrice": 5000.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-005",
+      "name": "Plumbing Service",
+      "categoryCode": "REPAIR",
+      "brandCode": "BRAND-CARE",
+      "baseUom": "JOB",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 4000.00,
+      "sellingPrice": 6000.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-006",
+      "name": "IT Technical Support",
+      "categoryCode": "IT-SERVICES",
+      "brandCode": "BRAND-TECH",
+      "baseUom": "HOUR",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 1800.00,
+      "sellingPrice": 3000.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-007",
+      "name": "Network Configuration",
+      "categoryCode": "IT-SERVICES",
+      "brandCode": "BRAND-TECH",
+      "baseUom": "JOB",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 7500.00,
+      "sellingPrice": 11000.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-008",
+      "name": "Software Configuration",
+      "categoryCode": "IT-SERVICES",
+      "brandCode": "BRAND-TECH",
+      "baseUom": "HOUR",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 2200.00,
+      "sellingPrice": 3500.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-009",
+      "name": "Technical Consultation",
+      "categoryCode": "CONSULTING",
+      "brandCode": "BRAND-PRO",
+      "baseUom": "HOUR",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 3000.00,
+      "sellingPrice": 5000.00,
+      "taxCode": "VAT-18"
+    },
+    {
+      "code": "SRV-010",
+      "name": "Annual Maintenance Contract",
+      "categoryCode": "MAINTENANCE",
+      "brandCode": "BRAND-CARE",
+      "baseUom": "YEAR",
+      "productType": "Service",
+      "isStockTracked": false,
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 25000.00,
+      "sellingPrice": 35000.00,
+      "taxCode": "VAT-18"
+    }
+  ],
+  "suppliers": [
+    {
+      "code": "SUP-SRV-001",
+      "name": "Lanka Technical Services (Pvt) Ltd",
+      "email": "purchasing@example.local",
+      "phone": "+94 11 430 0000",
+      "addressLine1": "No. 45, Technical Services Road",
+      "city": "Colombo",
+      "postalCode": "01000",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Service Supplier Contact"
+    }
+  ],
+  "customers": [
+    {
+      "code": "CUST-SRV-001",
+      "name": "Lanka Business Solutions (Pvt) Ltd",
+      "email": "accounts@example.local",
+      "phone": "+94 11 440 0000",
+      "addressLine1": "No. 75, Business Park",
+      "city": "Colombo",
+      "postalCode": "00500",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Customer Service Manager"
+    }
+  ],
+  "priceCards": [
+    {
+      "code": "PPC-SRV-001",
+      "name": "Service Purchase Rates",
+      "priceCardType": "Purchase",
+      "currency": "LKR",
+      "description": "Illustrative subcontractor and service procurement rates",
+      "lines": [
+        {
+          "productCode": "SRV-001",
+          "uomCode": "JOB",
+          "unitPrice": 8500.00
+        },
+        {
+          "productCode": "SRV-002",
+          "uomCode": "VISIT",
+          "unitPrice": 4500.00
+        },
+        {
+          "productCode": "SRV-003",
+          "uomCode": "JOB",
+          "unitPrice": 6000.00
+        },
+        {
+          "productCode": "SRV-004",
+          "uomCode": "VISIT",
+          "unitPrice": 3500.00
+        },
+        {
+          "productCode": "SRV-005",
+          "uomCode": "JOB",
+          "unitPrice": 4000.00
+        },
+        {
+          "productCode": "SRV-006",
+          "uomCode": "HOUR",
+          "unitPrice": 1800.00
+        },
+        {
+          "productCode": "SRV-007",
+          "uomCode": "JOB",
+          "unitPrice": 7500.00
+        },
+        {
+          "productCode": "SRV-008",
+          "uomCode": "HOUR",
+          "unitPrice": 2200.00
+        },
+        {
+          "productCode": "SRV-009",
+          "uomCode": "HOUR",
+          "unitPrice": 3000.00
+        },
+        {
+          "productCode": "SRV-010",
+          "uomCode": "YEAR",
+          "unitPrice": 25000.00
+        }
+      ]
+    },
+    {
+      "code": "SPC-SRV-STD",
+      "name": "Service Sales Rates",
+      "priceCardType": "Sales",
+      "currency": "LKR",
+      "description": "Illustrative customer service charges",
+      "lines": [
+        {
+          "productCode": "SRV-001",
+          "uomCode": "JOB",
+          "unitPrice": 12000.00
+        },
+        {
+          "productCode": "SRV-002",
+          "uomCode": "VISIT",
+          "unitPrice": 6500.00
+        },
+        {
+          "productCode": "SRV-003",
+          "uomCode": "JOB",
+          "unitPrice": 9000.00
+        },
+        {
+          "productCode": "SRV-004",
+          "uomCode": "VISIT",
+          "unitPrice": 5000.00
+        },
+        {
+          "productCode": "SRV-005",
+          "uomCode": "JOB",
+          "unitPrice": 6000.00
+        },
+        {
+          "productCode": "SRV-006",
+          "uomCode": "HOUR",
+          "unitPrice": 3000.00
+        },
+        {
+          "productCode": "SRV-007",
+          "uomCode": "JOB",
+          "unitPrice": 11000.00
+        },
+        {
+          "productCode": "SRV-008",
+          "uomCode": "HOUR",
+          "unitPrice": 3500.00
+        },
+        {
+          "productCode": "SRV-009",
+          "uomCode": "HOUR",
+          "unitPrice": 5000.00
+        },
+        {
+          "productCode": "SRV-010",
+          "uomCode": "YEAR",
+          "unitPrice": 35000.00
+        }
+      ]
+    }
+  ]
+}

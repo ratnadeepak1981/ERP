@@ -1,0 +1,1657 @@
+Test run for Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\bin\Debug\net8.0\ERP.SecurityTests.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.14.1 (x64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:18.90]     ERP.SecurityTests.TenantResolutionMiddlewareTests.TrustedHostResolver_UntrustedForwardedHost_SpoofingIgnored [FAIL]
+  Failed ERP.SecurityTests.TenantResolutionMiddlewareTests.TrustedHostResolver_UntrustedForwardedHost_SpoofingIgnored [23 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "localhost"
+Actual:   "retail.localhost"
+           ↑ (pos 0)
+  Stack Trace:
+     at ERP.SecurityTests.TenantResolutionMiddlewareTests.TrustedHostResolver_UntrustedForwardedHost_SpoofingIgnored() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantResolutionMiddlewareTests.cs:line 512
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+[xUnit.net 00:00:21.09]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.TenantService_RegisterTenant_AtomicOnboardingAndUsageInitialization [FAIL]
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.TenantService_RegisterTenant_AtomicOnboardingAndUsageInitialization [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+[xUnit.net 00:00:21.12]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.PaymentAndLedgerWorkflow_ApplyPaymentToInvoice_PersistsCreditLedgerAndResolvesReceivable [FAIL]
+[xUnit.net 00:00:21.13]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.RecurringBillingService_ExecutesAgainstPlatformDbTest_PersistingInvoicesAndLedger [FAIL]
+[xUnit.net 00:00:21.13]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_PaidPlan_StartsAsPendingPaymentInSqlServer [FAIL]
+[xUnit.net 00:00:21.13]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SaaSDbContext_EnforcesCrossTenantForeignKeyIsolation_InSqlServer [FAIL]
+[xUnit.net 00:00:21.13]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_InactiveOrNonExistentPlan_ThrowsInvalidOperationException [FAIL]
+[xUnit.net 00:00:21.14]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.FilteredUniqueIndex_AllowsMultipleInactiveSubscriptions_ForSameTenant [FAIL]
+[xUnit.net 00:00:21.14]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.FullLifecycleTransitions_PersistAccurately_AndSynchronizeIsActiveInSqlServer [FAIL]
+[xUnit.net 00:00:21.14]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_IsSubscriptionActive_EvaluatesEntitlementAndGracePeriodAccurately [FAIL]
+[xUnit.net 00:00:21.14]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.FilteredUniqueIndex_RejectsSecondActiveSubscription_ForSameTenant [FAIL]
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.PaymentAndLedgerWorkflow_ApplyPaymentToInvoice_PersistsCreditLedgerAndResolvesReceivable [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.RecurringBillingService_ExecutesAgainstPlatformDbTest_PersistingInvoicesAndLedger [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_PaidPlan_StartsAsPendingPaymentInSqlServer [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SaaSDbContext_EnforcesCrossTenantForeignKeyIsolation_InSqlServer [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_InactiveOrNonExistentPlan_ThrowsInvalidOperationException [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.FilteredUniqueIndex_AllowsMultipleInactiveSubscriptions_ForSameTenant [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.FullLifecycleTransitions_PersistAccurately_AndSynchronizeIsActiveInSqlServer [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_IsSubscriptionActive_EvaluatesEntitlementAndGracePeriodAccurately [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.FilteredUniqueIndex_RejectsSecondActiveSubscription_ForSameTenant [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+[xUnit.net 00:00:21.14]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.PersistSubscription_PendingPaymentState_StoresIsActiveFalseCorrectly [FAIL]
+[xUnit.net 00:00:21.15]     ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_FreePlan_ActivatesImmediatelyInSqlServer [FAIL]
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.PersistSubscription_PendingPaymentState_StoresIsActiveFalseCorrectly [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+  Failed ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.SubscriptionService_FreePlan_ActivatesImmediatelyInSqlServer [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 141
+   at ERP.SecurityTests.SubscriptionLifecyclePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLifecyclePersistenceTests.cs:line 35
+[xUnit.net 00:00:22.95]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.FailedEntityCreation_DuplicateProductCode_DoesNotIncrementUsage [FAIL]
+[xUnit.net 00:00:22.95]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.PlatformUser_CreatesUserWithoutTenantSubscriptionEnforcement [FAIL]
+[xUnit.net 00:00:22.96]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.ConcurrentRequests_CannotExceedFiniteLimit [FAIL]
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.FailedEntityCreation_DuplicateProductCode_DoesNotIncrementUsage [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.PlatformUser_CreatesUserWithoutTenantSubscriptionEnforcement [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.ConcurrentRequests_CannotExceedFiniteLimit [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+[xUnit.net 00:00:22.96]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.TenantIsolation_ExhaustedTenantADoesNotAffectTenantB [FAIL]
+[xUnit.net 00:00:22.97]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.FailedEntityCreation_DuplicateEmail_DoesNotIncrementUsage [FAIL]
+[xUnit.net 00:00:22.97]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.UnlimitedParameter_AllowsCreationAndTracksUsageConsistently [FAIL]
+[xUnit.net 00:00:22.97]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.Products_BelowAndAtLimit_SucceedsAndIncrementsUsage_ThenRejectsAboveLimit [FAIL]
+[xUnit.net 00:00:22.98]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.MissingOrIneligibleSubscription_RejectsCreationSafely [FAIL]
+[xUnit.net 00:00:22.99]     ERP.SecurityTests.SubscriptionUsageEnforcementTests.Users_BelowAndAtLimit_SucceedsAndIncrementsUsage_ThenRejectsAboveLimit [FAIL]
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.TenantIsolation_ExhaustedTenantADoesNotAffectTenantB [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.FailedEntityCreation_DuplicateEmail_DoesNotIncrementUsage [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.UnlimitedParameter_AllowsCreationAndTracksUsageConsistently [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.Products_BelowAndAtLimit_SucceedsAndIncrementsUsage_ThenRejectsAboveLimit [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.MissingOrIneligibleSubscription_RejectsCreationSafely [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+  Failed ERP.SecurityTests.SubscriptionUsageEnforcementTests.Users_BelowAndAtLimit_SucceedsAndIncrementsUsage_ThenRejectsAboveLimit [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 302
+   at ERP.SecurityTests.SubscriptionUsageEnforcementTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionUsageEnforcementTests.cs:line 81
+[xUnit.net 00:00:25.47]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionLimitService_Create_EnforcesOneLimitPerPlanConstraint [FAIL]
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionLimitService_Create_EnforcesOneLimitPerPlanConstraint [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+[xUnit.net 00:00:25.48]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionStatus_InactiveOrExpired_DeniesOperationRegardlessOfLimits [FAIL]
+[xUnit.net 00:00:25.48]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.LimitThresholds_EnforceBelowAtAndAboveRules(requestedUsage: 6, limitValue: 5, expectedAllowed: False) [FAIL]
+[xUnit.net 00:00:25.48]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.LimitThresholds_EnforceBelowAtAndAboveRules(requestedUsage: 4, limitValue: 5, expectedAllowed: True) [FAIL]
+[xUnit.net 00:00:25.48]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.LimitThresholds_EnforceBelowAtAndAboveRules(requestedUsage: 5, limitValue: 5, expectedAllowed: True) [FAIL]
+[xUnit.net 00:00:25.48]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.TenantIsolation_UsagesAndLimits_StrictlyIsolatedBetweenTenantAlphaAndBeta [FAIL]
+[xUnit.net 00:00:25.49]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.RejectedOperation_AboveLimit_DoesNotPersistOrIncrementUsageInSqlServer [FAIL]
+[xUnit.net 00:00:25.49]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionPlanParameter_DatabaseConstraints_EnforceUnlimitedAndLimitValueConsistency [FAIL]
+[xUnit.net 00:00:25.49]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionPlanParameter_CompositeUniqueIndex_PreventsDuplicateParameterPerPlan [FAIL]
+[xUnit.net 00:00:25.49]     ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.UsageTracking_EnforcesUsageValueUpdates_AndCompositePeriodUniqueIndex [FAIL]
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionStatus_InactiveOrExpired_DeniesOperationRegardlessOfLimits [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.LimitThresholds_EnforceBelowAtAndAboveRules(requestedUsage: 6, limitValue: 5, expectedAllowed: False) [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.LimitThresholds_EnforceBelowAtAndAboveRules(requestedUsage: 4, limitValue: 5, expectedAllowed: True) [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.LimitThresholds_EnforceBelowAtAndAboveRules(requestedUsage: 5, limitValue: 5, expectedAllowed: True) [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.TenantIsolation_UsagesAndLimits_StrictlyIsolatedBetweenTenantAlphaAndBeta [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.RejectedOperation_AboveLimit_DoesNotPersistOrIncrementUsageInSqlServer [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionPlanParameter_DatabaseConstraints_EnforceUnlimitedAndLimitValueConsistency [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.SubscriptionPlanParameter_CompositeUniqueIndex_PreventsDuplicateParameterPerPlan [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+  Failed ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.UsageTracking_EnforcesUsageValueUpdates_AndCompositePeriodUniqueIndex [1 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.CleanupTestDataAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 117
+   at ERP.SecurityTests.SubscriptionLimitsAndUsagePersistenceTests.InitializeAsync() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\SubscriptionLimitsAndUsagePersistenceTests.cs:line 37
+[xUnit.net 00:00:28.23]     ERP.SecurityTests.Inventory.InventoryPlanningAndReplenishmentTests.PoAndGrnLifecycle_ApprovalIncrementsOnOrder_AndGrnReceiptDecrementsIt [FAIL]
+  Failed ERP.SecurityTests.Inventory.InventoryPlanningAndReplenishmentTests.PoAndGrnLifecycle_ApprovalIncrementsOnOrder_AndGrnReceiptDecrementsIt [228 ms]
+  Error Message:
+   System.InvalidOperationException : PO item '452964fb-b7d3-4a11-b5dd-a31666e67b1e' and product 'P-PO-ca6e5dc' do not define a unit of measure.
+  Stack Trace:
+     at ERP.Application.Features.Procurement.GoodsReceiptNoteFeature.GoodsReceiptNoteService.ResolveReceiptUnitsAsync(Guid tenantId, PurchaseOrderItem poItem, Guid productId, Nullable`1 requestedGrnUnitOfMeasureId, Product product) in Z:\ERP\Backend\ERP\ERP.Application\Features\Procurement\GoodsReceiptNote\GoodsReceiptNoteService.cs:line 622
+   at ERP.Application.Features.Procurement.GoodsReceiptNoteFeature.GoodsReceiptNoteService.CreateDraftFromPoAsync(Guid tenantId, Guid companyId, Guid branchId, Guid purchaseOrderId, String grnNumber, Nullable`1 defaultWarehouseId, Nullable`1 defaultLocationId, String remarks) in Z:\ERP\Backend\ERP\ERP.Application\Features\Procurement\GoodsReceiptNote\GoodsReceiptNoteService.cs:line 128
+   at ERP.SecurityTests.Inventory.InventoryPlanningAndReplenishmentTests.PoAndGrnLifecycle_ApprovalIncrementsOnOrder_AndGrnReceiptDecrementsIt() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Inventory\InventoryPlanningAndReplenishmentTests.cs:line 462
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:14.06]     ERP.SecurityTests.Inventory.InventoryPlanningAndReplenishmentTests.ReplenishmentApi_ReturnsSuccess_AndEnforcesPermissions [FAIL]
+  Failed ERP.SecurityTests.Inventory.InventoryPlanningAndReplenishmentTests.ReplenishmentApi_ReturnsSuccess_AndEnforcesPermissions [1 m 45 s]
+  Error Message:
+   System.Threading.Tasks.TaskCanceledException : The operation was canceled.
+---- System.Net.Http.HttpRequestException : Error while copying content to a stream.
+-------- System.IO.IOException : 
+------------ System.IO.IOException : The client aborted the request.
+  Stack Trace:
+     at System.Net.Http.HttpClient.HandleFailure(Exception e, Boolean telemetryStarted, HttpResponseMessage response, CancellationTokenSource cts, CancellationToken cancellationToken, CancellationTokenSource pendingRequestsCts)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at ERP.SecurityTests.Inventory.InventoryPlanningAndReplenishmentTests.ReplenishmentApi_ReturnsSuccess_AndEnforcesPermissions() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Inventory\InventoryPlanningAndReplenishmentTests.cs:line 576
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at System.Net.Http.HttpContent.LoadIntoBufferAsyncCore(Task serializeToStreamTask, MemoryStream tempBuffer)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+----- Inner Stack Trace -----
+   at Microsoft.AspNetCore.TestHost.ResponseBodyReaderStream.CheckAborted()
+   at Microsoft.AspNetCore.TestHost.ResponseBodyReaderStream.ReadAsync(Memory`1 buffer, CancellationToken cancellationToken)
+   at System.IO.Stream.<CopyToAsync>g__Core|27_0(Stream source, Stream destination, Int32 bufferSize, CancellationToken cancellationToken)
+   at System.Net.Http.HttpContent.LoadIntoBufferAsyncCore(Task serializeToStreamTask, MemoryStream tempBuffer)
+----- Inner Stack Trace -----
+
+[xUnit.net 00:02:14.97]     ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithDuplicateSubdomain_ThrowsInvalidOperationException [FAIL]
+[xUnit.net 00:02:15.04]     ERP.SecurityTests.TenantRegistrationDomainTests.ProvisionTenant_WhenNoDomainExists_ProvisionsDefaultDomain [FAIL]
+[xUnit.net 00:02:15.04]     ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithoutSubdomain_AutoDerivesValidCandidate [FAIL]
+[xUnit.net 00:02:15.05]     ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithInvalidSubdomainCharacters_ThrowsArgumentException [FAIL]
+[xUnit.net 00:02:15.05]     ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithExplicitValidSubdomain_CreatesAndPersistsPrimaryTenantDomain [FAIL]
+[xUnit.net 00:02:15.07]     ERP.SecurityTests.TenantRegistrationDomainTests.ProvisionTenant_WhenDomainAlreadyExists_LeavesExistingDomainIntact [FAIL]
+[xUnit.net 00:02:15.07]     ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithReservedSubdomain_ThrowsArgumentException [FAIL]
+  Failed ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithDuplicateSubdomain_ThrowsInvalidOperationException [888 ms]
+  Error Message:
+   System.ArgumentException : Tenant Admin username is required. (Parameter 'AdminUsername')
+  Stack Trace:
+     at SaaS.Application.Services.TenantService.RegisterTenant(CreateTenantRequest request) in Z:\ERP\Backend\ERP\SaaS\Application\Services\TenantService.cs:line 83
+   at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithDuplicateSubdomain_ThrowsInvalidOperationException() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 206
+   at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithDuplicateSubdomain_ThrowsInvalidOperationException() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 229
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantRegistrationDomainTests.ProvisionTenant_WhenNoDomainExists_ProvisionsDefaultDomain [71 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.TenantRegistrationDomainTests.CleanupTestTenantAsync(Guid tenantId, String username) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 58
+   at ERP.SecurityTests.TenantRegistrationDomainTests.ProvisionTenant_WhenNoDomainExists_ProvisionsDefaultDomain() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 424
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithoutSubdomain_AutoDerivesValidCandidate [3 ms]
+  Error Message:
+   System.ArgumentException : Tenant Admin username is required. (Parameter 'AdminUsername')
+  Stack Trace:
+     at SaaS.Application.Services.TenantService.RegisterTenant(CreateTenantRequest request) in Z:\ERP\Backend\ERP\SaaS\Application\Services\TenantService.cs:line 83
+   at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithoutSubdomain_AutoDerivesValidCandidate() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 254
+   at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithoutSubdomain_AutoDerivesValidCandidate() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 271
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithInvalidSubdomainCharacters_ThrowsArgumentException [5 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "Tenant Admin username is required. (Param"···
+Not found: "invalid or reserved"
+  Stack Trace:
+     at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithInvalidSubdomainCharacters_ThrowsArgumentException() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 181
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithExplicitValidSubdomain_CreatesAndPersistsPrimaryTenantDomain [2 ms]
+  Error Message:
+   System.ArgumentException : Tenant Admin username is required. (Parameter 'AdminUsername')
+  Stack Trace:
+     at SaaS.Application.Services.TenantService.RegisterTenant(CreateTenantRequest request) in Z:\ERP\Backend\ERP\SaaS\Application\Services\TenantService.cs:line 83
+   at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithExplicitValidSubdomain_CreatesAndPersistsPrimaryTenantDomain() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 111
+   at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithExplicitValidSubdomain_CreatesAndPersistsPrimaryTenantDomain() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 139
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantRegistrationDomainTests.ProvisionTenant_WhenDomainAlreadyExists_LeavesExistingDomainIntact [18 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.TenantRegistrationDomainTests.CleanupTestTenantAsync(Guid tenantId, String username) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 58
+   at ERP.SecurityTests.TenantRegistrationDomainTests.ProvisionTenant_WhenDomainAlreadyExists_LeavesExistingDomainIntact() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 353
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithReservedSubdomain_ThrowsArgumentException [2 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "Tenant Admin username is required. (Param"···
+Not found: "invalid or reserved"
+  Stack Trace:
+     at ERP.SecurityTests.TenantRegistrationDomainTests.RegisterTenant_WithReservedSubdomain_ThrowsArgumentException() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantRegistrationDomainTests.cs:line 160
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:16.24]     ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithReservedExplicitSubdomain_ThrowsArgumentException [FAIL]
+  Failed ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithReservedExplicitSubdomain_ThrowsArgumentException [< 1 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "Tenant Admin username is required. (Param"···
+Not found: "reserved"
+  Stack Trace:
+     at ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithReservedExplicitSubdomain_ThrowsArgumentException() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantSlugTests.cs:line 226
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:16.24]     ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithDuplicateName_AutoResolvesSubdomainCollision [FAIL]
+  Failed ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithDuplicateName_AutoResolvesSubdomainCollision [< 1 ms]
+  Error Message:
+   System.ArgumentException : Tenant Admin username is required. (Parameter 'AdminUsername')
+  Stack Trace:
+     at SaaS.Application.Services.TenantService.RegisterTenant(CreateTenantRequest request) in Z:\ERP\Backend\ERP\SaaS\Application\Services\TenantService.cs:line 83
+   at ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithDuplicateName_AutoResolvesSubdomainCollision() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantSlugTests.cs:line 204
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:16.24]     ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithFullMetadata_PersistsAndGeneratesSlug [FAIL]
+  Failed ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithFullMetadata_PersistsAndGeneratesSlug [< 1 ms]
+  Error Message:
+   System.ArgumentException : Tenant Admin username is required. (Parameter 'AdminUsername')
+  Stack Trace:
+     at SaaS.Application.Services.TenantService.RegisterTenant(CreateTenantRequest request) in Z:\ERP\Backend\ERP\SaaS\Application\Services\TenantService.cs:line 83
+   at ERP.SecurityTests.TenantSlugTests.RegisterTenant_WithFullMetadata_PersistsAndGeneratesSlug() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantSlugTests.cs:line 178
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:20.09]     ERP.SecurityTests.Inventory.StockByLocationReportTests.GetStockByLocationReport_StorageClassification_ReturnsOnlyStorageLocations [FAIL]
+  Failed ERP.SecurityTests.Inventory.StockByLocationReportTests.GetStockByLocationReport_StorageClassification_ReturnsOnlyStorageLocations [2 s]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : An error occurred while saving the entity changes. See the inner exception for details.
+---- Microsoft.Data.SqlClient.SqlException : Cannot insert duplicate key row in object 'dbo.LocationTypes' with unique index 'IX_LocationTypes_TenantId_Code'. The duplicate key value is (11111111-1111-1111-1111-111111111111, RECEIVING).
+The INSERT statement conflicted with the FOREIGN KEY constraint "FK_WarehouseLocations_LocationTypes_LocationTypeId". The conflict occurred in database "DomainDB_Test", table "dbo.LocationTypes", column 'LocationTypeId'.
+The statement has been terminated.
+The statement has been terminated.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Inventory.StockByLocationReportTests.GetStockByLocationReport_StorageClassification_ReturnsOnlyStorageLocations() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Inventory\StockByLocationReportTests.cs:line 83
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+[xUnit.net 00:02:22.41]     ERP.SecurityTests.Email.EmailTemplateEngineTests.RenderAsync_PurchaseOrderTemplate_RendersWithModelPropertiesAndInlinedCss [FAIL]
+  Failed ERP.SecurityTests.Email.EmailTemplateEngineTests.RenderAsync_PurchaseOrderTemplate_RendersWithModelPropertiesAndInlinedCss [6 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "<!DOCTYPE html>\n<html lang="en">\n<head>\n "···
+Not found: "style="color: #0f172a;"
+  Stack Trace:
+     at ERP.SecurityTests.Email.EmailTemplateEngineTests.RenderAsync_PurchaseOrderTemplate_RendersWithModelPropertiesAndInlinedCss() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Email\EmailTemplateEngineTests.cs:line 52
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:26.45]     ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_RepeatedCall_ReturnsConflict [FAIL]
+[xUnit.net 00:02:26.45]     ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_NoActiveSubscription_ReturnsConflict [FAIL]
+[xUnit.net 00:02:26.46]     ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_ValidUnprovisionedTenant_Succeeds_AndPersistsBothRecordsAndAdminIdentity [FAIL]
+[xUnit.net 00:02:26.46]     ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_WhenSecurityBootstrapFails_RollsBackPlatformDbRecords [FAIL]
+  Failed ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_RepeatedCall_ReturnsConflict [6 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.TenantProvisioningTests.CleanupTestTenantAsync(Guid tenantId, String username) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 53
+   at ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_RepeatedCall_ReturnsConflict() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 248
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_NoActiveSubscription_ReturnsConflict [4 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.TenantProvisioningTests.CleanupTestTenantAsync(Guid tenantId, String username) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 53
+   at ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_NoActiveSubscription_ReturnsConflict() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 311
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_ValidUnprovisionedTenant_Succeeds_AndPersistsBothRecordsAndAdminIdentity [5 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.TenantProvisioningTests.CleanupTestTenantAsync(Guid tenantId, String username) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 53
+   at ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_ValidUnprovisionedTenant_Succeeds_AndPersistsBothRecordsAndAdminIdentity() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 184
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_WhenSecurityBootstrapFails_RollsBackPlatformDbRecords [4 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.TenantProvisioningTests.CleanupTestTenantAsync(Guid tenantId, String username) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 53
+   at ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_WhenSecurityBootstrapFails_RollsBackPlatformDbRecords() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 416
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:27.69]     ERP.SecurityTests.TenantProvisioningTests.EnsureTenantAdminAsync_Idempotent_DoesNotDuplicateUserOrRole [FAIL]
+[xUnit.net 00:02:27.74]     ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_NonExistentTenant_ReturnsConflict [FAIL]
+  Failed ERP.SecurityTests.TenantProvisioningTests.EnsureTenantAdminAsync_Idempotent_DoesNotDuplicateUserOrRole [1 s]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at ERP.SecurityTests.TenantProvisioningTests.CleanupTestTenantAsync(Guid tenantId, String username) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 53
+   at ERP.SecurityTests.TenantProvisioningTests.EnsureTenantAdminAsync_Idempotent_DoesNotDuplicateUserOrRole() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 346
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_NonExistentTenant_ReturnsConflict [53 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Conflict
+Actual:   InternalServerError
+  Stack Trace:
+     at ERP.SecurityTests.TenantProvisioningTests.ProvisionTenant_NonExistentTenant_ReturnsConflict() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantProvisioningTests.cs:line 270
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:28.75]     ERP.SecurityTests.PlatformSecurityRemediationTests.SubscriptionPlan_TenantUser_ReturnsForbidden [FAIL]
+[xUnit.net 00:02:28.84]     ERP.SecurityTests.PlatformSecurityRemediationTests.SubscriptionPlan_Anonymous_ReturnsUnauthorized [FAIL]
+  Failed ERP.SecurityTests.PlatformSecurityRemediationTests.SubscriptionPlan_TenantUser_ReturnsForbidden [972 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   OK
+  Stack Trace:
+     at ERP.SecurityTests.PlatformSecurityRemediationTests.SubscriptionPlan_TenantUser_ReturnsForbidden() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\PlatformSecurityRemediationTests.cs:line 106
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.PlatformSecurityRemediationTests.SubscriptionPlan_Anonymous_ReturnsUnauthorized [3 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Unauthorized
+Actual:   OK
+  Stack Trace:
+     at ERP.SecurityTests.PlatformSecurityRemediationTests.SubscriptionPlan_Anonymous_ReturnsUnauthorized() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\PlatformSecurityRemediationTests.cs:line 89
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:30.35]     ERP.SecurityTests.Inventory.FEFOPickingAndExpiryDispatchTests.NonPickableLocation_AndQuarantinedStock_AreExcludedFromEligibleBatches [FAIL]
+  Failed ERP.SecurityTests.Inventory.FEFOPickingAndExpiryDispatchTests.NonPickableLocation_AndQuarantinedStock_AreExcludedFromEligibleBatches [14 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : An error occurred while saving the entity changes. See the inner exception for details.
+---- Microsoft.Data.SqlClient.SqlException : Cannot insert duplicate key row in object 'dbo.LocationTypes' with unique index 'IX_LocationTypes_TenantId_Code'. The duplicate key value is (11111111-1111-1111-1111-111111111111, QC_B4D).
+The statement has been terminated.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Inventory.FEFOPickingAndExpiryDispatchTests.NonPickableLocation_AndQuarantinedStock_AreExcludedFromEligibleBatches() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Inventory\FEFOPickingAndExpiryDispatchTests.cs:line 371
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+[xUnit.net 00:02:31.80]     ERP.SecurityTests.Sales.SalesInvoicePermissionTests.TenantAdminRolePermissionSeed_AssignsSalesInvoicePermissionsToTenantAdmin [FAIL]
+  Failed ERP.SecurityTests.Sales.SalesInvoicePermissionTests.TenantAdminRolePermissionSeed_AssignsSalesInvoicePermissionsToTenantAdmin [91 ms]
+  Error Message:
+   System.InvalidOperationException : Required permission 'INVENTORY.VIEW' does not exist.
+  Stack Trace:
+     at Security.Bootstrap.Roles.TenantAdminRolePermissionSeed.SeedAsync(ISecurityBootstrapRepository repository) in Z:\ERP\Backend\ERP\Security\Boostrap\Roles\TenantAdminRolePermissionSeed.cs:line 206
+   at ERP.SecurityTests.Sales.SalesInvoicePermissionTests.TenantAdminRolePermissionSeed_AssignsSalesInvoicePermissionsToTenantAdmin() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesInvoicePermissionTests.cs:line 92
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:39.76]     ERP.SecurityTests.Inventory.InventoryTransferValuationIntegrationTests.Transfer_BatchTracked_ExpiredBatch_Rejection [FAIL]
+  Failed ERP.SecurityTests.Inventory.InventoryTransferValuationIntegrationTests.Transfer_BatchTracked_ExpiredBatch_Rejection [14 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "Insufficient valuation cost layers for pr"···
+Not found: "expired"
+  Stack Trace:
+     at ERP.SecurityTests.Inventory.InventoryTransferValuationIntegrationTests.Transfer_BatchTracked_ExpiredBatch_Rejection() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Inventory\InventoryTransferValuationIntegrationTests.cs:line 420
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:39.85]     ERP.SecurityTests.Inventory.InventoryTransferValuationIntegrationTests.Transfer_LocationValidation_SameLocationAndCrossWarehouseRejection [FAIL]
+  Failed ERP.SecurityTests.Inventory.InventoryTransferValuationIntegrationTests.Transfer_LocationValidation_SameLocationAndCrossWarehouseRejection [10 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "No stock exists at source location 'LOC_V"···
+Not found: "does not belong to warehouse"
+  Stack Trace:
+     at ERP.SecurityTests.Inventory.InventoryTransferValuationIntegrationTests.Transfer_LocationValidation_SameLocationAndCrossWarehouseRejection() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Inventory\InventoryTransferValuationIntegrationTests.cs:line 1837
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:43.22]     ERP.SecurityTests.TenantMasterDataSetupTests.SetupMasterDataAsync_SeedsCompleteRetailMasterData_WhenMissing [FAIL]
+  Failed ERP.SecurityTests.TenantMasterDataSetupTests.SetupMasterDataAsync_SeedsCompleteRetailMasterData_WhenMissing [785 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: 5
+Actual:   10
+  Stack Trace:
+     at ERP.SecurityTests.TenantMasterDataSetupTests.SetupMasterDataAsync_SeedsCompleteRetailMasterData_WhenMissing() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantMasterDataSetupTests.cs:line 124
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:45.90]     ERP.SecurityTests.Procurement.ProcurementWorkflowIntegrationTests.PurchaseOrder_WhenApprovalDisabled_AutoApprovesOnSubmit [FAIL]
+[xUnit.net 00:02:46.26]     ERP.SecurityTests.Procurement.ProcurementWorkflowIntegrationTests.TenantProcurementSettings_TenantAdminCanConfigureSettings_AdvancedModeIsRejected [FAIL]
+  Failed ERP.SecurityTests.Procurement.ProcurementWorkflowIntegrationTests.PurchaseOrder_WhenApprovalDisabled_AutoApprovesOnSubmit [968 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   InternalServerError
+  Stack Trace:
+     at ERP.SecurityTests.Procurement.ProcurementWorkflowIntegrationTests.PurchaseOrder_WhenApprovalDisabled_AutoApprovesOnSubmit() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\ProcurementWorkflowIntegrationTests.cs:line 154
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Procurement.ProcurementWorkflowIntegrationTests.TenantProcurementSettings_TenantAdminCanConfigureSettings_AdvancedModeIsRejected [14 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   InternalServerError
+  Stack Trace:
+     at ERP.SecurityTests.Procurement.ProcurementWorkflowIntegrationTests.TenantProcurementSettings_TenantAdminCanConfigureSettings_AdvancedModeIsRejected() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\ProcurementWorkflowIntegrationTests.cs:line 37
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:50.32]     ERP.SecurityTests.Inventory.StockCountSqlIntegrationTests.MixedVariance_PostsIssueReceiptAndZeroVarianceAtomically [FAIL]
+  Failed ERP.SecurityTests.Inventory.StockCountSqlIntegrationTests.MixedVariance_PostsIssueReceiptAndZeroVarianceAtomically [1 s]
+  Error Message:
+   System.InvalidOperationException : Stock receipt '3b9db6dc-bbed-4aa0-ad31-3b1b6170e33c' has already been posted.
+  Stack Trace:
+     at ERP.Application.Features.Inventory.Management.InventoryService.CreateStockReceiptAsync(Guid tenantId, CreateStockReceiptRequest request) in Z:\ERP\Backend\ERP\ERP.Application\Features\Inventory\Management\InventoryService.cs:line 484
+   at ERP.Domain.Features.Inventory.StockCount.StockCountService.PostAsync(Guid tenantId, Guid stockCountId, PostStockCountRequest request) in Z:\ERP\Backend\ERP\Domain\Features\Inventory\StockCount\StockCountService.cs:line 554
+   at ERP.Domain.Features.Inventory.StockCount.StockCountService.PostAsync(Guid tenantId, Guid stockCountId, PostStockCountRequest request) in Z:\ERP\Backend\ERP\Domain\Features\Inventory\StockCount\StockCountService.cs:line 574
+   at ERP.Domain.Features.Inventory.StockCount.StockCountService.PostAsync(Guid tenantId, Guid stockCountId, PostStockCountRequest request) in Z:\ERP\Backend\ERP\Domain\Features\Inventory\StockCount\StockCountService.cs:line 580
+   at ERP.SecurityTests.Inventory.StockCountSqlIntegrationTests.MixedVariance_PostsIssueReceiptAndZeroVarianceAtomically() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Inventory\StockCountSqlIntegrationTests.cs:line 70
+--- End of stack trace from previous location ---
+[xUnit.net 00:02:50.98]     ERP.SecurityTests.TenantDomainServiceTests.ResolveTenantByHostnameAsync_MalformedHostname_ReturnsMalformed(hostname: "retail:localhost") [FAIL]
+[xUnit.net 00:02:50.98]     ERP.SecurityTests.TenantDomainServiceTests.ResolveTenantByHostnameAsync_MalformedHostname_ReturnsMalformed(hostname: "http://retail.localhost") [FAIL]
+  Failed ERP.SecurityTests.TenantDomainServiceTests.ResolveTenantByHostnameAsync_MalformedHostname_ReturnsMalformed(hostname: "retail:localhost") [< 1 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "Tenant domain 'retail' is not registered."
+Not found: "malformed"
+  Stack Trace:
+     at ERP.SecurityTests.TenantDomainServiceTests.ResolveTenantByHostnameAsync_MalformedHostname_ReturnsMalformed(String hostname) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantDomainServiceTests.cs:line 53
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.TenantDomainServiceTests.ResolveTenantByHostnameAsync_MalformedHostname_ReturnsMalformed(hostname: "http://retail.localhost") [< 1 ms]
+  Error Message:
+   Assert.Contains() Failure: Sub-string not found
+String:    "Tenant domain 'http' is not registered."
+Not found: "malformed"
+  Stack Trace:
+     at ERP.SecurityTests.TenantDomainServiceTests.ResolveTenantByHostnameAsync_MalformedHostname_ReturnsMalformed(String hostname) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\TenantDomainServiceTests.cs:line 53
+--- End of stack trace from previous location ---
+[xUnit.net 00:03:28.46]     ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectDispatch_WithPackagingUom_ConvertsToBaseUomForInventoryPosting [FAIL]
+[xUnit.net 00:03:28.48]     ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.StagedDispatch_WithPackagingUom_ConvertsToBaseUomForInventoryPosting [FAIL]
+[xUnit.net 00:03:28.49]     ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectAndStagedDispatch_Parity_ProducesIdenticalBaseUomLedgerMovements [FAIL]
+[xUnit.net 00:03:28.50]     ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.Dispatch_WithoutConversion_WhenItemInBaseUom_PreservesQuantityExactly [FAIL]
+[xUnit.net 00:03:28.52]     ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.AvailabilityCheck_And_DirectDispatch_InsufficientStock_Rejected [FAIL]
+[xUnit.net 00:03:28.53]     ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.StagedDispatch_PartialFulfillment_ConvertsCorrectProportionToBaseUom [FAIL]
+[xUnit.net 00:03:28.54]     ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectDispatch_BatchFefoAllocation_AllocatesInBaseUnits [FAIL]
+  Failed ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectDispatch_WithPackagingUom_ConvertsToBaseUomForInventoryPosting [1 s]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 601
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.SetupProductWithPackagingAsync(Decimal conversionFactor, TrackingMode trackingMode) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 420
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectDispatch_WithPackagingUom_ConvertsToBaseUomForInventoryPosting() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 169
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.StagedDispatch_WithPackagingUom_ConvertsToBaseUomForInventoryPosting [13 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 601
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.SetupProductWithPackagingAsync(Decimal conversionFactor, TrackingMode trackingMode) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 420
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.StagedDispatch_WithPackagingUom_ConvertsToBaseUomForInventoryPosting() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 41
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectAndStagedDispatch_Parity_ProducesIdenticalBaseUomLedgerMovements [12 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 601
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.SetupProductWithPackagingAsync(Decimal conversionFactor, TrackingMode trackingMode) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 420
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectAndStagedDispatch_Parity_ProducesIdenticalBaseUomLedgerMovements() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.Dispatch_WithoutConversion_WhenItemInBaseUom_PreservesQuantityExactly [10 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 601
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.SetupProductWithPackagingAsync(Decimal conversionFactor, TrackingMode trackingMode) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 420
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.Dispatch_WithoutConversion_WhenItemInBaseUom_PreservesQuantityExactly() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 273
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.AvailabilityCheck_And_DirectDispatch_InsufficientStock_Rejected [11 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 601
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.SetupProductWithPackagingAsync(Decimal conversionFactor, TrackingMode trackingMode) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 420
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.AvailabilityCheck_And_DirectDispatch_InsufficientStock_Rejected() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 311
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.StagedDispatch_PartialFulfillment_ConvertsCorrectProportionToBaseUom [11 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 601
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.SetupProductWithPackagingAsync(Decimal conversionFactor, TrackingMode trackingMode) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 420
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.StagedDispatch_PartialFulfillment_ConvertsCorrectProportionToBaseUom() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 105
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectDispatch_BatchFefoAllocation_AllocatesInBaseUnits [13 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 601
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.SetupProductWithPackagingAsync(Decimal conversionFactor, TrackingMode trackingMode) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 420
+   at ERP.SecurityTests.Sales.SalesOrderUomConversionDispatchTests.DirectDispatch_BatchFefoAllocation_AllocatesInBaseUnits() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Sales\SalesOrderUomConversionDispatchTests.cs:line 351
+--- End of stack trace from previous location ---
+[xUnit.net 00:03:34.52]     ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.AlternateUomReceipt_InverseConversion_ConvertsAccurately [FAIL]
+[xUnit.net 00:03:34.58]     ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.AlternateUomReceipt_ConvertsToBaseStockUom_AndPreservesValuation [FAIL]
+[xUnit.net 00:03:34.63]     ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.PartialReceipts_ConvertToPoAndStockUom_AndKeepDraftOutOfReceivedQuantity [FAIL]
+[xUnit.net 00:03:34.76]     ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.ProductPackagingReceipt_UsesProductSpecificPurchaseConversion [FAIL]
+[xUnit.net 00:03:34.89]     ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.ConvertedReceiptBoundary_UsesFullPrecisionForOverReceiptValidation [FAIL]
+  Failed ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.AlternateUomReceipt_InverseConversion_ConvertsAccurately [1 s]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   InternalServerError
+  Stack Trace:
+     at ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.AlternateUomReceipt_InverseConversion_ConvertsAccurately() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\GrnAndUomIntegrityTests.cs:line 327
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.AlternateUomReceipt_ConvertsToBaseStockUom_AndPreservesValuation [54 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   InternalServerError
+  Stack Trace:
+     at ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.AlternateUomReceipt_ConvertsToBaseStockUom_AndPreservesValuation() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\GrnAndUomIntegrityTests.cs:line 230
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.PartialReceipts_ConvertToPoAndStockUom_AndKeepDraftOutOfReceivedQuantity [55 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: OK
+Actual:   InternalServerError
+  Stack Trace:
+     at ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.PartialReceipts_ConvertToPoAndStockUom_AndKeepDraftOutOfReceivedQuantity() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\GrnAndUomIntegrityTests.cs:line 592
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.ProductPackagingReceipt_UsesProductSpecificPurchaseConversion [30 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.ProductPackagingReceipt_UsesProductSpecificPurchaseConversion() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\GrnAndUomIntegrityTests.cs:line 359
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.ConvertedReceiptBoundary_UsesFullPrecisionForOverReceiptValidation [61 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Created
+Actual:   InternalServerError
+  Stack Trace:
+     at ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.<>c__DisplayClass10_0.<<ConvertedReceiptBoundary_UsesFullPrecisionForOverReceiptValidation>g__CreateReceipt|0>d.MoveNext() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\GrnAndUomIntegrityTests.cs:line 774
+--- End of stack trace from previous location ---
+   at ERP.SecurityTests.Procurement.GrnAndUomIntegrityTests.ConvertedReceiptBoundary_UsesFullPrecisionForOverReceiptValidation() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\Procurement\GrnAndUomIntegrityTests.cs:line 778
+--- End of stack trace from previous location ---
+[xUnit.net 00:03:37.23]     ERP.SecurityTests.MasterData.CurrencyTests.PurchaseOrder_HasDefaultCurrencyUSD [FAIL]
+  Failed ERP.SecurityTests.MasterData.CurrencyTests.PurchaseOrder_HasDefaultCurrencyUSD [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "USD"
+Actual:   ""
+  Stack Trace:
+     at ERP.SecurityTests.MasterData.CurrencyTests.PurchaseOrder_HasDefaultCurrencyUSD() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\CurrencyTests.cs:line 221
+--- End of stack trace from previous location ---
+[xUnit.net 00:03:44.56]     ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ScenarioB_OneTenant_FiveCompanies_ProcurementFulfillmentAndServiceIntegrity [FAIL]
+[xUnit.net 00:03:44.58]     ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ProductSpecificPackaging_TwoProductsShareBoxToPcs_ResolveIndependently [FAIL]
+[xUnit.net 00:03:44.58]     ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.CompanySpecificPackaging_EnforcesCompanyEligibility [FAIL]
+[xUnit.net 00:03:44.61]     ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.CompanyLevelSpecialUom_TenScenarios_Verified [FAIL]
+[xUnit.net 00:03:44.61]     ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.SpecialConversion_DisabledByDefault_RejectsExplicitPackagingId [FAIL]
+  Failed ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ScenarioB_OneTenant_FiveCompanies_ProcurementFulfillmentAndServiceIntegrity [987 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 778
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ScenarioB_OneTenant_FiveCompanies_ProcurementFulfillmentAndServiceIntegrity() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 438
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ProductSpecificPackaging_TwoProductsShareBoxToPcs_ResolveIndependently [5 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 778
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ProductSpecificPackaging_TwoProductsShareBoxToPcs_ResolveIndependently() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 71
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.CompanySpecificPackaging_EnforcesCompanyEligibility [6 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 778
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.CompanySpecificPackaging_EnforcesCompanyEligibility() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 310
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.CompanyLevelSpecialUom_TenScenarios_Verified [22 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 778
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.CompanyLevelSpecialUom_TenScenarios_Verified() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 575
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.CompanyLevelSpecialUom_TenScenarios_Verified() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 746
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.SpecialConversion_DisabledByDefault_RejectsExplicitPackagingId [4 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 778
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.SpecialConversion_DisabledByDefault_RejectsExplicitPackagingId() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 182
+--- End of stack trace from previous location ---
+[xUnit.net 00:03:44.62]     ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.MultiplePackagingSizes_SameProductAndUom_DisambiguatedByPackagingId [FAIL]
+[xUnit.net 00:03:44.66]     ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ScenarioA_TenTenants_TenIndustries_TenantIsolationVerified [FAIL]
+  Failed ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.MultiplePackagingSizes_SameProductAndUom_DisambiguatedByPackagingId [5 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'CompanyStructure'.
+Invalid column name 'ECommerceEnabled'.
+Invalid column name 'IndustryType'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.ShapedQueryCompilingExpressionVisitor.SingleOrDefaultAsync[TSource](IAsyncEnumerable`1 asyncEnumerable, CancellationToken cancellationToken)
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 778
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.MultiplePackagingSizes_SameProductAndUom_DisambiguatedByPackagingId() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 231
+--- End of stack trace from previous location ---
+  Failed ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ScenarioA_TenTenants_TenIndustries_TenantIsolationVerified [43 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : An error occurred while saving the entity changes. See the inner exception for details.
+---- Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.EnableSpecialUomAsync(Guid tenantId, Boolean enabled) in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 775
+   at ERP.SecurityTests.MasterData.ProductPackagingAndSpecialUomTests.ScenarioA_TenTenants_TenIndustries_TenantIsolationVerified() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\MasterData\ProductPackagingAndSpecialUomTests.cs:line 384
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+[xUnit.net 00:03:50.96]     ERP.SecurityTests.IndustryDemo.IndustryDemoAndCompanyBaseCurrencyTests.CompanyBaseCurrency_MustBeActive [FAIL]
+[xUnit.net 00:03:51.83]     ERP.SecurityTests.IndustryDemo.IndustryDemoAndCompanyBaseCurrencyTests.IndustryDemoSeeder_SeedsAll11TenantsAndCorrectAccountCounts [FAIL]
+  Failed ERP.SecurityTests.IndustryDemo.IndustryDemoAndCompanyBaseCurrencyTests.CompanyBaseCurrency_MustBeActive [286 ms]
+  Error Message:
+   Microsoft.EntityFrameworkCore.DbUpdateException : An error occurred while saving the entity changes. See the inner exception for details.
+---- Microsoft.Data.SqlClient.SqlException : Cannot insert duplicate key row in object 'dbo.Currencies' with unique index 'IX_Currencies_TenantId_CurrencyCode'. The duplicate key value is (10000000-0000-0000-0000-000000000001, ZZZ).
+The statement has been terminated.
+  Stack Trace:
+     at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at ERP.SecurityTests.IndustryDemo.IndustryDemoAndCompanyBaseCurrencyTests.CompanyBaseCurrency_MustBeActive() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\IndustryDemo\IndustryDemoAndCompanyBaseCurrencyTests.cs:line 159
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__209_0(Task`1 result)
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+  Failed ERP.SecurityTests.IndustryDemo.IndustryDemoAndCompanyBaseCurrencyTests.IndustryDemoSeeder_SeedsAll11TenantsAndCorrectAccountCounts [248 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Invalid column name 'AdminEmail'.
+Invalid column name 'AdminUsername'.
+Invalid column name 'Subdomain'.
+  Stack Trace:
+     at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlDataReader.TryConsumeMetaData()
+   at Microsoft.Data.SqlClient.SqlCommand.FinishExecuteReader(SqlDataReader ds, RunBehavior runBehavior, String resetOptionsString, Boolean isInternal, Boolean forDescribeParameterEncryption, Boolean shouldCacheForAlwaysEncrypted)
+   at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReaderTds(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, Boolean isAsync, Int32 timeout, Task& task, Boolean asyncWrite, Boolean inRetry, SqlDataReader ds, Boolean describeParameterEncryptionRequest)
+   at Microsoft.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, TaskCompletionSource`1 completion, Int32 timeout, Task& task, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry, String method)
+   at Microsoft.Data.SqlClient.SqlCommand.ExecuteReader(CommandBehavior behavior)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReader(RelationalCommandParameterObject parameterObject)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.InitializeReader(Enumerator enumerator)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.Execute[TState,TResult](TState state, Func`3 operation, Func`3 verifySucceeded)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.Enumerator.MoveNext()
+   at System.Collections.Generic.List`1..ctor(IEnumerable`1 collection)
+   at System.Linq.Enumerable.ToList[TSource](IEnumerable`1 source)
+   at ERP.SecurityTests.IndustryDemo.IndustryDemoAndCompanyBaseCurrencyTests.IndustryDemoSeeder_SeedsAll11TenantsAndCorrectAccountCounts() in Z:\ERP\Backend\ERP\Testing\ERP.SecurityTests\IndustryDemo\IndustryDemoAndCompanyBaseCurrencyTests.cs:line 51
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:    86, Passed:   966, Skipped:     0, Total:  1052, Duration: 3 m 58 s - ERP.SecurityTests.dll (net8.0)
