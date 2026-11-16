@@ -108,6 +108,17 @@ public class SecurityBootstrapRepository
                 x.Username == username);
     }
 
+    public Task<User?> GetTenantUserByEmailAsync(
+        Guid tenantId,
+        string email)
+    {
+        string normalized = email.Trim().ToLowerInvariant();
+        return _context.Users
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == tenantId &&
+                x.Email.ToLower() == normalized);
+    }
+
     // =========================
     // RBAC Lookups
     // =========================

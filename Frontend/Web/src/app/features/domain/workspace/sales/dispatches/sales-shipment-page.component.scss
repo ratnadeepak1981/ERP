@@ -585,3 +585,58 @@
     }
   }
 }
+
+/* Tracking Details Pills & Action Button */
+.tracking-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+
+  &.untracked {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+}
+
+.tracking-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+  outline: none;
+
+  &.pending {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #b45309;
+
+    &:hover {
+      background: #fef3c7;
+      border-color: #f59e0b;
+    }
+  }
+
+  &.configured {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+
+    &:hover {
+      background: #dcfce7;
+      border-color: #22c55e;
+    }
+  }
+
+  i {
+    font-size: 11px;
+  }
+}

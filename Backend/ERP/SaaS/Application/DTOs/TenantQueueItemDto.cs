@@ -26,6 +26,10 @@ public class TenantQueueItemDto
 
     public string? DatabaseName { get; set; }
 
+    public string? AdminUsername { get; set; }
+
+    public string? AdminEmail { get; set; }
+
     public string? Subdomain { get; set; }
 
     public string? IndustryType { get; set; }

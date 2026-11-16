@@ -17,34 +17,36 @@ import { MatIconModule } from '@angular/material/icon';
             (click)="addRow.emit()"
           >
             <span class="btn-icon">＋</span>
-            <span>Add Line</span>
+            <span>{{ addRowLabel || 'Add Line' }}</span>
           </button>
         }
 
-        <button
-          type="button"
-          class="fluent-toolbar-btn success-btn"
-          [disabled]="dirtyCount === 0"
-          (click)="save.emit()"
-          title="Save all changes to in-memory demo data"
-        >
-          <span class="btn-icon">💾</span>
-          <span>Save (In-Memory)</span>
-          @if (dirtyCount > 0) {
-            <span class="dirty-badge">{{ dirtyCount }}</span>
-          }
-        </button>
+        @if (showSaveActions) {
+          <button
+            type="button"
+            class="fluent-toolbar-btn success-btn"
+            [disabled]="dirtyCount === 0"
+            (click)="save.emit()"
+            title="Save all changes to in-memory demo data"
+          >
+            <span class="btn-icon">💾</span>
+            <span>Save (In-Memory)</span>
+            @if (dirtyCount > 0) {
+              <span class="dirty-badge">{{ dirtyCount }}</span>
+            }
+          </button>
 
-        <button
-          type="button"
-          class="fluent-toolbar-btn secondary-btn"
-          [disabled]="dirtyCount === 0"
-          (click)="cancel.emit()"
-          title="Discard unsaved changes and reset to baseline"
-        >
-          <span class="btn-icon">↺</span>
-          <span>Reset Changes</span>
-        </button>
+          <button
+            type="button"
+            class="fluent-toolbar-btn secondary-btn"
+            [disabled]="dirtyCount === 0"
+            (click)="cancel.emit()"
+            title="Discard unsaved changes and reset to baseline"
+          >
+            <span class="btn-icon">↺</span>
+            <span>Reset Changes</span>
+          </button>
+        }
       </div>
 
       <div class="toolbar-right">
@@ -125,6 +127,8 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class TableToolbarComponent {
   @Input() allowAddRow: boolean = true;
+  @Input() addRowLabel?: string;
+  @Input() showSaveActions: boolean = true;
   @Input() dirtyCount: number = 0;
   @Input() totalLines: number = 0;
 

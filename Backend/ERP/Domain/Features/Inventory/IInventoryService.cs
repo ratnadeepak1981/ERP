@@ -15,4 +15,6 @@ public interface IInventoryService
     Task<List<StockReceiptDto>> GetStockReceiptsAsync(Guid tenantId, Guid? warehouseId = null, StockReceiptReason? reason = null);
     Task<StockReceiptDto?> GetStockReceiptByIdAsync(Guid tenantId, Guid receiptId);
     Task<List<StockReceiptDto>> CreateStockReceiptAsync(Guid tenantId, CreateStockReceiptRequest request);
+    Task<StockByLocationReportDto> GetStockByLocationReportAsync(Guid tenantId, StockByLocationReportQuery query);
+    Task<StockLedgerReportDto> GetStockLedgerReportAsync(Guid tenantId, StockLedgerReportQuery query);
 }

@@ -13,6 +13,7 @@ import { AppEmptyStateComponent } from '../../../../shared/components/empty-stat
 import { AccessDeniedComponent } from '../../../../shared/components/access-denied/access-denied.component';
 import { GoodsReceiptNoteService } from '../../../../core/services/goods-receipt-note.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
+import { AuthService } from '../../../../core/auth/auth.service';
 import {
   GoodsReceiptNoteDto,
   GoodsReceiptNoteStatus,
@@ -46,6 +47,7 @@ export type GRNStatusFilter = 'all' | 'draft' | 'confirmed' | 'cancelled';
 export class GoodsReceiptRegisterComponent implements OnInit, OnDestroy {
   readonly grnService = inject(GoodsReceiptNoteService);
   readonly scopeService = inject(WorkspaceScopeService);
+  readonly authService = inject(AuthService);
   readonly router = inject(Router);
 
   private readonly subs = new Subscription();
@@ -134,7 +136,8 @@ export class GoodsReceiptRegisterComponent implements OnInit, OnDestroy {
       label: 'Putaway',
       icon: 'pi pi-box',
       severity: 'primary',
-      visible: (row: GoodsReceiptNoteDto) => row.status === GoodsReceiptNoteStatus.Confirmed || row.status === 2,
+      visible: (row: GoodsReceiptNoteDto) =>
+        (row.status === GoodsReceiptNoteStatus.Confirmed || row.status === 2) && this.canPutaway(),
       action: (row: GoodsReceiptNoteDto) => this.navigateToPutaway(row)
     }
   ];
@@ -205,6 +208,13 @@ export class GoodsReceiptRegisterComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  canPutaway(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+      return true;
+    }
+    return this.authService.hasPermission('PUTAWAY.POST');
   }
 
   navigateToView(grn: GoodsReceiptNoteDto): void {

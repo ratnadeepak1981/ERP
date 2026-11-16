@@ -14,9 +14,11 @@ public class CreateTenantRequest
 
     public bool ECommerceEnabled { get; set; } = false;
 
+    public string AdminUsername { get; set; } = string.Empty;
+
     public string? AdminFullName { get; set; }
 
-    public string? AdminEmail { get; set; }
+    public string AdminEmail { get; set; } = string.Empty;
 
     public string? AdminPhone { get; set; }
 }

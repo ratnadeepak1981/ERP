@@ -109,4 +109,85 @@ describe('StorePutawayRegisterComponent', () => {
     component.navigateToCreate();
     expect(navSpy).toHaveBeenCalledWith(['/app/inventory/store-putaway/new']);
   });
+
+  describe('Role & Permission Scenarios (Scenarios 1-8)', () => {
+    it('Scenario 1: Inventory Manager (INVENTORY.VIEW + PUTAWAY.POST) can view and create putaway', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => {
+        return perm === 'INVENTORY.VIEW' || perm === 'PUTAWAY.POST';
+      });
+
+      expect(component.canView()).toBe(true);
+      expect(component.canCreate()).toBe(true);
+    });
+
+    it('Scenario 2: Inventory Staff (INVENTORY.VIEW + PUTAWAY.POST) can view and create putaway', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => {
+        return perm === 'INVENTORY.VIEW' || perm === 'PUTAWAY.POST';
+      });
+
+      expect(component.canView()).toBe(true);
+      expect(component.canCreate()).toBe(true);
+    });
+
+    it('Scenario 3: Procurement Manager (INVENTORY.VIEW, no PUTAWAY.POST) has read-only access (cannot create)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => {
+        return perm === 'INVENTORY.VIEW';
+      });
+
+      expect(component.canView()).toBe(true);
+      expect(component.canCreate()).toBe(false);
+    });
+
+    it('Scenario 4: Procurement Officer (INVENTORY.VIEW, no PUTAWAY.POST) has read-only access (cannot create)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => {
+        return perm === 'INVENTORY.VIEW';
+      });
+
+      expect(component.canView()).toBe(true);
+      expect(component.canCreate()).toBe(false);
+    });
+
+    it('Scenario 5: Warehouse Manager (INVENTORY.VIEW, no PUTAWAY.POST) has read-only access (cannot create)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => {
+        return perm === 'INVENTORY.VIEW';
+      });
+
+      expect(component.canView()).toBe(true);
+      expect(component.canCreate()).toBe(false);
+    });
+
+    it('Scenario 6: Finance Manager (no INVENTORY.VIEW) has access denied', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+
+      expect(component.canView()).toBe(false);
+      expect(component.canCreate()).toBe(false);
+
+      component.loadData();
+      expect(component.isAccessDenied()).toBe(true);
+    });
+
+    it('Scenario 7: Audit Viewer (INVENTORY.VIEW, no PUTAWAY.POST) can view but cannot create', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => {
+        return perm === 'INVENTORY.VIEW';
+      });
+
+      expect(component.canView()).toBe(true);
+      expect(component.canCreate()).toBe(false);
+    });
+
+    it('Scenario 8: Tenant Admin has full view and create access', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(true);
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+
+      expect(component.canView()).toBe(true);
+      expect(component.canCreate()).toBe(true);
+    });
+  });
 });

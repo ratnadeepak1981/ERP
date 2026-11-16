@@ -61,21 +61,79 @@ public class InventoryService : IInventoryService
         string? batchNumber = null,
         string? serialNumber = null)
     {
-        var balance = await _inventoryRepository.GetBalanceAsync(
+        string normBatch = batchNumber?.Trim() ?? string.Empty;
+        string normSerial = serialNumber?.Trim() ?? string.Empty;
+
+        var product = await _persistenceCoordinator.GetProductAsync(tenantId, productId);
+        bool isBatchTracked = product != null && (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial);
+
+        if (!string.IsNullOrEmpty(normBatch))
+        {
+            var balance = await _inventoryRepository.GetBalanceAsync(
+                tenantId,
+                locationId,
+                productId,
+                normBatch,
+                normSerial);
+
+            decimal avail = balance?.QuantityAvailable ?? 0m;
+
+            if (isBatchTracked)
+            {
+                var batch = await _inventoryRepository.GetBatchAsync(tenantId, productId, normBatch);
+                if (batch == null || !batch.IsActive ||
+                    (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < DateTime.UtcNow.Date))
+                {
+                    avail = 0m;
+                }
+            }
+
+            return new AvailableStockDto
+            {
+                ProductId = productId,
+                WarehouseLocationId = locationId,
+                QuantityOnHand = balance?.QuantityOnHand ?? 0m,
+                QuantityAllocated = balance?.QuantityAllocated ?? 0m,
+                QuantityQuarantine = balance?.QuantityQuarantine ?? 0m,
+                QuantityAvailable = avail
+            };
+        }
+
+        if (isBatchTracked)
+        {
+            var eligibleBatches = await _inventoryRepository.GetEligibleBatchesAsync(
+                tenantId,
+                productId,
+                warehouseId: null,
+                locationId: locationId,
+                asOfDate: DateTime.UtcNow);
+
+            return new AvailableStockDto
+            {
+                ProductId = productId,
+                WarehouseLocationId = locationId,
+                QuantityOnHand = eligibleBatches.Sum(b => b.QuantityOnHand),
+                QuantityAllocated = 0m,
+                QuantityQuarantine = 0m,
+                QuantityAvailable = eligibleBatches.Sum(b => b.QuantityAvailable)
+            };
+        }
+
+        var untrackedBalance = await _inventoryRepository.GetBalanceAsync(
             tenantId,
             locationId,
             productId,
-            batchNumber ?? string.Empty,
-            serialNumber ?? string.Empty);
+            string.Empty,
+            normSerial);
 
         return new AvailableStockDto
         {
             ProductId = productId,
             WarehouseLocationId = locationId,
-            QuantityOnHand = balance?.QuantityOnHand ?? 0m,
-            QuantityAllocated = balance?.QuantityAllocated ?? 0m,
-            QuantityQuarantine = balance?.QuantityQuarantine ?? 0m,
-            QuantityAvailable = balance?.QuantityAvailable ?? 0m
+            QuantityOnHand = untrackedBalance?.QuantityOnHand ?? 0m,
+            QuantityAllocated = untrackedBalance?.QuantityAllocated ?? 0m,
+            QuantityQuarantine = untrackedBalance?.QuantityQuarantine ?? 0m,
+            QuantityAvailable = untrackedBalance?.QuantityAvailable ?? 0m
         };
     }
 
@@ -358,6 +416,16 @@ public class InventoryService : IInventoryService
     public async Task<StockReceiptDto?> GetStockReceiptByIdAsync(Guid tenantId, Guid receiptId)
     {
         return await _persistenceCoordinator.GetStockReceiptByIdAsync(tenantId, receiptId);
+    }
+
+    public async Task<StockByLocationReportDto> GetStockByLocationReportAsync(Guid tenantId, StockByLocationReportQuery query)
+    {
+        return await _persistenceCoordinator.GetStockByLocationReportAsync(tenantId, query);
+    }
+
+    public async Task<StockLedgerReportDto> GetStockLedgerReportAsync(Guid tenantId, StockLedgerReportQuery query)
+    {
+        return await _persistenceCoordinator.GetStockLedgerReportAsync(tenantId, query);
     }
 
     public async Task<List<StockReceiptDto>> CreateStockReceiptAsync(Guid tenantId, CreateStockReceiptRequest request)

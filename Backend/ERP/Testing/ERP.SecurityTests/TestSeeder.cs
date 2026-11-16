@@ -827,10 +827,10 @@ public static class TestSeeder
         string email,
         Role? role = null)
     {
-        var passwordHash = new PasswordService().HashPassword("Password@123");
         var user = db.Users.FirstOrDefault(x => x.Id == userId);
         if (user == null)
         {
+            var passwordHash = new PasswordService().HashPassword("123");
             user = new User
             {
                 Id = userId,
@@ -841,11 +841,6 @@ public static class TestSeeder
                 IsActive = true
             };
             db.Users.Add(user);
-            db.SaveChanges();
-        }
-        else if (user.PasswordHash != passwordHash)
-        {
-            user.PasswordHash = passwordHash;
             db.SaveChanges();
         }
 

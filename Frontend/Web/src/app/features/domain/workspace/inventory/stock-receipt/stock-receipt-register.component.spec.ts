@@ -144,4 +144,94 @@ describe('StockReceiptRegisterComponent', () => {
     expect(component.isAccessDenied()).toBe(true);
     expect(component.loading()).toBe(false);
   });
+
+  describe('Putaway Navigation & Visibility (Scenarios 11-12)', () => {
+    it('Scenario 11: Posted Stock Receipt displays Putaway action and navigates with preselected parameters', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(true);
+
+      const putawayAction = component.tableActions.find(a => a.id === 'putaway');
+      expect(putawayAction).toBeTruthy();
+
+      // Posted receipt (mockReceipts[0]) should have visible = true
+      const isVisible = putawayAction?.visible ? putawayAction.visible(mockReceipts[0]) : false;
+      expect(isVisible).toBe(true);
+
+      const navSpy = vi.spyOn(router, 'navigate');
+      component.navigateToPutaway(mockReceipts[0]);
+      expect(navSpy).toHaveBeenCalledWith(['/app/inventory/store-putaway/new'], {
+        queryParams: {
+          sourceType: 'StockReceipt',
+          sourceId: 'receipt-1'
+        }
+      });
+    });
+
+    it('Scenario 12: Unposted Stock Receipt does not display Putaway action', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(true);
+
+      const draftReceipt: StockReceiptDto = {
+        ...mockReceipts[0],
+        status: StockReceiptStatus.Draft
+      };
+
+      const putawayAction = component.tableActions.find(a => a.id === 'putaway');
+      expect(putawayAction).toBeTruthy();
+
+      const isVisible = putawayAction?.visible ? putawayAction.visible(draftReceipt) : false;
+      expect(isVisible).toBe(false);
+    });
+
+    it('should hide Putaway action when user lacks PUTAWAY.POST', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+
+      const putawayAction = component.tableActions.find(a => a.id === 'putaway');
+      const isVisible = putawayAction?.visible ? putawayAction.visible(mockReceipts[0]) : false;
+      expect(isVisible).toBe(false);
+    });
+  });
+
+  describe('Stock Receipt Permission & Visibility Tests (Flow A)', () => {
+    it('should allow create receipt when user has STOCK_RECEIPT.POST even without PRODUCT.EDIT (Inventory Manager/Officer)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'STOCK_RECEIPT.POST');
+
+      expect(component.canCreateReceipt()).toBe(true);
+    });
+
+    it('should disallow create receipt when user has PRODUCT.EDIT but lacks STOCK_RECEIPT.POST', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'PRODUCT.EDIT');
+
+      expect(component.canCreateReceipt()).toBe(false);
+    });
+
+    it('should disallow create receipt when user has only INVENTORY.VIEW (Auditor / Warehouse Config Officer)', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockImplementation((perm: string) => perm === 'INVENTORY.VIEW');
+
+      expect(component.canCreateReceipt()).toBe(false);
+    });
+
+    it('should set access denied on init when user lacks INVENTORY.VIEW', () => {
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformStaff').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+
+      const deniedFixture = TestBed.createComponent(StockReceiptRegisterComponent);
+      const deniedComp = deniedFixture.componentInstance;
+      deniedFixture.detectChanges();
+
+      expect(deniedComp.isAccessDenied()).toBe(true);
+      expect(deniedComp.canViewReceipts()).toBe(false);
+    });
+  });
 });

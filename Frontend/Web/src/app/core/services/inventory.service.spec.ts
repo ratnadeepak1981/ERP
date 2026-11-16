@@ -214,4 +214,41 @@ describe('InventoryService', () => {
     expect(req.request.body).toEqual(request);
     req.flush({ success: true, data: mockResponse });
   });
+
+  it('should fetch eligible batches for stock issue', () => {
+    service.getEligibleBatches('prod-1', 'wh-1', 'loc-1').subscribe(res => {
+      expect(res.length).toBe(1);
+      expect(res[0].batchNumber).toBe('BATCH-001');
+      expect(res[0].quantityAvailable).toBe(10);
+    });
+
+    const req = httpMock.expectOne(r =>
+      r.url.includes('/inventory/batches/eligible') &&
+      r.params.get('productId') === 'prod-1' &&
+      r.params.get('warehouseId') === 'wh-1' &&
+      r.params.get('locationId') === 'loc-1'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      success: true,
+      data: [
+        {
+          productId: 'prod-1',
+          productCode: 'RAW-001',
+          productName: 'Steel Rod 10mm',
+          batchNumber: 'BATCH-001',
+          warehouseId: 'wh-1',
+          warehouseCode: 'MAIN',
+          warehouseName: 'Main Warehouse',
+          warehouseLocationId: 'loc-1',
+          locationCode: 'A1-01',
+          locationName: 'Bin A1',
+          quantityOnHand: 15,
+          quantityAvailable: 10,
+          manufacturingDate: '2026-01-01T00:00:00Z',
+          expiryDate: '2026-12-31T00:00:00Z'
+        }
+      ]
+    });
+  });
 });

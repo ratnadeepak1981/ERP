@@ -1,0 +1,167 @@
+<!-- Access Denied State -->
+@if (isAccessDenied()) {
+  <app-access-denied
+    title="Access Denied"
+    [message]="accessDeniedMessage()"
+    returnUrl="/app/inventory"
+    returnLabel="Return to Inventory"
+  ></app-access-denied>
+} @else {
+  <div class="report-container">
+    <!-- Page Header -->
+    <app-page-header
+      [breadcrumbs]="breadcrumbs()"
+      [title]="pageTitle()"
+      [subtitle]="pageSubtitle()"
+    >
+      <div actions class="header-actions">
+        <button
+          pButton
+          label="Refresh"
+          icon="pi pi-refresh"
+          class="p-button-outlined p-button-sm"
+          (click)="loadReport()"
+          [disabled]="loading()"
+        ></button>
+      </div>
+    </app-page-header>
+
+    <!-- Error State -->
+    @if (error()) {
+      <app-error-state
+        [message]="error()!"
+        (retry)="loadReport()"
+      ></app-error-state>
+    }
+
+    <!-- Summary Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-icon records">
+          <i class="pi pi-list"></i>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Matching Locations & Items</span>
+          <span class="metric-value">{{ totalCount() | number }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon on-hand">
+          <i class="pi pi-box"></i>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Total On-Hand Stock</span>
+          <span class="metric-value">{{ totalOnHand() | number }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon available">
+          <i class="pi pi-check-circle"></i>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Total Available Stock</span>
+          <span class="metric-value">{{ totalAvailable() | number }}</span>
+        </div>
+      </div>
+
+      <div class="metric-card valuation">
+        <div class="metric-icon value">
+          <i class="pi pi-dollar"></i>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Total Current Valuation</span>
+          <span class="metric-value">
+            {{ currency() }} {{ totalStockValue() | number:'1.2-2' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-card">
+      <div class="filter-controls">
+        <div class="filter-group">
+          <label for="warehouse-filter" class="filter-label">Warehouse Facility</label>
+          <select
+            id="warehouse-filter"
+            class="filter-select"
+            [ngModel]="selectedWarehouseId()"
+            (ngModelChange)="onWarehouseChange($event)"
+          >
+            @for (w of warehouses(); track w.value) {
+              <option [value]="w.value">{{ w.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="location-filter" class="filter-label">Warehouse Location</label>
+          <select
+            id="location-filter"
+            class="filter-select"
+            [ngModel]="selectedLocationId()"
+            (ngModelChange)="onLocationChange($event)"
+            [disabled]="!selectedWarehouseId()"
+          >
+            @for (l of locations(); track l.value) {
+              <option [value]="l.value">{{ l.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group search-group">
+          <label for="search-input" class="filter-label">Search Items / Locations</label>
+          <span class="p-input-icon-left w-full">
+            <i class="pi pi-search"></i>
+            <input
+              id="search-input"
+              type="text"
+              pInputText
+              [ngModel]="searchTerm()"
+              (ngModelChange)="onSearch($event)"
+              placeholder="Search product code, name, location, batch..."
+              class="w-full"
+            />
+          </span>
+        </div>
+
+        <div class="filter-actions">
+          <button
+            pButton
+            type="button"
+            label="Reset"
+            icon="pi pi-filter-slash"
+            class="p-button-outlined p-button-secondary p-button-sm"
+            (click)="resetFilters()"
+            pTooltip="Clear filters"
+          ></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report Table -->
+    @if (loading()) {
+      <app-loading-state message="Calculating current location stock balances and valuation..."></app-loading-state>
+    } @else {
+      <div class="table-wrapper">
+        <app-data-table
+          [data]="reportData().items"
+          [columns]="columns"
+          [showGlobalSearch]="true"
+          [showFilters]="true"
+          [showExport]="true"
+          [showColumnChooser]="true"
+          [showSorting]="true"
+          [paginator]="true"
+          [rows]="25"
+          [rowsPerPageOptions]="[10, 25, 50, 100]"
+          searchPlaceholder="Filter report table rows..."
+          emptyTitle="No stock records found"
+          emptyDescription="There is no current inventory matching the selected warehouse, location, and filters."
+        ></app-data-table>
+      </div>
+    }
+  </div>
+}

@@ -751,7 +751,9 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
           trackingMode: mode,
           targetQuantity: targetQty,
           readOnly: !this.canEditDraft(),
-          allocations: row.trackingAllocations || []
+          allocations: row.trackingAllocations || [],
+          dialogMode: 'receipt',
+          transactionTitle: 'Goods Receipt Note (GRN)'
         }
       }
     );
@@ -1207,6 +1209,13 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         this.showMessage(this.getCleanErrorMessage(err, 'Failed to delete goods receipt draft.'), 'danger');
       }
     });
+  }
+
+  canPutaway(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+      return true;
+    }
+    return this.authService.hasPermission('PUTAWAY.POST');
   }
 
   createPutawayFromGrn(): void {

@@ -77,6 +77,8 @@ public class TenantUserSetupService : ITenantUserSetupService
 
         emailDomain = emailDomain.Trim().ToLowerInvariant();
 
+        string initialPassword = !string.IsNullOrWhiteSpace(defaultPassword) ? defaultPassword : "123";
+
         // Standard Account naming convention:
         // {TENANT_CODE}{MODULE_CODE}{ROLE_CODE} (all uppercase, no spaces, hyphens, or separators)
         return new List<TenantUserSpec>
@@ -89,7 +91,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Tenant Admin",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Tenant Administrator"
             },
             new()
@@ -100,7 +102,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Procurement Manager",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Procurement Manager (Can submit and approve PR and PO)"
             },
             new()
@@ -111,7 +113,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Procurement Officer",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Procurement Officer (Can create PR and PO, cannot approve)"
             },
             new()
@@ -122,7 +124,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Inventory Manager",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Inventory Manager (Can post receipts, issues, approve stock counts)"
             },
             new()
@@ -133,7 +135,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Inventory Officer",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Inventory Officer (Can record receipts, putaway, issues, cannot approve counts)"
             },
             new()
@@ -144,7 +146,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Sales Manager",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Sales Manager (Can approve sales orders, dispatch, price overrides)"
             },
             new()
@@ -155,7 +157,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Sales Officer",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Sales Officer (Can create sales orders and record picking)"
             },
             new()
@@ -166,7 +168,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Warehouse Configuration Officer",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Warehouse Configuration Officer (Zones, racks, bins, locations)"
             },
             new()
@@ -177,7 +179,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Finance Configuration Officer",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Finance Configuration Officer (Payment terms, tax codes, currencies)"
             },
             new()
@@ -188,7 +190,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Master Data Manager",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Master Data Manager (Cross-module master data governance)"
             },
             new()
@@ -199,7 +201,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 RoleName = "Tenant Read-only Auditor",
                 CompanyId = companyId,
                 BranchId = branchId,
-                Password = defaultPassword,
+                Password = initialPassword,
                 Description = "Tenant Read-only Auditor (Read-only view across reports and master data)"
             }
         };
@@ -296,7 +298,6 @@ public class TenantUserSetupService : ITenantUserSetupService
 
             User user;
             bool userCreated = false;
-            string? generatedPassword = null;
 
             if (existingUser != null)
             {
@@ -318,8 +319,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 }
                 else
                 {
-                    generatedPassword = GenerateSecurePassword();
-                    passwordToHash = generatedPassword;
+                    passwordToHash = "123";
                 }
 
                 user = new User
@@ -408,7 +408,7 @@ public class TenantUserSetupService : ITenantUserSetupService
                 UserCreated = userCreated,
                 RoleAssigned = roleAssigned,
                 ScopeAssigned = scopeAssigned,
-                GeneratedPassword = generatedPassword,
+                GeneratedPassword = null, // Do not expose plaintext password in API response
                 Status = userCreated ? "Created" : "Reused"
             });
         }

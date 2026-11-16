@@ -65,6 +65,8 @@ public interface IInventoryPersistenceCoordinator
     Task<StockIssueDto?> GetStockIssueByIdAsync(Guid tenantId, Guid issueId);
     Task<List<StockReceiptDto>> GetStockReceiptsAsync(Guid tenantId, Guid? warehouseId, StockReceiptReason? reason);
     Task<StockReceiptDto?> GetStockReceiptByIdAsync(Guid tenantId, Guid receiptId);
+    Task<StockByLocationReportDto> GetStockByLocationReportAsync(Guid tenantId, StockByLocationReportQuery query);
+    Task<StockLedgerReportDto> GetStockLedgerReportAsync(Guid tenantId, StockLedgerReportQuery query);
 
     // Lookups & operations for InventoryService
     Task<Dictionary<Guid, Product>> GetActiveProductsByIdsAsync(Guid tenantId, IEnumerable<Guid> productIds);

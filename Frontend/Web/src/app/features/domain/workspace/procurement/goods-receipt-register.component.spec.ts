@@ -139,4 +139,50 @@ describe('GoodsReceiptRegisterComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.grn-access-denied-wrapper')).toBeTruthy();
   });
+
+  describe('Putaway Navigation & Visibility (Scenarios 9-10)', () => {
+    it('Scenario 9: Confirmed GRN displays Putaway action and navigates to Put Away with preselected parameters', () => {
+      const authService = TestBed.inject(AuthService);
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(true);
+
+      const putawayAction = component.tableActions.find(a => a.id === 'putaway');
+      expect(putawayAction).toBeTruthy();
+
+      // Confirmed receipt (mockReceipts[1]) should have visible = true
+      const isVisible = putawayAction?.visible ? putawayAction.visible(mockReceipts[1]) : false;
+      expect(isVisible).toBe(true);
+
+      const navSpy = vi.spyOn(router, 'navigate');
+      component.navigateToPutaway(mockReceipts[1]);
+      expect(navSpy).toHaveBeenCalledWith(['/app/inventory/store-putaway/new'], {
+        queryParams: {
+          sourceType: 'GoodsReceipt',
+          sourceId: 'grn-2'
+        }
+      });
+    });
+
+    it('Scenario 10: Unconfirmed GRN does not display Putaway action', () => {
+      const authService = TestBed.inject(AuthService);
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(true);
+
+      const putawayAction = component.tableActions.find(a => a.id === 'putaway');
+      expect(putawayAction).toBeTruthy();
+
+      // Draft receipt (mockReceipts[0]) should have visible = false
+      const isVisible = putawayAction?.visible ? putawayAction.visible(mockReceipts[0]) : false;
+      expect(isVisible).toBe(false);
+    });
+
+    it('should hide Putaway action when user lacks PUTAWAY.POST', () => {
+      const authService = TestBed.inject(AuthService);
+      vi.spyOn(authService, 'isTenantAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'isPlatformAdmin').mockReturnValue(false);
+      vi.spyOn(authService, 'hasPermission').mockReturnValue(false);
+
+      const putawayAction = component.tableActions.find(a => a.id === 'putaway');
+      const isVisible = putawayAction?.visible ? putawayAction.visible(mockReceipts[1]) : false;
+      expect(isVisible).toBe(false);
+    });
+  });
 });

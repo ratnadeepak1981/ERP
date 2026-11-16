@@ -9,12 +9,14 @@ import {
   signal,
   computed,
   ViewChild,
+  TemplateRef,
   ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TooltipModule } from 'primeng/tooltip';
@@ -26,6 +28,7 @@ import { AppEditableDataTableComponent } from '../../../../../shared/components/
 import { DataTableColumn, SelectOption } from '../../../../../shared/models/data-table-config.model';
 import { LookupItem } from '../../../../../shared/components/lookup-dropdown/lookup-item.model';
 import { InventoryService } from '../../../../../core/services/inventory.service';
+import { PutawayService } from '../../../../../core/services/putaway.service';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../../core/auth/auth.service';
@@ -38,8 +41,10 @@ import {
   StockIssuePurpose,
   StockReceiptDto,
   StockReceiptReason,
+  StockReceiptStatus,
   CreateStockIssueRequest,
   CreateStockReceiptRequest,
+  CreateStockReceiptLineRequest,
   getStockIssuePurposeName,
   getStockIssuePurposeSeverity,
   getStockReceiptReasonName,
@@ -48,8 +53,14 @@ import {
 import {
   ProductItem,
   WarehouseItem,
-  WarehouseLocationItem
+  WarehouseLocationItem,
+  TrackingMode
 } from '../../../../../core/models/scope.models';
+import { BatchSerialAllocation } from '../../../../../core/models/goods-receipt-note.models';
+import {
+  BatchSerialTrackingDialogComponent,
+  BatchSerialDialogData
+} from '../../procurement/batch-serial-dialog/batch-serial-dialog.component';
 import {
   StockTransactionType,
   StockTransactionMode,
@@ -79,17 +90,27 @@ import {
 })
 export class StockTransactionFormComponent implements OnInit, OnDestroy {
   @ViewChild(AppEditableDataTableComponent) editableTable?: AppEditableDataTableComponent<StockTransactionLineItem>;
+  @ViewChild('trackingCellTemplate', { static: true }) trackingCellTemplate!: TemplateRef<any>;
 
   readonly inventoryService = inject(InventoryService);
+  readonly putawayService = inject(PutawayService);
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
   readonly router = inject(Router);
+  private readonly matDialog = inject(MatDialog);
 
   private readonly subs = new Subscription();
 
   // Inputs
-  @Input({ required: true }) transactionType: StockTransactionType = 'issue';
+  @Input({ required: true })
+  set transactionType(val: StockTransactionType) {
+    this._transactionType.set(val);
+  }
+  get transactionType(): StockTransactionType {
+    return this._transactionType();
+  }
+  private readonly _transactionType = signal<StockTransactionType>('issue');
   @Input() mode: StockTransactionMode = 'create';
   @Input() recordId: string | null = null;
 
@@ -126,10 +147,11 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
   // View Mode Data
   readonly viewReceipt = signal<StockReceiptDto | null>(null);
   readonly viewIssue = signal<StockIssueDto | null>(null);
+  readonly isReceiptEligibleForPutaway = signal<boolean>(false);
 
   // Configuration options depending on transaction type
-  readonly isReceipt = computed(() => this.transactionType === 'receipt');
-  readonly isIssue = computed(() => this.transactionType === 'issue');
+  readonly isReceipt = computed(() => this._transactionType() === 'receipt');
+  readonly isIssue = computed(() => this._transactionType() === 'issue');
 
   readonly reasonOrPurposeOptions = computed<ReasonOrPurposeOption[]>(() => {
     if (this.isReceipt()) {
@@ -218,16 +240,24 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       if (!line.warehouseLocationId) return false;
       if (line.quantity <= 0) return false;
 
-      // Inbound receipt validation: unitCost >= 0 if present
+      // Inbound receipt validation: unitCost >= 0 if present, and tracking completeness
       if (this.isReceipt()) {
         if (line.unitCost !== null && line.unitCost !== undefined && line.unitCost < 0) {
           return false;
         }
+        const mode = Number(line.trackingMode) || 0;
+        if (mode !== 0 && !this.isLineTrackingComplete(line)) {
+          return false;
+        }
       }
 
-      // Outbound issue validation: must not exceed available stock (negative stock prevention)
+      // Outbound issue validation: must not exceed available stock and tracking completeness
       if (this.isIssue()) {
         if (line.quantity > line.availableStock) {
+          return false;
+        }
+        const mode = Number(line.trackingMode) || 0;
+        if (mode !== 0 && !this.isLineTrackingComplete(line)) {
           return false;
         }
       }
@@ -251,7 +281,8 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       isEligible: p.isActive && p.isStockTracked,
       meta: {
         standardCost: p.standardCost,
-        unitOfMeasure: p.unitOfMeasure || 'PCS'
+        unitOfMeasure: p.unitOfMeasure || 'PCS',
+        trackingMode: Number(p.trackingMode) || 0
       }
     }));
   });
@@ -298,7 +329,9 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       batchNumber: '',
       serialNumber: '',
       manufacturingDate: null,
-      expiryDate: null
+      expiryDate: null,
+      trackingMode: 0,
+      trackingAllocations: []
     };
   };
 
@@ -337,6 +370,8 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
           row.productCode = item.code;
           row.productName = item.name;
           row.unitOfMeasure = item.meta?.unitOfMeasure || 'PCS';
+          row.trackingMode = Number(item.meta?.trackingMode) || 0;
+          row.trackingAllocations = [];
           if (isReceiptMode) {
             if (row.unitCost === null || row.unitCost === undefined || row.unitCost === 0) {
               row.unitCost = item.meta?.standardCost ?? 0;
@@ -465,48 +500,14 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     );
 
     cols.push({
-      field: 'batchNumber',
-      header: 'Batch #',
-      editable: true,
-      editType: 'text',
-      width: '130px',
+      field: 'trackingMode' as any,
+      header: 'Tracking Details',
+      width: '180px',
+      align: 'center',
+      editable: false,
       sortable: false,
-      filterable: false
-    });
-
-    if (isReceiptMode) {
-      cols.push(
-        {
-          field: 'manufacturingDate',
-          header: 'Mfg Date',
-          editable: true,
-          editType: 'date',
-          type: 'date',
-          width: '130px',
-          sortable: false,
-          filterable: false
-        },
-        {
-          field: 'expiryDate',
-          header: 'Exp Date',
-          editable: true,
-          editType: 'date',
-          type: 'date',
-          width: '130px',
-          sortable: false,
-          filterable: false
-        }
-      );
-    }
-
-    cols.push({
-      field: 'serialNumber',
-      header: 'Serial #',
-      editable: true,
-      editType: 'text',
-      width: '130px',
-      sortable: false,
-      filterable: false
+      filterable: false,
+      cellTemplate: this.trackingCellTemplate
     });
 
     return cols;
@@ -580,14 +581,38 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     }
   }
 
-  canPost(): boolean {
-    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+  canView(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
-    return this.authService.hasPermission('PRODUCT.EDIT');
+    return this.authService.hasPermission('INVENTORY.VIEW');
+  }
+
+  canPost(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    return this.isReceipt()
+      ? this.authService.hasPermission('STOCK_RECEIPT.POST')
+      : this.authService.hasPermission('STOCK_ISSUE.POST');
   }
 
   ngOnInit(): void {
+    if (!this.canView()) {
+      this.isAccessDenied.set(true);
+      return;
+    }
+
+    if (this.mode === 'create' && !this.canPost()) {
+      this.isAccessDenied.set(true);
+      this.accessDeniedMessage.set(
+        this.isReceipt()
+          ? "You don't have permission to record stock receipts. Required permission: STOCK_RECEIPT.POST."
+          : "You don't have permission to record stock issues. Required permission: STOCK_ISSUE.POST."
+      );
+      return;
+    }
+
     if (this.mode === 'view' && this.recordId) {
       this.loadRecordDetails(this.recordId);
     } else {
@@ -717,7 +742,9 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       availableStock: 0,
       loadingStock: false,
       quantity: 1,
-      unitCost: null
+      unitCost: null,
+      trackingMode: 0,
+      trackingAllocations: []
     };
 
     this.lines.update(curr => [...curr, newLine]);
@@ -763,6 +790,8 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     line.productCode = product?.productCode || '';
     line.productName = product?.productName || '';
     line.unitOfMeasure = product?.unitOfMeasure || 'PCS';
+    line.trackingMode = Number(product?.trackingMode) || 0;
+    line.trackingAllocations = [];
 
     if (this.isReceipt()) {
       if (line.unitCost === null || line.unitCost === undefined || line.unitCost === 0) {
@@ -773,6 +802,109 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     if (this.isIssue()) {
       this.refreshAvailableStock(line);
     }
+  }
+
+  // Tracking Helpers & Validation
+  isLineTrackingComplete(row: StockTransactionLineItem): boolean {
+    const mode = Number(row.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) return true;
+
+    const qty = Number(row.quantity) || 0;
+    if (qty <= 0) return true;
+
+    const allocs = row.trackingAllocations || [];
+    if (allocs.length === 0) return false;
+
+    const totalAlloc = allocs.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+    if (Math.abs(totalAlloc - qty) > 0.0001) return false;
+
+    for (const a of allocs) {
+      if ((mode === TrackingMode.Batch || mode === TrackingMode.BatchAndSerial) && (!a.batchNumber || !a.batchNumber.trim())) {
+        return false;
+      }
+      if ((mode === TrackingMode.Serial || mode === TrackingMode.BatchAndSerial) && (!a.serialNumber || !a.serialNumber.trim())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  getLineAllocatedQuantity(row: StockTransactionLineItem): number {
+    return (row.trackingAllocations || []).reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+  }
+
+  getLineTrackingSummary(row: StockTransactionLineItem): string {
+    const mode = Number(row.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) return 'Not Tracked';
+
+    const allocs = row.trackingAllocations || [];
+    const allocated = allocs.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+    const target = Number(row.quantity) || 0;
+
+    if (allocated === target && target > 0) {
+      return mode === TrackingMode.Batch
+        ? `Batches (${allocs.length}) ✓`
+        : `Serials (${allocs.length}) ✓`;
+    }
+    return `Configure (${allocated}/${target})`;
+  }
+
+  openTrackingDialog(row: StockTransactionLineItem, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    const mode = Number(row.trackingMode) || TrackingMode.None;
+    if (mode === TrackingMode.None) {
+      return;
+    }
+
+    const targetQty = Number(row.quantity) || 0;
+    if (targetQty <= 0) {
+      this.error.set('Specify a quantity greater than 0 before allocating batch or serial details.');
+      return;
+    }
+
+    const dialogRef = this.matDialog.open<BatchSerialTrackingDialogComponent, BatchSerialDialogData, BatchSerialAllocation[]>(
+      BatchSerialTrackingDialogComponent,
+      {
+        width: '920px',
+        maxWidth: '96vw',
+        disableClose: true,
+        data: {
+          productCode: row.productCode,
+          productName: row.productName,
+          unitOfMeasure: row.unitOfMeasure,
+          trackingMode: mode,
+          targetQuantity: targetQty,
+          readOnly: this.mode === 'view',
+          allocations: row.trackingAllocations || [],
+          dialogMode: this.isReceipt() ? 'receipt' : 'issue',
+          transactionTitle: this.isReceipt() ? 'Stock Receipt' : 'Stock Issue',
+          productId: row.productId,
+          warehouseId: row.warehouseId || this.headerWarehouseId(),
+          warehouseLocationId: row.warehouseLocationId
+        }
+      }
+    );
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        row.trackingAllocations = result;
+        const totalAllocated = result.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+        if (totalAllocated > 0) {
+          row.quantity = totalAllocated;
+          if (this.isIssue()) {
+            row.availableStock = Math.max(row.availableStock, totalAllocated);
+          }
+        }
+        if (result.length === 1 && result[0].batchNumber) {
+          row.batchNumber = result[0].batchNumber;
+        }
+        this.lines.update(curr => curr.map(l => l.id === row.id ? { ...l, ...row } : l));
+      }
+    });
   }
 
   onLocationChange(line: StockTransactionLineItem, locationId: string): void {
@@ -842,6 +974,7 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
             this.error.set('Stock receipt record not found.');
           } else {
             this.viewReceipt.set(receipt);
+            this.checkReceiptPutawayEligibility(receipt);
           }
         },
         error: err => {
@@ -882,24 +1015,45 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     this.error.set(null);
 
     if (this.isReceipt()) {
+      const requestLines: CreateStockReceiptLineRequest[] = [];
+      for (const l of this.lines()) {
+        const mode = Number(l.trackingMode) || 0;
+        if (mode !== 0 && l.trackingAllocations && l.trackingAllocations.length > 0) {
+          for (const a of l.trackingAllocations) {
+            requestLines.push({
+              productId: l.productId,
+              warehouseLocationId: l.warehouseLocationId,
+              quantity: Number(a.quantity),
+              unitCost: l.unitCost ?? null,
+              manufacturingDate: a.manufacturingDate ? new Date(a.manufacturingDate).toISOString() : null,
+              expiryDate: a.expiryDate ? new Date(a.expiryDate).toISOString() : null,
+              batchNumber: a.batchNumber?.trim() || null,
+              serialNumber: a.serialNumber?.trim() || null,
+              remarks: a.remarks || l.remarks || null
+            });
+          }
+        } else {
+          requestLines.push({
+            productId: l.productId,
+            warehouseLocationId: l.warehouseLocationId,
+            quantity: l.quantity,
+            unitCost: l.unitCost ?? null,
+            manufacturingDate: l.manufacturingDate ? new Date(l.manufacturingDate).toISOString() : null,
+            expiryDate: l.expiryDate ? new Date(l.expiryDate).toISOString() : null,
+            batchNumber: l.batchNumber?.trim() || null,
+            serialNumber: l.serialNumber?.trim() || null,
+            remarks: l.remarks || null
+          });
+        }
+      }
+
       const payload: CreateStockReceiptRequest = {
         receiptDate: this.transactionDate(),
         reason: this.selectedReceiptReason(),
         warehouseId: this.headerWarehouseId(),
         sourceDocumentReference: this.sourceDocumentReference() || null,
         remarks: this.remarks() || null,
-        lines: this.lines().map(l => ({
-          productId: l.productId,
-          warehouseLocationId: l.warehouseLocationId,
-          quantity: l.quantity,
-          unitCost: l.unitCost ?? null,
-          manufacturingDate: l.manufacturingDate ? new Date(l.manufacturingDate).toISOString() : null,
-          expiryDate: l.expiryDate ? new Date(l.expiryDate).toISOString() : null,
-          batchNumber: l.batchNumber?.trim() || null,
-          serialNumber: l.serialNumber?.trim() || null,
-
-          remarks: l.remarks || null
-        }))
+        lines: requestLines
       };
 
       this.inventoryService.createStockReceipt(payload).subscribe({
@@ -922,21 +1076,49 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
         }
       });
     } else {
+      const requestLines: {
+        productId: string;
+        warehouseLocationId: string;
+        quantity: number;
+        batchNumber?: string | null;
+        serialNumber?: string | null;
+        remarks?: string | null;
+      }[] = [];
+
+      for (const l of this.lines()) {
+        const mode = Number(l.trackingMode) || TrackingMode.None;
+        if (mode !== TrackingMode.None && l.trackingAllocations && l.trackingAllocations.length > 0) {
+          // Expand each batch or serial allocation into an individual issue request line
+          for (const a of l.trackingAllocations) {
+            requestLines.push({
+              productId: l.productId,
+              warehouseLocationId: l.warehouseLocationId,
+              quantity: Number(a.quantity),
+              batchNumber: a.batchNumber?.trim() || null,
+              serialNumber: a.serialNumber?.trim() || null,
+              remarks: a.remarks || l.remarks || null
+            });
+          }
+        } else {
+          // Products with TrackingMode.None or untracked
+          requestLines.push({
+            productId: l.productId,
+            warehouseLocationId: l.warehouseLocationId,
+            quantity: l.quantity,
+            batchNumber: l.batchNumber?.trim() || null,
+            serialNumber: l.serialNumber?.trim() || null,
+            remarks: l.remarks || null
+          });
+        }
+      }
+
       const payload: CreateStockIssueRequest = {
         issueDate: this.transactionDate(),
         purpose: this.selectedIssuePurpose(),
         warehouseId: this.headerWarehouseId(),
         sourceDocumentReference: this.sourceDocumentReference() || null,
         remarks: this.remarks() || null,
-        lines: this.lines().map(l => ({
-          productId: l.productId,
-          warehouseLocationId: l.warehouseLocationId,
-          quantity: l.quantity,
-          batchNumber: l.batchNumber?.trim() || null,
-          serialNumber: l.serialNumber?.trim() || null,
-
-          remarks: l.remarks || null
-        }))
+        lines: requestLines
       };
 
       this.inventoryService.createStockIssue(payload).subscribe({
@@ -967,6 +1149,52 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
 
   getIssuePurposeName(purpose: StockIssuePurpose | number): string {
     return getStockIssuePurposeName(purpose);
+  }
+
+  canPutaway(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) {
+      return true;
+    }
+    return this.authService.hasPermission('PUTAWAY.POST');
+  }
+
+  canCreatePutawayFromReceipt(): boolean {
+    if (this.mode !== 'view' || !this.isReceipt()) return false;
+    const receipt = this.viewReceipt();
+    if (!receipt) return false;
+    const isPosted = receipt.status === StockReceiptStatus.Posted || (receipt.status as any) === 2;
+    if (!isPosted) return false;
+    if (!this.canPutaway()) return false;
+    return this.isReceiptEligibleForPutaway();
+  }
+
+  private checkReceiptPutawayEligibility(receipt: StockReceiptDto): void {
+    if (!this.canPutaway()) {
+      this.isReceiptEligibleForPutaway.set(false);
+      return;
+    }
+    const isPosted = receipt.status === StockReceiptStatus.Posted || (receipt.status as any) === 2;
+    if (!isPosted || !receipt.warehouseLocationId || (receipt.quantity || 0) <= 0) {
+      this.isReceiptEligibleForPutaway.set(false);
+      return;
+    }
+
+    this.putawayService.getLinesForSourceReceipt(
+      receipt.stockReceiptId,
+      receipt.receiptNumber,
+      'StockReceipt',
+      undefined,
+      undefined
+    ).subscribe({
+      next: lines => {
+        const hasOutstanding = lines.some(l => Number(l.outstandingQuantity) > 0);
+        this.isReceiptEligibleForPutaway.set(hasOutstanding);
+      },
+      error: () => {
+        // Fallback: allow putaway action if receipt is posted with non-empty location & positive qty
+        this.isReceiptEligibleForPutaway.set(true);
+      }
+    });
   }
 
   createPutawayFromReceipt(): void {

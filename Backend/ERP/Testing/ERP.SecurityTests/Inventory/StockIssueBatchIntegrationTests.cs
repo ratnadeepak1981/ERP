@@ -1322,6 +1322,213 @@ public class StockIssueBatchIntegrationTests : IClassFixture<TestSecurityFixture
         Assert.NotNull(match.SourceDocumentReference);
     }
 
+    [Fact]
+    public async Task AvailableStock_BatchProductWithoutBatchParam_ReturnsSumOfEligibleBatches()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        var inventoryService = sp.GetRequiredService<IInventoryService>();
+        var db = sp.GetRequiredService<DomainDbContext>();
+
+        var tenantId = TestConstants.TenantAlphaId;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_AVAIL_B1");
+        var product = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "BATCH_AVAIL");
+
+        string batch1 = $"LOT1-{Guid.NewGuid():N}"[..20].ToUpperInvariant();
+        string batch2 = $"LOT2-{Guid.NewGuid():N}"[..20].ToUpperInvariant();
+        var mfgDate = DateTime.UtcNow.AddMonths(-2).Date;
+        var expDate = DateTime.UtcNow.AddMonths(10).Date;
+
+        // Seed 50 units across 2 active batches (25 each)
+        await inventoryService.CreateStockReceiptAsync(tenantId, new CreateStockReceiptRequest
+        {
+            WarehouseId = warehouse.WarehouseId,
+            Reason = StockReceiptReason.OpeningBalance,
+            Lines = new List<CreateStockReceiptLineRequest>
+            {
+                new()
+                {
+                    ProductId = product.ProductId,
+                    WarehouseLocationId = location.WarehouseLocationId,
+                    Quantity = 25m,
+                    UnitCost = 15m,
+                    BatchNumber = batch1,
+                    ManufacturingDate = mfgDate,
+                    ExpiryDate = expDate
+                },
+                new()
+                {
+                    ProductId = product.ProductId,
+                    WarehouseLocationId = location.WarehouseLocationId,
+                    Quantity = 25m,
+                    UnitCost = 15m,
+                    BatchNumber = batch2,
+                    ManufacturingDate = mfgDate,
+                    ExpiryDate = expDate
+                }
+            }
+        });
+
+        // Query available stock without batchNumber
+        var stock = await inventoryService.GetAvailableStockAsync(tenantId, product.ProductId, location.WarehouseLocationId, batchNumber: null);
+
+        Assert.NotNull(stock);
+        Assert.Equal(50.0000m, stock.QuantityAvailable);
+        Assert.Equal(50.0000m, stock.QuantityOnHand);
+    }
+
+    [Fact]
+    public async Task AvailableStock_BatchProductWithSpecificBatchParam_ReturnsSpecificBatchBalance()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        var inventoryService = sp.GetRequiredService<IInventoryService>();
+        var db = sp.GetRequiredService<DomainDbContext>();
+
+        var tenantId = TestConstants.TenantAlphaId;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_SPEC_B1");
+        var product = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "BATCH_SPEC");
+
+        string batch1 = $"LOT1-{Guid.NewGuid():N}"[..20].ToUpperInvariant();
+        string batch2 = $"LOT2-{Guid.NewGuid():N}"[..20].ToUpperInvariant();
+
+        await inventoryService.CreateStockReceiptAsync(tenantId, new CreateStockReceiptRequest
+        {
+            WarehouseId = warehouse.WarehouseId,
+            Reason = StockReceiptReason.OpeningBalance,
+            Lines = new List<CreateStockReceiptLineRequest>
+            {
+                new()
+                {
+                    ProductId = product.ProductId,
+                    WarehouseLocationId = location.WarehouseLocationId,
+                    Quantity = 25m,
+                    UnitCost = 15m,
+                    BatchNumber = batch1,
+                    ExpiryDate = DateTime.UtcNow.AddMonths(12)
+                },
+                new()
+                {
+                    ProductId = product.ProductId,
+                    WarehouseLocationId = location.WarehouseLocationId,
+                    Quantity = 25m,
+                    UnitCost = 15m,
+                    BatchNumber = batch2,
+                    ExpiryDate = DateTime.UtcNow.AddMonths(12)
+                }
+            }
+        });
+
+        // Query specific batch
+        var stock1 = await inventoryService.GetAvailableStockAsync(tenantId, product.ProductId, location.WarehouseLocationId, batchNumber: batch1);
+        Assert.NotNull(stock1);
+        Assert.Equal(25.0000m, stock1.QuantityAvailable);
+
+        var stock2 = await inventoryService.GetAvailableStockAsync(tenantId, product.ProductId, location.WarehouseLocationId, batchNumber: batch2);
+        Assert.NotNull(stock2);
+        Assert.Equal(25.0000m, stock2.QuantityAvailable);
+
+        // Non-existent batch returns 0
+        var stockNone = await inventoryService.GetAvailableStockAsync(tenantId, product.ProductId, location.WarehouseLocationId, batchNumber: "NON_EXISTENT");
+        Assert.NotNull(stockNone);
+        Assert.Equal(0m, stockNone.QuantityAvailable);
+    }
+
+    [Fact]
+    public async Task AvailableStock_NonBatchProduct_ReturnsUntrackedBalance()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        var inventoryService = sp.GetRequiredService<IInventoryService>();
+        var db = sp.GetRequiredService<DomainDbContext>();
+
+        var tenantId = TestConstants.TenantAlphaId;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_UNTRK_B1");
+        var product = await CreateTestProductAsync(db, tenantId, TrackingMode.None, "UNTRACKED_P");
+
+        // Receipt: 30 untracked units
+        await inventoryService.CreateStockReceiptAsync(tenantId, new CreateStockReceiptRequest
+        {
+            WarehouseId = warehouse.WarehouseId,
+            Reason = StockReceiptReason.OpeningBalance,
+            Lines = new List<CreateStockReceiptLineRequest>
+            {
+                new()
+                {
+                    ProductId = product.ProductId,
+                    WarehouseLocationId = location.WarehouseLocationId,
+                    Quantity = 30m,
+                    UnitCost = 10m
+                }
+            }
+        });
+
+        // Query without batch
+        var stock = await inventoryService.GetAvailableStockAsync(tenantId, product.ProductId, location.WarehouseLocationId, batchNumber: null);
+        Assert.NotNull(stock);
+        Assert.Equal(30.0000m, stock.QuantityAvailable);
+        Assert.Equal(30.0000m, stock.QuantityOnHand);
+    }
+
+    [Fact]
+    public async Task ProductMaster_ChangeTrackingMode_WithExistingStock_ThrowsInvalidOperationException()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var sp = scope.ServiceProvider;
+        var inventoryService = sp.GetRequiredService<IInventoryService>();
+        var productService = sp.GetRequiredService<IProductService>();
+        var db = sp.GetRequiredService<DomainDbContext>();
+
+        var tenantId = TestConstants.TenantAlphaId;
+        var warehouse = await CreateTestWarehouseAsync(db, tenantId);
+        var location = await CreateTestLocationAsync(db, tenantId, warehouse.WarehouseId, "BIN_GUARD_B1");
+        var product = await CreateTestProductAsync(db, tenantId, TrackingMode.Batch, "GUARD_P1");
+
+        string batchNo = $"LOT-{Guid.NewGuid():N}"[..20].ToUpperInvariant();
+
+        // 1. Inbound receipt: 10 units with batch
+        await inventoryService.CreateStockReceiptAsync(tenantId, new CreateStockReceiptRequest
+        {
+            WarehouseId = warehouse.WarehouseId,
+            Reason = StockReceiptReason.OpeningBalance,
+            Lines = new List<CreateStockReceiptLineRequest>
+            {
+                new()
+                {
+                    ProductId = product.ProductId,
+                    WarehouseLocationId = location.WarehouseLocationId,
+                    Quantity = 10m,
+                    UnitCost = 20m,
+                    BatchNumber = batchNo,
+                    ExpiryDate = DateTime.UtcNow.AddMonths(6)
+                }
+            }
+        });
+
+        // 2. Attempt to switch TrackingMode from Batch to None while on-hand stock > 0
+        var updateRequest = new UpdateProductRequest
+        {
+            ProductName = product.ProductName,
+            CategoryId = product.CategoryId,
+            UnitOfMeasure = product.UnitOfMeasure,
+            TrackingMode = TrackingMode.None,
+            ValuationMethod = product.ValuationMethod,
+            StandardCost = product.StandardCost,
+            SellingPrice = product.SellingPrice,
+            IsStockTracked = product.IsStockTracked,
+            ProductType = product.ProductType
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            productService.UpdateProductAsync(tenantId, product.ProductId, updateRequest));
+
+        Assert.Contains("Cannot change tracking mode for product", ex.Message);
+        Assert.Contains("because active on-hand inventory exists", ex.Message);
+    }
+
     #endregion
 
     #region Helper Methods

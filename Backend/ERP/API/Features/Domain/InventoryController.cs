@@ -287,4 +287,56 @@ public class InventoryController : BaseApiController
             return HandleDomainException(ex);
         }
     }
+
+    [HttpGet("reports/stock-by-location")]
+    [RequirePermission("INVENTORY.VIEW")]
+    public async Task<IActionResult> GetStockByLocationReport([FromQuery] StockByLocationReportQuery query)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        try
+        {
+            var report = await _inventoryService.GetStockByLocationReportAsync(tenantId.Value, query);
+            return SuccessResponse(report);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("reports/stock-ledger")]
+    [RequirePermission("INVENTORY.VIEW")]
+    public async Task<IActionResult> GetStockLedgerReport([FromQuery] StockLedgerReportQuery query)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        try
+        {
+            var report = await _inventoryService.GetStockLedgerReportAsync(tenantId.Value, query);
+            return SuccessResponse(report);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
 }

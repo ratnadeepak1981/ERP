@@ -70,7 +70,7 @@
           ></p-button>
         }
 
-        @if (currentGrn()?.status === 2) {
+        @if (currentGrn()?.status === 2 && canPutaway()) {
           <p-button
             label="Create Putaway"
             icon="pi pi-box"
