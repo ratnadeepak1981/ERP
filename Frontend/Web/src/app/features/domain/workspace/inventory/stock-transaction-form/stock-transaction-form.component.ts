@@ -892,6 +892,16 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
         row.trackingAllocations = result;
+        const totalAllocated = result.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+        if (totalAllocated > 0) {
+          row.quantity = totalAllocated;
+          if (this.isIssue()) {
+            row.availableStock = Math.max(row.availableStock, totalAllocated);
+          }
+        }
+        if (result.length === 1 && result[0].batchNumber) {
+          row.batchNumber = result[0].batchNumber;
+        }
         this.lines.update(curr => curr.map(l => l.id === row.id ? { ...l, ...row } : l));
       }
     });

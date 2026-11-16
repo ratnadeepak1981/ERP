@@ -22,5 +22,7 @@ public interface IProductRepository
 
     Task AddAsync(Product product);
 
+    Task<decimal> GetTotalOnHandQuantityAsync(Guid tenantId, Guid productId);
+
     Task SaveChangesAsync();
 }

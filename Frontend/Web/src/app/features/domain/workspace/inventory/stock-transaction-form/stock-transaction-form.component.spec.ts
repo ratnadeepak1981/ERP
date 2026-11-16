@@ -949,6 +949,48 @@ describe('StockTransactionFormComponent', () => {
       expect(row.trackingAllocations).toEqual(mockAllocations);
     });
 
+    it('StockIssue_TrackingDialogClose_UpdatesAvailableStockAndPassesValidation', () => {
+      component.transactionType = 'issue';
+      const row: StockTransactionLineItem = {
+        id: 'line-issue-tracking',
+        productId: 'prod-1',
+        productCode: 'STL-001',
+        productName: 'Galvanized Steel Sheet',
+        unitOfMeasure: 'SHT',
+        warehouseId: 'wh-1',
+        warehouseLocationId: 'loc-1',
+        availableStock: 0,
+        loadingStock: false,
+        quantity: 30,
+        unitCost: 120,
+        trackingMode: 1,
+        trackingAllocations: []
+      };
+      component.lines.set([row]);
+
+      const mockAllocations: BatchSerialAllocation[] = [
+        {
+          batchNumber: 'BATCH-01',
+          quantity: 30
+        }
+      ];
+
+      vi.spyOn(matDialog, 'open').mockReturnValue({
+        afterClosed: () => of(mockAllocations)
+      } as any);
+
+      component.openTrackingDialog(row);
+
+      expect(row.trackingAllocations).toEqual(mockAllocations);
+      expect(row.availableStock).toBe(30);
+      expect(row.quantity).toBe(30);
+
+      // Verify line quantity validator does not report exceeds available stock
+      const col = component.detailColumns().find(c => c.field === 'quantity');
+      const validationError = col?.validator ? col.validator(row.quantity, row) : null;
+      expect(validationError).toBeNull();
+    });
+
     it('should prevent opening tracking dialog if quantity is zero or invalid', () => {
       const row: StockTransactionLineItem = {
         id: 'line-zero-qty',

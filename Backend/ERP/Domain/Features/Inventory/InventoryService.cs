@@ -312,15 +312,68 @@ public class InventoryService : IInventoryService
 
     public async Task<AvailableStockDto> GetAvailableStockAsync(Guid tenantId, Guid productId, Guid locationId, string? batchNumber = null, string? serialNumber = null)
     {
-        var balance = await _postingService.GetBalanceAsync(tenantId, locationId, productId, batchNumber, serialNumber);
+        string normBatch = batchNumber?.Trim() ?? string.Empty;
+        string normSerial = serialNumber?.Trim() ?? string.Empty;
+
+        var product = await _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.TenantId == tenantId && p.ProductId == productId);
+        bool isBatchTracked = product != null && (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial);
+
+        if (!string.IsNullOrEmpty(normBatch))
+        {
+            var balance = await _postingService.GetBalanceAsync(tenantId, locationId, productId, normBatch, normSerial);
+
+            decimal avail = balance?.QuantityAvailable ?? 0m;
+
+            if (isBatchTracked)
+            {
+                var batch = await _inventoryRepository.GetBatchAsync(tenantId, productId, normBatch);
+                if (batch == null || !batch.IsActive ||
+                    (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < DateTime.UtcNow.Date))
+                {
+                    avail = 0m;
+                }
+            }
+
+            return new AvailableStockDto
+            {
+                ProductId = productId,
+                WarehouseLocationId = locationId,
+                QuantityOnHand = balance?.QuantityOnHand ?? 0m,
+                QuantityAllocated = balance?.QuantityAllocated ?? 0m,
+                QuantityQuarantine = balance?.QuantityQuarantine ?? 0m,
+                QuantityAvailable = avail
+            };
+        }
+
+        if (isBatchTracked)
+        {
+            var eligibleBatches = await _inventoryRepository.GetEligibleBatchesAsync(
+                tenantId,
+                productId,
+                warehouseId: null,
+                locationId: locationId,
+                asOfDate: DateTime.UtcNow);
+
+            return new AvailableStockDto
+            {
+                ProductId = productId,
+                WarehouseLocationId = locationId,
+                QuantityOnHand = eligibleBatches.Sum(b => b.QuantityOnHand),
+                QuantityAllocated = 0m,
+                QuantityQuarantine = 0m,
+                QuantityAvailable = eligibleBatches.Sum(b => b.QuantityAvailable)
+            };
+        }
+
+        var untrackedBalance = await _postingService.GetBalanceAsync(tenantId, locationId, productId, string.Empty, normSerial);
         return new AvailableStockDto
         {
             ProductId = productId,
             WarehouseLocationId = locationId,
-            QuantityOnHand = balance?.QuantityOnHand ?? 0m,
-            QuantityAllocated = balance?.QuantityAllocated ?? 0m,
-            QuantityQuarantine = balance?.QuantityQuarantine ?? 0m,
-            QuantityAvailable = balance?.QuantityAvailable ?? 0m
+            QuantityOnHand = untrackedBalance?.QuantityOnHand ?? 0m,
+            QuantityAllocated = untrackedBalance?.QuantityAllocated ?? 0m,
+            QuantityQuarantine = untrackedBalance?.QuantityQuarantine ?? 0m,
+            QuantityAvailable = untrackedBalance?.QuantityAvailable ?? 0m
         };
     }
 
