@@ -28,4 +28,11 @@
     <ProjectReference Include="..\ERP.AI.Infrastructure\ERP.AI.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\Views\Templates\**\*.*">
+      <Link>Views\Templates\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

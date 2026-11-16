@@ -8,6 +8,7 @@ import {
   ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription, Observable } from 'rxjs';
@@ -109,6 +110,28 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly authService = inject(AuthService);
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
+  readonly sanitizer = inject(DomSanitizer);
+
+  // PDF Preview & Supplier Email State
+  readonly previewPdfDialogVisible = signal<boolean>(false);
+  readonly previewPdfLoading = signal<boolean>(false);
+  readonly previewPdfUrl = signal<SafeResourceUrl | null>(null);
+  private previewPdfRawUrl: string | null = null;
+
+  readonly sendEmailDialogVisible = signal<boolean>(false);
+  readonly sendEmailLoading = signal<boolean>(false);
+  readonly sendEmailError = signal<string | null>(null);
+
+  readonly targetSupplier = computed<SupplierItem | null>(() => {
+    const ord = this.currentOrder();
+    if (!ord?.supplierId) return null;
+    return this.suppliers().find(s => s.supplierId === ord.supplierId) || null;
+  });
+
+  readonly targetSupplierEmail = computed<string>(() => {
+    const s = this.targetSupplier();
+    return s?.email?.trim() || '';
+  });
 
   private readonly subs = new Subscription();
 
@@ -794,6 +817,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cleanupPdfBlob();
     this.subs.unsubscribe();
   }
 
@@ -1548,6 +1572,109 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     if (!ord) return false;
     const st = Number(ord.status);
     return st === PurchaseOrderStatus.Approved || String(ord.status).toLowerCase() === 'approved';
+  }
+
+  openPdfPreview(): void {
+    const ord = this.currentOrder();
+    if (!ord) return;
+    const companyId = ord.companyId || this.selectedCompanyId();
+    if (!companyId) return;
+
+    this.cleanupPdfBlob();
+    this.previewPdfDialogVisible.set(true);
+    this.previewPdfLoading.set(true);
+
+    this.poService.getPdf(companyId, ord.branchId, ord.id).subscribe({
+      next: (blob) => {
+        this.previewPdfRawUrl = URL.createObjectURL(blob);
+        this.previewPdfUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.previewPdfRawUrl));
+        this.previewPdfLoading.set(false);
+      },
+      error: (err) => {
+        this.previewPdfLoading.set(false);
+        this.showMessage('Failed to load PDF preview: ' + (err.error?.message || err.message || 'Unknown error'), 'danger');
+      }
+    });
+  }
+
+  closePdfPreview(): void {
+    this.previewPdfDialogVisible.set(false);
+    this.cleanupPdfBlob();
+  }
+
+  downloadPdf(): void {
+    const ord = this.currentOrder();
+    if (!ord) return;
+    const companyId = ord.companyId || this.selectedCompanyId();
+    if (!companyId) return;
+
+    this.poService.getPdf(companyId, ord.branchId, ord.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = this.formatAttachmentFilename(ord.orderNumber);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        this.showMessage('Failed to download PDF: ' + (err.error?.message || err.message || 'Unknown error'), 'danger');
+      }
+    });
+  }
+
+  formatAttachmentFilename(orderNumber?: string): string {
+    if (!orderNumber) return 'PurchaseOrder.pdf';
+    return orderNumber.toUpperCase().startsWith('PO') ? `${orderNumber}.pdf` : `PO_${orderNumber}.pdf`;
+  }
+
+  openSendEmailDialog(): void {
+    this.closePdfPreview();
+    this.sendEmailError.set(null);
+    this.sendEmailDialogVisible.set(true);
+  }
+
+  closeSendEmailDialog(): void {
+    this.sendEmailDialogVisible.set(false);
+    this.sendEmailError.set(null);
+  }
+
+  confirmSendEmail(): void {
+    const ord = this.currentOrder();
+    if (!ord) return;
+    const companyId = ord.companyId || this.selectedCompanyId();
+    if (!companyId) return;
+
+    if (!this.targetSupplierEmail()) {
+      this.sendEmailError.set('Supplier does not have a valid email address configured.');
+      return;
+    }
+
+    this.sendEmailLoading.set(true);
+    this.sendEmailError.set(null);
+
+    this.poService.sendEmail(companyId, ord.branchId, ord.id).subscribe({
+      next: (res) => {
+        this.sendEmailLoading.set(false);
+        this.sendEmailDialogVisible.set(false);
+        this.showMessage(res.message || `Purchase Order ${ord.orderNumber} successfully emailed to ${this.targetSupplierEmail()}.`, 'success');
+      },
+      error: (err) => {
+        this.sendEmailLoading.set(false);
+        const errMsg = err.error?.message || err.message || 'Failed to send email to supplier.';
+        this.sendEmailError.set(errMsg);
+      }
+    });
+  }
+
+  private cleanupPdfBlob(): void {
+    if (this.previewPdfRawUrl) {
+      URL.revokeObjectURL(this.previewPdfRawUrl);
+      this.previewPdfRawUrl = null;
+    }
+    this.previewPdfUrl.set(null);
   }
 
   navigateBack(): void {
