@@ -1,0 +1,276 @@
+/* ==========================================================================
+   ApexERP Purchase Order Email Stylesheet
+   Strictly aligned with ApexERP Design Tokens (_tokens.scss, _themes.scss)
+   ========================================================================== */
+
+/* Overall Canvas and Body Reset */
+body.email-body {
+  margin: 0;
+  padding: 0;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+center.email-canvas {
+  width: 100%;
+  background-color: #f8fafc;
+  padding: 32px 12px;
+}
+
+/* Outer Card Container */
+table.email-container {
+  max-width: 620px;
+  margin: 0 auto;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* Header Banner */
+td.email-header {
+  background-color: #0f6cbd;
+  padding: 24px 32px;
+  text-align: left;
+}
+
+div.header-brand {
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 28px;
+}
+
+div.header-subtext {
+  color: #ebf3fc;
+  font-size: 13px;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+td.header-badge-col {
+  text-align: right;
+  vertical-align: middle;
+}
+
+span.po-badge-approved {
+  background-color: #107c41;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+/* Content Area */
+td.content-wrapper {
+  padding: 32px;
+  text-align: left;
+}
+
+div.greeting {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+p.lead-text {
+  font-size: 14px;
+  line-height: 22px;
+  color: #475569;
+  margin: 0 0 24px 0;
+}
+
+/* Order Summary Table Card */
+table.summary-card {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+
+td.summary-header {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+td.summary-label {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  width: 40%;
+  border-bottom: 1px solid #edf2f7;
+}
+
+td.summary-value {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 500;
+  border-bottom: 1px solid #edf2f7;
+}
+
+td.summary-value.highlight {
+  font-weight: 700;
+  color: #0f6cbd;
+}
+
+td.summary-value.amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+span.status-indicator {
+  background-color: #dff6dd;
+  color: #107c41;
+  border: 1px solid #92c353;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Attachment Box */
+table.attachment-box {
+  width: 100%;
+  background-color: #ebf3fc;
+  border: 1px solid #64b5f6;
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+
+td.attachment-icon {
+  width: 40px;
+  font-size: 20px;
+  text-align: center;
+  padding: 14px 0 14px 16px;
+  vertical-align: middle;
+}
+
+td.attachment-text {
+  padding: 14px 16px 14px 8px;
+  font-size: 13px;
+  line-height: 19px;
+  color: #0f172a;
+}
+
+td.attachment-text code {
+  background-color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  color: #0f6cbd;
+}
+
+/* Remarks Section */
+div.remarks-box {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+}
+
+div.remarks-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+div.remarks-content {
+  font-size: 13px;
+  line-height: 20px;
+  color: #334155;
+}
+
+/* Sign-off & Closing */
+div.signoff-section {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 20px;
+  margin-top: 8px;
+}
+
+p.signoff-text {
+  font-size: 13px;
+  line-height: 20px;
+  color: #475569;
+  margin: 0 0 16px 0;
+}
+
+p.signoff-closing {
+  font-size: 14px;
+  line-height: 22px;
+  color: #0f172a;
+  margin: 0 0 16px 0;
+}
+
+div.contact-details {
+  font-size: 12px;
+  color: #64748b;
+}
+
+a.contact-link {
+  color: #0f6cbd;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* Footer Section */
+td.email-footer {
+  background-color: #f1f5f9;
+  padding: 24px 32px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+p.footer-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 6px 0;
+}
+
+p.footer-text {
+  font-size: 11px;
+  line-height: 17px;
+  color: #64748b;
+  margin: 0 0 12px 0;
+}
+
+a.footer-link {
+  color: #0f6cbd;
+  text-decoration: underline;
+}
+
+p.footer-copyright {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 0;
+}

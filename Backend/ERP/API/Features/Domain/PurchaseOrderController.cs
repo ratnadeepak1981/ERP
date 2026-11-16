@@ -1,13 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using API.Common;
 using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.MasterData.Branch;
+using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.PriceCard;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseOrder;
+using ERP.Application.Common.Email;
+using ERP.Application.Features.Procurement.PurchaseOrderFeature;
+using ERP.Application.Features.Procurement.PurchaseOrderFeature.Templates;
+using ERP.Domain.Features.MasterData.Supplier;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 
@@ -23,6 +29,11 @@ public class PurchaseOrderController : BaseApiController
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
     private readonly IBranchService _branchService;
+    private readonly IPurchaseOrderPdfService _pdfService;
+    private readonly IEmailService _emailService;
+    private readonly IEmailTemplateEngine _templateEngine;
+    private readonly ISupplierRepository _supplierRepository;
+    private readonly ICompanyService _companyService;
 
     private static readonly SortMapping<PurchaseOrder> _sortMapping = new SortMapping<PurchaseOrder>()
         .Add("orderNumber", o => o.OrderNumber, isDefault: true)
@@ -36,13 +47,23 @@ public class PurchaseOrderController : BaseApiController
         IPricingResolutionService pricingResolutionService,
         ICurrentUserContext currentUserContext,
         IUserAccessService userAccessService,
-        IBranchService branchService)
+        IBranchService branchService,
+        IPurchaseOrderPdfService pdfService,
+        IEmailService emailService,
+        IEmailTemplateEngine templateEngine,
+        ISupplierRepository supplierRepository,
+        ICompanyService companyService)
     {
         _orderService = orderService;
         _pricingResolutionService = pricingResolutionService;
         _currentUserContext = currentUserContext;
         _userAccessService = userAccessService;
         _branchService = branchService;
+        _pdfService = pdfService;
+        _emailService = emailService;
+        _templateEngine = templateEngine;
+        _supplierRepository = supplierRepository;
+        _companyService = companyService;
     }
 
     [HttpGet("~/api/companies/{companyId:guid}/purchase-orders")]
@@ -500,5 +521,205 @@ public class PurchaseOrderController : BaseApiController
             request.Currency);
 
         return SuccessResponse(result);
+    }
+
+    [HttpGet("{orderId:guid}/pdf")]
+    [HttpGet("~/api/companies/{companyId:guid}/purchase-orders/{orderId:guid}/pdf")]
+    [RequirePermission("PURCHASE_ORDER.VIEW")]
+    public async Task<IActionResult> GetOrderPdf(
+        Guid companyId,
+        [FromRoute] Guid? branchId,
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        var authResult = await ValidateScopeAccessOrCompany(companyId, branchId, orderId);
+        if (authResult.Action != null) return authResult.Action;
+
+        var order = await _orderService.GetOrderByIdAsync(authResult.TenantId, companyId, orderId);
+        if (order == null)
+            return NotFoundResponse("Purchase order not found in the authorized scope.");
+
+        try
+        {
+            var pdfBytes = await _pdfService.GeneratePdfForOrderAsync(
+                authResult.TenantId,
+                companyId,
+                orderId,
+                cancellationToken);
+
+            var fileName = order.OrderNumber.StartsWith("PO", StringComparison.OrdinalIgnoreCase)
+                ? $"{order.OrderNumber}.pdf"
+                : $"PO_{order.OrderNumber}.pdf";
+
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{orderId:guid}/send-email")]
+    [HttpPost("~/api/companies/{companyId:guid}/purchase-orders/{orderId:guid}/send-email")]
+    [RequirePermission("PURCHASE_ORDER.VIEW")]
+    public async Task<IActionResult> SendOrderEmailToSupplier(
+        Guid companyId,
+        [FromRoute] Guid? branchId,
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        var authResult = await ValidateScopeAccessOrCompany(companyId, branchId, orderId);
+        if (authResult.Action != null) return authResult.Action;
+
+        var order = await _orderService.GetOrderByIdAsync(authResult.TenantId, companyId, orderId);
+        if (order == null)
+            return NotFoundResponse("Purchase order not found in the authorized scope.");
+
+        // Rule: Only Approved purchase orders can be emailed
+        if (order.Status != PurchaseOrderStatus.Approved)
+        {
+            return BadRequestResponse($"Only approved purchase orders can be sent to suppliers. Current order status: '{order.Status}'.");
+        }
+
+        // Rule: Supplier must be associated
+        if (!order.SupplierId.HasValue)
+        {
+            return BadRequestResponse("Cannot send email: No supplier is associated with this purchase order.");
+        }
+
+        var supplier = await _supplierRepository.GetSupplierByIdAsync(authResult.TenantId, order.SupplierId.Value);
+        if (supplier == null)
+        {
+            return BadRequestResponse("Associated supplier was not found.");
+        }
+
+        // Rule: Supplier email must be configured and valid
+        if (string.IsNullOrWhiteSpace(supplier.Email))
+        {
+            return BadRequestResponse($"Cannot send email: Supplier '{supplier.SupplierName}' does not have an email address configured in Supplier Master.");
+        }
+
+        string supplierEmail = supplier.Email.Trim();
+        try
+        {
+            _ = new System.Net.Mail.MailAddress(supplierEmail);
+        }
+        catch
+        {
+            return BadRequestResponse($"Cannot send email: Supplier '{supplier.SupplierName}' has an invalid email address '{supplierEmail}'.");
+        }
+
+        try
+        {
+            // 1. Generate the PDF bytes
+            var pdfBytes = await _pdfService.GeneratePdfForOrderAsync(
+                authResult.TenantId,
+                companyId,
+                orderId,
+                cancellationToken);
+
+            // 2. Load Company details for branding
+            var company = await _companyService.GetCompanyAsync(authResult.TenantId, companyId);
+            string companyName = company?.Name ?? "Apex Manufacturing Ltd";
+
+            // 3. Render HTML body via template engine
+            var emailModel = new PurchaseOrderEmailModel
+            {
+                CompanyName = companyName,
+                SupplierName = supplier.SupplierName,
+                OrderNumber = order.OrderNumber,
+                OrderDate = order.OrderDate.ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture),
+                ExpectedDeliveryDate = order.ExpectedDeliveryDate?.ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture) ?? "TBD",
+                Currency = string.IsNullOrWhiteSpace(order.Currency) ? "LKR" : order.Currency,
+                TotalAmount = order.TotalAmount.ToString("N2", System.Globalization.CultureInfo.InvariantCulture),
+                Remarks = "Please find the official purchase order attached. Kindly acknowledge receipt and advise your estimated delivery schedule.",
+                ContactPerson = "Procurement Department",
+                CompanyEmail = "procurement@apexerp.local",
+                CompanyPhone = "+94 11 234 5678",
+                CurrentYear = DateTime.UtcNow.Year.ToString()
+            };
+
+            string htmlBody = await _templateEngine.RenderAsync("PurchaseOrder/PurchaseOrderEmail", emailModel, cancellationToken);
+
+            // 4. Construct EmailMessage with exact generated PDF attachment
+            var emailMessage = new EmailMessage
+            {
+                Subject = $"Purchase Order #{order.OrderNumber} - {companyName}",
+                HtmlBody = htmlBody,
+                PlainTextBody = $"Dear {supplier.SupplierName},\n\nPlease find attached official Purchase Order #{order.OrderNumber} issued by {companyName}.\nTotal Amount: {emailModel.Currency} {emailModel.TotalAmount}.\n\nSincerely,\nProcurement Department\n{companyName}"
+            };
+
+            var pdfFileName = order.OrderNumber.StartsWith("PO", StringComparison.OrdinalIgnoreCase)
+                ? $"{order.OrderNumber}.pdf"
+                : $"PO_{order.OrderNumber}.pdf";
+
+            emailMessage.To.Add(new EmailRecipient(supplierEmail, supplier.SupplierName));
+            emailMessage.Attachments.Add(new EmailAttachment(pdfFileName, "application/pdf", pdfBytes));
+
+            // 5. Send via centralised IEmailService
+            var sendResult = await _emailService.SendEmailAsync(emailMessage, cancellationToken);
+
+            if (!sendResult.IsSuccess)
+            {
+                return BadRequestResponse($"Failed to dispatch email: {sendResult.ErrorMessage}");
+            }
+
+            return SuccessResponse(new
+            {
+                orderId = order.Id,
+                orderNumber = order.OrderNumber,
+                recipientEmail = supplierEmail,
+                supplierName = supplier.SupplierName,
+                attachmentFileName = pdfFileName,
+                sentAtUtc = sendResult.TimestampUtc,
+                message = $"Purchase Order #{order.OrderNumber} successfully sent to {supplier.SupplierName} ({supplierEmail})."
+            }, "Purchase order emailed to supplier successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    private async Task<(IActionResult? Action, Guid TenantId)> ValidateScopeAccessOrCompany(
+        Guid companyId,
+        Guid? branchId,
+        Guid orderId)
+    {
+        if (_currentUserContext.IsPlatformUser) return (Forbid(), Guid.Empty);
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+            return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
+
+        var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(
+            _currentUserContext.UserId,
+            tenantId.Value,
+            companyId);
+        if (!canAccessCompany) return (Forbid(), Guid.Empty);
+
+        if (branchId.HasValue && branchId.Value != Guid.Empty)
+        {
+            var canAccessBranch = await _userAccessService.CanAccessBranchAsync(
+                _currentUserContext.UserId,
+                tenantId.Value,
+                companyId,
+                branchId.Value);
+            if (!canAccessBranch) return (Forbid(), Guid.Empty);
+        }
+        else
+        {
+            var order = await _orderService.GetOrderByIdAsync(tenantId.Value, companyId, orderId);
+            if (order != null)
+            {
+                var canAccessBranch = await _userAccessService.CanAccessBranchAsync(
+                    _currentUserContext.UserId,
+                    tenantId.Value,
+                    companyId,
+                    order.BranchId);
+                if (!canAccessBranch) return (Forbid(), Guid.Empty);
+            }
+        }
+
+        return (null, tenantId.Value);
     }
 }

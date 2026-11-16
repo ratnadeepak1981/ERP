@@ -74,6 +74,25 @@
 
         @if (isApproved()) {
           <p-button
+            label="Preview PDF"
+            icon="pi pi-file-pdf"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="openPdfPreview()"
+            title="Preview Purchase Order PDF"
+          ></p-button>
+
+          <p-button
+            label="Send to Supplier"
+            icon="pi pi-send"
+            size="small"
+            severity="primary"
+            (onClick)="openSendEmailDialog()"
+            title="Email Purchase Order PDF to Supplier"
+          ></p-button>
+
+          <p-button
             label="Product Receipt"
             icon="pi pi-box"
             size="small"
@@ -495,6 +514,32 @@
                 (onClick)="openCancelDialog()"
               ></p-button>
             }
+            @if (isApproved()) {
+              <p-button
+                label="Preview PDF"
+                icon="pi pi-file-pdf"
+                severity="secondary"
+                [outlined]="true"
+                (onClick)="openPdfPreview()"
+                title="Preview Purchase Order PDF"
+              ></p-button>
+
+              <p-button
+                label="Send to Supplier"
+                icon="pi pi-send"
+                severity="primary"
+                (onClick)="openSendEmailDialog()"
+                title="Email Purchase Order PDF to Supplier"
+              ></p-button>
+
+              <p-button
+                label="Product Receipt"
+                icon="pi pi-box"
+                severity="success"
+                (onClick)="navigateToProductReceipt()"
+                title="Receive items against this approved Purchase Order"
+              ></p-button>
+            }
           } @else if (mode() === 'approval') {
             @if (canApprove()) {
               <p-button
@@ -562,6 +607,146 @@
           severity="danger"
           size="small"
           (onClick)="confirmCompanyChange()"
+        ></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- PDF PREVIEW DIALOG -->
+  <p-dialog
+    [(visible)]="previewPdfDialogVisible"
+    [modal]="true"
+    [header]="'Purchase Order PDF Preview - ' + (currentOrder()?.orderNumber || '')"
+    [style]="{ width: '94vw', height: '92vh', maxWidth: '98vw' }"
+    [draggable]="false"
+    [resizable]="true"
+    [maximizable]="true"
+    (onHide)="closePdfPreview()"
+  >
+    <div class="pdf-preview-container" style="display: flex; flex-direction: column; height: 100%;">
+      @if (previewPdfLoading()) {
+        <div style="display: flex; align-items: center; justify-content: center; height: 400px;">
+          <app-loading-state message="Generating Purchase Order PDF..."></app-loading-state>
+        </div>
+      } @else if (previewPdfUrl()) {
+        <iframe
+          [src]="previewPdfUrl()"
+          style="width: 100%; height: calc(92vh - 140px); border: 1px solid var(--surface-border, #e2e8f0); border-radius: 6px;"
+          title="Purchase Order PDF Preview"
+        ></iframe>
+      }
+    </div>
+
+    <ng-template #footer pTemplate="footer">
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 8px;">
+          <p-button
+            label="Download PDF"
+            icon="pi pi-download"
+            [outlined]="true"
+            severity="secondary"
+            size="small"
+            (onClick)="downloadPdf()"
+          ></p-button>
+          <p-button
+            label="Send to Supplier"
+            icon="pi pi-send"
+            severity="primary"
+            size="small"
+            (onClick)="openSendEmailDialog()"
+          ></p-button>
+        </div>
+        <p-button
+          label="Close"
+          icon="pi pi-times"
+          [outlined]="true"
+          severity="secondary"
+          size="small"
+          (onClick)="closePdfPreview()"
+        ></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- SEND EMAIL CONFIRMATION DIALOG -->
+  <p-dialog
+    [(visible)]="sendEmailDialogVisible"
+    [modal]="true"
+    header="Send Purchase Order to Supplier"
+    [style]="{ width: '520px', maxWidth: '94vw' }"
+    [draggable]="false"
+    [resizable]="false"
+    (onHide)="closeSendEmailDialog()"
+  >
+    <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <i class="pi pi-send" style="font-size: 1.5rem; color: var(--primary-color, #2563eb); margin-top: 2px;"></i>
+        <div>
+          <p style="margin: 0 0 4px 0; font-weight: 600; font-size: 1rem; color: var(--text-color, #1e293b);">
+            Confirm Email Dispatch
+          </p>
+          <p style="margin: 0; font-size: 0.875rem; color: var(--text-color-secondary, #64748b); line-height: 1.4;">
+            The approved purchase order document will be dispatched as a PDF attachment using the centralized email service.
+          </p>
+        </div>
+      </div>
+
+      <div style="background-color: var(--surface-ground, #f8fafc); border: 1px solid var(--surface-border, #e2e8f0); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 0.875rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-color-secondary, #64748b);">Order Number:</span>
+          <span style="font-weight: 600;">{{ currentOrder()?.orderNumber }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-color-secondary, #64748b);">Supplier:</span>
+          <span style="font-weight: 500;">{{ currentOrder()?.supplierName || targetSupplier()?.supplierName || 'N/A' }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-color-secondary, #64748b);">Recipient Email:</span>
+          @if (targetSupplierEmail()) {
+            <span style="font-weight: 600; color: var(--primary-color, #2563eb);">{{ targetSupplierEmail() }}</span>
+          } @else {
+            <span style="font-weight: 600; color: var(--red-500, #ef4444);">No email configured in Supplier Master</span>
+          }
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-color-secondary, #64748b);">Attachment:</span>
+          <span style="font-family: monospace; font-size: 0.8125rem;">{{ formatAttachmentFilename(currentOrder()?.orderNumber) }}</span>
+        </div>
+      </div>
+
+      @if (!targetSupplierEmail()) {
+        <div style="background-color: var(--red-50, #fef2f2); border: 1px solid var(--red-200, #fecaca); color: var(--red-700, #b91c1c); padding: 10px 12px; border-radius: 6px; font-size: 0.875rem; display: flex; align-items: center; gap: 8px;">
+          <i class="pi pi-exclamation-circle" style="font-size: 1.1rem;"></i>
+          <span>Cannot send email: This supplier does not have an email address configured. Please update the supplier in Supplier Master.</span>
+        </div>
+      }
+
+      @if (sendEmailError()) {
+        <div style="background-color: var(--red-50, #fef2f2); border: 1px solid var(--red-200, #fecaca); color: var(--red-700, #b91c1c); padding: 10px 12px; border-radius: 6px; font-size: 0.875rem; display: flex; align-items: center; gap: 8px;">
+          <i class="pi pi-times-circle" style="font-size: 1.1rem;"></i>
+          <span>{{ sendEmailError() }}</span>
+        </div>
+      }
+    </div>
+
+    <ng-template #footer pTemplate="footer">
+      <div style="display: flex; justify-content: flex-end; gap: 8px; width: 100%;">
+        <p-button
+          label="Cancel"
+          [outlined]="true"
+          severity="secondary"
+          size="small"
+          [disabled]="sendEmailLoading()"
+          (onClick)="closeSendEmailDialog()"
+        ></p-button>
+        <p-button
+          label="Confirm & Send"
+          icon="pi pi-send"
+          severity="primary"
+          size="small"
+          [loading]="sendEmailLoading()"
+          [disabled]="!targetSupplierEmail()"
+          (onClick)="confirmSendEmail()"
         ></p-button>
       </div>
     </ng-template>
