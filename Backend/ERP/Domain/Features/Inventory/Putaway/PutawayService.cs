@@ -374,6 +374,44 @@ public class PutawayService : IPutawayService
         return lines;
     }
 
+    // Helper method to validate that the source document's warehouse matches the requested putaway warehouse
+    private async Task ValidateSourceWarehouseMatchAsync(Guid tenantId, Guid companyId, Guid branchId, CreatePutawayDraftRequest request)
+    {
+        if (request.SourceDocumentType == PutawaySourceDocumentType.GoodsReceipt)
+        {
+            var grn = await _context.GoodsReceiptNotes
+                .Include(g => g.Lines)
+                .FirstOrDefaultAsync(g => g.TenantId == tenantId &&
+                                          g.CompanyId == companyId &&
+                                          g.BranchId == branchId &&
+                                          g.GoodsReceiptNoteId == request.SourceDocumentId);
+            if (grn == null)
+                throw new InvalidOperationException($"Goods Receipt {request.SourceDocumentId} not found.");
+
+            // Assume all lines belong to the same warehouse; validate the first line
+            var firstLine = grn.Lines.FirstOrDefault();
+            if (firstLine == null)
+                throw new InvalidOperationException("Goods Receipt has no lines.");
+
+            if (firstLine.WarehouseId != request.WarehouseId)
+                throw new InvalidOperationException($"Putaway warehouse ({request.WarehouseId}) does not match Goods Receipt warehouse ({firstLine.WarehouseId}).");
+        }
+        else if (request.SourceDocumentType == PutawaySourceDocumentType.StockReceipt)
+        {
+            // Stock receipt information is derived from inventory transactions; find a transaction for the source doc
+            var txn = await _context.InventoryTransactions
+                .FirstOrDefaultAsync(t => t.TenantId == tenantId &&
+                                          t.SourceDocumentId == request.SourceDocumentId &&
+                                          t.MovementType == InventoryMovementType.StockAdjustmentIn);
+            if (txn == null)
+                throw new InvalidOperationException($"Stock Receipt transaction for document {request.SourceDocumentId} not found.");
+
+            if (txn.WarehouseId != request.WarehouseId)
+                throw new InvalidOperationException($"Putaway warehouse ({request.WarehouseId}) does not match Stock Receipt warehouse ({txn.WarehouseId}).");
+        }
+        // For other source types, no specific validation needed currently.
+    }
+
     public async Task<PutawayDto> CreateDraftAsync(
         Guid tenantId,
         Guid companyId,
@@ -385,6 +423,8 @@ public class PutawayService : IPutawayService
         if (request.SourceDocumentId == Guid.Empty) throw new ArgumentException("Source receipt document is required.");
         if (request.Lines == null || request.Lines.Count == 0) throw new ArgumentException("At least one line item is required for putaway.");
 
+        // Validate that the source receipt's warehouse matches the putaway header warehouse
+        await ValidateSourceWarehouseMatchAsync(tenantId, companyId, branchId, request);
         var eligibleLines = await GetEligibleReceiptLinesAsync(tenantId, companyId, branchId, request.SourceDocumentType, request.SourceDocumentId);
 
         int year = (request.PutawayDate ?? DateTime.UtcNow).Year;

@@ -1,0 +1,754 @@
+{
+  "profileCode": "manufacturing",
+  "profileName": "Manufacturing & Assembly",
+  "currencies": [
+    {
+      "code": "LKR",
+      "name": "Sri Lankan Rupee",
+      "symbol": "Rs",
+      "decimalPlaces": 2,
+      "isBase": true
+    },
+    {
+      "code": "USD",
+      "name": "US Dollar",
+      "symbol": "$",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "GBP",
+      "name": "British Pound",
+      "symbol": "£",
+      "decimalPlaces": 2,
+      "isBase": false
+    },
+    {
+      "code": "INR",
+      "name": "Indian Rupee",
+      "symbol": "₹",
+      "decimalPlaces": 2,
+      "isBase": false
+    }
+  ],
+  "exchangeRates": [
+    {
+      "fromCurrency": "USD",
+      "toCurrency": "LKR",
+      "rate": 305.00
+    },
+    {
+      "fromCurrency": "EUR",
+      "toCurrency": "LKR",
+      "rate": 330.00
+    },
+    {
+      "fromCurrency": "GBP",
+      "toCurrency": "LKR",
+      "rate": 385.00
+    },
+    {
+      "fromCurrency": "INR",
+      "toCurrency": "LKR",
+      "rate": 3.65
+    }
+  ],
+  "paymentTerms": [
+    {
+      "code": "NET30",
+      "name": "Net 30 Days",
+      "days": 30,
+      "description": "Standard business credit terms"
+    },
+    {
+      "code": "IMMEDIATE",
+      "name": "Immediate / Cash on Delivery",
+      "days": 0,
+      "description": "Immediate settlement"
+    },
+    {
+      "code": "NET15",
+      "name": "Net 15 Days",
+      "days": 15,
+      "description": "Short-term supplier settlement"
+    },
+    {
+      "code": "NET60",
+      "name": "Net 60 Days",
+      "days": 60,
+      "description": "Extended distributor terms"
+    }
+  ],
+  "taxCodes": [
+    {
+      "code": "TAX-EXEMPT",
+      "name": "Zero-Rated / Exempt",
+      "rate": 0.00,
+      "description": "Illustrative exempt or zero-rated goods"
+    },
+    {
+      "code": "VAT-18",
+      "name": "Value Added Tax 18%",
+      "rate": 18.00,
+      "description": "Standard VAT rate configured for this sample template"
+    },
+    {
+      "code": "VAT-8",
+      "name": "Value Added Tax 8%",
+      "rate": 8.00,
+      "description": "Illustrative concessionary rate; verify applicability"
+    }
+  ],
+  "categories": [
+    {
+      "code": "RAW-MATERIALS",
+      "name": "Raw Materials",
+      "description": "Materials consumed in production"
+    },
+    {
+      "code": "COMPONENTS",
+      "name": "Components",
+      "description": "Purchased parts used in assemblies"
+    },
+    {
+      "code": "PACKAGING",
+      "name": "Packaging Materials",
+      "description": "Cartons and packing supplies"
+    },
+    {
+      "code": "FINISHED-GOODS",
+      "name": "Finished Goods",
+      "description": "Completed products ready for sale"
+    },
+    {
+      "code": "CONSUMABLES",
+      "name": "Production Consumables",
+      "description": "Items used during manufacturing operations"
+    }
+  ],
+  "brands": [
+    {
+      "code": "BRAND-METAL",
+      "name": "Ceylon Metals",
+      "description": "Illustrative metal materials brand"
+    },
+    {
+      "code": "BRAND-CHEM",
+      "name": "Lanka Industrial Chemicals",
+      "description": "Illustrative industrial chemicals brand"
+    },
+    {
+      "code": "BRAND-PACK",
+      "name": "PackRight",
+      "description": "Illustrative packaging materials brand"
+    },
+    {
+      "code": "BRAND-DRIVE",
+      "name": "Ceylon Engineering",
+      "description": "Illustrative engineering products brand"
+    },
+    {
+      "code": "BRAND-TOOLS",
+      "name": "Industrial Tools Lanka",
+      "description": "Illustrative industrial tools and consumables brand"
+    }
+  ],
+  "unitsOfMeasure": [
+    {
+      "code": "PCS",
+      "name": "Pieces",
+      "description": "Discrete item count"
+    },
+    {
+      "code": "EA",
+      "name": "Each",
+      "description": "Single item"
+    },
+    {
+      "code": "KG",
+      "name": "Kilogram",
+      "description": "Metric weight unit"
+    },
+    {
+      "code": "G",
+      "name": "Gram",
+      "description": "Metric sub-weight unit"
+    },
+    {
+      "code": "LTR",
+      "name": "Liter",
+      "description": "Metric volume unit"
+    },
+    {
+      "code": "ML",
+      "name": "Milliliter",
+      "description": "Metric sub-volume unit"
+    },
+    {
+      "code": "BAG",
+      "name": "Bag",
+      "description": "Bulk bag"
+    },
+    {
+      "code": "BOX",
+      "name": "Box",
+      "description": "Shipping box"
+    },
+    {
+      "code": "BDL",
+      "name": "Bundle",
+      "description": "Tied bundle"
+    },
+    {
+      "code": "PAL",
+      "name": "Pallet",
+      "description": "Pallet unit"
+    },
+    {
+      "code": "M",
+      "name": "Meter",
+      "description": "Length unit"
+    }
+  ],
+  "conversions": [
+    {
+      "fromUom": "KG",
+      "toUom": "G",
+      "conversionFactor": 1000.0
+    },
+    {
+      "fromUom": "LTR",
+      "toUom": "ML",
+      "conversionFactor": 1000.0
+    },
+    {
+      "fromUom": "PAL",
+      "toUom": "BOX",
+      "conversionFactor": 40.0
+    },
+    {
+      "fromUom": "BDL",
+      "toUom": "PCS",
+      "conversionFactor": 50.0
+    }
+  ],
+  "products": [
+    {
+      "code": "MFG-001",
+      "name": "Steel Sheet 2mm",
+      "categoryCode": "RAW-MATERIALS",
+      "brandCode": "BRAND-METAL",
+      "baseUom": "KG",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 950.00,
+      "sellingPrice": 1250.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-001-BDL",
+          "packagingUom": "BDL",
+          "multiplier": 25.0,
+          "barcode": "24792001001012"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0001",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-002",
+      "name": "Industrial Resin 25kg",
+      "categoryCode": "RAW-MATERIALS",
+      "brandCode": "BRAND-CHEM",
+      "baseUom": "BAG",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 7800.00,
+      "sellingPrice": 9500.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-002-PAL",
+          "packagingUom": "PAL",
+          "multiplier": 40.0,
+          "barcode": "24792001002019"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0002",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-003",
+      "name": "Packaging Carton",
+      "categoryCode": "PACKAGING",
+      "brandCode": "BRAND-PACK",
+      "baseUom": "PCS",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 85.00,
+      "sellingPrice": 120.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-003-BDL",
+          "packagingUom": "BDL",
+          "multiplier": 50.0,
+          "barcode": "24792001003016"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0003",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-004",
+      "name": "Electric Motor 1HP",
+      "categoryCode": "COMPONENTS",
+      "brandCode": "BRAND-DRIVE",
+      "baseUom": "PCS",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 18500.00,
+      "sellingPrice": 23000.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-004-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 4.0,
+          "barcode": "24792001004013"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0004",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-005",
+      "name": "Finished Pump Assembly",
+      "categoryCode": "FINISHED-GOODS",
+      "brandCode": "BRAND-DRIVE",
+      "baseUom": "PCS",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 32000.00,
+      "sellingPrice": 39500.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-005-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 2.0,
+          "barcode": "24792001005010"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0005",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-006",
+      "name": "Industrial Lubricant 1L",
+      "categoryCode": "CONSUMABLES",
+      "brandCode": "BRAND-CHEM",
+      "baseUom": "LTR",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 1200.00,
+      "sellingPrice": 1550.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-006-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 12.0,
+          "barcode": "24792001006017"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0006",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-007",
+      "name": "Industrial Safety Gloves",
+      "categoryCode": "CONSUMABLES",
+      "brandCode": "BRAND-TOOLS",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 450.00,
+      "sellingPrice": 650.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-007-BDL",
+          "packagingUom": "BDL",
+          "multiplier": 50.0,
+          "barcode": "24792001007014"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0007",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-008",
+      "name": "Industrial Cleaning Solution 5L",
+      "categoryCode": "CONSUMABLES",
+      "brandCode": "BRAND-CHEM",
+      "baseUom": "LTR",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 1800.00,
+      "sellingPrice": 2300.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-008-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 4.0,
+          "barcode": "24792001008011"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0008",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-009",
+      "name": "Assembly Fastener Set",
+      "categoryCode": "COMPONENTS",
+      "brandCode": "BRAND-TOOLS",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 320.00,
+      "sellingPrice": 450.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-009-BOX",
+          "packagingUom": "BOX",
+          "multiplier": 100.0,
+          "barcode": "24792001009018"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0009",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "code": "MFG-010",
+      "name": "Protective Packaging Foam",
+      "categoryCode": "PACKAGING",
+      "brandCode": "BRAND-PACK",
+      "baseUom": "PCS",
+      "trackingMode": "None",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 180.00,
+      "sellingPrice": 260.00,
+      "taxCode": "VAT-18",
+      "packagings": [
+        {
+          "packagingCode": "MFG-010-BDL",
+          "packagingUom": "BDL",
+          "multiplier": 25.0,
+          "barcode": "24792001010015"
+        }
+      ],
+      "identifiers": [
+        {
+          "barcode": "MFG-BAR-0010",
+          "symbology": "Code128",
+          "isPrimary": true
+        }
+      ]
+    }
+  ],
+  "suppliers": [
+    {
+      "code": "SUP-MFG-001",
+      "name": "Ceylon Industrial Supply (Pvt) Ltd",
+      "email": "purchasing@example.local",
+      "phone": "+94 11 200 0000",
+      "addressLine1": "No. 100, Industrial Road",
+      "city": "Colombo",
+      "postalCode": "00100",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Supplier Contact"
+    }
+  ],
+  "customers": [
+    {
+      "code": "CUST-MFG-001",
+      "name": "Lanka Engineering Projects (Pvt) Ltd",
+      "email": "accounts@example.local",
+      "phone": "+94 11 300 0000",
+      "addressLine1": "No. 25, Main Street",
+      "city": "Colombo",
+      "postalCode": "00200",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Customer Contact"
+    }
+  ],
+  "priceCards": [
+    {
+      "code": "PPC-MFG-001",
+      "name": "Manufacturing Supplier Purchase Prices",
+      "priceCardType": "Purchase",
+      "currency": "LKR",
+      "description": "Illustrative purchase prices for production materials",
+      "lines": [
+        {
+          "productCode": "MFG-001",
+          "uomCode": "KG",
+          "unitPrice": 950.00
+        },
+        {
+          "productCode": "MFG-002",
+          "uomCode": "BAG",
+          "unitPrice": 7800.00
+        },
+        {
+          "productCode": "MFG-003",
+          "uomCode": "PCS",
+          "unitPrice": 85.00
+        },
+        {
+          "productCode": "MFG-004",
+          "uomCode": "PCS",
+          "unitPrice": 18500.00
+        },
+        {
+          "productCode": "MFG-005",
+          "uomCode": "PCS",
+          "unitPrice": 32000.00
+        },
+        {
+          "productCode": "MFG-006",
+          "uomCode": "LTR",
+          "unitPrice": 1200.00
+        },
+        {
+          "productCode": "MFG-007",
+          "uomCode": "PCS",
+          "unitPrice": 450.00
+        },
+        {
+          "productCode": "MFG-008",
+          "uomCode": "LTR",
+          "unitPrice": 1800.00
+        },
+        {
+          "productCode": "MFG-009",
+          "uomCode": "PCS",
+          "unitPrice": 320.00
+        },
+        {
+          "productCode": "MFG-010",
+          "uomCode": "PCS",
+          "unitPrice": 180.00
+        }
+      ]
+    },
+    {
+      "code": "SPC-MFG-STD",
+      "name": "Manufactured Goods Sales Prices",
+      "priceCardType": "Sales",
+      "currency": "LKR",
+      "description": "Illustrative sales prices for components and finished goods",
+      "lines": [
+        {
+          "productCode": "MFG-001",
+          "uomCode": "KG",
+          "unitPrice": 1250.00
+        },
+        {
+          "productCode": "MFG-002",
+          "uomCode": "BAG",
+          "unitPrice": 9500.00
+        },
+        {
+          "productCode": "MFG-003",
+          "uomCode": "PCS",
+          "unitPrice": 120.00
+        },
+        {
+          "productCode": "MFG-004",
+          "uomCode": "PCS",
+          "unitPrice": 23000.00
+        },
+        {
+          "productCode": "MFG-005",
+          "uomCode": "PCS",
+          "unitPrice": 39500.00
+        },
+        {
+          "productCode": "MFG-006",
+          "uomCode": "LTR",
+          "unitPrice": 1550.00
+        },
+        {
+          "productCode": "MFG-007",
+          "uomCode": "PCS",
+          "unitPrice": 650.00
+        },
+        {
+          "productCode": "MFG-008",
+          "uomCode": "LTR",
+          "unitPrice": 2300.00
+        },
+        {
+          "productCode": "MFG-009",
+          "uomCode": "PCS",
+          "unitPrice": 450.00
+        },
+        {
+          "productCode": "MFG-010",
+          "uomCode": "PCS",
+          "unitPrice": 260.00
+        }
+      ]
+    }
+  ],
+  "warehouses": [
+    {
+      "code": "MFG-WH1",
+      "name": "Main Manufacturing Warehouse",
+      "isPrimary": true,
+      "addressLine1": "No. 100, Industrial Road",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "MFG-ZONE-REC",
+          "name": "Receiving Zone",
+          "description": "Inbound material receiving",
+          "locations": [
+            {
+              "code": "MFG-LOC-REC-01",
+              "name": "Receiving Bay 01",
+              "locationTypeCode": "STAGING"
+            }
+          ]
+        },
+        {
+          "code": "MFG-ZONE-RM",
+          "name": "Raw Material Storage",
+          "description": "Raw material storage",
+          "locations": [
+            {
+              "code": "MFG-LOC-RM-01",
+              "name": "Raw Material Rack 01",
+              "locationTypeCode": "RACK"
+            }
+          ]
+        },
+        {
+          "code": "MFG-ZONE-FG",
+          "name": "Finished Goods",
+          "description": "Finished goods holding",
+          "locations": [
+            {
+              "code": "MFG-LOC-FG-01",
+              "name": "Finished Goods Rack 01",
+              "locationTypeCode": "RACK"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "MFG-WH2",
+      "name": "Components Store",
+      "isPrimary": false,
+      "addressLine1": "No. 45, Factory Access Road",
+      "city": "Colombo",
+      "country": "Sri Lanka",
+      "zones": [
+        {
+          "code": "MFG-ZONE-COMP",
+          "name": "Components Storage",
+          "description": "Purchased component storage",
+          "locations": [
+            {
+              "code": "MFG-LOC-COMP-01",
+              "name": "Components Shelf 01",
+              "locationTypeCode": "SHELF"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

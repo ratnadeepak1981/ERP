@@ -98,9 +98,38 @@ export class CompanySetupComponent implements OnInit {
   readonly userProvisioningResult = signal<TenantUserSetupResult | null>(null);
 
   // Step 3 Master Data Setup
-  readonly availableProfiles: IndustryProfileOption[] = [
+/*  readonly availableProfiles: IndustryProfileOption[] = [
     { code: 'retail', name: 'Retail (Gate 6 Baseline) — Default', description: 'Currencies, categories, 5 products, barcodes, 2 warehouses, zones, locations, pricing, suppliers, customers.' }
   ];
+*/
+  readonly availableProfiles: IndustryProfileOption[] = [
+  {
+    code: 'retail',
+    name: 'Retail (Gate 6 Baseline) — Default',
+    description: 'Retail products, pricing, warehouses, suppliers and customers.'
+  },
+  {
+    code: 'manufacturing',
+    name: 'Manufacturing & Assembly',
+    description: 'Raw materials, components and finished goods.'
+  },
+  {
+    code: 'wholesale',
+    name: 'Wholesale & Distribution',
+    description: 'Bulk products, cartons and distributor pricing.'
+  },
+  {
+    code: 'pharmacy',
+    name: 'Pharmacy & Medical Supplies',
+    description: 'Medicines, medical supplies and batch tracking.'
+  },
+  {
+    code: 'service',
+    name: 'Service & Maintenance',
+    description: 'Non-inventory services and labour-based pricing.'
+  }
+];
+
   selectedIndustryProfile = 'retail';
   readonly masterDataLoading = signal<boolean>(false);
   readonly masterDataSuccess = signal<boolean>(false);
