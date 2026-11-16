@@ -248,6 +248,23 @@ export class BatchSerialTrackingDialogComponent implements OnInit {
       manufacturingDate: this.sanitizeDate(a.manufacturingDate),
       expiryDate: this.sanitizeDate(a.expiryDate)
     }));
+
+    // Auto-seed initial batch allocation row in receipt mode if no allocations exist
+    if (!this.data.readOnly && !this.isIssueMode() && this.isBatchMode() && initial.length === 0 && this.data.targetQuantity > 0) {
+      initial.push({
+        id: 'alloc-' + Math.random().toString(36).substring(2, 9),
+        batchNumber: '',
+        serialNumber: '',
+        quantity: this.data.targetQuantity,
+        manufacturingDate: '',
+        expiryDate: '',
+        isQuarantine: false,
+        remarks: ''
+      });
+    } else if (!this.data.readOnly && !this.isIssueMode() && this.isBatchMode() && initial.length === 1 && (!initial[0].quantity || Number(initial[0].quantity) <= 0)) {
+      initial[0].quantity = this.data.targetQuantity;
+    }
+
     this.workingAllocations.set(initial);
 
     // Initial default count for bulk entry

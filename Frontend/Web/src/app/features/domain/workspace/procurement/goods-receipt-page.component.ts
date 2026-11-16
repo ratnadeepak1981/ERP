@@ -1,6 +1,7 @@
 import {
   Component,
   OnInit,
+  AfterViewInit,
   OnDestroy,
   inject,
   signal,
@@ -104,8 +105,17 @@ export interface EditableGRNLine {
   styleUrl: './goods-receipt-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
-  @ViewChild('trackingCellTemplate', { static: true }) trackingCellTemplate!: TemplateRef<any>;
+export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestroy {
+  readonly trackingTemplate = signal<TemplateRef<any> | null>(null);
+
+  @ViewChild('trackingCellTemplate', { static: true })
+  set trackingCellTemplateRef(tmpl: TemplateRef<any> | undefined) {
+    if (tmpl) {
+      this.trackingCellTemplate = tmpl;
+      this.trackingTemplate.set(tmpl);
+    }
+  }
+  trackingCellTemplate?: TemplateRef<any>;
 
   readonly grnService = inject(GoodsReceiptNoteService);
   readonly poService = inject(PurchaseOrderService);
@@ -266,6 +276,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   // Columns for the Received Items Table
   readonly itemColumns = computed<DataTableColumn<EditableGRNLine>[]>(() => {
     const isView = !this.canEditDraft();
+    const cellTmpl = this.trackingTemplate() || this.trackingCellTemplate;
     return [
       {
         field: 'productCode',
@@ -337,7 +348,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         width: '180px',
         align: 'center',
         editable: false,
-        cellTemplate: this.trackingCellTemplate
+        cellTemplate: cellTmpl
       },
       {
         field: 'unitCost',
@@ -367,7 +378,15 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     row.lineTotal = row.netLineAmount !== undefined && row.orderedQuantity > 0
       ? Math.round(row.netLineAmount * qty / row.orderedQuantity * 100) / 100
       : Math.round(qty * cost * (1 - (Number(row.discountRate) || 0) / 100) * 100) / 100;
-    this.workingLines.set([...this.workingLines()]);
+
+    this.workingLines.update(curr =>
+      curr.map(l =>
+        (l.lineId && l.lineId === row.lineId) ||
+        (l.purchaseOrderItemId && l.purchaseOrderItemId === row.purchaseOrderItemId)
+          ? { ...l, ...row }
+          : l
+      )
+    );
   };
 
   // Reactive Totals
@@ -402,6 +421,10 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    if (this.trackingCellTemplate && !this.trackingTemplate()) {
+      this.trackingTemplate.set(this.trackingCellTemplate);
+    }
+
     this.detectRoute();
 
     this.subs.add(
@@ -426,6 +449,12 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         error: () => {}
       })
     );
+  }
+
+  ngAfterViewInit(): void {
+    if (this.trackingCellTemplate && !this.trackingTemplate()) {
+      this.trackingTemplate.set(this.trackingCellTemplate);
+    }
   }
 
   ngOnDestroy(): void {
@@ -556,6 +585,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       const purchaseOrderItemId = item.id || lineId;
 
       const cachedProd = item.productId ? this.productMasterCache.get(item.productId.toLowerCase()) : undefined;
+      const trackingMode = cachedProd ? Number(cachedProd.trackingMode) || TrackingMode.None : TrackingMode.None;
       const isGenericCode = !item.productCode || item.productCode === 'ITEM';
       const isGenericName = !item.productName || item.productName === 'Material Item' || item.productName === 'Material';
 
@@ -593,7 +623,9 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         unitCost, // Server-copied unit price, strictly read-only
         discountRate,
         netLineAmount,
-        lineTotal
+        lineTotal,
+        trackingMode,
+        trackingAllocations: []
       };
     });
 
@@ -669,7 +701,8 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
           productName: enrichedName,
           unitOfMeasure: enrichedUom,
           unitOfMeasureId: enrichedUomId,
-          trackingMode: mode
+          trackingMode: mode,
+          trackingAllocations: l.trackingAllocations || []
         };
       })
     );
@@ -712,7 +745,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     const allocated = allocs.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
     const target = Number(row.receivedQuantityNow) || 0;
 
-    if (allocated === target && target > 0) {
+    if (this.isLineTrackingComplete(row) && allocated === target && target > 0) {
       return mode === TrackingMode.Batch
         ? `Batches (${allocs.length}) ✓`
         : `Serials (${allocs.length}) ✓`;
@@ -726,13 +759,19 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       event.preventDefault();
     }
 
-    const mode = Number(row.trackingMode) || TrackingMode.None;
+    // Resolve authoritative line state from workingLines to avoid stale row reference
+    const currentLine = this.workingLines().find(l =>
+      (l.lineId && l.lineId === row.lineId) ||
+      (l.purchaseOrderItemId && l.purchaseOrderItemId === row.purchaseOrderItemId)
+    ) || row;
+
+    const mode = Number(currentLine.trackingMode ?? row.trackingMode) || TrackingMode.None;
     if (mode === TrackingMode.None) {
-      this.showMessage(`Product '${row.productCode}' does not track batches or serial numbers.`, 'info');
+      this.showMessage(`Product '${currentLine.productCode}' does not track batches or serial numbers.`, 'info');
       return;
     }
 
-    const targetQty = Number(row.receivedQuantityNow) || 0;
+    const targetQty = Number(currentLine.receivedQuantityNow) || 0;
     if (targetQty <= 0) {
       this.showMessage(`Specify a received quantity greater than 0 before allocating batch or serial details.`, 'warn');
       return;
@@ -745,15 +784,18 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
         maxWidth: '96vw',
         disableClose: true,
         data: {
-          productCode: row.productCode,
-          productName: row.productName,
-          unitOfMeasure: row.unitOfMeasure,
+          productCode: currentLine.productCode,
+          productName: currentLine.productName,
+          unitOfMeasure: currentLine.unitOfMeasure,
           trackingMode: mode,
           targetQuantity: targetQty,
           readOnly: !this.canEditDraft(),
-          allocations: row.trackingAllocations || [],
+          allocations: currentLine.trackingAllocations || row.trackingAllocations || [],
           dialogMode: 'receipt',
-          transactionTitle: 'Goods Receipt Note (GRN)'
+          transactionTitle: 'Goods Receipt Note (GRN)',
+          productId: currentLine.productId || row.productId,
+          warehouseId: currentLine.warehouseId || row.warehouseId,
+          warehouseLocationId: currentLine.warehouseLocationId || row.warehouseLocationId
         }
       }
     );
@@ -761,7 +803,33 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
         row.trackingAllocations = result;
-        this.workingLines.set([...this.workingLines()]);
+        const singleBatch = result.length === 1 && result[0].batchNumber ? result[0] : null;
+        if (singleBatch) {
+          row.batchNumber = singleBatch.batchNumber;
+          row.manufacturingDate = singleBatch.manufacturingDate || null;
+          row.expiryDate = singleBatch.expiryDate || null;
+        } else if (result.length === 0) {
+          row.batchNumber = null;
+          row.manufacturingDate = null;
+          row.expiryDate = null;
+        }
+
+        // Update workingLines immutably so that data-table re-sync and validation both read the allocated data
+        this.workingLines.update(currLines =>
+          currLines.map(l => {
+            const match = (l.lineId && l.lineId === row.lineId) ||
+                          (l.purchaseOrderItemId && l.purchaseOrderItemId === row.purchaseOrderItemId);
+            if (!match) return l;
+            return {
+              ...l,
+              ...row,
+              trackingAllocations: result,
+              batchNumber: singleBatch ? singleBatch.batchNumber : (result.length === 0 ? null : l.batchNumber),
+              manufacturingDate: singleBatch ? (singleBatch.manufacturingDate || null) : (result.length === 0 ? null : l.manufacturingDate),
+              expiryDate: singleBatch ? (singleBatch.expiryDate || null) : (result.length === 0 ? null : l.expiryDate)
+            };
+          })
+        );
         this.showMessage(`Tracking details recorded for ${row.productCode}.`, 'success');
       }
     });
@@ -941,7 +1009,41 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
   }
 
   onDraftLinesChange(lines: EditableGRNLine[]): void {
-    this.workingLines.set(lines);
+    const current = this.workingLines();
+    const currentMap = new Map<string, EditableGRNLine>();
+    for (const l of current) {
+      const key = l.lineId || l.purchaseOrderItemId;
+      if (key) currentMap.set(key, l);
+    }
+
+    const merged = lines.map(incoming => {
+      const key = incoming.lineId || incoming.purchaseOrderItemId;
+      const existing = key ? currentMap.get(key) : undefined;
+      const allocs = (incoming.trackingAllocations && incoming.trackingAllocations.length > 0)
+        ? incoming.trackingAllocations
+        : (existing?.trackingAllocations || incoming.trackingAllocations || []);
+
+      return {
+        ...incoming,
+        trackingMode: incoming.trackingMode ?? existing?.trackingMode ?? TrackingMode.None,
+        trackingAllocations: allocs,
+        batchNumber: incoming.batchNumber ?? existing?.batchNumber,
+        manufacturingDate: incoming.manufacturingDate ?? existing?.manufacturingDate,
+        expiryDate: incoming.expiryDate ?? existing?.expiryDate
+      };
+    });
+
+    this.workingLines.set(merged);
+  }
+
+  private toSafeIsoString(dateVal: any): string | null {
+    if (!dateVal) return null;
+    try {
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    } catch {
+      return null;
+    }
   }
 
   // Save GRN Draft or Confirm
@@ -1023,8 +1125,8 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
             unitOfMeasureId: l.unitOfMeasureId ?? null,
             batchNumber: alloc.batchNumber?.trim() || null,
             serialNumber: alloc.serialNumber?.trim() || null,
-            manufacturingDate: alloc.manufacturingDate ? new Date(alloc.manufacturingDate).toISOString() : null,
-            expiryDate: alloc.expiryDate ? new Date(alloc.expiryDate).toISOString() : null,
+            manufacturingDate: this.toSafeIsoString(alloc.manufacturingDate),
+            expiryDate: this.toSafeIsoString(alloc.expiryDate),
             isQuarantine: alloc.isQuarantine || false,
             remarks: alloc.remarks || l.remarks || null
           });
@@ -1047,9 +1149,7 @@ export class GoodsReceiptPageComponent implements OnInit, OnDestroy {
       }
     }
 
-    const receiptDate = formVal.receiptDate
-      ? new Date(formVal.receiptDate).toISOString()
-      : new Date().toISOString();
+    const receiptDate = this.toSafeIsoString(formVal.receiptDate) || new Date().toISOString();
 
     if (this.mode() === 'view' && currentGrn && this.editingDraft()) {
       const request: UpdateGoodsReceiptNoteRequest = {
