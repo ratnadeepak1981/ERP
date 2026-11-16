@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchase Order {{OrderNumber}} - {{CompanyName}}</title>
+</head>
+<body class="email-body">
+  <center class="email-canvas">
+    <!-- Email Container Card -->
+    <table role="presentation" class="email-container" border="0" cellpadding="0" cellspacing="0" width="100%">
+      
+      <!-- Header Banner -->
+      <tr>
+        <td class="email-header">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td>
+                <div class="header-brand">{{CompanyName}}</div>
+                <div class="header-subtext">ApexERP Procurement Operations</div>
+              </td>
+              <td class="header-badge-col">
+                <span class="po-badge-approved">APPROVED</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Main Content Area -->
+      <tr>
+        <td class="content-wrapper">
+          
+          <!-- Greeting & Intro -->
+          <div class="greeting">Dear {{SupplierName}},</div>
+          <p class="lead-text">
+            Please find attached official Purchase Order <strong>#{{OrderNumber}}</strong> issued by <strong>{{CompanyName}}</strong>.
+          </p>
+
+          <!-- Order Summary Card -->
+          <table role="presentation" class="summary-card" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td class="summary-header" colspan="2">
+                Order Summary
+              </td>
+            </tr>
+            <tr>
+              <td class="summary-label">Purchase Order #</td>
+              <td class="summary-value highlight">{{OrderNumber}}</td>
+            </tr>
+            <tr>
+              <td class="summary-label">Order Date</td>
+              <td class="summary-value">{{OrderDate}}</td>
+            </tr>
+            <tr>
+              <td class="summary-label">Expected Delivery</td>
+              <td class="summary-value">{{ExpectedDeliveryDate}}</td>
+            </tr>
+            <tr>
+              <td class="summary-label">Total Amount</td>
+              <td class="summary-value amount">{{Currency}} {{TotalAmount}}</td>
+            </tr>
+            <tr>
+              <td class="summary-label">Status</td>
+              <td class="summary-value">
+                <span class="status-indicator">Approved & Issued</span>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Attachment Notice Box -->
+          <table role="presentation" class="attachment-box" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td class="attachment-icon">📎</td>
+              <td class="attachment-text">
+                <strong>Document Attached:</strong> The complete line-item breakdown, billing instructions, and shipping requirements are detailed in the attached Purchase Order document (<code>PO_{{OrderNumber}}.pdf</code>).
+              </td>
+            </tr>
+          </table>
+
+          <!-- Remarks / Delivery Instructions (if provided) -->
+          <div class="remarks-box">
+            <div class="remarks-title">Special Instructions / Remarks</div>
+            <div class="remarks-content">{{Remarks}}</div>
+          </div>
+
+          <!-- Sign-off & Contact Info -->
+          <div class="signoff-section">
+            <p class="signoff-text">
+              Please review the attached document, acknowledge receipt of this order, and advise your estimated delivery confirmation at your earliest convenience.
+            </p>
+            <p class="signoff-closing">
+              Sincerely,<br>
+              <strong>{{ContactPerson}}</strong><br>
+              Procurement Department<br>
+              {{CompanyName}}
+            </p>
+            <div class="contact-details">
+              <span>Email: <a href="mailto:{{CompanyEmail}}" class="contact-link">{{CompanyEmail}}</a></span>
+              <span> &bull; </span>
+              <span>Phone: {{CompanyPhone}}</span>
+            </div>
+          </div>
+
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td class="email-footer">
+          <p class="footer-title">{{CompanyName}} Procurement Division</p>
+          <p class="footer-text">
+            This is an automated operational notification generated via ApexERP. Please do not reply directly to this automated address. For purchase order inquiries, contact our procurement team at <a href="mailto:{{CompanyEmail}}" class="footer-link">{{CompanyEmail}}</a>.
+          </p>
+          <p class="footer-copyright">
+            &copy; {{CurrentYear}} {{CompanyName}}. All rights reserved. Powered by ApexERP.
+          </p>
+        </td>
+      </tr>
+
+    </table>
+  </center>
+</body>
+</html>

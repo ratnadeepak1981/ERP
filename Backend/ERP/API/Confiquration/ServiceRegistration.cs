@@ -68,6 +68,15 @@ public static class ServiceRegistration
         services.AddScoped<IRecurringBillingService, RecurringBillingService>();
         services.AddScoped<IBillingNotificationService, DummyBillingNotificationService>();
 
+        // Centralised Email & Document Generation Infrastructure
+        services.AddOptions<ERP.Infrastructure.Email.Configuration.SmtpOptions>()
+            .Bind(configuration.GetSection(ERP.Infrastructure.Email.Configuration.SmtpOptions.SectionName));
+
+        services.AddSingleton<ERP.Infrastructure.Email.ISmtpClientFactory, ERP.Infrastructure.Email.DefaultSmtpClientFactory>();
+        services.AddScoped<ERP.Application.Common.Email.IEmailTemplateEngine, ERP.Infrastructure.Email.Templates.EmailTemplateEngine>();
+        services.AddScoped<ERP.Application.Common.Email.IEmailService, ERP.Infrastructure.Email.MailKitSmtpEmailService>();
+        services.AddScoped<ERP.Application.Features.Procurement.PurchaseOrderFeature.IPurchaseOrderPdfService, ERP.Infrastructure.Pdf.PurchaseOrderPdfService>();
+
         services.AddScoped<Domain.Features.MasterData.Company.ICompanyService, ERP.Application.Features.MasterData.Company.CompanyService>();
         services.AddScoped<Domain.Features.Setup.ITenantOrganizationSetupService, ERP.Application.Features.Setup.TenantOrganizationSetupService>();
         services.AddScoped<Domain.Features.Setup.ITenantMasterDataSetupService, ERP.Application.Features.Setup.TenantMasterDataSetupService>();

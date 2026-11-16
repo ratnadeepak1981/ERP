@@ -28,4 +28,12 @@
     <ProjectReference Include="..\..\ERP.AI.Infrastructure\ERP.AI.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="MailKit">
+      <HintPath>$(UserProfile)\.nuget\packages\mailkit\4.17.0\lib\net8.0\MailKit.dll</HintPath>
+    </Reference>
+    <Reference Include="MimeKit">
+      <HintPath>$(UserProfile)\.nuget\packages\mimekit\4.17.0\lib\net8.0\MimeKit.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

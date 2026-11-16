@@ -162,4 +162,25 @@ export class PurchaseOrderService {
       .post<ApiResponse<PriceResolutionResult>>(this.buildPath(companyId, branchId, '/resolve-price'), request)
       .pipe(map(res => res.data));
   }
+
+  getPdf(companyId: string, branchIdOrId?: string | null, id?: string): Observable<Blob> {
+    const orderId = id || branchIdOrId;
+    const branchId = id ? branchIdOrId : null;
+    return this.http.get(this.buildPath(companyId, branchId, `/${orderId}/pdf`), {
+      responseType: 'blob'
+    });
+  }
+
+  sendEmail(
+    companyId: string,
+    branchIdOrId?: string | null,
+    id?: string
+  ): Observable<ApiResponse<{ message: string; messageId: string }>> {
+    const orderId = id || branchIdOrId;
+    const branchId = id ? branchIdOrId : null;
+    return this.http.post<ApiResponse<{ message: string; messageId: string }>>(
+      this.buildPath(companyId, branchId, `/${orderId}/send-email`),
+      {}
+    );
+  }
 }
