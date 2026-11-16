@@ -1,4 +1,23 @@
 <div class="goods-receipt-page">
+  <!-- Tracking Column Cell Template -->
+  <ng-template #trackingCellTemplate let-row="row">
+    @if (!row.trackingMode || row.trackingMode === 0) {
+      <span class="tracking-pill untracked">Not Tracked</span>
+    } @else {
+      <button
+        type="button"
+        class="tracking-action-btn"
+        [class.configured]="isLineTrackingComplete(row)"
+        [class.pending]="!isLineTrackingComplete(row)"
+        (click)="openTrackingDialog(row, $event)"
+        [title]="canEditDraft() ? 'Click to edit batch/serial tracking' : 'Click to view batch/serial tracking'"
+      >
+        <i class="pi" [ngClass]="isLineTrackingComplete(row) ? 'pi-check-circle' : 'pi-exclamation-triangle'"></i>
+        <span>{{ getLineTrackingSummary(row) }}</span>
+      </button>
+    }
+  </ng-template>
+
   <app-page-header
     [title]="pageTitle()"
     [subtitle]="pageSubtitle()"
@@ -228,25 +247,6 @@
             </span>
           }
         </div>
-
-        <!-- Tracking Column Cell Template -->
-        <ng-template #trackingCellTemplate let-row="row">
-          @if (!row.trackingMode || row.trackingMode === 0) {
-            <span class="tracking-pill untracked">Not Tracked</span>
-          } @else {
-            <button
-              type="button"
-              class="tracking-action-btn"
-              [class.configured]="isLineTrackingComplete(row)"
-              [class.pending]="!isLineTrackingComplete(row)"
-              (click)="openTrackingDialog(row, $event)"
-              [title]="canEditDraft() ? 'Click to edit batch/serial tracking' : 'Click to view batch/serial tracking'"
-            >
-              <i class="pi" [ngClass]="isLineTrackingComplete(row) ? 'pi-check-circle' : 'pi-exclamation-triangle'"></i>
-              <span>{{ getLineTrackingSummary(row) }}</span>
-            </button>
-          }
-        </ng-template>
 
         <app-editable-data-table
           [data]="workingLines()"
