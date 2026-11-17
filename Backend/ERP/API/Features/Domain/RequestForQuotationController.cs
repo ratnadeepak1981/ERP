@@ -64,6 +64,12 @@ public class RequestForQuotationController : BaseApiController
         if (rfq == null)
             return NotFoundResponse($"RFQ with ID {id} not found in the authorized scope.");
 
+        // Quotation commercial data is permission-controlled separately from the RFQ header.
+        if (!CanViewQuotations())
+        {
+            rfq.Quotations = new List<SupplierQuotationDto>();
+        }
+
         return SuccessResponse(rfq);
     }
 
@@ -222,8 +228,29 @@ public class RequestForQuotationController : BaseApiController
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
-        var quotes = await _quotationService.GetQuotationsForRfqAsync(id, authResult.TenantId, ct);
+        var quotes = await _quotationService.GetQuotationsForRfqAsync(id, authResult.TenantId, companyId, branchId, ct);
         return SuccessResponse(quotes);
+    }
+
+    [HttpGet("{id:guid}/quotations/{quotationId:guid}")]
+    [RequirePermission("RFQ.QUOTATION.VIEW")]
+    public async Task<IActionResult> GetQuotationById(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        Guid quotationId,
+        CancellationToken ct = default)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        var quote = await _quotationService.GetQuotationByIdAsync(id, quotationId, authResult.TenantId, companyId, branchId, ct);
+        if (quote == null)
+        {
+            return NotFoundResponse("Quotation not found.");
+        }
+
+        return SuccessResponse(quote);
     }
 
     [HttpPost("{id:guid}/manual-quotations")]
@@ -250,7 +277,7 @@ public class RequestForQuotationController : BaseApiController
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
-        var matrix = await _quotationService.GetComparisonMatrixAsync(id, authResult.TenantId, ct);
+        var matrix = await _quotationService.GetComparisonMatrixAsync(id, authResult.TenantId, companyId, branchId, ct);
         return SuccessResponse(matrix);
     }
 
@@ -268,7 +295,7 @@ public class RequestForQuotationController : BaseApiController
         if (authResult.Action != null) return authResult.Action;
 
         var userId = _currentUserContext.UserId;
-        var result = await _quotationService.ApproveQuotationAsync(id, quotationId, request, userId, authResult.TenantId, ct);
+        var result = await _quotationService.ApproveQuotationAsync(id, quotationId, request, userId, authResult.TenantId, companyId, branchId, ct);
         return SuccessResponse(result);
     }
 
@@ -286,9 +313,12 @@ public class RequestForQuotationController : BaseApiController
         if (authResult.Action != null) return authResult.Action;
 
         var userId = _currentUserContext.UserId;
-        var result = await _quotationService.RejectQuotationAsync(id, quotationId, request, userId, authResult.TenantId, ct);
+        var result = await _quotationService.RejectQuotationAsync(id, quotationId, request, userId, authResult.TenantId, companyId, branchId, ct);
         return SuccessResponse(result);
     }
+
+    private bool CanViewQuotations() =>
+        User.HasClaim("permission", "RFQ.QUOTATION.VIEW");
 
     private async Task<(IActionResult? Action, Guid TenantId)> ValidateScopeAccess(
         Guid companyId,

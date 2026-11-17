@@ -332,6 +332,8 @@ export interface SubmitPublicQuotationLineRequest {
   unitOfMeasureId: string;
   unitPrice: number;
   discountPercentage?: number;
+  taxCodeId?: string;
+  taxRate?: number;
   leadTimeDays?: number;
   technicalRemarks?: string;
 }
@@ -340,7 +342,7 @@ export interface SubmitPublicQuotationRequest {
   quotationReference: string;
   quotationDate: string;
   validUntil: string;
-  currencyId: string;
+  currencyId?: string;
   notes?: string;
   lines: SubmitPublicQuotationLineRequest[];
 }

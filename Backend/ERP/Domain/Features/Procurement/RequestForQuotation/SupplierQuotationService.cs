@@ -33,9 +33,24 @@ public class SupplierQuotationService : ISupplierQuotationService
 
         var rfq = rfqSupplier.RequestForQuotation;
 
+        if (rfq.Status is RequestForQuotationStatus.Cancelled or RequestForQuotationStatus.Closed or RequestForQuotationStatus.Awarded)
+        {
+            throw new InvalidOperationException(
+                $"This RFQ is currently '{rfq.Status}' and is no longer accepting quotations.");
+        }
+
         // Check if quotation already submitted
         var alreadySubmitted = await _dbContext.SupplierQuotations
             .AnyAsync(q => q.RFQId == rfq.Id && q.SupplierId == rfqSupplier.SupplierId, ct);
+
+        var currency = await GetDefaultCurrencyAsync(rfq.TenantId, rfq.CompanyId, ct);
+
+        // Opening the invitation records the supplier response state (Step 3 progress).
+        if (rfqSupplier.InvitationStatus == RFQSupplierInvitationStatus.Sent)
+        {
+            rfqSupplier.InvitationStatus = RFQSupplierInvitationStatus.Opened;
+            await _dbContext.SaveChangesAsync(ct);
+        }
 
         // Map public details - ONLY for this supplier, NO competitor quotes, NO target prices!
         return new PublicRfqDetailsDto
@@ -50,6 +65,8 @@ public class SupplierQuotationService : ISupplierQuotationService
             SupplierName = rfqSupplier.SupplierName,
             SupplierCode = rfqSupplier.SupplierCode,
             AlreadySubmitted = alreadySubmitted,
+            CurrencyId = currency?.CurrencyId ?? Guid.Empty,
+            CurrencyCode = currency?.CurrencyCode ?? string.Empty,
             Lines = rfq.Lines.OrderBy(l => l.LineNumber).Select(l => new PublicRfqLineDto
             {
                 RFQLineId = l.Id,
@@ -77,23 +94,80 @@ public class SupplierQuotationService : ISupplierQuotationService
 
         var rfq = rfqSupplier.RequestForQuotation;
 
-        if (rfq.Status == RequestForQuotationStatus.Cancelled || rfq.Status == RequestForQuotationStatus.Closed)
+        if (rfq.Status is RequestForQuotationStatus.Cancelled or RequestForQuotationStatus.Closed or RequestForQuotationStatus.Awarded)
             return new SubmitQuotationResultDto { Success = false, Message = $"RFQ is currently '{rfq.Status}' and cannot accept submissions." };
+
+        if (request.Lines == null || request.Lines.Count == 0)
+            return new SubmitQuotationResultDto { Success = false, Message = "Quotation must contain at least one line item." };
+
+        var quotationDate = request.QuotationDate == default ? DateTime.UtcNow : request.QuotationDate;
+
+        if (request.ValidUntil == default)
+            return new SubmitQuotationResultDto { Success = false, Message = "Quotation validity date is required." };
 
         if (request.ValidUntil.Date < DateTime.UtcNow.Date)
             return new SubmitQuotationResultDto { Success = false, Message = "Quotation validity date cannot be in the past." };
 
-        if (request.Lines == null || !request.Lines.Any())
-            return new SubmitQuotationResultDto { Success = false, Message = "Quotation must contain at least one line item." };
+        if (request.ValidUntil.Date < quotationDate.Date)
+            return new SubmitQuotationResultDto { Success = false, Message = "Quotation validity date cannot be before the quotation date." };
 
-        var currency = await _dbContext.Currencies
-            .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId && c.CurrencyId == request.CurrencyId, ct);
+        var alreadySubmitted = await _dbContext.SupplierQuotations
+            .AnyAsync(q => q.TenantId == rfq.TenantId && q.RFQId == rfq.Id && q.SupplierId == rfqSupplier.SupplierId, ct);
 
-        if (currency == null)
-            return new SubmitQuotationResultDto { Success = false, Message = "Specified currency not found." };
+        if (alreadySubmitted)
+            return new SubmitQuotationResultDto { Success = false, Message = "A quotation has already been submitted for this invitation." };
 
-        // Resolve company base currency
+        Currency? currency;
+        if (request.CurrencyId.HasValue && request.CurrencyId.Value != Guid.Empty)
+        {
+            currency = await _dbContext.Currencies
+                .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId && c.CurrencyId == request.CurrencyId.Value, ct);
+
+            if (currency == null)
+                return new SubmitQuotationResultDto { Success = false, Message = "Specified currency not found." };
+        }
+        else
+        {
+            currency = await GetDefaultCurrencyAsync(rfq.TenantId, rfq.CompanyId, ct);
+
+            if (currency == null)
+                return new SubmitQuotationResultDto { Success = false, Message = "No default currency is configured for this company. Please contact the procurement officer." };
+        }
+
+        // Validate every submitted line against the RFQ before persisting anything.
+        var seenRfqLineIds = new HashSet<Guid>();
+        foreach (var lineReq in request.Lines)
+        {
+            if (lineReq.RFQLineId == Guid.Empty || !seenRfqLineIds.Add(lineReq.RFQLineId))
+                return new SubmitQuotationResultDto { Success = false, Message = "Each requested item must be quoted exactly once." };
+
+            var rfqLine = rfq.Lines.FirstOrDefault(l => l.Id == lineReq.RFQLineId);
+            if (rfqLine == null)
+                return new SubmitQuotationResultDto { Success = false, Message = "The quotation contains an item that is not part of this RFQ." };
+
+            var validationError = ValidateLineValues(
+                lineReq.QuotedQuantity,
+                lineReq.UnitPrice,
+                lineReq.DiscountPercentage,
+                lineReq.TaxRate,
+                lineReq.LeadTimeDays);
+
+            if (validationError != null)
+                return new SubmitQuotationResultDto { Success = false, Message = $"{rfqLine.ProductCode}: {validationError}" };
+
+            if (lineReq.QuotedQuantity > rfqLine.Quantity)
+                return new SubmitQuotationResultDto { Success = false, Message = $"{rfqLine.ProductCode}: quoted quantity cannot exceed the requested quantity of {rfqLine.Quantity}." };
+
+            if (lineReq.UnitOfMeasureId != Guid.Empty && lineReq.UnitOfMeasureId != rfqLine.UnitOfMeasureId)
+                return new SubmitQuotationResultDto { Success = false, Message = $"{rfqLine.ProductCode}: unit of measure does not match the requested item." };
+
+            if ((lineReq.TechnicalRemarks?.Length ?? 0) > 1000)
+                return new SubmitQuotationResultDto { Success = false, Message = $"{rfqLine.ProductCode}: remarks cannot exceed 1000 characters." };
+        }
+
+        // Resolve company base currency for exchange rate / base totals.
         var company = await _dbContext.Companies
+            .AsNoTracking()
             .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId && c.Id == rfq.CompanyId, ct);
 
         decimal exchangeRate = 1.0m;
@@ -105,8 +179,8 @@ public class SupplierQuotationService : ISupplierQuotationService
                     rfq.TenantId,
                     currency.CurrencyId,
                     company.BaseCurrencyId.Value,
-                    request.QuotationDate);
-                exchangeRate = resolved.Rate;
+                    quotationDate);
+                exchangeRate = resolved.Rate > 0 ? resolved.Rate : 1.0m;
             }
             catch
             {
@@ -127,7 +201,7 @@ public class SupplierQuotationService : ISupplierQuotationService
             QuotationReference = string.IsNullOrWhiteSpace(request.QuotationReference)
                 ? $"QT-{rfqSupplier.SupplierCode}-{DateTime.UtcNow:yyyyMMddHHmm}"
                 : request.QuotationReference.Trim(),
-            QuotationDate = request.QuotationDate,
+            QuotationDate = quotationDate,
             ValidUntil = request.ValidUntil,
             CurrencyId = currency.CurrencyId,
             CurrencyCode = currency.CurrencyCode,
@@ -139,22 +213,23 @@ public class SupplierQuotationService : ISupplierQuotationService
 
         decimal subTotal = 0m;
         decimal totalDiscount = 0m;
+        decimal totalTax = 0m;
 
         foreach (var lineReq in request.Lines)
         {
             var rfqLine = rfq.Lines.FirstOrDefault(l => l.Id == lineReq.RFQLineId);
             if (rfqLine == null)
-                continue;
+                continue; // already validated above
 
-            var uom = await _dbContext.UnitsOfMeasure
-                .FirstOrDefaultAsync(u => u.TenantId == rfq.TenantId && u.UnitOfMeasureId == lineReq.UnitOfMeasureId, ct);
-
-            var lineGross = lineReq.QuotedQuantity * lineReq.UnitPrice;
-            var lineDiscount = lineGross * (lineReq.DiscountPercentage / 100m);
-            var lineTotal = lineGross - lineDiscount;
+            var lineGross = RoundMoney(lineReq.QuotedQuantity * lineReq.UnitPrice);
+            var lineDiscount = RoundMoney(lineGross * (lineReq.DiscountPercentage / 100m));
+            var lineNet = lineGross - lineDiscount;
+            var lineTax = RoundMoney(lineNet * (lineReq.TaxRate / 100m));
+            var lineTotal = RoundMoney(lineNet + lineTax);
 
             subTotal += lineGross;
             totalDiscount += lineDiscount;
+            totalTax += lineTax;
 
             quote.Lines.Add(new SupplierQuotationLine
             {
@@ -167,22 +242,23 @@ public class SupplierQuotationService : ISupplierQuotationService
                 ProductCode = rfqLine.ProductCode,
                 ProductName = rfqLine.ProductName,
                 QuotedQuantity = lineReq.QuotedQuantity,
-                UnitOfMeasureId = lineReq.UnitOfMeasureId,
-                UnitOfMeasureCode = uom?.Code ?? rfqLine.UnitOfMeasureCode,
+                UnitOfMeasureId = rfqLine.UnitOfMeasureId,
+                UnitOfMeasureCode = rfqLine.UnitOfMeasureCode,
                 UnitPrice = lineReq.UnitPrice,
                 DiscountPercentage = lineReq.DiscountPercentage,
-                TaxRate = 0m,
+                TaxCodeId = lineReq.TaxCodeId,
+                TaxRate = lineReq.TaxRate,
                 LineTotal = lineTotal,
                 LeadTimeDays = lineReq.LeadTimeDays,
                 TechnicalRemarks = lineReq.TechnicalRemarks?.Trim()
             });
         }
 
-        quote.SubTotal = subTotal;
-        quote.DiscountAmount = totalDiscount;
-        quote.TaxAmount = 0m;
-        quote.TotalAmount = subTotal - totalDiscount;
-        quote.BaseTotalAmount = quote.TotalAmount * exchangeRate;
+        quote.SubTotal = RoundMoney(subTotal);
+        quote.DiscountAmount = RoundMoney(totalDiscount);
+        quote.TaxAmount = RoundMoney(totalTax);
+        quote.TotalAmount = RoundMoney(subTotal - totalDiscount + totalTax);
+        quote.BaseTotalAmount = RoundMoney(quote.TotalAmount * exchangeRate);
 
         await _dbContext.SupplierQuotations.AddAsync(quote, ct);
         _dbContext.Entry(quote).Property(x => x.CreatedBy).CurrentValue = rfqSupplier.SupplierId;
@@ -214,13 +290,31 @@ public class SupplierQuotationService : ISupplierQuotationService
     {
         var rfq = await _dbContext.RequestForQuotations
             .Include(r => r.Lines)
-            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Id == rfqId, ct);
+            .FirstOrDefaultAsync(r =>
+                r.TenantId == tenantId &&
+                r.CompanyId == companyId &&
+                r.BranchId == branchId &&
+                r.Id == rfqId, ct);
 
         if (rfq == null)
             throw new KeyNotFoundException($"RFQ with ID {rfqId} not found.");
 
+        if (rfq.Status is RequestForQuotationStatus.Cancelled or RequestForQuotationStatus.Closed or RequestForQuotationStatus.Awarded)
+            throw new InvalidOperationException($"Cannot record a quotation for an RFQ in '{rfq.Status}' status.");
+
+        if (request.Lines == null || request.Lines.Count == 0)
+            throw new ArgumentException("Quotation must contain at least one line item.", nameof(request.Lines));
+
+        var quotationDate = request.QuotationDate == default ? DateTime.UtcNow : request.QuotationDate;
+
+        if (request.ValidUntil == default)
+            throw new ArgumentException("Quotation validity date is required.", nameof(request.ValidUntil));
+
         if (request.ValidUntil.Date < DateTime.UtcNow.Date)
             throw new ArgumentException("Quotation validity date cannot be in the past.", nameof(request.ValidUntil));
+
+        if (request.ValidUntil.Date < quotationDate.Date)
+            throw new ArgumentException("Quotation validity date cannot be before the quotation date.", nameof(request.ValidUntil));
 
         var supplier = await _dbContext.Suppliers
             .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.SupplierId == request.SupplierId, ct);
@@ -228,13 +322,29 @@ public class SupplierQuotationService : ISupplierQuotationService
         if (supplier == null)
             throw new InvalidOperationException($"Supplier with ID {request.SupplierId} not found.");
 
-        var currency = await _dbContext.Currencies
-            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CurrencyId == request.CurrencyId, ct);
+        Currency? currency;
+        if (request.CurrencyId != Guid.Empty)
+        {
+            currency = await _dbContext.Currencies
+                .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CurrencyId == request.CurrencyId, ct);
 
-        if (currency == null)
-            throw new InvalidOperationException($"Currency with ID {request.CurrencyId} not found.");
+            if (currency == null)
+                throw new InvalidOperationException($"Currency with ID {request.CurrencyId} not found.");
+        }
+        else
+        {
+            currency = await GetDefaultCurrencyAsync(tenantId, companyId, ct);
 
-        var exchangeRate = request.ExchangeRate > 0 ? request.ExchangeRate : 1.0m;
+            if (currency == null)
+                throw new InvalidOperationException("No default currency is configured for this company.");
+        }
+
+        var company = await _dbContext.Companies
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == companyId, ct);
+
+        var isBaseCurrency = company?.BaseCurrencyId == currency.CurrencyId;
+        var exchangeRate = isBaseCurrency ? 1.0m : (request.ExchangeRate > 0 ? request.ExchangeRate : 1.0m);
 
         var quote = new SupplierQuotation
         {
@@ -249,7 +359,7 @@ public class SupplierQuotationService : ISupplierQuotationService
             QuotationReference = string.IsNullOrWhiteSpace(request.QuotationReference)
                 ? $"QT-{supplier.SupplierCode}-{DateTime.UtcNow:yyyyMMdd}"
                 : request.QuotationReference.Trim(),
-            QuotationDate = request.QuotationDate,
+            QuotationDate = quotationDate,
             ValidUntil = request.ValidUntil,
             CurrencyId = currency.CurrencyId,
             CurrencyCode = currency.CurrencyCode,
@@ -263,6 +373,9 @@ public class SupplierQuotationService : ISupplierQuotationService
         decimal totalDiscount = 0m;
         decimal totalTax = 0m;
 
+        var seenRfqLineIds = new HashSet<Guid>();
+        var seenProductIds = new HashSet<Guid>();
+
         foreach (var lineReq in request.Lines)
         {
             var product = await _dbContext.Products
@@ -271,13 +384,34 @@ public class SupplierQuotationService : ISupplierQuotationService
             if (product == null)
                 throw new InvalidOperationException($"Product with ID {lineReq.ProductId} not found.");
 
-            var uom = await _dbContext.UnitsOfMeasure
-                .FirstOrDefaultAsync(u => u.TenantId == tenantId && u.UnitOfMeasureId == lineReq.UnitOfMeasureId, ct);
+            var rfqLine = lineReq.RFQLineId.HasValue
+                ? rfq.Lines.FirstOrDefault(l => l.Id == lineReq.RFQLineId.Value)
+                : rfq.Lines.FirstOrDefault(l => l.ProductId == product.ProductId);
 
-            var lineGross = lineReq.QuotedQuantity * lineReq.UnitPrice;
-            var lineDiscount = lineGross * (lineReq.DiscountPercentage / 100m);
-            var lineTax = (lineGross - lineDiscount) * (lineReq.TaxRate / 100m);
-            var lineTotal = lineGross - lineDiscount + lineTax;
+            if (rfqLine == null)
+                throw new InvalidOperationException($"Product '{product.ProductCode}' is not part of RFQ {rfq.RFQNumber}.");
+
+            if (!seenRfqLineIds.Add(rfqLine.Id) || !seenProductIds.Add(product.ProductId))
+                throw new InvalidOperationException($"Product '{product.ProductCode}' is quoted more than once.");
+
+            var validationError = ValidateLineValues(
+                lineReq.QuotedQuantity,
+                lineReq.UnitPrice,
+                lineReq.DiscountPercentage,
+                lineReq.TaxRate,
+                lineReq.LeadTimeDays);
+
+            if (validationError != null)
+                throw new InvalidOperationException($"{product.ProductCode}: {validationError}");
+
+            if (lineReq.QuotedQuantity > rfqLine.Quantity)
+                throw new InvalidOperationException($"{product.ProductCode}: quoted quantity cannot exceed the requested quantity of {rfqLine.Quantity}.");
+
+            var lineGross = RoundMoney(lineReq.QuotedQuantity * lineReq.UnitPrice);
+            var lineDiscount = RoundMoney(lineGross * (lineReq.DiscountPercentage / 100m));
+            var lineNet = lineGross - lineDiscount;
+            var lineTax = RoundMoney(lineNet * (lineReq.TaxRate / 100m));
+            var lineTotal = RoundMoney(lineNet + lineTax);
 
             subTotal += lineGross;
             totalDiscount += lineDiscount;
@@ -289,13 +423,13 @@ public class SupplierQuotationService : ISupplierQuotationService
                 TenantId = tenantId,
                 CompanyId = companyId,
                 SupplierQuotationId = quote.Id,
-                RFQLineId = lineReq.RFQLineId,
+                RFQLineId = rfqLine.Id,
                 ProductId = product.ProductId,
                 ProductCode = product.ProductCode,
                 ProductName = product.ProductName,
                 QuotedQuantity = lineReq.QuotedQuantity,
-                UnitOfMeasureId = lineReq.UnitOfMeasureId,
-                UnitOfMeasureCode = uom?.Code ?? product.UnitOfMeasure ?? "EA",
+                UnitOfMeasureId = rfqLine.UnitOfMeasureId,
+                UnitOfMeasureCode = rfqLine.UnitOfMeasureCode,
                 UnitPrice = lineReq.UnitPrice,
                 DiscountPercentage = lineReq.DiscountPercentage,
                 TaxCodeId = lineReq.TaxCodeId,
@@ -306,11 +440,11 @@ public class SupplierQuotationService : ISupplierQuotationService
             });
         }
 
-        quote.SubTotal = subTotal;
-        quote.DiscountAmount = totalDiscount;
-        quote.TaxAmount = totalTax;
-        quote.TotalAmount = subTotal - totalDiscount + totalTax;
-        quote.BaseTotalAmount = quote.TotalAmount * exchangeRate;
+        quote.SubTotal = RoundMoney(subTotal);
+        quote.DiscountAmount = RoundMoney(totalDiscount);
+        quote.TaxAmount = RoundMoney(totalTax);
+        quote.TotalAmount = RoundMoney(subTotal - totalDiscount + totalTax);
+        quote.BaseTotalAmount = RoundMoney(quote.TotalAmount * exchangeRate);
 
         await _dbContext.SupplierQuotations.AddAsync(quote, ct);
         _dbContext.Entry(quote).Property(x => x.CreatedBy).CurrentValue = userId;
@@ -329,52 +463,58 @@ public class SupplierQuotationService : ISupplierQuotationService
         return MapToQuotationDto(quote);
     }
 
-    public async Task<IReadOnlyList<SupplierQuotationDto>> GetQuotationsForRfqAsync(Guid rfqId, Guid tenantId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<SupplierQuotationDto>> GetQuotationsForRfqAsync(Guid rfqId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default)
     {
+        var rfqExists = await _dbContext.RequestForQuotations
+            .AsNoTracking()
+            .AnyAsync(r => r.TenantId == tenantId && r.CompanyId == companyId && r.BranchId == branchId && r.Id == rfqId, ct);
+
+        if (!rfqExists)
+            throw new KeyNotFoundException($"RFQ with ID {rfqId} not found.");
+
         var quotes = await _dbContext.SupplierQuotations
             .AsNoTracking()
             .Include(q => q.Lines)
-            .Where(q => q.TenantId == tenantId && q.RFQId == rfqId)
+            .Where(q => q.TenantId == tenantId && q.CompanyId == companyId && q.BranchId == branchId && q.RFQId == rfqId)
             .OrderByDescending(q => q.CreatedAt)
             .ToListAsync(ct);
 
         return quotes.Select(MapToQuotationDto).ToList();
     }
 
-    public async Task<SupplierQuotationDto?> GetQuotationByIdAsync(Guid rfqId, Guid quotationId, Guid tenantId, CancellationToken ct = default)
+    public async Task<SupplierQuotationDto?> GetQuotationByIdAsync(Guid rfqId, Guid quotationId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default)
     {
         var quote = await _dbContext.SupplierQuotations
             .AsNoTracking()
             .Include(q => q.Lines)
-            .FirstOrDefaultAsync(q => q.TenantId == tenantId && q.RFQId == rfqId && q.Id == quotationId, ct);
+            .FirstOrDefaultAsync(q =>
+                q.TenantId == tenantId &&
+                q.CompanyId == companyId &&
+                q.BranchId == branchId &&
+                q.RFQId == rfqId &&
+                q.Id == quotationId, ct);
 
         return quote == null ? null : MapToQuotationDto(quote);
     }
 
-    public async Task<RfqComparisonMatrixDto> GetComparisonMatrixAsync(Guid rfqId, Guid tenantId, CancellationToken ct = default)
+    public async Task<RfqComparisonMatrixDto> GetComparisonMatrixAsync(Guid rfqId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default)
     {
         var rfq = await _dbContext.RequestForQuotations
             .AsNoTracking()
             .Include(r => r.Lines)
             .Include(r => r.Quotations)
                 .ThenInclude(q => q.Lines)
-            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Id == rfqId, ct);
+            .FirstOrDefaultAsync(r =>
+                r.TenantId == tenantId &&
+                r.CompanyId == companyId &&
+                r.BranchId == branchId &&
+                r.Id == rfqId, ct);
 
         if (rfq == null)
             throw new KeyNotFoundException($"RFQ with ID {rfqId} not found.");
 
-        var company = await _dbContext.Companies
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == rfq.CompanyId, ct);
-
-        var baseCurrencyCode = "LKR";
-        if (company?.BaseCurrencyId.HasValue == true)
-        {
-            var baseCurrency = await _dbContext.Currencies
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.CurrencyId == company.BaseCurrencyId.Value, ct);
-            if (baseCurrency != null) baseCurrencyCode = baseCurrency.CurrencyCode;
-        }
+        var baseCurrency = await GetDefaultCurrencyAsync(tenantId, rfq.CompanyId, ct);
+        var baseCurrencyCode = baseCurrency?.CurrencyCode ?? "LKR";
 
         var matrix = new RfqComparisonMatrixDto
         {
@@ -452,12 +592,18 @@ public class SupplierQuotationService : ISupplierQuotationService
         ApproveQuotationRequest request,
         Guid userId,
         Guid tenantId,
+        Guid companyId,
+        Guid branchId,
         CancellationToken ct = default)
     {
         var rfq = await _dbContext.RequestForQuotations
             .Include(r => r.Quotations)
                 .ThenInclude(q => q.Lines)
-            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Id == rfqId, ct);
+            .FirstOrDefaultAsync(r =>
+                r.TenantId == tenantId &&
+                r.CompanyId == companyId &&
+                r.BranchId == branchId &&
+                r.Id == rfqId, ct);
 
         if (rfq == null)
             throw new KeyNotFoundException($"RFQ with ID {rfqId} not found.");
@@ -499,11 +645,18 @@ public class SupplierQuotationService : ISupplierQuotationService
         RejectQuotationRequest request,
         Guid userId,
         Guid tenantId,
+        Guid companyId,
+        Guid branchId,
         CancellationToken ct = default)
     {
         var quote = await _dbContext.SupplierQuotations
             .Include(q => q.Lines)
-            .FirstOrDefaultAsync(q => q.TenantId == tenantId && q.RFQId == rfqId && q.Id == quotationId, ct);
+            .FirstOrDefaultAsync(q =>
+                q.TenantId == tenantId &&
+                q.CompanyId == companyId &&
+                q.BranchId == branchId &&
+                q.RFQId == rfqId &&
+                q.Id == quotationId, ct);
 
         if (quote == null)
             throw new KeyNotFoundException($"Quotation with ID {quotationId} not found.");
@@ -516,6 +669,60 @@ public class SupplierQuotationService : ISupplierQuotationService
         await _dbContext.SaveChangesAsync(ct);
         return MapToQuotationDto(quote);
     }
+
+    private async Task<Currency?> GetDefaultCurrencyAsync(Guid tenantId, Guid companyId, CancellationToken ct)
+    {
+        var company = await _dbContext.Companies
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == companyId, ct);
+
+        if (company?.BaseCurrencyId.HasValue == true)
+        {
+            var baseCurrency = await _dbContext.Currencies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c =>
+                    c.TenantId == tenantId &&
+                    c.CurrencyId == company.BaseCurrencyId.Value &&
+                    c.IsActive, ct);
+
+            if (baseCurrency != null)
+                return baseCurrency;
+        }
+
+        return await _dbContext.Currencies
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.IsActive)
+            .OrderBy(c => c.CurrencyCode)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static string? ValidateLineValues(
+        decimal quotedQuantity,
+        decimal unitPrice,
+        decimal discountPercentage,
+        decimal taxRate,
+        int? leadTimeDays)
+    {
+        if (quotedQuantity <= 0)
+            return "quoted quantity must be greater than zero.";
+
+        if (unitPrice <= 0)
+            return "unit price must be greater than zero.";
+
+        if (discountPercentage < 0 || discountPercentage > 100)
+            return "discount percentage must be between 0 and 100.";
+
+        if (taxRate < 0 || taxRate > 100)
+            return "tax rate must be between 0 and 100.";
+
+        if (leadTimeDays is < 0 or > 365)
+            return "lead time must be between 0 and 365 days.";
+
+        return null;
+    }
+
+    private static decimal RoundMoney(decimal value) =>
+        decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 
     private static SupplierQuotationDto MapToQuotationDto(SupplierQuotation q)
     {

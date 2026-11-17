@@ -25,7 +25,7 @@
           If you believe this is an error, please contact the procurement officer who issued this invitation.
         </div>
       </div>
-    } @else if (submittedQuotation()) {
+    } @else if (submissionResult()) {
       <div class="portal-card success-card">
         <div class="success-icon"><i class="pi pi-check-circle"></i></div>
         <h2>Quotation Submitted Successfully!</h2>
@@ -36,19 +36,19 @@
         <div class="receipt-box">
           <div class="receipt-row">
             <span class="label">Quotation Reference:</span>
-            <span class="val font-medium">{{ submittedQuotation()?.quotationReference }}</span>
+            <span class="val font-medium">{{ submissionResult()!.quotationReference || quotationReference() }}</span>
           </div>
           <div class="receipt-row">
             <span class="label">Supplier:</span>
-            <span class="val">{{ submittedQuotation()?.supplierName }}</span>
+            <span class="val">{{ rfqDetails()?.supplierName }}</span>
           </div>
           <div class="receipt-row">
             <span class="label">Total Amount:</span>
-            <span class="val font-bold text-success">{{ submittedQuotation()?.totalAmount | number:'1.2-2' }} {{ submittedQuotation()?.currencyCode }}</span>
+            <span class="val font-bold text-success">{{ calculatedGrandTotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
           </div>
           <div class="receipt-row">
             <span class="label">Validity:</span>
-            <span class="val">Valid until {{ submittedQuotation()?.validUntil | date:'mediumDate' }}</span>
+            <span class="val">Valid until {{ validUntil() | date:'mediumDate' }}</span>
           </div>
           <div class="receipt-row">
             <span class="label">Status:</span>
@@ -107,10 +107,16 @@
             <input
               type="text"
               class="portal-input"
+              [class.input-invalid]="shouldShowError('reference') && errors()['reference']"
+              maxlength="50"
               placeholder="e.g. QTE-2026-0881"
               [ngModel]="quotationReference()"
               (ngModelChange)="quotationReference.set($event)"
+              (blur)="markTouched('reference')"
             />
+            @if (shouldShowError('reference') && errors()['reference']) {
+              <small class="field-error">{{ errors()['reference'] }}</small>
+            }
           </div>
 
           <div class="form-group">
@@ -118,9 +124,14 @@
             <input
               type="date"
               class="portal-input"
+              [class.input-invalid]="shouldShowError('quotationDate') && errors()['quotationDate']"
               [ngModel]="quotationDate()"
               (ngModelChange)="quotationDate.set($event)"
+              (blur)="markTouched('quotationDate')"
             />
+            @if (shouldShowError('quotationDate') && errors()['quotationDate']) {
+              <small class="field-error">{{ errors()['quotationDate'] }}</small>
+            }
           </div>
 
           <div class="form-group">
@@ -128,9 +139,15 @@
             <input
               type="date"
               class="portal-input"
+              [class.input-invalid]="shouldShowError('validUntil') && errors()['validUntil']"
+              [min]="quotationDate()"
               [ngModel]="validUntil()"
               (ngModelChange)="validUntil.set($event)"
+              (blur)="markTouched('validUntil')"
             />
+            @if (shouldShowError('validUntil') && errors()['validUntil']) {
+              <small class="field-error">{{ errors()['validUntil'] }}</small>
+            }
           </div>
 
           <div class="form-group full-width">
@@ -152,14 +169,15 @@
               <tr>
                 <th style="width: 40px;">#</th>
                 <th style="min-width: 180px;">Requested Item</th>
-                <th style="width: 90px;" class="text-right">Qty</th>
+                <th style="width: 95px;" class="text-right">Requested Qty</th>
+                <th style="width: 115px;" class="text-right required">Quoted Qty</th>
                 <th style="width: 70px;">UOM</th>
-                <th style="width: 130px;" class="text-right required">Unit Price ({{ rfqDetails()?.currencyCode || 'Base' }})</th>
+                <th style="width: 135px;" class="text-right required">Unit Price ({{ currencyCode() || 'Base' }})</th>
                 <th style="width: 90px;" class="text-right">Disc %</th>
                 <th style="width: 90px;" class="text-right">Tax %</th>
                 <th style="width: 100px;" class="text-right">Lead (Days)</th>
-                <th style="width: 120px;" class="text-right">Line Total</th>
-                <th>Remarks</th>
+                <th style="width: 125px;" class="text-right">Line Total</th>
+                <th style="min-width: 150px;">Remarks</th>
               </tr>
             </thead>
             <tbody>
@@ -174,6 +192,21 @@
                     }
                   </td>
                   <td class="text-right font-medium">{{ line.quantity | number:'1.2-2' }}</td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0.01"
+                      [max]="line.quantity"
+                      step="any"
+                      class="portal-input text-right font-medium"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']"
+                      [(ngModel)]="line.quotedQuantity"
+                      (blur)="markTouched(line.rfqLineId + '.quotedQuantity')"
+                    />
+                    @if (shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.quotedQuantity'] }}</small>
+                    }
+                  </td>
                   <td><span class="badge badge-light">{{ line.unitOfMeasureCode }}</span></td>
                   <td>
                     <input
@@ -181,9 +214,14 @@
                       min="0.01"
                       step="any"
                       class="portal-input text-right font-medium"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']"
                       placeholder="0.00"
                       [(ngModel)]="line.unitPrice"
+                      (blur)="markTouched(line.rfqLineId + '.unitPrice')"
                     />
+                    @if (shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.unitPrice'] }}</small>
+                    }
                   </td>
                   <td>
                     <input
@@ -192,8 +230,13 @@
                       max="100"
                       step="any"
                       class="portal-input text-right"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']"
                       [(ngModel)]="line.discountPercentage"
+                      (blur)="markTouched(line.rfqLineId + '.discountPercentage')"
                     />
+                    @if (shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.discountPercentage'] }}</small>
+                    }
                   </td>
                   <td>
                     <input
@@ -202,16 +245,27 @@
                       max="100"
                       step="any"
                       class="portal-input text-right"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']"
                       [(ngModel)]="line.taxRate"
+                      (blur)="markTouched(line.rfqLineId + '.taxRate')"
                     />
+                    @if (shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.taxRate'] }}</small>
+                    }
                   </td>
                   <td>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      max="365"
                       class="portal-input text-right"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']"
                       [(ngModel)]="line.leadTimeDays"
+                      (blur)="markTouched(line.rfqLineId + '.leadTimeDays')"
                     />
+                    @if (shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.leadTimeDays'] }}</small>
+                    }
                   </td>
                   <td class="text-right font-bold">
                     {{ calculateLineTotal(line) | number:'1.2-2' }}
@@ -220,6 +274,7 @@
                     <input
                       type="text"
                       class="portal-input"
+                      maxlength="500"
                       placeholder="e.g. Origin, brand"
                       [(ngModel)]="line.technicalRemarks"
                     />
@@ -235,21 +290,21 @@
           <div class="totals-breakdown">
             <div class="total-line">
               <span>Subtotal:</span>
-              <span>{{ calculatedSubtotal() | number:'1.2-2' }} {{ rfqDetails()?.currencyCode || '' }}</span>
+              <span>{{ calculatedSubtotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
             </div>
             @if (calculatedDiscountTotal() > 0) {
               <div class="total-line text-success">
                 <span>Total Discount:</span>
-                <span>-{{ calculatedDiscountTotal() | number:'1.2-2' }} {{ rfqDetails()?.currencyCode || '' }}</span>
+                <span>-{{ calculatedDiscountTotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
               </div>
             }
             <div class="total-line">
               <span>Estimated Tax:</span>
-              <span>{{ calculatedTax() | number:'1.2-2' }} {{ rfqDetails()?.currencyCode || '' }}</span>
+              <span>{{ calculatedTax() | number:'1.2-2' }} {{ currencyCode() }}</span>
             </div>
             <div class="total-line grand-total font-bold">
               <span>Grand Total:</span>
-              <span>{{ calculatedGrandTotal() | number:'1.2-2' }} {{ rfqDetails()?.currencyCode || '' }}</span>
+              <span>{{ calculatedGrandTotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
             </div>
           </div>
 
@@ -267,7 +322,7 @@
               }
             </button>
             @if (!canSubmit()) {
-              <small class="validation-tip">Please enter quotation reference, validity date, and unit prices for all items.</small>
+              <small class="validation-tip">Complete the highlighted fields before submitting. Unit prices must be greater than zero.</small>
             }
           </div>
         </div>

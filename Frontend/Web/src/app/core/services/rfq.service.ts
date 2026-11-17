@@ -20,7 +20,8 @@ import {
   ApproveQuotationRequest,
   RejectQuotationRequest,
   PublicRfqDetailsDto,
-  SubmitPublicQuotationRequest
+  SubmitPublicQuotationRequest,
+  SubmitQuotationResultDto
 } from '../models/rfq.models';
 
 export interface RfqQueryParams {
@@ -170,6 +171,17 @@ export class RfqService {
       .pipe(map(res => res?.data ?? []));
   }
 
+  getQuotation(
+    companyId: string,
+    branchId: string,
+    id: string,
+    quotationId: string
+  ): Observable<SupplierQuotationDto> {
+    return this.http
+      .get<ApiResponse<SupplierQuotationDto>>(this.buildPath(companyId, branchId, `/${id}/quotations/${quotationId}`))
+      .pipe(map(res => res.data));
+  }
+
   recordManualQuotation(
     companyId: string,
     branchId: string,
@@ -237,11 +249,11 @@ export class RfqService {
   submitPublicQuotation(
     token: string,
     request: SubmitPublicQuotationRequest
-  ): Observable<SupplierQuotationDto> {
+  ): Observable<SubmitQuotationResultDto> {
     const url = buildApiUrl(`/public/rfqs/submit`);
     const params = new HttpParams().set('token', token);
     return this.http
-      .post<ApiResponse<SupplierQuotationDto>>(url, request, { params })
+      .post<ApiResponse<SubmitQuotationResultDto>>(url, request, { params })
       .pipe(map(res => res.data));
   }
 }

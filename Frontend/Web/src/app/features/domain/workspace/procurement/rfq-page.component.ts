@@ -177,6 +177,11 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   readonly decisionRemarks = signal<string>('');
   readonly decisionAwardRfq = signal<boolean>(true);
 
+  // Step 4 quotation review state
+  readonly expandedQuotationId = signal<string | null>(null);
+  readonly quotationDetail = signal<SupplierQuotationDto | null>(null);
+  readonly quotationDetailLoading = signal<boolean>(false);
+
   // Confirmation Modal
   readonly confirmDialogVisible = signal<boolean>(false);
   readonly confirmDialogConfig = signal<ConfirmationDialogConfig | null>(null);
@@ -247,9 +252,10 @@ export class RfqPageComponent implements OnInit, OnDestroy {
             supplier.invitationStatus === 'Declined'
           );
       case 'quotations':
-        return false;
+        return currentRfq.quotations.length > 0;
       case 'comparison':
-        return false;
+        return currentRfq.status === 'Awarded' ||
+          currentRfq.quotations.some(quotation => quotation.status === 'Approved');
     }
   }
 
@@ -285,6 +291,22 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     const r = this.rfq();
     if (!r) return false;
     return isPrivileged || this.authService.hasPermission('RFQ.COMPARE');
+  });
+
+  readonly canViewQuotations = computed(() => {
+    const isPrivileged = this.authService.isTenantAdmin() || this.authService.isPlatformAdmin();
+    return isPrivileged || this.authService.hasPermission('RFQ.QUOTATION.VIEW');
+  });
+
+  readonly submittedQuotationCount = computed(() =>
+    (this.rfq()?.quotations || []).filter(q => q.status !== 'Draft').length
+  );
+
+  readonly pendingSupplierCount = computed(() => {
+    const r = this.rfq();
+    if (!r) return 0;
+    const submittedSupplierIds = new Set(r.quotations.map(q => q.supplierId));
+    return r.invitedSuppliers.filter(s => !submittedSupplierIds.has(s.supplierId)).length;
   });
 
   readonly canApproveReject = computed(() => {
@@ -528,6 +550,15 @@ export class RfqPageComponent implements OnInit, OnDestroy {
         this.rfq.set(data);
         this.loading.set(false);
 
+        const openQuotationId = this.expandedQuotationId();
+        if (openQuotationId && data) {
+          const refreshed = data.quotations.find(quote => quote.id === openQuotationId) || null;
+          this.quotationDetail.set(refreshed);
+          if (!refreshed) {
+            this.expandedQuotationId.set(null);
+          }
+        }
+
         if (data) {
           this.selectedInvitationSupplierIds.set(
             data.invitedSuppliers
@@ -553,6 +584,11 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   }
 
   switchStep(step: RfqWorkflowStep): void {
+    if (step !== 'quotations') {
+      this.expandedQuotationId.set(null);
+      this.quotationDetail.set(null);
+      this.quotationDetailLoading.set(false);
+    }
     this.activeStep.set(step);
     this.router.navigate([], {
       relativeTo: this.route,
@@ -1097,6 +1133,22 @@ export class RfqPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const invalidLine = this.manualLines().find(line =>
+      !(line.quantity > 0) ||
+      !(line.unitPrice > 0) ||
+      line.discountPct < 0 || line.discountPct > 100 ||
+      line.taxRate < 0 || line.taxRate > 100 ||
+      line.leadTimeDays < 0 || line.leadTimeDays > 365
+    );
+
+    if (invalidLine) {
+      this.message.set({
+        text: `Enter valid quantities, unit prices, discount (0-100), tax (0-100) and lead time (0-365) for ${invalidLine.productName}.`,
+        severity: 'warn'
+      });
+      return;
+    }
+
     this.actionLoading.set(true);
     const request: RecordManualQuotationRequest = {
       supplierId: this.manualSupplierId(),
@@ -1134,6 +1186,71 @@ export class RfqPageComponent implements OnInit, OnDestroy {
           text: err?.error?.message || err?.message || 'Failed to record manual quotation.',
           severity: 'danger'
         });
+      }
+    });
+  }
+
+  quotationForSupplier(supplierId: string): SupplierQuotationDto | null {
+    const quotes = (this.rfq()?.quotations || []).filter(q => q.supplierId === supplierId);
+    if (quotes.length === 0) return null;
+    return [...quotes].sort(
+      (a, b) => new Date(b.quotationDate).getTime() - new Date(a.quotationDate).getTime()
+    )[0];
+  }
+
+  supplierQuotationLabel(supplierId: string): string {
+    const quotation = this.quotationForSupplier(supplierId);
+    if (quotation) return quotation.status as string;
+    return 'Awaiting Quotation';
+  }
+
+  supplierQuotationBadgeClass(supplierId: string): string {
+    const quotation = this.quotationForSupplier(supplierId);
+    if (!quotation) return 'badge-light';
+    switch (quotation.status) {
+      case 'Approved': return 'badge-success';
+      case 'Rejected': return 'badge-danger';
+      case 'Draft': return 'badge-warning';
+      default: return 'badge-info';
+    }
+  }
+
+  quotationMaxLeadTime(quotation: SupplierQuotationDto): number | null {
+    const values = (quotation.lines || [])
+      .map(line => line.leadTimeDays)
+      .filter((value): value is number => value !== null && value !== undefined);
+    return values.length ? Math.max(...values) : null;
+  }
+
+  toggleQuotationDetail(quotation: SupplierQuotationDto): void {
+    if (this.expandedQuotationId() === quotation.id) {
+      this.expandedQuotationId.set(null);
+      this.quotationDetail.set(null);
+      this.quotationDetailLoading.set(false);
+      return;
+    }
+
+    this.expandedQuotationId.set(quotation.id);
+    this.quotationDetail.set(quotation);
+    this.quotationDetailLoading.set(true);
+
+    const scope = this.getCurrentScope();
+    const id = this.rfqId();
+    if (!scope || !id) {
+      this.quotationDetailLoading.set(false);
+      return;
+    }
+
+    this.rfqService.getQuotation(scope.companyId, scope.branchId, id, quotation.id).subscribe({
+      next: detail => {
+        if (this.expandedQuotationId() === detail.id) {
+          this.quotationDetail.set(detail);
+        }
+        this.quotationDetailLoading.set(false);
+      },
+      error: () => {
+        // Fall back to the quotation already returned with the RFQ details.
+        this.quotationDetailLoading.set(false);
       }
     });
   }

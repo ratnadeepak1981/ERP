@@ -5,10 +5,8 @@ import { ActivatedRoute } from '@angular/router';
 import { RfqService } from '../../../core/services/rfq.service';
 import {
   PublicRfqDetailsDto,
-  PublicRfqLineDto,
   SubmitPublicQuotationRequest,
-  SubmitPublicQuotationLineRequest,
-  SupplierQuotationDto
+  SubmitQuotationResultDto
 } from '../../../core/models/rfq.models';
 
 interface SupplierLineEntry {
@@ -18,6 +16,7 @@ interface SupplierLineEntry {
   productCode: string;
   productName: string;
   quantity: number;
+  quotedQuantity: number;
   unitOfMeasureId: string;
   unitOfMeasureCode: string;
   technicalSpecifications?: string;
@@ -33,19 +32,19 @@ interface SupplierLineEntry {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './public-rfq-submit.component.html',
-  styleUrl: './public-rfq-submit.component.scss',
+  styleUrls: ['./public-rfq-submit.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PublicRfqSubmitComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly rfqService = inject(RfqService);
 
-  readonly token = signal<string>('');
   readonly loading = signal<boolean>(true);
-  readonly submitting = signal<boolean>(false);
   readonly error = signal<string | null>(null);
-  readonly submittedQuotation = signal<SupplierQuotationDto | null>(null);
+  readonly submitting = signal<boolean>(false);
+  readonly token = signal<string>('');
 
+  readonly submissionResult = signal<SubmitQuotationResultDto | null>(null);
   readonly rfqDetails = signal<PublicRfqDetailsDto | null>(null);
   readonly lineEntries = signal<SupplierLineEntry[]>([]);
 
@@ -55,33 +54,86 @@ export class PublicRfqSubmitComponent implements OnInit {
   readonly validUntil = signal<string>('');
   readonly notes = signal<string>('');
 
-  // Dynamically calculated totals
-  readonly calculatedSubtotal = computed(() => {
-    return this.lineEntries().reduce((acc, l) => {
-      const discounted = l.quantity * l.unitPrice * (1 - (l.discountPercentage || 0) / 100);
-      return acc + discounted;
-    }, 0);
+  // Validation display state
+  readonly submitAttempted = signal<boolean>(false);
+  private readonly touched = signal<ReadonlySet<string>>(new Set<string>());
+
+  readonly currencyCode = computed(() => this.rfqDetails()?.currencyCode || '');
+
+  readonly errors = computed<Record<string, string>>(() => {
+    const result: Record<string, string> = {};
+
+    const reference = this.quotationReference().trim();
+    if (!reference) {
+      result['reference'] = 'Your quotation reference is required.';
+    } else if (reference.length > 50) {
+      result['reference'] = 'Quotation reference cannot exceed 50 characters.';
+    }
+
+    const quotationDate = this.quotationDate();
+    const validUntil = this.validUntil();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (!quotationDate) {
+      result['quotationDate'] = 'Quotation date is required.';
+    }
+
+    if (!validUntil) {
+      result['validUntil'] = 'Validity date is required.';
+    } else if (new Date(validUntil) < today) {
+      result['validUntil'] = 'Validity date cannot be in the past.';
+    } else if (quotationDate && new Date(validUntil) < new Date(quotationDate)) {
+      result['validUntil'] = 'Validity date cannot be before the quotation date.';
+    }
+
+    for (const line of this.lineEntries()) {
+      const key = line.rfqLineId;
+
+      if (!(line.quotedQuantity > 0)) {
+        result[`${key}.quotedQuantity`] = 'Enter a quantity greater than zero.';
+      } else if (line.quotedQuantity > line.quantity) {
+        result[`${key}.quotedQuantity`] = `Cannot exceed the requested ${line.quantity}.`;
+      }
+
+      if (!(line.unitPrice > 0)) {
+        result[`${key}.unitPrice`] = 'Enter a unit price greater than zero.';
+      }
+
+      if (line.discountPercentage < 0 || line.discountPercentage > 100) {
+        result[`${key}.discountPercentage`] = 'Discount must be between 0 and 100.';
+      }
+
+      if (line.taxRate < 0 || line.taxRate > 100) {
+        result[`${key}.taxRate`] = 'Tax rate must be between 0 and 100.';
+      }
+
+      if (line.leadTimeDays < 0 || line.leadTimeDays > 365) {
+        result[`${key}.leadTimeDays`] = 'Lead time must be between 0 and 365 days.';
+      }
+    }
+
+    return result;
   });
 
-  readonly calculatedTax = computed(() => {
-    return this.lineEntries().reduce((acc, l) => {
-      const discounted = l.quantity * l.unitPrice * (1 - (l.discountPercentage || 0) / 100);
-      const tax = discounted * ((l.taxRate || 0) / 100);
-      return acc + tax;
-    }, 0);
-  });
+  readonly canSubmit = computed(() => Object.keys(this.errors()).length === 0);
 
-  readonly calculatedDiscountTotal = computed(() => {
-    return this.lineEntries().reduce((acc, l) => {
-      const gross = l.quantity * l.unitPrice;
-      const discount = gross * ((l.discountPercentage || 0) / 100);
-      return acc + discount;
-    }, 0);
-  });
+  // Recipient totals (tax-inclusive, matching the persisted quotation).
+  readonly calculatedSubtotal = computed(() =>
+    this.lineEntries().reduce((total, line) => total + this.lineGross(line), 0)
+  );
 
-  readonly calculatedGrandTotal = computed(() => {
-    return this.calculatedSubtotal() + this.calculatedTax();
-  });
+  readonly calculatedDiscountTotal = computed(() =>
+    this.lineEntries().reduce((total, line) => total + this.lineDiscount(line), 0)
+  );
+
+  readonly calculatedTax = computed(() =>
+    this.lineEntries().reduce((total, line) => total + this.lineTax(line), 0)
+  );
+
+  readonly calculatedGrandTotal = computed(() =>
+    this.calculatedSubtotal() - this.calculatedDiscountTotal() + this.calculatedTax()
+  );
 
   ngOnInit(): void {
     const rawToken = this.route.snapshot.queryParamMap.get('token');
@@ -111,7 +163,7 @@ export class PublicRfqSubmitComponent implements OnInit {
           this.validUntil.set(data.closingDate.split('T')[0]);
         }
 
-        // Initialize line entries
+        // Initialize line entries with the requested quantity as the default quote.
         const entries: SupplierLineEntry[] = (data.lines || []).map(line => ({
           rfqLineId: line.rfqLineId,
           lineNumber: line.lineNumber,
@@ -119,6 +171,7 @@ export class PublicRfqSubmitComponent implements OnInit {
           productCode: line.productCode,
           productName: line.productName,
           quantity: line.quantity,
+          quotedQuantity: line.quantity,
           unitOfMeasureId: line.unitOfMeasureId,
           unitOfMeasureCode: line.unitOfMeasureCode,
           technicalSpecifications: line.technicalSpecifications,
@@ -141,23 +194,37 @@ export class PublicRfqSubmitComponent implements OnInit {
     });
   }
 
-  calculateLineTotal(line: SupplierLineEntry): number {
-    const discounted = line.quantity * line.unitPrice * (1 - (line.discountPercentage || 0) / 100);
-    const withTax = discounted * (1 + (line.taxRate || 0) / 100);
-    return withTax;
+  markTouched(key: string): void {
+    const next = new Set(this.touched());
+    next.add(key);
+    this.touched.set(next);
   }
 
-  canSubmit(): boolean {
-    if (!this.quotationReference().trim()) return false;
-    if (!this.validUntil()) return false;
-    const lines = this.lineEntries();
-    if (lines.length === 0) return false;
-    // Every line must have a positive unit price
-    return lines.every(l => l.unitPrice > 0);
+  shouldShowError(key: string): boolean {
+    return this.submitAttempted() || this.touched().has(key);
+  }
+
+  lineGross(line: SupplierLineEntry): number {
+    return this.round(line.quotedQuantity * line.unitPrice);
+  }
+
+  lineDiscount(line: SupplierLineEntry): number {
+    return this.round(this.lineGross(line) * (line.discountPercentage || 0) / 100);
+  }
+
+  lineTax(line: SupplierLineEntry): number {
+    return this.round((this.lineGross(line) - this.lineDiscount(line)) * (line.taxRate || 0) / 100);
+  }
+
+  calculateLineTotal(line: SupplierLineEntry): number {
+    return this.round(this.lineGross(line) - this.lineDiscount(line) + this.lineTax(line));
   }
 
   submitQuotation(): void {
-    if (!this.canSubmit()) return;
+    this.submitAttempted.set(true);
+    if (!this.canSubmit()) {
+      return;
+    }
 
     this.submitting.set(true);
     this.error.set(null);
@@ -166,23 +233,24 @@ export class PublicRfqSubmitComponent implements OnInit {
       quotationReference: this.quotationReference().trim(),
       quotationDate: new Date(this.quotationDate()).toISOString(),
       validUntil: new Date(this.validUntil()).toISOString(),
-      currencyId: this.rfqDetails()?.currencyId || '00000000-0000-0000-0000-000000000000',
+      currencyId: this.rfqDetails()?.currencyId || undefined,
       notes: this.notes().trim() || undefined,
-      lines: this.lineEntries().map(l => ({
-        rfqLineId: l.rfqLineId,
-        quotedQuantity: l.quantity,
-        unitOfMeasureId: l.unitOfMeasureId,
-        unitPrice: l.unitPrice,
-        discountPercentage: l.discountPercentage || 0,
-        leadTimeDays: l.leadTimeDays || 7,
-        technicalRemarks: l.technicalRemarks.trim() || undefined
+      lines: this.lineEntries().map(line => ({
+        rfqLineId: line.rfqLineId,
+        quotedQuantity: line.quotedQuantity,
+        unitOfMeasureId: line.unitOfMeasureId,
+        unitPrice: line.unitPrice,
+        discountPercentage: line.discountPercentage || 0,
+        taxRate: line.taxRate || 0,
+        leadTimeDays: line.leadTimeDays,
+        technicalRemarks: line.technicalRemarks.trim() || undefined
       }))
     };
 
     this.rfqService.submitPublicQuotation(this.token(), request).subscribe({
       next: result => {
         this.submitting.set(false);
-        this.submittedQuotation.set(result);
+        this.submissionResult.set(result);
       },
       error: err => {
         this.submitting.set(false);
@@ -193,5 +261,9 @@ export class PublicRfqSubmitComponent implements OnInit {
         );
       }
     });
+  }
+
+  private round(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 }

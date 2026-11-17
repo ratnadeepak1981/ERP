@@ -955,8 +955,94 @@
       </div>
     }
 
-    <!-- STEP 4: Received Quotations -->
+    <!-- STEP 4: Supplier Quotations -->
     @if (!isNew() && activeStep() === 'quotations' && rfq()) {
+      @if (!canViewQuotations()) {
+        <div class="erp-card tab-content-card">
+          <app-empty-state
+            icon="pi pi-lock"
+            title="Quotation Access Restricted"
+            description="You do not have permission to review supplier quotations for this RFQ."
+          ></app-empty-state>
+        </div>
+      } @else {
+
+      <!-- Step 4.1: Invited supplier participation -->
+      <div class="erp-card tab-content-card supplier-status-card">
+        <div class="card-section-header">
+          <h3>Invited Suppliers</h3>
+          <p class="section-desc">Invitation and submission status for every supplier invited to this RFQ.</p>
+        </div>
+
+        @if (rfq()!.invitedSuppliers.length === 0) {
+          <app-empty-state
+            icon="pi pi-users"
+            title="No Invited Suppliers"
+            description="Add and invite suppliers in Steps 2 and 3 before quotations can be received."
+          ></app-empty-state>
+        } @else {
+          <div class="quotation-summary-strip">
+            <span><strong>{{ submittedQuotationCount() }}</strong> quotation(s) received</span>
+            <span><strong>{{ pendingSupplierCount() }}</strong> supplier(s) outstanding</span>
+          </div>
+
+          <div class="erp-table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  <th>Supplier</th>
+                  <th>Contact</th>
+                  <th style="width: 120px;">Invitation</th>
+                  <th style="width: 150px;">Quotation Status</th>
+                  <th style="width: 120px;">Submitted</th>
+                  <th style="width: 160px;">Reference</th>
+                  <th style="width: 130px;" class="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (supplier of rfq()!.invitedSuppliers; track supplier.supplierId) {
+                  <tr>
+                    <td>
+                      <div class="font-medium">{{ supplier.supplierName }}</div>
+                      <small class="text-muted">{{ supplier.supplierCode }}</small>
+                    </td>
+                    <td class="text-muted">{{ supplier.contactEmail || '—' }}</td>
+                    <td>
+                      <span
+                        class="badge"
+                        [ngClass]="{
+                          'badge-success': supplier.invitationStatus === 'Submitted',
+                          'badge-info': supplier.invitationStatus === 'Sent' || supplier.invitationStatus === 'Opened',
+                          'badge-danger': supplier.invitationStatus === 'Failed' || supplier.invitationStatus === 'Declined',
+                          'badge-warning': supplier.invitationStatus === 'Pending' || supplier.invitationStatus === 'Sending'
+                        }"
+                      >
+                        {{ supplier.invitationStatus }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" [ngClass]="supplierQuotationBadgeClass(supplier.supplierId)">
+                        {{ supplierQuotationLabel(supplier.supplierId) }}
+                      </span>
+                    </td>
+                    @if (quotationForSupplier(supplier.supplierId); as quote) {
+                      <td>{{ quote.quotationDate | date:'mediumDate' }}</td>
+                      <td>{{ quote.quotationReference }}</td>
+                      <td class="text-right font-medium">{{ quote.totalAmount | number:'1.2-2' }} {{ quote.currencyCode }}</td>
+                    } @else {
+                      <td class="text-muted">—</td>
+                      <td class="text-muted">—</td>
+                      <td class="text-right text-muted">—</td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <!-- Step 4.2: Received quotations -->
       <div class="erp-card tab-content-card">
         <div class="card-section-header with-action">
           <div>
@@ -992,11 +1078,12 @@
                   <th style="width: 110px;">Status</th>
                   <th style="width: 120px;">Quote Date</th>
                   <th style="width: 120px;">Valid Until</th>
+                  <th style="width: 100px;" class="text-right">Lead Time</th>
                   <th style="width: 110px;" class="text-right">Subtotal</th>
                   <th style="width: 110px;" class="text-right">Tax</th>
                   <th style="width: 130px;" class="text-right">Total Amount</th>
                   <th style="width: 90px;" class="text-center">Entry</th>
-                  <th style="width: 130px;" class="text-center">Actions</th>
+                  <th style="width: 170px;" class="text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1027,6 +1114,9 @@
                         <small class="badge badge-danger ml-1">Expired</small>
                       }
                     </td>
+                    <td class="text-right">
+                      {{ quotationMaxLeadTime(q) !== null ? quotationMaxLeadTime(q) + ' days' : '—' }}
+                    </td>
                     <td class="text-right">{{ q.subTotal | number:'1.2-2' }}</td>
                     <td class="text-right">{{ q.taxAmount | number:'1.2-2' }}</td>
                     <td class="text-right font-medium">{{ q.totalAmount | number:'1.2-2' }} {{ q.currencyCode }}</td>
@@ -1034,6 +1124,16 @@
                       <span class="badge badge-light">{{ q.isManualEntry ? 'Manual' : 'Portal' }}</span>
                     </td>
                     <td class="text-center">
+                      <button
+                        type="button"
+                        class="erp-btn erp-btn-xs erp-btn-secondary mr-1"
+                        [class.erp-btn-primary]="expandedQuotationId() === q.id"
+                        title="Review quotation lines"
+                        (click)="toggleQuotationDetail(q)"
+                      >
+                        <i class="pi" [class.pi-eye]="expandedQuotationId() !== q.id" [class.pi-chevron-up]="expandedQuotationId() === q.id"></i>
+                        <span>{{ expandedQuotationId() === q.id ? 'Close' : 'Review' }}</span>
+                      </button>
                       @if (q.status === 'Submitted' || q.status === 'UnderReview') {
                         @if (canApproveReject()) {
                           <button
@@ -1069,7 +1169,115 @@
             </table>
           </div>
         }
+
+        @if (quotationDetail(); as detail) {
+          <div class="quotation-detail-panel">
+            <div class="quotation-detail-header">
+              <div>
+                <h4>{{ detail.supplierName }} — {{ detail.quotationReference }}</h4>
+                <p class="section-desc">
+                  Quoted {{ detail.quotationDate | date:'mediumDate' }} ·
+                  Valid until {{ detail.validUntil | date:'mediumDate' }} ·
+                  Currency {{ detail.currencyCode }}
+                  @if (detail.exchangeRate && detail.exchangeRate !== 1) {
+                    · Exchange rate {{ detail.exchangeRate | number:'1.2-4' }}
+                  }
+                </p>
+              </div>
+              <button type="button" class="erp-btn erp-btn-secondary erp-btn-sm" (click)="toggleQuotationDetail(detail)">
+                <i class="pi pi-times"></i>
+                <span>Close</span>
+              </button>
+            </div>
+
+            @if (quotationDetailLoading()) {
+              <app-loading-state message="Loading quotation details..."></app-loading-state>
+            } @else {
+              @if (detail.lines.length === 0) {
+                <app-empty-state
+                  icon="pi pi-list"
+                  title="No Quotation Lines"
+                  description="This quotation does not contain any quoted product lines."
+                ></app-empty-state>
+              } @else {
+                <div class="erp-table-responsive">
+                  <table class="erp-table quotation-lines-table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th style="width: 100px;" class="text-right">Quoted Qty</th>
+                        <th style="width: 80px;">UOM</th>
+                        <th style="width: 120px;" class="text-right">Unit Price</th>
+                        <th style="width: 80px;" class="text-right">Disc %</th>
+                        <th style="width: 80px;" class="text-right">Tax %</th>
+                        <th style="width: 130px;" class="text-right">Line Total</th>
+                        <th style="width: 100px;" class="text-right">Lead Time</th>
+                        <th>Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (line of detail.lines; track line.id) {
+                        <tr>
+                          <td>
+                            <div class="font-medium">{{ line.productName }}</div>
+                            <small class="text-muted">{{ line.productCode }}</small>
+                          </td>
+                          <td class="text-right">{{ line.quotedQuantity | number:'1.2-2' }}</td>
+                          <td><span class="badge badge-light">{{ line.unitOfMeasureCode }}</span></td>
+                          <td class="text-right">{{ line.unitPrice | number:'1.2-2' }}</td>
+                          <td class="text-right">{{ line.discountPercentage | number:'1.2-2' }}</td>
+                          <td class="text-right">{{ line.taxRate | number:'1.2-2' }}</td>
+                          <td class="text-right font-medium">{{ line.lineTotal | number:'1.2-2' }}</td>
+                          <td class="text-right">{{ line.leadTimeDays !== null && line.leadTimeDays !== undefined ? line.leadTimeDays + ' days' : '—' }}</td>
+                          <td class="text-muted">{{ line.technicalRemarks || '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="quotation-totals-grid">
+                  <div class="total-item">
+                    <span class="total-label">Subtotal</span>
+                    <span class="total-value">{{ detail.subTotal | number:'1.2-2' }} {{ detail.currencyCode }}</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Discount</span>
+                    <span class="total-value text-success">-{{ detail.discountAmount | number:'1.2-2' }} {{ detail.currencyCode }}</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Tax</span>
+                    <span class="total-value">{{ detail.taxAmount | number:'1.2-2' }} {{ detail.currencyCode }}</span>
+                  </div>
+                  <div class="total-item grand">
+                    <span class="total-label">Quotation Total</span>
+                    <span class="total-value">{{ detail.totalAmount | number:'1.2-2' }} {{ detail.currencyCode }}</span>
+                  </div>
+                  @if (detail.baseTotalAmount && detail.currencyCode) {
+                    <div class="total-item">
+                      <span class="total-label">Base Total</span>
+                      <span class="total-value">{{ detail.baseTotalAmount | number:'1.2-2' }}</span>
+                    </div>
+                  }
+                </div>
+
+                @if (detail.notes) {
+                  <p class="quotation-notes"><strong>Supplier notes:</strong> {{ detail.notes }}</p>
+                }
+
+                @if (detail.approvalRemarks) {
+                  <p class="quotation-notes"><strong>Approval remarks:</strong> {{ detail.approvalRemarks }}</p>
+                }
+
+                @if (detail.rejectionRemarks) {
+                  <p class="quotation-notes"><strong>Rejection remarks:</strong> {{ detail.rejectionRemarks }}</p>
+                }
+              }
+            }
+          </div>
+        }
       </div>
+      }
     }
 
     <!-- STEP 5: Comparison Matrix -->

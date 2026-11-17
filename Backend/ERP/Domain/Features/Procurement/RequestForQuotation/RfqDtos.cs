@@ -77,7 +77,12 @@ public class SubmitPublicQuotationRequest
     public string QuotationReference { get; set; } = string.Empty;
     public DateTime QuotationDate { get; set; } = DateTime.UtcNow;
     public DateTime ValidUntil { get; set; }
-    public Guid CurrencyId { get; set; }
+
+    /// <summary>
+    /// Optional. When omitted or empty, the company base currency is used.
+    /// </summary>
+    public Guid? CurrencyId { get; set; }
+
     public string? Notes { get; set; }
     public List<SubmitPublicQuotationLineRequest> Lines { get; set; } = new();
 }
@@ -89,6 +94,8 @@ public class SubmitPublicQuotationLineRequest
     public Guid UnitOfMeasureId { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal DiscountPercentage { get; set; }
+    public Guid? TaxCodeId { get; set; }
+    public decimal TaxRate { get; set; }
     public int? LeadTimeDays { get; set; }
     public string? TechnicalRemarks { get; set; }
 }
@@ -237,6 +244,8 @@ public class PublicRfqDetailsDto
     public string SupplierName { get; set; } = string.Empty;
     public string SupplierCode { get; set; } = string.Empty;
     public bool AlreadySubmitted { get; set; }
+    public Guid CurrencyId { get; set; }
+    public string CurrencyCode { get; set; } = string.Empty;
     public List<PublicRfqLineDto> Lines { get; set; } = new();
 }
 
