@@ -10,6 +10,12 @@ namespace Security.Services;
 
 public class SecurityBootstrapService
 {
+    private static readonly (string RoleName, string TemplateKey)[] LegacyProcurementRoleMappings =
+    {
+        ("Procurment Manager", "PROCUREMENT_MANAGER"),
+        ("Procutment Staff", "PROCUREMENT_OFFICER")
+    };
+
     private readonly ISecurityBootstrapRepository _repository;
     private readonly PasswordService _passwordService;
 
@@ -329,12 +335,74 @@ public class SecurityBootstrapService
 
         await _repository.SaveChangesAsync();
 
+        await EnsureLegacyProcurementRfqPermissionsAsync(
+            tenantId,
+            permissionsByCode);
+
         return new TenantRoleProvisioningResult(
             tenantId,
             created,
             updated,
             skipped,
             conflicts);
+    }
+
+    private async Task EnsureLegacyProcurementRfqPermissionsAsync(
+        Guid tenantId,
+        IReadOnlyDictionary<string, Permission> permissionsByCode)
+    {
+        var tenantRoles = await _repository.GetTenantRolesAsync(tenantId);
+        var hasChanges = false;
+
+        foreach (var mapping in LegacyProcurementRoleMappings)
+        {
+            var role = tenantRoles.FirstOrDefault(x =>
+                x.TenantId == tenantId &&
+                string.IsNullOrWhiteSpace(x.TemplateKey) &&
+                string.Equals(x.Name, mapping.RoleName, StringComparison.OrdinalIgnoreCase));
+
+            if (role == null)
+            {
+                continue;
+            }
+
+            var template = StandardRoleTemplates.Find(mapping.TemplateKey)
+                ?? throw new InvalidOperationException(
+                    $"Standard role template '{mapping.TemplateKey}' does not exist.");
+
+            var assignedPermissionIds = (await _repository
+                    .GetRolePermissionsAsync(role.Id))
+                .Select(x => x.PermissionId)
+                .ToHashSet();
+
+            foreach (var permissionCode in template.PermissionCodes.Where(code =>
+                         code.StartsWith("RFQ.", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (!permissionsByCode.TryGetValue(permissionCode, out var permission))
+                {
+                    throw new InvalidOperationException(
+                        $"Required RFQ permission '{permissionCode}' does not exist.");
+                }
+
+                if (!assignedPermissionIds.Add(permission.Id))
+                {
+                    continue;
+                }
+
+                await _repository.AddRolePermissionAsync(new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleId = role.Id,
+                    PermissionId = permission.Id
+                });
+                hasChanges = true;
+            }
+        }
+
+        if (hasChanges)
+        {
+            await _repository.SaveChangesAsync();
+        }
     }
 
     /// <summary>

@@ -812,8 +812,6 @@ namespace Domain.Migrations
 
                     b.HasKey("ExchangeRateId");
 
-                    b.HasAlternateKey("TenantId", "ExchangeRateId");
-
                     b.HasIndex("TenantId", "ToCurrencyId");
 
                     b.HasIndex("TenantId", "FromCurrencyId", "ToCurrencyId", "RateType", "EffectiveDate")
@@ -2103,11 +2101,471 @@ namespace Domain.Migrations
                     b.ToTable("PurchaseRequisitionItems", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.RFQSupplier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("InvitationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("InvitedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RFQId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ResponseReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SupplierCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("TokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .HasDatabaseName("IX_RFQSuppliers_TokenHash");
+
+                    b.HasIndex("RFQId", "SupplierId")
+                        .IsUnique()
+                        .HasDatabaseName("UK_RFQSuppliers_RFQ_SupplierId");
+
+                    b.ToTable("RFQSuppliers", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.RequestForQuotation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ClosingDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeliveryRequiredDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliveryTerms")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RFQNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "CompanyId", "RFQNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UK_RequestForQuotations_Tenant_Company_RFQNumber");
+
+                    b.HasIndex("TenantId", "Status", "ClosingDate")
+                        .HasDatabaseName("IX_RequestForQuotations_Tenant_Status_ClosingDate");
+
+                    b.ToTable("RequestForQuotations", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.RequestForQuotationLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ProductCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("RFQId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RequiredDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("TargetUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TechnicalSpecifications")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnitOfMeasureCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("UnitOfMeasureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RFQId", "LineNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UK_RequestForQuotationLines_RFQ_LineNumber");
+
+                    b.ToTable("RequestForQuotationLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.SupplierQuotation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApprovalRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("BaseTotalAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal>("ExchangeRate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(28,12)")
+                        .HasDefaultValue(1.0m);
+
+                    b.Property<bool>("IsManualEntry")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("QuotationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("QuotationReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("RFQId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RejectedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RejectionRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SubTotal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("SupplierCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TotalAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<DateTime>("ValidUntil")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RFQId");
+
+                    b.HasIndex("TenantId", "RFQId", "Status")
+                        .HasDatabaseName("IX_SupplierQuotations_Tenant_RFQ_Status");
+
+                    b.ToTable("SupplierQuotations", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.SupplierQuotationLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("DiscountPercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("QuotedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid?>("RFQLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SupplierQuotationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TaxCodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TaxRate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("TechnicalRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnitOfMeasureCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("UnitOfMeasureId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SupplierQuotationId");
+
+                    b.ToTable("SupplierQuotationLines", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Features.Sales.Invoice.SalesInvoice", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("AppliedExchangeRate")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<string>("BaseCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int?>("BaseCurrencyDecimalPlaces")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("BaseDiscountAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseSubTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTaxAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTotalAmount")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid>("BranchId")
                         .HasColumnType("uniqueidentifier");
@@ -2140,6 +2598,15 @@ namespace Domain.Migrations
 
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExchangeRateEffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("ExchangeRateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("ExchangeRateSource")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("InvoiceDate")
                         .HasColumnType("datetime2");
@@ -2187,15 +2654,22 @@ namespace Domain.Migrations
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<Guid?>("TransactionCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
 
                     b.HasIndex("CustomerId");
 
+                    b.HasIndex("ExchangeRateId");
+
                     b.HasIndex("SalesOrderId");
 
                     b.HasIndex("SalesShipmentId");
+
+                    b.HasIndex("TenantId", "BaseCurrencyId");
 
                     b.HasIndex("TenantId", "CustomerId");
 
@@ -2204,6 +2678,8 @@ namespace Domain.Migrations
                     b.HasIndex("TenantId", "SalesShipmentId");
 
                     b.HasIndex("TenantId", "Status");
+
+                    b.HasIndex("TenantId", "TransactionCurrencyId");
 
                     b.HasIndex("TenantId", "CompanyId", "BranchId");
 
@@ -2312,6 +2788,31 @@ namespace Domain.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("AppliedExchangeRate")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<string>("BaseCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int?>("BaseCurrencyDecimalPlaces")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("BaseCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("BaseDiscountAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseSubTotal")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTaxAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BaseTotalAmount")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<Guid>("BranchId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2349,6 +2850,15 @@ namespace Domain.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("DocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExchangeRateEffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("ExchangeRateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("ExchangeRateSource")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
@@ -2394,15 +2904,24 @@ namespace Domain.Migrations
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("TransactionCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
 
                     b.HasIndex("CustomerId");
 
+                    b.HasIndex("ExchangeRateId");
+
+                    b.HasIndex("TenantId", "BaseCurrencyId");
+
                     b.HasIndex("TenantId", "CustomerId");
 
                     b.HasIndex("TenantId", "Status");
+
+                    b.HasIndex("TenantId", "TransactionCurrencyId");
 
                     b.HasIndex("TenantId", "CompanyId", "BranchId");
 
@@ -4796,6 +5315,50 @@ namespace Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.RFQSupplier", b =>
+                {
+                    b.HasOne("Domain.Features.Procurement.RequestForQuotation.RequestForQuotation", "RequestForQuotation")
+                        .WithMany("InvitedSuppliers")
+                        .HasForeignKey("RFQId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RequestForQuotation");
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.RequestForQuotationLine", b =>
+                {
+                    b.HasOne("Domain.Features.Procurement.RequestForQuotation.RequestForQuotation", "RequestForQuotation")
+                        .WithMany("Lines")
+                        .HasForeignKey("RFQId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RequestForQuotation");
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.SupplierQuotation", b =>
+                {
+                    b.HasOne("Domain.Features.Procurement.RequestForQuotation.RequestForQuotation", "RequestForQuotation")
+                        .WithMany("Quotations")
+                        .HasForeignKey("RFQId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("RequestForQuotation");
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.SupplierQuotationLine", b =>
+                {
+                    b.HasOne("Domain.Features.Procurement.RequestForQuotation.SupplierQuotation", "SupplierQuotation")
+                        .WithMany("Lines")
+                        .HasForeignKey("SupplierQuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SupplierQuotation");
+                });
+
             modelBuilder.Entity("Domain.Features.Sales.Invoice.SalesInvoice", b =>
                 {
                     b.HasOne("Domain.Features.MasterData.Branch.Branch", null)
@@ -4810,6 +5373,11 @@ namespace Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Features.MasterData.Currency.ExchangeRate", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeRateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Features.Sales.SalesOrder.SalesOrder", null)
                         .WithMany()
                         .HasForeignKey("SalesOrderId")
@@ -4821,6 +5389,12 @@ namespace Domain.Migrations
                         .HasForeignKey("SalesShipmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "BaseCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Features.MasterData.Company.Company", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "CompanyId")
@@ -4828,6 +5402,11 @@ namespace Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "TransactionCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Domain.Features.Sales.Invoice.SalesInvoiceItem", b =>
@@ -4874,6 +5453,17 @@ namespace Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Features.MasterData.Currency.ExchangeRate", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeRateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "BaseCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Features.MasterData.Company.Company", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "CompanyId")
@@ -4881,6 +5471,11 @@ namespace Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Features.MasterData.Currency.Currency", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "TransactionCurrencyId")
+                        .HasPrincipalKey("TenantId", "CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Domain.Features.Sales.SalesOrder.SalesOrderItem", b =>
@@ -5455,6 +6050,20 @@ namespace Domain.Migrations
             modelBuilder.Entity("Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisition", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.RequestForQuotation", b =>
+                {
+                    b.Navigation("InvitedSuppliers");
+
+                    b.Navigation("Lines");
+
+                    b.Navigation("Quotations");
+                });
+
+            modelBuilder.Entity("Domain.Features.Procurement.RequestForQuotation.SupplierQuotation", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Domain.Features.Sales.Invoice.SalesInvoice", b =>

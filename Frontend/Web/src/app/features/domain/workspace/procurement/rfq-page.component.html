@@ -1,0 +1,1434 @@
+<div class="rfq-page">
+  <!-- Page Header -->
+  <app-page-header
+    [title]="isNew() ? 'New Request for Quotation' : (rfq()?.rfqNumber || 'RFQ Workspace')"
+    [subtitle]="isNew() ? 'Draft a new multi-supplier Request for Quotation.' : workspaceSubtitle()"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions class="page-header-actions">
+      <button
+        type="button"
+        class="erp-btn erp-btn-secondary erp-btn-sm"
+        (click)="navigateBack()"
+      >
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to RFQs</span>
+      </button>
+
+      @if (rfq()) {
+        <app-status-badge
+          [label]="rfq()!.status"
+          [severity]="rfq()!.status === 'Awarded' ? 'success' : rfq()!.status === 'Issued' ? 'info' : rfq()!.status === 'Closed' ? 'warning' : rfq()!.status === 'Cancelled' ? 'danger' : 'neutral'"
+        ></app-status-badge>
+      }
+
+      @if (canEdit()) {
+        <button
+          type="button"
+          class="erp-btn erp-btn-primary erp-btn-sm"
+          [disabled]="actionLoading()"
+          (click)="saveRfq()"
+        >
+          <i class="pi pi-save"></i>
+          <span>{{ isNew() ? 'Save Draft' : 'Save Changes' }}</span>
+        </button>
+      }
+
+    </div>
+  </app-page-header>
+
+  <!-- Global Status / Notification Message -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading RFQ details from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="rfqId() ? loadRfq(rfqId()!) : null"></app-error-state>
+    </div>
+  } @else {
+    <!-- ==================== NEW RFQ (3-Step Creation Flow) ==================== -->
+    @if (isNew()) {
+      <div class="rfq-form-container">
+        <!-- Section 1: Operating Scope Hierarchy -->
+        <section class="erp-card scope-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <span class="section-step-badge">Step 1</span>
+              <h2 class="section-title">Operating Scope</h2>
+            </div>
+            <span class="section-subtitle">
+              All procurement demand belongs strictly to an authorized operating company and branch.
+            </span>
+          </div>
+
+          <div class="scope-selectors-grid">
+            <div class="scope-field">
+              <label class="scope-label">Tenant Organization</label>
+              <div class="scope-static-value">
+                <i class="pi pi-shield"></i>
+                <span>{{ scopeService.activeTenantName() }}</span>
+              </div>
+            </div>
+
+            <div class="scope-field">
+              <label class="scope-label">Operating Company</label>
+              <div class="scope-static-value">
+                <i class="pi pi-building"></i>
+                <span>{{ scopeService.selectedCompany()?.name || 'Company Scope' }}</span>
+              </div>
+            </div>
+
+            <div class="scope-field">
+              <label class="scope-label">Operating Branch</label>
+              <div class="scope-static-value">
+                <i class="pi pi-map-pin"></i>
+                <span>{{ scopeService.selectedBranch()?.name || 'Branch Scope' }}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 2: Request for Quotation Details -->
+        <section class="erp-card header-section">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <span class="section-step-badge">Step 2</span>
+              <h2 class="section-title">Request for Quotation Details</h2>
+            </div>
+            <span class="section-subtitle">
+              Mandatory: RFQ Title and Submission Closing Date &bull; Delivery Terms and Supplier Instructions are optional.
+            </span>
+          </div>
+
+          <div class="form-grid rfq-header-form-grid">
+            <div class="form-group rfq-form-field full-width">
+              <label class="field-label required">RFQ Title <span class="required-star">*</span></label>
+              <input
+                type="text"
+                class="erp-form-control erp-input"
+                placeholder="e.g. Annual IT Peripherals Procurement FY2026"
+                [ngModel]="formTitle()"
+                (ngModelChange)="formTitle.set($event)"
+              />
+            </div>
+
+            <div class="form-group rfq-form-field">
+              <label class="field-label required">Submission Closing Date <span class="required-star">*</span></label>
+              <input
+                type="date"
+                class="erp-form-control erp-input"
+                [ngModel]="formClosingDate()"
+                (ngModelChange)="formClosingDate.set($event)"
+              />
+              <small class="helper-text">Suppliers cannot submit bids after this date.</small>
+            </div>
+
+            <div class="form-group rfq-form-field">
+              <label class="field-label">Required Delivery Date <span class="optional-tag">(Optional)</span></label>
+              <input
+                type="date"
+                class="erp-form-control erp-input"
+                [ngModel]="formDeliveryRequiredDate()"
+                (ngModelChange)="formDeliveryRequiredDate.set($event)"
+              />
+            </div>
+
+            <div class="form-group rfq-form-field full-width">
+              <label class="field-label">Delivery Terms & Conditions <span class="optional-tag">(Optional)</span></label>
+              <input
+                type="text"
+                class="erp-form-control erp-input"
+                placeholder="e.g. DDP - Delivered Duty Paid to Central Warehouse"
+                [ngModel]="formDeliveryTerms()"
+                (ngModelChange)="formDeliveryTerms.set($event)"
+              />
+            </div>
+
+            <div class="form-group rfq-form-field full-width">
+              <label class="field-label">Supplier Instructions & Notes <span class="optional-tag">(Optional)</span></label>
+              <textarea
+                rows="3"
+                class="erp-form-control erp-input erp-textarea"
+                placeholder="Provide special instructions, quality inspection notes, or warranty criteria..."
+                [ngModel]="formInstructions()"
+                (ngModelChange)="formInstructions.set($event)"
+              ></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 3: Requested Product Items Grid -->
+        <section class="erp-card items-section">
+          <div class="section-header line-items-header">
+            <div class="section-title-wrap">
+              <span class="section-step-badge">Step 3</span>
+              <h2 class="section-title">Requested Product Items</h2>
+              <span class="item-count-pill">{{ newRfqLines().length }} {{ newRfqLines().length === 1 ? 'item' : 'items' }}</span>
+            </div>
+            <span class="section-subtitle">
+              Mandatory: Product, Quantity, and UOM &bull; Target unit price, required date, and technical specifications are optional.
+            </span>
+          </div>
+
+          <div class="inline-add-box rfq-material-grid-box">
+            <h4>Requested Product Items</h4>
+            <p class="table-helper-text">
+              Use the in-grid editor to add, update, and remove requested items. Product lookup, quantity, UOM, price, and technical notes are all handled in the Material table below.
+            </p>
+
+            <app-material-editable-data-table
+              [data]="newRfqLines()"
+              [columns]="draftLineColumns()"
+              rowKey="lineNumber"
+              [allowAddRow]="true"
+              [allowDeleteRow]="true"
+              [showToolbar]="true"
+              [showSaveActions]="false"
+              [showRowNumbers]="true"
+              [showFooter]="false"
+              [defaultNewRow]="() => createDraftLineRow()"
+              (dataChange)="onDraftLinesChanged($event)"
+              (rowDelete)="onDraftLineDeleted($event)"
+            ></app-material-editable-data-table>
+          </div>
+        </section>
+
+        <!-- Section 4: Summary Totals & Footer Toolbar -->
+        <section class="erp-card footer-summary-section">
+          <div class="summary-totals-grid">
+            <div class="summary-row">
+              <span class="summary-label">Line Items Count:</span>
+              <span class="summary-value">{{ totalDraftItemsCount() }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Total Requested Quantity:</span>
+              <span class="summary-value">{{ totalDraftRequestedQuantity() | number:'1.2-2' }}</span>
+            </div>
+            <div class="summary-row total-row">
+              <span class="summary-label">Estimated Total Value:</span>
+              <span class="summary-value grand-total">
+                {{ totalDraftEstimatedAmount() | currency:(scopeService.selectedCompany()?.baseCurrencyCode || 'USD'):'symbol':'1.2-2' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="footer-actions-bar">
+            <button
+              type="button"
+              class="erp-btn erp-btn-secondary"
+              (click)="navigateBack()"
+            >
+              <i class="pi pi-arrow-left"></i>
+              <span>Cancel / Back</span>
+            </button>
+            <button
+              type="button"
+              class="erp-btn erp-btn-primary"
+              [disabled]="actionLoading() || newRfqLines().length === 0"
+              (click)="saveRfq()"
+            >
+              @if (actionLoading()) {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else {
+                <i class="pi pi-check"></i>
+              }
+              <span>Create Draft RFQ ({{ newRfqLines().length }} items)</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    } @else if (rfq()) {
+      <nav class="rfq-workflow-steps" aria-label="RFQ workflow steps">
+        <button
+          type="button"
+          class="workflow-step-link"
+          [class.active]="activeStep() === 'details'"
+          [class.complete]="workflowStepComplete('details')"
+          [attr.aria-current]="activeStep() === 'details' ? 'step' : null"
+          (click)="switchStep('details')"
+        >
+          <span class="workflow-step-indicator">
+            @if (workflowStepComplete('details')) { <i class="pi pi-check"></i> } @else { 01 }
+          </span>
+          <span class="workflow-step-copy">
+            <span class="workflow-step-title">RFQ Details & Product Items</span>
+            <span class="workflow-step-description">Maintain RFQ information and requested products</span>
+          </span>
+          <span class="workflow-step-status">{{ workflowStepStatus('details') }}</span>
+        </button>
+        <button
+          type="button"
+          class="workflow-step-link"
+          [class.active]="activeStep() === 'suppliers'"
+          [class.complete]="workflowStepComplete('suppliers')"
+          [attr.aria-current]="activeStep() === 'suppliers' ? 'step' : null"
+          (click)="switchStep('suppliers')"
+        >
+          <span class="workflow-step-indicator">
+            @if (workflowStepComplete('suppliers')) { <i class="pi pi-check"></i> } @else { 02 }
+          </span>
+          <span class="workflow-step-copy">
+            <span class="workflow-step-title">Supplier Selection</span>
+            <span class="workflow-step-description">Select and save suppliers against this RFQ</span>
+          </span>
+          <span class="workflow-step-status">{{ workflowStepStatus('suppliers') }}</span>
+        </button>
+        <button
+          type="button"
+          class="workflow-step-link"
+          [class.active]="activeStep() === 'invitations'"
+          [class.complete]="workflowStepComplete('invitations')"
+          [attr.aria-current]="activeStep() === 'invitations' ? 'step' : null"
+          (click)="switchStep('invitations')"
+        >
+          <span class="workflow-step-indicator">
+            @if (workflowStepComplete('invitations')) { <i class="pi pi-check"></i> } @else { 03 }
+          </span>
+          <span class="workflow-step-copy">
+            <span class="workflow-step-title">Supplier Invitations</span>
+            <span class="workflow-step-description">Review saved suppliers and explicitly send invitations</span>
+          </span>
+          <span class="workflow-step-status">{{ workflowStepStatus('invitations') }}</span>
+        </button>
+        <button
+          type="button"
+          class="workflow-step-link"
+          [class.active]="activeStep() === 'quotations'"
+          [class.complete]="workflowStepComplete('quotations')"
+          [attr.aria-current]="activeStep() === 'quotations' ? 'step' : null"
+          (click)="switchStep('quotations')"
+        >
+          <span class="workflow-step-indicator">
+            @if (workflowStepComplete('quotations')) { <i class="pi pi-check"></i> } @else { 04 }
+          </span>
+          <span class="workflow-step-copy">
+            <span class="workflow-step-title">Supplier Quotations</span>
+            <span class="workflow-step-description">Review quotations submitted by suppliers</span>
+          </span>
+          <span class="workflow-step-status">{{ workflowStepStatus('quotations') }}</span>
+        </button>
+        <button
+          type="button"
+          class="workflow-step-link"
+          [class.active]="activeStep() === 'comparison'"
+          [class.complete]="workflowStepComplete('comparison')"
+          [attr.aria-current]="activeStep() === 'comparison' ? 'step' : null"
+          (click)="switchStep('comparison')"
+        >
+          <span class="workflow-step-indicator">
+            @if (workflowStepComplete('comparison')) { <i class="pi pi-check"></i> } @else { 05 }
+          </span>
+          <span class="workflow-step-copy">
+            <span class="workflow-step-title">Quotation Comparison</span>
+            <span class="workflow-step-description">Compare submitted bids side by side</span>
+          </span>
+          <span class="workflow-step-status">{{ workflowStepStatus('comparison') }}</span>
+        </button>
+      </nav>
+
+      <!-- STEP 1: RFQ Details & Product Items -->
+      @if (activeStep() === 'details') {
+        <div class="rfq-form-container">
+          <!-- Operating Scope Hierarchy -->
+          <section class="erp-card scope-section">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <h2 class="section-title">Operating Scope</h2>
+              </div>
+              <span class="section-subtitle">
+                All procurement demand belongs strictly to an authorized operating company and branch.
+              </span>
+            </div>
+
+            <div class="scope-selectors-grid">
+              <div class="scope-field">
+                <label class="scope-label">Tenant Organization</label>
+                <div class="scope-static-value">
+                  <i class="pi pi-shield"></i>
+                  <span>{{ scopeService.activeTenantName() }}</span>
+                </div>
+              </div>
+
+              <div class="scope-field">
+                <label class="scope-label">Operating Company</label>
+                <div class="scope-static-value">
+                  <i class="pi pi-building"></i>
+                  <span>{{ scopeService.selectedCompany()?.name || 'Company Scope' }}</span>
+                </div>
+              </div>
+
+              <div class="scope-field">
+                <label class="scope-label">Operating Branch</label>
+                <div class="scope-static-value">
+                  <i class="pi pi-map-pin"></i>
+                  <span>{{ scopeService.selectedBranch()?.name || 'Branch Scope' }}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Request for Quotation Details -->
+          <section class="erp-card header-section">
+            <div class="section-header">
+              <div class="section-title-wrap">
+                <h2 class="section-title">Request for Quotation Details</h2>
+              </div>
+              <span class="section-subtitle">
+                Mandatory: RFQ Title and Submission Closing Date &bull; Delivery Terms and Supplier Instructions are optional.
+              </span>
+            </div>
+
+            <div class="form-grid rfq-header-form-grid">
+              <div class="form-group rfq-form-field full-width">
+                <label class="field-label required">RFQ Title <span class="required-star">*</span></label>
+                <input
+                  type="text"
+                  class="erp-form-control erp-input"
+                  placeholder="e.g. Annual IT Peripherals Procurement FY2026"
+                  [ngModel]="formTitle()"
+                  (ngModelChange)="formTitle.set($event)"
+                  [disabled]="!canEdit()"
+                />
+              </div>
+
+              <div class="form-group rfq-form-field">
+                <label class="field-label required">Submission Closing Date <span class="required-star">*</span></label>
+                <input
+                  type="date"
+                  class="erp-form-control erp-input"
+                  [ngModel]="formClosingDate()"
+                  (ngModelChange)="formClosingDate.set($event)"
+                  [disabled]="!canEdit()"
+                />
+                <small class="helper-text">Suppliers cannot submit bids after this date.</small>
+              </div>
+
+              <div class="form-group rfq-form-field">
+                <label class="field-label">Required Delivery Date <span class="optional-tag">(Optional)</span></label>
+                <input
+                  type="date"
+                  class="erp-form-control erp-input"
+                  [ngModel]="formDeliveryRequiredDate()"
+                  (ngModelChange)="formDeliveryRequiredDate.set($event)"
+                  [disabled]="!canEdit()"
+                />
+              </div>
+
+              <div class="form-group rfq-form-field full-width">
+                <label class="field-label">Delivery Terms & Conditions <span class="optional-tag">(Optional)</span></label>
+                <input
+                  type="text"
+                  class="erp-form-control erp-input"
+                  placeholder="e.g. DDP - Delivered Duty Paid to Central Warehouse"
+                  [ngModel]="formDeliveryTerms()"
+                  (ngModelChange)="formDeliveryTerms.set($event)"
+                  [disabled]="!canEdit()"
+                />
+              </div>
+
+              <div class="form-group rfq-form-field full-width">
+                <label class="field-label">Supplier Instructions & Notes <span class="optional-tag">(Optional)</span></label>
+                <textarea
+                  rows="3"
+                  class="erp-form-control erp-input erp-textarea"
+                  placeholder="Provide special instructions, quality inspection notes, or warranty criteria..."
+                  [ngModel]="formInstructions()"
+                  (ngModelChange)="formInstructions.set($event)"
+                  [disabled]="!canEdit()"
+                ></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- Footer Actions for Details Tab -->
+          @if (canEdit()) {
+            <section class="erp-card footer-summary-section">
+              <div class="summary-totals-grid">
+                <div class="summary-row">
+                  <span class="summary-label">RFQ Status:</span>
+                  <span class="summary-value font-semibold">{{ rfq()?.status }}</span>
+                </div>
+              </div>
+              <div class="footer-actions-bar">
+                <button
+                  type="button"
+                  class="erp-btn erp-btn-primary"
+                  [disabled]="actionLoading()"
+                  (click)="saveRfq()"
+                >
+                  @if (actionLoading()) {
+                    <i class="pi pi-spin pi-spinner"></i>
+                  } @else {
+                    <i class="pi pi-save"></i>
+                  }
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </section>
+          }
+        </div>
+      }
+
+    <!-- STEP 1: Product Items -->
+    @if (!isNew() && activeStep() === 'details' && rfq()) {
+      <div class="erp-card tab-content-card">
+        <div class="card-section-header">
+          <h3>Requested Product Items</h3>
+          <p class="section-desc">Define the goods or services suppliers are invited to quote for.</p>
+        </div>
+
+        @if (canEdit()) {
+          <div class="rfq-constraint-banner">
+            <i class="pi pi-info-circle"></i>
+            <span>Saved RFQ line items can be added or removed with the existing RFQ APIs. Direct in-place editing of an already saved line is not supported by the current backend contract.</span>
+          </div>
+        }
+
+        <!-- Add Line Section (If Editable) -->
+        @if (canEdit()) {
+          <div class="inline-add-box">
+            <h4>Add Product Item</h4>
+            <div class="add-line-grid">
+              <div class="form-group line-product">
+                <label class="required">Product</label>
+                <select
+                  class="erp-select"
+                  [ngModel]="newLineProductId()"
+                  (ngModelChange)="onProductSelected($event)"
+                >
+                  <option value="">-- Select Product --</option>
+                  @for (prod of products(); track prod.productId) {
+                    <option [value]="prod.productId">{{ prod.productCode }} - {{ prod.productName }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="form-group line-qty">
+                <label class="required">Quantity</label>
+                <input
+                  type="number"
+                  min="0.001"
+                  step="any"
+                  class="erp-input text-right"
+                  [ngModel]="newLineQuantity()"
+                  (ngModelChange)="newLineQuantity.set($event)"
+                />
+              </div>
+
+              <div class="form-group line-uom">
+                <label class="required">UOM</label>
+                <select
+                  class="erp-select"
+                  [ngModel]="newLineUomId()"
+                  (ngModelChange)="newLineUomId.set($event)"
+                >
+                  <option value="">-- Select UOM --</option>
+                  @for (u of uoms(); track u.unitOfMeasureId) {
+                    <option [value]="u.unitOfMeasureId">{{ u.code }} ({{ u.name }})</option>
+                  }
+                </select>
+              </div>
+
+              <div class="form-group line-price">
+                <label>Target Unit Price</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  class="erp-input text-right"
+                  placeholder="Optional"
+                  [ngModel]="newLineTargetPrice()"
+                  (ngModelChange)="newLineTargetPrice.set($event)"
+                />
+              </div>
+
+              <div class="form-group line-date">
+                <label>Required Date</label>
+                <input
+                  type="date"
+                  class="erp-input"
+                  [ngModel]="newLineRequiredDate()"
+                  (ngModelChange)="newLineRequiredDate.set($event)"
+                />
+              </div>
+
+              <div class="form-group line-specs full-width">
+                <label>Technical Specifications / Standards</label>
+                <input
+                  type="text"
+                  class="erp-input"
+                  placeholder="e.g. Grade A, ISO-9001, 100% Cotton, 2-Year Warranty"
+                  [ngModel]="newLineSpecs()"
+                  (ngModelChange)="newLineSpecs.set($event)"
+                />
+              </div>
+
+              <div class="form-group line-action">
+                <button
+                  type="button"
+                  class="erp-btn erp-btn-primary"
+                  [disabled]="actionLoading() || !newLineProductId() || newLineQuantity() <= 0"
+                  (click)="addLineItem()"
+                >
+                  <i class="pi pi-plus"></i>
+                  <span>Add Line</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Lines Table -->
+        @if (rfq()!.lines.length === 0) {
+          <app-empty-state
+            icon="pi pi-shopping-bag"
+            title="No Items Added"
+            description="Add product items to this RFQ so suppliers know what to quote."
+          ></app-empty-state>
+        } @else {
+          <div class="erp-table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th>Product</th>
+                  <th style="width: 100px;" class="text-right">Quantity</th>
+                  <th style="width: 90px;">UOM</th>
+                  <th style="width: 120px;" class="text-right">Target Price</th>
+                  <th style="width: 110px;">Required Date</th>
+                  <th>Technical Specifications</th>
+                  @if (canEdit()) {
+                    <th style="width: 70px;" class="text-center">Action</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of rfq()!.lines; track line.id) {
+                  <tr>
+                    <td>{{ line.lineNumber }}</td>
+                    <td>
+                      <div class="font-medium">{{ line.productName }}</div>
+                      <small class="text-muted">{{ line.productCode }}</small>
+                    </td>
+                    <td class="text-right font-medium">{{ line.quantity | number:'1.2-2' }}</td>
+                    <td><span class="badge badge-light">{{ line.unitOfMeasureCode }}</span></td>
+                    <td class="text-right">{{ line.targetUnitPrice ? (line.targetUnitPrice | number:'1.2-2') : '—' }}</td>
+                    <td>{{ line.requiredDate ? (line.requiredDate | date:'shortDate') : '—' }}</td>
+                    <td>{{ line.technicalSpecifications || '—' }}</td>
+                    @if (canEdit()) {
+                      <td class="text-center">
+                        <button
+                          type="button"
+                          class="erp-btn-icon text-danger"
+                          title="Remove Line"
+                          [disabled]="actionLoading()"
+                          (click)="removeLineItem(line.id)"
+                        >
+                          <i class="pi pi-trash"></i>
+                        </button>
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- STEP 2: Supplier Selection -->
+    @if (!isNew() && activeStep() === 'suppliers' && rfq()) {
+      <div class="erp-card tab-content-card">
+        <div class="card-section-header">
+          <h3>Supplier Selection</h3>
+          <p class="section-desc">Select suppliers from Supplier Master and save them against this RFQ. Saving does not send invitations.</p>
+        </div>
+
+        @if (canManageSuppliers()) {
+          <div class="inline-add-box">
+            <h4>Find Suppliers</h4>
+            <label class="supplier-search-field">
+              <i class="pi pi-search" aria-hidden="true"></i>
+              <input
+                type="search"
+                class="erp-input"
+                aria-label="Search active suppliers"
+                placeholder="Search supplier code, name, contact, email, or location"
+                [ngModel]="supplierSearchTerm()"
+                (ngModelChange)="supplierSearchTerm.set($event)"
+              />
+            </label>
+
+            @if (availableSuppliers().length === 0) {
+              <p class="supplier-selection-empty">
+                {{ suppliers().length === 0 ? 'Supplier Master is empty or unavailable.' : 'No active, unselected suppliers match this search.' }}
+              </p>
+            } @else {
+              <div class="erp-table-responsive">
+                <table class="erp-table">
+                  <thead>
+                    <tr>
+                      <th>Supplier</th>
+                      <th>Contact</th>
+                      <th>Location</th>
+                      <th style="width: 130px;" class="text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (supplier of availableSuppliers(); track supplier.supplierId) {
+                      <tr>
+                        <td>
+                          <div class="font-medium">{{ supplier.supplierName }}</div>
+                          <small class="text-muted">{{ supplier.supplierCode }}</small>
+                        </td>
+                        <td>
+                          <div>{{ supplier.contactName || '—' }}</div>
+                          <small class="text-muted">{{ supplier.email || 'No contact email' }}</small>
+                        </td>
+                        <td>{{ supplierLocation(supplier) }}</td>
+                        <td class="text-right">
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-secondary erp-btn-sm"
+                            [disabled]="actionLoading()"
+                            (click)="stageSupplier(supplier.supplierId)"
+                          >
+                            <i class="pi pi-plus"></i>
+                            <span>Select</span>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            @if (stagedSuppliers().length > 0) {
+              <div class="staged-supplier-list">
+                <h4>Selected to Save ({{ stagedSuppliers().length }})</h4>
+                @for (supplier of stagedSuppliers(); track supplier.supplierId) {
+                  <div class="staged-supplier-row">
+                    <span><strong>{{ supplier.supplierName }}</strong> · {{ supplier.supplierCode }}</span>
+                    <button
+                      type="button"
+                      class="erp-btn-icon text-danger"
+                      title="Remove from selection"
+                      [disabled]="actionLoading()"
+                      (click)="removeStagedSupplier(supplier.supplierId)"
+                    >
+                      <i class="pi pi-times"></i>
+                    </button>
+                  </div>
+                }
+                <div class="supplier-selection-actions">
+                  <button
+                    type="button"
+                    class="erp-btn erp-btn-secondary"
+                    [disabled]="actionLoading()"
+                    (click)="cancelSupplierSelection()"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="erp-btn erp-btn-primary"
+                    [disabled]="actionLoading()"
+                    (click)="saveSupplierSelection()"
+                  >
+                    <i class="pi pi-save"></i>
+                    <span>{{ actionLoading() ? 'Saving...' : 'Save Selection' }}</span>
+                  </button>
+                </div>
+                <p class="text-muted supplier-save-note">Suppliers are saved individually; if one save fails, successful saves are retained and failed suppliers remain selected.</p>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="rfq-constraint-banner">
+            <i class="pi pi-info-circle"></i>
+            <span>You do not have permission to manage suppliers for this RFQ.</span>
+          </div>
+        }
+
+        @if (rfq()!.invitedSuppliers.length === 0) {
+          <app-empty-state
+            icon="pi pi-users"
+            title="No Suppliers Selected"
+            description="Add suppliers from Supplier Master. Invitations are sent separately in Step 3."
+          ></app-empty-state>
+        } @else {
+          <div class="erp-table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  <th>Supplier</th>
+                  <th>Contact Email</th>
+                  @if (canManageSuppliers()) {
+                    <th style="width: 70px;" class="text-center">Action</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (sup of rfq()!.invitedSuppliers; track sup.id) {
+                  <tr>
+                    <td>
+                      <div class="font-medium">{{ sup.supplierName }}</div>
+                      <small class="text-muted">{{ sup.supplierCode }}</small>
+                    </td>
+                    <td>{{ sup.contactEmail || '—' }}</td>
+                    @if (canManageSuppliers()) {
+                      <td class="text-center">
+                        <button
+                          type="button"
+                          class="erp-btn-icon text-danger"
+                          title="Remove Supplier"
+                          [disabled]="actionLoading() || rfq()!.status !== 'Draft' || sup.invitationStatus === 'Submitted'"
+                          (click)="removeSupplier(sup.supplierId)"
+                        >
+                          <i class="pi pi-trash"></i>
+                        </button>
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (rfq()!.status !== 'Draft') {
+            <p class="text-muted supplier-save-note">Saved suppliers cannot be removed after the RFQ leaves Draft.</p>
+          }
+        }
+      </div>
+    }
+
+    <!-- STEP 3: Supplier Invitations -->
+    @if (!isNew() && activeStep() === 'invitations' && rfq()) {
+      <div class="erp-card tab-content-card">
+        <div class="card-section-header">
+          <h3>Supplier Invitations</h3>
+          <p class="section-desc">Review recipients and explicitly dispatch invitations. “Sent” means accepted by the SMTP transport, not confirmed inbox delivery.</p>
+        </div>
+
+        @if (rfq()!.invitedSuppliers.length === 0) {
+          <app-empty-state
+            icon="pi pi-send"
+            title="No Suppliers to Invite"
+            description="Save suppliers in Step 2 before sending invitations."
+          ></app-empty-state>
+        } @else {
+          @if (canSendInvitations() && eligibleInvitationSuppliers().length > 0) {
+            <div class="invitation-selection-actions">
+              <span>{{ selectedInvitationSupplierIds().length }} of {{ eligibleInvitationSuppliers().length }} pending or failed invitation(s) selected</span>
+              <button
+                type="button"
+                class="erp-btn erp-btn-secondary erp-btn-sm"
+                [disabled]="actionLoading()"
+                (click)="selectEligibleInvitations()"
+              >
+                Select All Eligible
+              </button>
+            </div>
+          }
+          <div class="erp-table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  @if (canSendInvitations()) {
+                    <th style="width: 42px;" class="text-center">Send</th>
+                  }
+                  <th>Supplier</th>
+                    <th>Contact Person</th>
+                  <th>Contact Email</th>
+                  <th style="width: 140px;">Invitation Status</th>
+                  <th style="width: 150px;">Invited At</th>
+                  <th style="width: 150px;">Response Date</th>
+                    @if (canSendInvitations()) {
+                      <th style="width: 110px;" class="text-right">Action</th>
+                    }
+                </tr>
+              </thead>
+              <tbody>
+                @for (sup of rfq()!.invitedSuppliers; track sup.id) {
+                  <tr>
+                    @if (canSendInvitations()) {
+                      <td class="text-center">
+                        <input
+                          type="checkbox"
+                          [attr.aria-label]="'Select invitation for ' + sup.supplierName"
+                          [checked]="isInvitationSelected(sup.supplierId)"
+                          [disabled]="actionLoading() || !isInvitationEligible(sup)"
+                          (change)="toggleInvitationSelection(sup.supplierId)"
+                        />
+                      </td>
+                    }
+                    <td>
+                      <div class="font-medium">{{ sup.supplierName }}</div>
+                      <small class="text-muted">{{ sup.supplierCode }}</small>
+                    </td>
+                    <td>{{ supplierContactName(sup.supplierId) }}</td>
+                    <td>
+                      {{ sup.contactEmail || '—' }}
+                      @if (sup.invitationStatus === 'Failed') {
+                        <small class="invitation-help-text">Retry is available; detailed attempt errors are not retained.</small>
+                      } @else if (sup.invitationStatus === 'Pending' && !sup.contactEmail) {
+                        <small class="text-danger invitation-help-text">A contact email is required to dispatch.</small>
+                      }
+                    </td>
+                    <td>
+                      <span
+                        class="badge"
+                        [ngClass]="{
+                          'badge-success': sup.invitationStatus === 'Submitted',
+                          'badge-info': sup.invitationStatus === 'Sent' || sup.invitationStatus === 'Opened' || sup.invitationStatus === 'Sending',
+                          'badge-warning': sup.invitationStatus === 'Pending',
+                          'badge-danger': sup.invitationStatus === 'Declined' || sup.invitationStatus === 'Failed'
+                        }"
+                      >
+                        {{ sup.invitationStatus }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (sup.invitationStatus === 'Sending') {
+                        Dispatch in progress
+                      } @else {
+                        {{ sup.invitedAt ? (sup.invitedAt | date:'medium') : 'Not yet dispatched' }}
+                      }
+                    </td>
+                    <td>{{ sup.responseReceivedAt ? (sup.responseReceivedAt | date:'medium') : 'Pending response' }}</td>
+                    @if (canSendInvitations()) {
+                      <td class="text-right">
+                        @if (isInvitationEligible(sup)) {
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-secondary erp-btn-sm"
+                            [disabled]="actionLoading()"
+                            (click)="sendSingleInvitation(sup.supplierId)"
+                          >
+                            <i class="pi" [ngClass]="sup.invitationStatus === 'Failed' ? 'pi-refresh' : 'pi-send'"></i>
+                            <span>{{ sup.invitationStatus === 'Failed' ? 'Retry' : 'Send' }}</span>
+                          </button>
+                        } @else if (sup.invitationStatus === 'Sending') {
+                          <span class="text-muted">In progress</span>
+                        } @else {
+                          <span class="text-muted">—</span>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          @if (canSendInvitations()) {
+            <div class="card-actions-footer">
+              <button
+                type="button"
+                class="erp-btn erp-btn-success"
+                [disabled]="actionLoading() || selectedInvitationSupplierIds().length === 0"
+                (click)="sendInvitations()"
+              >
+                <i class="pi pi-send"></i>
+                <span>Send / Retry Selected Invitations</span>
+              </button>
+            </div>
+          }
+        }
+      </div>
+    }
+
+    <!-- STEP 4: Received Quotations -->
+    @if (!isNew() && activeStep() === 'quotations' && rfq()) {
+      <div class="erp-card tab-content-card">
+        <div class="card-section-header with-action">
+          <div>
+            <h3>Received Supplier Quotations</h3>
+            <p class="section-desc">Quotations received via public supplier portal or recorded manually by procurement officers.</p>
+          </div>
+
+          @if (canRecordManualQuote()) {
+            <button
+              type="button"
+              class="erp-btn erp-btn-primary erp-btn-sm"
+              (click)="openManualQuoteModal()"
+            >
+              <i class="pi pi-plus"></i>
+              <span>Record Manual Quotation</span>
+            </button>
+          }
+        </div>
+
+        @if (rfq()!.quotations.length === 0) {
+          <app-empty-state
+            icon="pi pi-inbox"
+            title="No Quotations Received Yet"
+            description="Suppliers have not yet submitted quotations, or no manual quotation has been recorded."
+          ></app-empty-state>
+        } @else {
+          <div class="erp-table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  <th>Quotation Ref</th>
+                  <th>Supplier</th>
+                  <th style="width: 110px;">Status</th>
+                  <th style="width: 120px;">Quote Date</th>
+                  <th style="width: 120px;">Valid Until</th>
+                  <th style="width: 110px;" class="text-right">Subtotal</th>
+                  <th style="width: 110px;" class="text-right">Tax</th>
+                  <th style="width: 130px;" class="text-right">Total Amount</th>
+                  <th style="width: 90px;" class="text-center">Entry</th>
+                  <th style="width: 130px;" class="text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (q of rfq()!.quotations; track q.id) {
+                  <tr [class.row-highlight-success]="q.status === 'Approved'" [class.row-muted]="q.status === 'Rejected'">
+                    <td class="font-medium">{{ q.quotationReference }}</td>
+                    <td>
+                      <div>{{ q.supplierName }}</div>
+                      <small class="text-muted">{{ q.supplierCode }}</small>
+                    </td>
+                    <td>
+                      <span
+                        class="badge"
+                        [ngClass]="{
+                          'badge-success': q.status === 'Approved',
+                          'badge-info': q.status === 'Submitted' || q.status === 'UnderReview',
+                          'badge-danger': q.status === 'Rejected',
+                          'badge-warning': q.status === 'Draft'
+                        }"
+                      >
+                        {{ q.status }}
+                      </span>
+                    </td>
+                    <td>{{ q.quotationDate | date:'mediumDate' }}</td>
+                    <td>
+                      <span [class.text-danger]="q.isExpired">{{ q.validUntil | date:'mediumDate' }}</span>
+                      @if (q.isExpired) {
+                        <small class="badge badge-danger ml-1">Expired</small>
+                      }
+                    </td>
+                    <td class="text-right">{{ q.subTotal | number:'1.2-2' }}</td>
+                    <td class="text-right">{{ q.taxAmount | number:'1.2-2' }}</td>
+                    <td class="text-right font-medium">{{ q.totalAmount | number:'1.2-2' }} {{ q.currencyCode }}</td>
+                    <td class="text-center">
+                      <span class="badge badge-light">{{ q.isManualEntry ? 'Manual' : 'Portal' }}</span>
+                    </td>
+                    <td class="text-center">
+                      @if (q.status === 'Submitted' || q.status === 'UnderReview') {
+                        @if (canApproveReject()) {
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-xs erp-btn-success mr-1"
+                            title="Approve Quotation"
+                            [disabled]="actionLoading() || q.isExpired"
+                            (click)="openDecisionModal(q, 'approve')"
+                          >
+                            <i class="pi pi-check"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-xs erp-btn-danger"
+                            title="Reject Quotation"
+                            [disabled]="actionLoading()"
+                            (click)="openDecisionModal(q, 'reject')"
+                          >
+                            <i class="pi pi-times"></i>
+                          </button>
+                        } @else {
+                          <small class="text-muted">4-Eyes Review</small>
+                        }
+                      } @else if (q.status === 'Approved') {
+                        <span class="text-success font-medium"><i class="pi pi-check-circle"></i> Awarded</span>
+                      } @else if (q.status === 'Rejected') {
+                        <span class="text-muted"><i class="pi pi-times-circle"></i> Rejected</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- STEP 5: Comparison Matrix -->
+    @if (!isNew() && activeStep() === 'comparison' && rfq()) {
+      <div class="erp-card tab-content-card">
+        <div class="card-section-header">
+          <h3>Bid Comparison Matrix</h3>
+          <p class="section-desc">Side-by-side evaluation of all submitted bids with automatic lowest-price analysis.</p>
+        </div>
+
+        @if (!canCompare()) {
+          <app-empty-state
+            icon="pi pi-lock"
+            title="Comparison Access Restricted"
+            description="You do not have permission to view quotation comparisons for this RFQ."
+          ></app-empty-state>
+        } @else if (matrixLoading()) {
+          <app-loading-state message="Evaluating bids and calculating comparison matrix..."></app-loading-state>
+        } @else if (!comparisonMatrix() || comparisonMatrix()!.suppliers.length === 0) {
+          <app-empty-state
+            icon="pi pi-chart-bar"
+            title="Insufficient Quotations for Comparison"
+            description="At least one submitted quotation is required to generate the comparison matrix."
+          ></app-empty-state>
+        } @else {
+          <!-- Summary Cards -->
+          <div class="matrix-summary-grid">
+            @for (quote of comparisonMatrix()!.suppliers; track quote.quotationId) {
+              <div
+                class="quote-summary-card"
+                [class.is-lowest]="getLowestOverallQuotationId() === quote.quotationId"
+                [class.is-approved]="quote.status === 'Approved'"
+              >
+                @if (getLowestOverallQuotationId() === quote.quotationId) {
+                  <div class="lowest-bid-badge">
+                    <i class="pi pi-star-fill"></i> Lowest Overall Bid
+                  </div>
+                }
+                <h4>{{ quote.supplierName }}</h4>
+                <div class="ref-text">{{ quote.quotationReference }}</div>
+                <div class="total-price">{{ quote.totalAmount | number:'1.2-2' }} {{ quote.currencyCode }}</div>
+                <div class="status-row">
+                  <span class="badge" [ngClass]="quote.status === 'Approved' ? 'badge-success' : 'badge-info'">{{ quote.status }}</span>
+                  @if (quote.isExpired) {
+                    <span class="badge badge-danger">Expired</span>
+                  }
+                </div>
+                @if (quote.status === 'Submitted' || quote.status === 'UnderReview') {
+                  <div class="card-actions">
+                    @if (canApproveReject()) {
+                      <button
+                        type="button"
+                        class="erp-btn erp-btn-sm erp-btn-success w-full mb-1"
+                        [disabled]="actionLoading() || quote.isExpired"
+                        (click)="openMatrixDecisionModal(quote, 'approve')"
+                      >
+                        <i class="pi pi-check"></i>
+                        <span>Award / Approve</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="erp-btn erp-btn-sm erp-btn-danger w-full"
+                        [disabled]="actionLoading()"
+                        (click)="openMatrixDecisionModal(quote, 'reject')"
+                      >
+                        <i class="pi pi-times"></i>
+                        <span>Reject</span>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Product Line Comparison Table -->
+          <h4 class="mt-4 mb-2 font-medium">Line-by-Line Breakdown</h4>
+          <div class="erp-table-responsive">
+            <table class="erp-table matrix-table">
+              <thead>
+                <tr>
+                  <th style="min-width: 200px;">Product Item</th>
+                  <th style="width: 90px;" class="text-right">Qty</th>
+                  <th style="width: 70px;">UOM</th>
+                  @for (col of comparisonMatrix()!.suppliers; track col.quotationId) {
+                    <th class="supplier-col" [class.col-lowest]="getLowestOverallQuotationId() === col.quotationId">
+                      <div class="col-title">{{ col.supplierName }}</div>
+                      <small class="col-ref">{{ col.quotationReference }}</small>
+                    </th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of comparisonMatrix()!.lines; track row.rfqLineId) {
+                  <tr>
+                    <td>
+                      <div class="font-medium">{{ row.productName }}</div>
+                      <small class="text-muted">{{ row.productCode }}</small>
+                    </td>
+                    <td class="text-right font-medium">{{ row.requestedQuantity | number:'1.2-2' }}</td>
+                    <td><span class="badge badge-light">{{ row.requestedUomCode }}</span></td>
+
+                    @for (bid of row.bids; track bid.quotationId) {
+                      <td class="text-right bid-cell" [class.lowest-bid-cell]="getLowestBidForLine(row) === bid.quotationId">
+                        @if (bid.unitPrice > 0) {
+                          <div class="bid-unit-price font-medium">
+                            {{ bid.unitPrice | number:'1.2-2' }}
+                            @if (getLowestBidForLine(row) === bid.quotationId) {
+                              <i class="pi pi-check-circle text-success" title="Lowest Unit Price"></i>
+                            }
+                          </div>
+                          <div class="bid-total text-muted">Total: {{ bid.lineTotal | number:'1.2-2' }}</div>
+                          @if (bid.leadTimeDays) {
+                            <small class="text-muted">{{ bid.leadTimeDays }}d delivery</small>
+                          }
+                        } @else {
+                          <span class="text-muted">—</span>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  }
+
+  <!-- Manual Quotation Modal Dialog -->
+  @if (manualQuoteModalVisible()) {
+    <div class="modal-backdrop">
+      <div class="modal-content erp-card">
+        <div class="modal-header">
+          <h3>Record Manual Supplier Quotation</h3>
+          <button type="button" class="close-btn" (click)="closeManualQuoteModal()">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="required">Supplier</label>
+              <select
+                class="erp-select"
+                [ngModel]="manualSupplierId()"
+                (ngModelChange)="manualSupplierId.set($event)"
+              >
+                <option value="">-- Select Supplier --</option>
+                @for (s of suppliers(); track s.supplierId) {
+                  <option [value]="s.supplierId">{{ s.supplierCode }} - {{ s.supplierName }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="required">Quotation Reference #</label>
+              <input
+                type="text"
+                class="erp-input"
+                placeholder="e.g. QTE-2026-9921"
+                [ngModel]="manualReference()"
+                (ngModelChange)="manualReference.set($event)"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="required">Quotation Date</label>
+              <input
+                type="date"
+                class="erp-input"
+                [ngModel]="manualDate()"
+                (ngModelChange)="manualDate.set($event)"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="required">Valid Until Date</label>
+              <input
+                type="date"
+                class="erp-input"
+                [ngModel]="manualValidUntil()"
+                (ngModelChange)="manualValidUntil.set($event)"
+              />
+            </div>
+
+            <div class="form-group full-width">
+              <label>Remarks / Notes</label>
+              <input
+                type="text"
+                class="erp-input"
+                placeholder="Offline submission details..."
+                [ngModel]="manualNotes()"
+                (ngModelChange)="manualNotes.set($event)"
+              />
+            </div>
+          </div>
+
+          <h4 class="mt-3 mb-2 font-medium">Quoted Item Prices</h4>
+          <div class="erp-table-responsive">
+            <table class="erp-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th style="width: 80px;" class="text-right">Qty</th>
+                  <th style="width: 120px;" class="text-right required">Unit Price</th>
+                  <th style="width: 90px;" class="text-right">Disc %</th>
+                  <th style="width: 90px;" class="text-right">Tax %</th>
+                  <th style="width: 100px;" class="text-right">Lead Time (d)</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of manualLines(); track line.rfqLineId) {
+                  <tr>
+                    <td>{{ line.productName }}</td>
+                    <td class="text-right">{{ line.quantity | number:'1.2-2' }} {{ line.uomCode }}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        class="erp-input text-right"
+                        [(ngModel)]="line.unitPrice"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="any"
+                        class="erp-input text-right"
+                        [(ngModel)]="line.discountPct"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="any"
+                        class="erp-input text-right"
+                        [(ngModel)]="line.taxRate"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        class="erp-input text-right"
+                        [(ngModel)]="line.leadTimeDays"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        class="erp-input"
+                        [(ngModel)]="line.technicalRemarks"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="erp-btn erp-btn-secondary" (click)="closeManualQuoteModal()">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="erp-btn erp-btn-primary"
+            [disabled]="actionLoading() || !manualSupplierId() || !manualReference()"
+            (click)="submitManualQuotation()"
+          >
+            <i class="pi pi-check"></i>
+            <span>Save Manual Quotation</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Decision (Approve / Reject) Modal Dialog -->
+  @if (decisionModalVisible() && selectedQuotation()) {
+    <div class="modal-backdrop">
+      <div class="modal-content erp-card modal-sm">
+        <div class="modal-header">
+          <h3>{{ decisionType() === 'approve' ? 'Approve & Award Quotation' : 'Reject Quotation' }}</h3>
+          <button type="button" class="close-btn" (click)="closeDecisionModal()">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="decision-info-box">
+            <div><strong>Supplier:</strong> {{ selectedQuotation()!.supplierName }}</div>
+            <div><strong>Reference:</strong> {{ selectedQuotation()!.quotationReference }}</div>
+            <div><strong>Total Amount:</strong> {{ selectedQuotation()!.totalAmount | number:'1.2-2' }} {{ selectedQuotation()!.currencyCode }}</div>
+          </div>
+
+          <div class="form-group mt-3">
+            <label [class.required]="decisionType() === 'reject'">
+              {{ decisionType() === 'approve' ? 'Approval Remarks & Justification' : 'Rejection Reason' }}
+            </label>
+            <textarea
+              rows="3"
+              class="erp-input"
+              [placeholder]="decisionType() === 'approve' ? 'e.g. Selected based on lowest compliant commercial bid and acceptable delivery timeline.' : 'Explain why this quotation is rejected...'"
+              [ngModel]="decisionRemarks()"
+              (ngModelChange)="decisionRemarks.set($event)"
+            ></textarea>
+          </div>
+
+          @if (decisionType() === 'approve') {
+            <div class="checkbox-group mt-2">
+              <label>
+                <input
+                  type="checkbox"
+                  [ngModel]="decisionAwardRfq()"
+                  (ngModelChange)="decisionAwardRfq.set($event)"
+                />
+                <span class="ml-2 font-medium">Transition RFQ Status to "Awarded"</span>
+              </label>
+            </div>
+          }
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="erp-btn erp-btn-secondary" (click)="closeDecisionModal()">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="erp-btn"
+            [ngClass]="decisionType() === 'approve' ? 'erp-btn-success' : 'erp-btn-danger'"
+            [disabled]="actionLoading() || (decisionType() === 'reject' && !decisionRemarks())"
+            (click)="submitDecision()"
+          >
+            <i class="pi" [ngClass]="decisionType() === 'approve' ? 'pi-check' : 'pi-times'"></i>
+            <span>{{ decisionType() === 'approve' ? 'Confirm Approval' : 'Confirm Rejection' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Confirmation Dialog -->
+  <app-confirmation-dialog
+    [(visible)]="confirmDialogVisible"
+    [config]="confirmDialogConfig()"
+    [loading]="actionLoading()"
+    (confirmed)="executeConfirmedAction()"
+    (cancelled)="cancelConfirmation()"
+  ></app-confirmation-dialog>
+  }
+</div>

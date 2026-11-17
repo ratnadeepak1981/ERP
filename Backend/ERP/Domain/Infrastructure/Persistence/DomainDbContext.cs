@@ -144,6 +144,21 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.Procurement.Approval.ApprovalAuditRecord> ApprovalAuditRecords
         => Set<Domain.Features.Procurement.Approval.ApprovalAuditRecord>();
 
+    public DbSet<Domain.Features.Procurement.RequestForQuotation.RequestForQuotation> RequestForQuotations
+        => Set<Domain.Features.Procurement.RequestForQuotation.RequestForQuotation>();
+
+    public DbSet<Domain.Features.Procurement.RequestForQuotation.RequestForQuotationLine> RequestForQuotationLines
+        => Set<Domain.Features.Procurement.RequestForQuotation.RequestForQuotationLine>();
+
+    public DbSet<Domain.Features.Procurement.RequestForQuotation.RFQSupplier> RFQSuppliers
+        => Set<Domain.Features.Procurement.RequestForQuotation.RFQSupplier>();
+
+    public DbSet<Domain.Features.Procurement.RequestForQuotation.SupplierQuotation> SupplierQuotations
+        => Set<Domain.Features.Procurement.RequestForQuotation.SupplierQuotation>();
+
+    public DbSet<Domain.Features.Procurement.RequestForQuotation.SupplierQuotationLine> SupplierQuotationLines
+        => Set<Domain.Features.Procurement.RequestForQuotation.SupplierQuotationLine>();
+
     public DbSet<DomainAuditRecord> DomainAuditRecords
         => Set<DomainAuditRecord>();
 

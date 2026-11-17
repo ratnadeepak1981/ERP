@@ -371,6 +371,28 @@ public static class PermissionCatalogue
         AddTenant(permissions, "PROCUREMENT.SETTINGS.EDIT", "Edit Procurement Approval Settings", "Procurement",
             "Allows editing procurement approval settings.");
 
+        // Request for Quotation (RFQ)
+        AddTenant(permissions, "RFQ.VIEW", "View Request for Quotation", "Procurement",
+            "Allows viewing RFQ registers, headers, and lines.");
+        AddTenant(permissions, "RFQ.CREATE", "Create Request for Quotation", "Procurement",
+            "Allows creating RFQ drafts.");
+        AddTenant(permissions, "RFQ.EDIT", "Edit Request for Quotation", "Procurement",
+            "Allows editing RFQ headers and lines.");
+        AddTenant(permissions, "RFQ.SUPPLIER.MANAGE", "Manage RFQ Suppliers", "Procurement",
+            "Allows adding or removing suppliers from RFQs.");
+        AddTenant(permissions, "RFQ.SEND", "Send RFQ Invitations", "Procurement",
+            "Allows sending official RFQ email invitations to suppliers.");
+        AddTenant(permissions, "RFQ.QUOTATION.RECORD", "Record Supplier Quotation", "Procurement",
+            "Allows recording supplier quotation bids.");
+        AddTenant(permissions, "RFQ.QUOTATION.VIEW", "View Supplier Quotations", "Procurement",
+            "Allows viewing submitted supplier quotations.");
+        AddTenant(permissions, "RFQ.COMPARE", "Compare Quotations", "Procurement",
+            "Allows accessing and evaluating the side-by-side quotation comparison matrix.");
+        AddTenant(permissions, "RFQ.APPROVE", "Approve Quotation", "Procurement",
+            "Allows approving/awarding supplier quotations.");
+        AddTenant(permissions, "RFQ.REJECT", "Reject Quotation", "Procurement",
+            "Allows rejecting supplier quotations or cancelling RFQs.");
+
         // =========================
         // Inventory
         // =========================

@@ -257,6 +257,7 @@
           [allowAddRow]="false"
           [allowDeleteRow]="editingDraft()"
           [onRowCalculate]="calculateRow"
+          (cellValueChange)="onTableCellValueChange($event)"
           (dataChange)="onDraftLinesChange($event)"
           subtotalField="lineTotal"
           subtotalLabel="Total Receipt Value"

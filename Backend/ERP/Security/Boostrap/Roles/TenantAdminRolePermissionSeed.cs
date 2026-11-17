@@ -96,6 +96,17 @@ public static class TenantAdminRolePermissionSeed
             "PROCUREMENT.SETTINGS.VIEW",
             "PROCUREMENT.SETTINGS.EDIT",
 
+            "RFQ.VIEW",
+            "RFQ.CREATE",
+            "RFQ.EDIT",
+            "RFQ.SUPPLIER.MANAGE",
+            "RFQ.SEND",
+            "RFQ.QUOTATION.RECORD",
+            "RFQ.QUOTATION.VIEW",
+            "RFQ.COMPARE",
+            "RFQ.APPROVE",
+            "RFQ.REJECT",
+
             "CATEGORY.VIEW",
             "CATEGORY.CREATE",
             "CATEGORY.EDIT",
