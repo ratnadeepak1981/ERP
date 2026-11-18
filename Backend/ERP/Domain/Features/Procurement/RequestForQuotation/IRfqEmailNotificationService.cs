@@ -30,4 +30,8 @@ public interface IRfqEmailNotificationService
             context.ResponseDeadline,
             ct);
     }
+
+    Task<RfqEmailDispatchResult> SendAwardNotificationAsync(
+        RfqAwardEmailContext context,
+        CancellationToken ct = default);
 }

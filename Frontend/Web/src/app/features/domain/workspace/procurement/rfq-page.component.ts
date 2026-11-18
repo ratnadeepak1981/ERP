@@ -30,9 +30,12 @@ import {
   RfqLineDto,
   RfqSupplierDto,
   SupplierQuotationDto,
+  RfqComparisonSupplierBidDto,
   RfqComparisonMatrixDto,
   RfqComparisonLineDto,
   RfqComparisonLineBidDto,
+  RfqEvaluationFilterState,
+  RfqEvaluationSortOption,
   CreateRfqRequest,
   UpdateRfqRequest,
   CreateRfqLineRequest,
@@ -132,6 +135,14 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     return this.suppliers().filter(supplier => stagedIds.has(supplier.supplierId));
   });
 
+  readonly approvedQuotation = computed(() =>
+    this.rfq()?.quotations?.find(q => getSupplierQuotationStatusName(q.status) === 'Approved')
+  );
+
+  readonly winningSupplierId = computed(() =>
+    this.approvedQuotation()?.supplierId
+  );
+
   readonly eligibleInvitationSuppliers = computed(() =>
     (this.rfq()?.invitedSuppliers || []).filter(supplier => this.isInvitationEligible(supplier))
   );
@@ -183,6 +194,160 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   // Bid Comparison Matrix
   readonly comparisonMatrix = signal<RfqComparisonMatrixDto | null>(null);
   readonly matrixLoading = signal<boolean>(false);
+
+  // Evaluation Dashboard State (Phase 1)
+  readonly evaluationFilterState = signal<RfqEvaluationFilterState>({
+    searchTerm: '',
+    statusFilter: 'ALL',
+    expiryFilter: 'ALL',
+    maxLeadTimeDays: null,
+    minBaseAmount: null,
+    maxBaseAmount: null,
+    currencyFilter: 'ALL',
+    sortBy: 'PRICE_ASC',
+    viewMode: 'grid'
+  });
+
+  readonly evaluationActiveTab = signal<'cards' | 'commercial' | 'matrix'>('cards');
+
+  readonly availableCurrencies = computed<string[]>(() => {
+    const m = this.comparisonMatrix();
+    if (!m || !m.suppliers) return [];
+    const set = new Set<string>();
+    for (const s of m.suppliers) {
+      if (s.currencyCode) set.add(s.currencyCode);
+    }
+    return Array.from(set).sort();
+  });
+
+  readonly filteredSuppliers = computed<RfqComparisonSupplierBidDto[]>(() => {
+    const m = this.comparisonMatrix();
+    if (!m || !m.suppliers) return [];
+
+    const f = this.evaluationFilterState();
+    let list = [...m.suppliers];
+
+    // Search filter
+    if (f.searchTerm && f.searchTerm.trim()) {
+      const q = f.searchTerm.trim().toLowerCase();
+      list = list.filter(s =>
+        (s.supplierName && s.supplierName.toLowerCase().includes(q)) ||
+        (s.supplierCode && s.supplierCode.toLowerCase().includes(q)) ||
+        (s.quotationReference && s.quotationReference.toLowerCase().includes(q))
+      );
+    }
+
+    // Status filter
+    if (f.statusFilter && f.statusFilter !== 'ALL') {
+      list = list.filter(s => s.status === f.statusFilter);
+    }
+
+    // Expiry filter
+    if (f.expiryFilter === 'ACTIVE') {
+      list = list.filter(s => !s.isExpired);
+    } else if (f.expiryFilter === 'EXPIRED') {
+      list = list.filter(s => s.isExpired);
+    }
+
+    // Lead time filter (maximum supplier fulfillment lead time)
+    if (f.maxLeadTimeDays !== null && f.maxLeadTimeDays !== undefined && f.maxLeadTimeDays > 0) {
+      list = list.filter(s =>
+        s.maxLeadTimeDays !== null &&
+        s.maxLeadTimeDays !== undefined &&
+        s.maxLeadTimeDays <= f.maxLeadTimeDays!
+      );
+    }
+
+    // Min base amount
+    if (f.minBaseAmount !== null && f.minBaseAmount !== undefined && f.minBaseAmount >= 0) {
+      list = list.filter(s => s.baseTotalAmount >= f.minBaseAmount!);
+    }
+
+    // Max base amount
+    if (f.maxBaseAmount !== null && f.maxBaseAmount !== undefined && f.maxBaseAmount > 0) {
+      list = list.filter(s => s.baseTotalAmount <= f.maxBaseAmount!);
+    }
+
+    // Currency filter
+    if (f.currencyFilter && f.currencyFilter !== 'ALL') {
+      list = list.filter(s => s.currencyCode === f.currencyFilter);
+    }
+
+    // Sorting
+    list.sort((a, b) => {
+      switch (f.sortBy) {
+        case 'PRICE_ASC': {
+          const aValid = a.hasValidExchangeRate && a.baseTotalAmount > 0;
+          const bValid = b.hasValidExchangeRate && b.baseTotalAmount > 0;
+          if (!aValid && !bValid) return 0;
+          if (!aValid) return 1;
+          if (!bValid) return -1;
+          return a.baseTotalAmount - b.baseTotalAmount;
+        }
+        case 'PRICE_DESC': {
+          const aValid = a.hasValidExchangeRate && a.baseTotalAmount > 0;
+          const bValid = b.hasValidExchangeRate && b.baseTotalAmount > 0;
+          if (!aValid && !bValid) return 0;
+          if (!aValid) return 1;
+          if (!bValid) return -1;
+          return b.baseTotalAmount - a.baseTotalAmount;
+        }
+        case 'LEAD_TIME_ASC': {
+          const aLead = a.maxLeadTimeDays ?? 999999;
+          const bLead = b.maxLeadTimeDays ?? 999999;
+          return aLead - bLead;
+        }
+        case 'VALIDITY_DESC': {
+          const aTime = a.validUntil ? new Date(a.validUntil).getTime() : 0;
+          const bTime = b.validUntil ? new Date(b.validUntil).getTime() : 0;
+          return bTime - aTime;
+        }
+        case 'NAME_ASC':
+          return (a.supplierName || '').localeCompare(b.supplierName || '');
+        default:
+          return 0;
+      }
+    });
+
+    return list;
+  });
+
+  readonly evaluationSummaryMetrics = computed(() => {
+    const m = this.comparisonMatrix();
+    if (!m || !m.suppliers || m.suppliers.length === 0) return null;
+
+    const allSuppliers = m.suppliers;
+    const activeSuppliers = allSuppliers.filter(s => s.status !== 'Draft' && s.status !== 'Rejected');
+    const validBids = activeSuppliers.filter(s => s.hasValidExchangeRate && s.baseTotalAmount > 0);
+    const sortedByPrice = [...validBids].sort((a, b) => a.baseTotalAmount - b.baseTotalAmount);
+
+    const lowestBid = sortedByPrice.length > 0 ? sortedByPrice[0] : null;
+    const highestBid = sortedByPrice.length > 0 ? sortedByPrice[sortedByPrice.length - 1] : null;
+    const priceSpread = lowestBid && highestBid ? Math.max(0, highestBid.baseTotalAmount - lowestBid.baseTotalAmount) : 0;
+    const spreadPercentage = lowestBid && highestBid && lowestBid.baseTotalAmount > 0
+      ? (priceSpread / lowestBid.baseTotalAmount) * 100
+      : 0;
+
+    const activeLeadTimes = activeSuppliers
+      .map(s => s.maxLeadTimeDays)
+      .filter((lead): lead is number => lead !== null && lead !== undefined);
+    const fastestOrderDelivery = activeLeadTimes.length > 0 ? Math.min(...activeLeadTimes) : null;
+
+    const expiredCount = allSuppliers.filter(s => s.isExpired).length;
+    const hasExchangeRateWarning = allSuppliers.some(s => s.hasValidExchangeRate === false);
+
+    return {
+      totalSubmissions: allSuppliers.length,
+      activeBidsCount: activeSuppliers.length,
+      lowestBid,
+      highestBid,
+      priceSpread,
+      spreadPercentage,
+      fastestOrderDelivery,
+      expiredCount,
+      hasExchangeRateWarning
+    };
+  });
 
   readonly comparisonAnalysis = computed(() => {
     const m = this.comparisonMatrix();
@@ -355,6 +520,10 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     const r = this.rfq();
     if (!r) return false;
     const status = getRfqStatusName(r.status);
+    if (status === 'Awarded') {
+      return r.invitedSuppliers.some(supplier => this.isInvitationEligible(supplier)) &&
+        (isPrivileged || this.authService.hasPermission('RFQ.AWARD') || this.authService.hasPermission('RFQ.SEND'));
+    }
     return (status === 'Draft' || status === 'Issued') &&
       r.invitedSuppliers.some(supplier => this.isInvitationEligible(supplier)) &&
       (isPrivileged || this.authService.hasPermission('RFQ.SEND'));
@@ -1062,6 +1231,13 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   }
 
   isInvitationEligible(supplier: RfqSupplierDto): boolean {
+    const rfqStatus = getRfqStatusName(this.rfq()?.status);
+    if (rfqStatus === 'Awarded') {
+      const isWinner = supplier.supplierId === this.winningSupplierId();
+      if (!isWinner) return false;
+      return supplier.awardNotificationStatus === 'Failed' ||
+        (!supplier.awardNotificationStatus && !!supplier.contactEmail);
+    }
     const invStatus = getSupplierInvitationStatusName(supplier.invitationStatus);
     return invStatus === 'Pending' || invStatus === 'Failed';
   }
@@ -1122,6 +1298,63 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     const recipientSummary = selectedSuppliers
       .map(supplier => `${supplier.supplierName} (${supplier.contactEmail || 'no contact email'})`)
       .join('; ');
+
+    const rfqStatus = getRfqStatusName(currentRfq.status);
+    if (rfqStatus === 'Awarded') {
+      const winner = selectedSuppliers.find(s => s.supplierId === this.winningSupplierId());
+      if (!winner) {
+        this.message.set({ text: 'Only the winning supplier can receive the award notification.', severity: 'warn' });
+        return;
+      }
+      const failureReasonText = winner.awardNotificationFailureReason
+        ? ` Previous failure: "${winner.awardNotificationFailureReason}".`
+        : '';
+      const isRetry = winner.awardNotificationStatus === 'Failed';
+
+      this.confirmDialogConfig.set({
+        action: 'send-award-notification',
+        title: isRetry ? 'Retry RFQ Award Notification' : 'Send RFQ Award Notification',
+        message: `Send award notification email to winning supplier: ${winner.supplierName} (${winner.contactEmail || 'no contact email'}).${failureReasonText} Award notification confirms quotation selection without disclosing competing quotations or prices. Purchase Order details will be communicated separately.`,
+        confirmLabel: isRetry ? 'Retry Award Notification' : 'Send Award Notification',
+        confirmSeverity: 'primary',
+        cancelLabel: 'Cancel',
+        confirmIcon: isRetry ? 'pi pi-refresh' : 'pi pi-send'
+      });
+      this.confirmAction.set(() => {
+        this.actionLoading.set(true);
+        const request: SendRfqInvitationsRequest = {
+          supplierIds: [winner.supplierId],
+          portalBaseUrl: window.location.origin
+        };
+
+        this.rfqService.sendInvitations(scope.companyId, scope.branchId, id, request).subscribe({
+          next: resp => {
+            this.actionLoading.set(false);
+            this.confirmDialogVisible.set(false);
+            const summary = resp.sentCount > 0
+              ? `Award notification email accepted by SMTP for ${winner.supplierName}.`
+              : `Award notification failed: ${resp.messages.join(' ')}`;
+            this.message.set({
+              text: summary,
+              severity: resp.sentCount > 0 ? 'success' : 'danger'
+            });
+            this.loadRfq(id);
+          },
+          error: err => {
+            this.actionLoading.set(false);
+            this.confirmDialogVisible.set(false);
+            this.message.set({
+              text: err?.error?.message || err?.message || 'Failed to send award notification.',
+              severity: 'danger'
+            });
+            this.loadRfq(id);
+          }
+        });
+      });
+      this.confirmDialogVisible.set(true);
+      return;
+    }
+
     this.confirmDialogConfig.set({
       action: 'send-invitations',
       title: 'Send RFQ Invitations',
@@ -1181,6 +1414,11 @@ export class RfqPageComponent implements OnInit, OnDestroy {
       });
     });
     this.confirmDialogVisible.set(true);
+  }
+
+  retryAwardNotificationFromQuote(quote: SupplierQuotationDto): void {
+    if (!quote || quote.status !== 'Approved') return;
+    this.sendSingleInvitation(quote.supplierId);
   }
 
   openPortalAccessModal(supplier?: RfqSupplierDto): void {
@@ -1399,12 +1637,114 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     let lowestId: string | null = null;
     let lowestAmt = Number.MAX_VALUE;
     for (const s of m.suppliers) {
-      if (s.baseTotalAmount > 0 && s.baseTotalAmount < lowestAmt) {
+      if (s.hasValidExchangeRate && s.baseTotalAmount > 0 && s.baseTotalAmount < lowestAmt) {
         lowestAmt = s.baseTotalAmount;
         lowestId = s.quotationId;
       }
     }
     return lowestId;
+  }
+
+  isLowestPriceForLine(row: RfqComparisonLineDto | any, quotationId: string): boolean {
+    if (!row || !row.bids || row.bids.length === 0) return false;
+    const currentBid = row.bids.find((b: any) => b.quotationId === quotationId);
+    if (!currentBid || !(currentBid.unitPrice > 0)) return false;
+
+    const supplier = this.comparisonMatrix()?.suppliers.find(s => s.quotationId === quotationId);
+    if (supplier && !supplier.hasValidExchangeRate) return false;
+
+    const validBids = row.bids.filter((b: any) => {
+      if (!(b.unitPrice > 0)) return false;
+      const s = this.comparisonMatrix()?.suppliers.find(sup => sup.quotationId === b.quotationId);
+      return !s || s.hasValidExchangeRate !== false;
+    });
+
+    if (validBids.length === 0) return false;
+    const minBasePrice = Math.min(...validBids.map((b: any) => b.baseUnitPrice));
+    return Math.abs(currentBid.baseUnitPrice - minBasePrice) < 0.0001;
+  }
+
+  isTiedLowestPriceForLine(row: RfqComparisonLineDto | any, quotationId: string): boolean {
+    if (!this.isLowestPriceForLine(row, quotationId)) return false;
+    const currentBid = row.bids.find((b: any) => b.quotationId === quotationId);
+    if (!currentBid) return false;
+
+    const matchingBids = row.bids.filter((b: any) =>
+      b.unitPrice > 0 && Math.abs(b.baseUnitPrice - currentBid.baseUnitPrice) < 0.0001
+    );
+    return matchingBids.length > 1;
+  }
+
+  setEvaluationSearch(term: string): void {
+    this.evaluationFilterState.update(s => ({ ...s, searchTerm: term }));
+  }
+
+  setEvaluationStatus(status: string): void {
+    this.evaluationFilterState.update(s => ({ ...s, statusFilter: status }));
+  }
+
+  setEvaluationExpiry(expiry: 'ALL' | 'ACTIVE' | 'EXPIRED'): void {
+    this.evaluationFilterState.update(s => ({ ...s, expiryFilter: expiry }));
+  }
+
+  setEvaluationMaxLeadTime(leadTime: number | null): void {
+    this.evaluationFilterState.update(s => ({ ...s, maxLeadTimeDays: leadTime }));
+  }
+
+  setEvaluationMinBaseAmount(amt: number | null): void {
+    this.evaluationFilterState.update(s => ({ ...s, minBaseAmount: amt }));
+  }
+
+  setEvaluationMaxBaseAmount(amt: number | null): void {
+    this.evaluationFilterState.update(s => ({ ...s, maxBaseAmount: amt }));
+  }
+
+  setEvaluationCurrency(currency: string): void {
+    this.evaluationFilterState.update(s => ({ ...s, currencyFilter: currency }));
+  }
+
+  setEvaluationSort(sort: RfqEvaluationSortOption): void {
+    this.evaluationFilterState.update(s => ({ ...s, sortBy: sort }));
+  }
+
+  setEvaluationViewMode(mode: 'grid' | 'list'): void {
+    this.evaluationFilterState.update(s => ({ ...s, viewMode: mode }));
+  }
+
+  setEvaluationTab(tab: 'cards' | 'commercial' | 'matrix'): void {
+    this.evaluationActiveTab.set(tab);
+  }
+
+  resetEvaluationFilters(): void {
+    this.evaluationFilterState.set({
+      searchTerm: '',
+      statusFilter: 'ALL',
+      expiryFilter: 'ALL',
+      maxLeadTimeDays: null,
+      minBaseAmount: null,
+      maxBaseAmount: null,
+      currencyFilter: 'ALL',
+      sortBy: 'PRICE_ASC',
+      viewMode: this.evaluationFilterState().viewMode
+    });
+  }
+
+  hasActiveEvaluationFilters(): boolean {
+    const f = this.evaluationFilterState();
+    return !!(
+      (f.searchTerm && f.searchTerm.trim()) ||
+      f.statusFilter !== 'ALL' ||
+      f.expiryFilter !== 'ALL' ||
+      f.maxLeadTimeDays !== null ||
+      f.minBaseAmount !== null ||
+      f.maxBaseAmount !== null ||
+      f.currencyFilter !== 'ALL'
+    );
+  }
+
+  getLeadTimeDisplay(days?: number | null): string {
+    if (days === null || days === undefined) return 'Not Specified';
+    return `${days} ${days === 1 ? 'day' : 'days'}`;
   }
 
   getLowestBidForLine(row: any): string | null {
@@ -1567,12 +1907,18 @@ export class RfqPageComponent implements OnInit, OnDestroy {
       };
 
       this.rfqService.approveQuotation(scope.companyId, scope.branchId, id, quote.id, request).subscribe({
-        next: () => {
+        next: approvedQuote => {
           this.actionLoading.set(false);
           this.closeDecisionModal();
+          let notificationMsg = '';
+          if (approvedQuote?.awardNotificationStatus === 'Sent') {
+            notificationMsg = ` Award notification email was sent to ${approvedQuote.supplierName}.`;
+          } else if (approvedQuote?.awardNotificationStatus === 'Failed') {
+            notificationMsg = ` Note: Award email delivery failed (${approvedQuote.awardNotificationFailureReason || 'SMTP error'}). You can retry sending from the Invitations tab.`;
+          }
           this.message.set({
-            text: `Quotation ${quote.quotationReference} from ${quote.supplierName} was approved. RFQ is now Awarded!`,
-            severity: 'success'
+            text: `Quotation ${quote.quotationReference} from ${quote.supplierName} was approved. RFQ is now Awarded!${notificationMsg}`,
+            severity: approvedQuote?.awardNotificationStatus === 'Failed' ? 'warn' : 'success'
           });
           this.loadRfq(id);
           this.loadComparisonMatrix();

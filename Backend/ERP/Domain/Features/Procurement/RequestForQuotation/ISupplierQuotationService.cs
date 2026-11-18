@@ -15,4 +15,5 @@ public interface ISupplierQuotationService
     Task<RfqComparisonMatrixDto> GetComparisonMatrixAsync(Guid rfqId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default);
     Task<SupplierQuotationDto> ApproveQuotationAsync(Guid rfqId, Guid quotationId, ApproveQuotationRequest request, Guid userId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default);
     Task<SupplierQuotationDto> RejectQuotationAsync(Guid rfqId, Guid quotationId, RejectQuotationRequest request, Guid userId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default);
+    Task<SupplierQuotationDto> RetryAwardNotificationAsync(Guid rfqId, Guid quotationId, Guid userId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default);
 }

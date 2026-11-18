@@ -343,6 +343,23 @@ public class RequestForQuotationController : BaseApiController
         return SuccessResponse(result);
     }
 
+    [HttpPost("{id:guid}/quotations/{quotationId:guid}/retry-award-notification")]
+    [RequirePermission("RFQ.SEND")]
+    public async Task<IActionResult> RetryAwardNotification(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        Guid quotationId,
+        CancellationToken ct = default)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        var userId = _currentUserContext.UserId;
+        var result = await _quotationService.RetryAwardNotificationAsync(id, quotationId, userId, authResult.TenantId, companyId, branchId, ct);
+        return SuccessResponse(result);
+    }
+
     private bool CanViewQuotations() =>
         User.HasClaim("permission", "RFQ.QUOTATION.VIEW");
 
