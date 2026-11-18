@@ -71,6 +71,21 @@ public class RfqInvitationEmailContext
     public string? ExternalTenantUnavailableReason { get; set; }
 }
 
+public class RfqAwardEmailContext
+{
+    public string RecipientEmail { get; set; } = string.Empty;
+    public string WinningSupplierName { get; set; } = string.Empty;
+    public string RfqNumber { get; set; } = string.Empty;
+    public string RfqTitle { get; set; } = string.Empty;
+    public string QuotationReference { get; set; } = string.Empty;
+    public string BuyerCompanyName { get; set; } = string.Empty;
+    public DateTime AwardDate { get; set; } = DateTime.UtcNow;
+    public string? BuyerContactName { get; set; }
+    public string? BuyerContactEmail { get; set; }
+    public string? BuyerContactPhone { get; set; }
+    public string? CustomRemarks { get; set; }
+}
+
 public class RecordManualQuotationRequest
 {
     public Guid SupplierId { get; set; }
@@ -207,6 +222,10 @@ public class RfqSupplierDto
     public bool HasToken { get; set; }
     public DateTime? TokenExpiresAt { get; set; }
     public DateTime? ResponseReceivedAt { get; set; }
+    public string? AwardNotificationStatus { get; set; }
+    public DateTime? AwardNotificationSentAt { get; set; }
+    public string? AwardNotificationFailureReason { get; set; }
+    public string? AwardNotificationRecipientEmail { get; set; }
 }
 
 public class SupplierQuotationDto
@@ -238,6 +257,10 @@ public class SupplierQuotationDto
     public DateTime? RejectedAt { get; set; }
     public Guid? RejectedByUserId { get; set; }
     public string? RejectionRemarks { get; set; }
+    public string? AwardNotificationStatus { get; set; }
+    public DateTime? AwardNotificationSentAt { get; set; }
+    public string? AwardNotificationFailureReason { get; set; }
+    public string? AwardNotificationRecipientEmail { get; set; }
     public List<SupplierQuotationLineDto> Lines { get; set; } = new();
 }
 
@@ -313,6 +336,10 @@ public class RfqComparisonMatrixDto
     public string RFQNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string BaseCurrencyCode { get; set; } = string.Empty;
+    public DateTime ClosingDate { get; set; }
+    public DateTime? DeliveryRequiredDate { get; set; }
+    public string? DeliveryTerms { get; set; }
+    public string? Instructions { get; set; }
     public List<RfqComparisonSupplierBidDto> Suppliers { get; set; } = new();
     public List<RfqComparisonLineDto> Lines { get; set; } = new();
 }
@@ -332,8 +359,17 @@ public class RfqComparisonSupplierBidDto
     public decimal ExchangeRate { get; set; }
     public bool HasValidExchangeRate { get; set; } = true;
     public string? CurrencyConversionError { get; set; }
+    public decimal SubTotal { get; set; }
+    public decimal BaseSubTotal { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal BaseDiscountAmount { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal BaseTaxAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal BaseTotalAmount { get; set; }
+    public string? Notes { get; set; }
+    public int? MaxLeadTimeDays { get; set; }
+    public int? MinLeadTimeDays { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public SupplierQuotationStatus Status { get; set; }
     public bool IsManualEntry { get; set; }

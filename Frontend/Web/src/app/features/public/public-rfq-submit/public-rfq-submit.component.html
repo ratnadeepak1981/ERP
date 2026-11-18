@@ -5,9 +5,7 @@
       <div class="brand">
         <span class="logo-mark"><i class="pi pi-shield"></i></span>
         <span class="brand-name">ApexERP Supplier Portal</span>
-        @if (rfqDetails()?.companyName) {
-          <span class="brand-company-tag">· {{ rfqDetails()!.companyName }}</span>
-        }
+        <span class="brand-company-tag">· {{ rfqDetails()?.companyName || 'Buyer Organization' }}</span>
       </div>
       <div class="header-tag">Secure Quotation Submission</div>
     </div>
@@ -66,17 +64,22 @@
     } @else if (rfqDetails()) {
       <!-- RFQ Overview Banner -->
       <div class="portal-card rfq-overview-card">
+        <div class="invitation-header-banner">
+          <div class="inviting-org-eyebrow">
+            <i class="pi pi-building"></i> Invitation to Quote Issued By
+          </div>
+          <h1 class="inviting-org-name">{{ rfqDetails()!.companyName || 'Buyer Organization' }}</h1>
+        </div>
+
         <div class="rfq-meta-header">
           <div class="rfq-meta-title-group">
             <span class="rfq-badge">{{ rfqDetails()!.rfqNumber }}</span>
             <h2>{{ rfqDetails()!.title }}</h2>
           </div>
-          @if (rfqDetails()!.companyName) {
-            <div class="buyer-company-badge">
-              <span class="buyer-label">Invited by:</span>
-              <strong class="buyer-name">{{ rfqDetails()!.companyName }}</strong>
-            </div>
-          }
+          <div class="buyer-company-badge">
+            <span class="buyer-label">Invited by:</span>
+            <strong class="buyer-name">{{ rfqDetails()!.companyName || 'Buyer Organization' }}</strong>
+          </div>
         </div>
 
         <div class="rfq-meta-grid">
@@ -215,8 +218,8 @@
                       step="any"
                       class="portal-input text-right font-medium"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']"
-                      [(ngModel)]="line.quotedQuantity"
-                      (ngModelChange)="onLineChange()"
+                      [ngModel]="line.quotedQuantity"
+                      (ngModelChange)="updateQuotedQuantity(line, $event)"
                       (blur)="markTouched(line.rfqLineId + '.quotedQuantity')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']) {
@@ -232,8 +235,8 @@
                       class="portal-input text-right font-medium"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']"
                       placeholder="0.00"
-                      [(ngModel)]="line.unitPrice"
-                      (ngModelChange)="onLineChange()"
+                      [ngModel]="line.unitPrice"
+                      (ngModelChange)="updateUnitPrice(line, $event)"
                       (blur)="markTouched(line.rfqLineId + '.unitPrice')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']) {
@@ -248,8 +251,8 @@
                       step="any"
                       class="portal-input text-right"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']"
-                      [(ngModel)]="line.discountPercentage"
-                      (ngModelChange)="onLineChange()"
+                      [ngModel]="line.discountPercentage"
+                      (ngModelChange)="updateDiscount(line, $event)"
                       (blur)="markTouched(line.rfqLineId + '.discountPercentage')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']) {
@@ -264,8 +267,8 @@
                       step="any"
                       class="portal-input text-right"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']"
-                      [(ngModel)]="line.taxRate"
-                      (ngModelChange)="onLineChange()"
+                      [ngModel]="line.taxRate"
+                      (ngModelChange)="updateTaxRate(line, $event)"
                       (blur)="markTouched(line.rfqLineId + '.taxRate')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']) {
@@ -279,8 +282,8 @@
                       max="365"
                       class="portal-input text-right"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']"
-                      [(ngModel)]="line.leadTimeDays"
-                      (ngModelChange)="onLineChange()"
+                      [ngModel]="line.leadTimeDays"
+                      (ngModelChange)="updateLeadTime(line, $event)"
                       (blur)="markTouched(line.rfqLineId + '.leadTimeDays')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']) {
@@ -296,7 +299,8 @@
                       class="portal-input"
                       maxlength="500"
                       placeholder="e.g. Origin, brand"
-                      [(ngModel)]="line.technicalRemarks"
+                      [ngModel]="line.technicalRemarks"
+                      (ngModelChange)="updateRemarks(line, $event)"
                     />
                   </td>
                 </tr>

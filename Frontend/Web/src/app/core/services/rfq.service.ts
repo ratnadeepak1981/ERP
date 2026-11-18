@@ -275,6 +275,20 @@ export class RfqService {
       .pipe(map(res => this.normalizeSupplierQuotation(res.data)));
   }
 
+  retryAwardNotification(
+    companyId: string,
+    branchId: string,
+    id: string,
+    quotationId: string
+  ): Observable<SupplierQuotationDto> {
+    return this.http
+      .post<ApiResponse<SupplierQuotationDto>>(
+        this.buildPath(companyId, branchId, `/${id}/quotations/${quotationId}/retry-award-notification`),
+        {}
+      )
+      .pipe(map(res => this.normalizeSupplierQuotation(res.data)));
+  }
+
   // --- Public Supplier Portal ---
 
   getPublicInvitation(token: string): Observable<PublicRfqDetailsDto> {
