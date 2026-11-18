@@ -20,6 +20,8 @@ import { ConfirmationDialogComponent, ConfirmationDialogConfig, ConfirmationDial
 import { AppMaterialEditableDataTableComponent } from '../../../../shared/components/material-editable-data-table/core/app-material-editable-data-table.component';
 import { MaterialLookupConfig, MaterialSelectOption, MaterialTableColumn } from '../../../../shared/components/material-editable-data-table/models/material-data-table.models';
 import { RfqService } from '../../../../core/services/rfq.service';
+import { PurchaseRequisitionService } from '../../../../core/services/purchase-requisition.service';
+import { PurchaseRequisitionDto, PurchaseRequisitionStatus } from '../../../../core/models/purchase-requisition.models';
 import { MasterDataService } from '../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -82,6 +84,8 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   readonly getSupplierQuotationStatusName = getSupplierQuotationStatusName;
 
   readonly rfqService = inject(RfqService);
+  readonly prService = inject(PurchaseRequisitionService);
+  readonly sourceRequisition = signal<PurchaseRequisitionDto | null>(null);
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
@@ -599,6 +603,11 @@ export class RfqPageComponent implements OnInit, OnDestroy {
       this.isNew.set(true);
       this.initDefaultNewForm();
       this.loadMasterData();
+
+      const prId = this.route.snapshot.queryParamMap.get('purchaseRequisitionId');
+      if (prId) {
+        this.loadSourceRequisition(prId);
+      }
     } else {
       this.rfqId.set(idParam);
       this.loadRfq(idParam);
@@ -620,6 +629,101 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     this.formDeliveryRequiredDate.set(defaultDelivery.toISOString().split('T')[0]);
     this.formDeliveryTerms.set('DDP - Delivered Duty Paid to Central Warehouse');
     this.formInstructions.set('All quotes must be submitted in base currency, inclusive of applicable delivery and tax details.');
+  }
+
+  loadSourceRequisition(prId: string): void {
+    const scope = this.getCurrentScope();
+    if (!scope || !scope.companyId || !scope.branchId) {
+      return;
+    }
+
+    this.prService.getRequisition(scope.companyId, scope.branchId, prId).subscribe({
+      next: pr => {
+        if (!pr) return;
+        if (Number(pr.status) !== PurchaseRequisitionStatus.Approved) {
+          this.message.set({
+            text: `Purchase Requisition ${pr.requisitionNumber} is not approved and cannot be routed to RFQ.`,
+            severity: 'warn'
+          });
+          return;
+        }
+
+        this.sourceRequisition.set(pr);
+        this.formTitle.set(`RFQ for Requisition ${pr.requisitionNumber}`);
+
+        const prInstructionTag = `[PR: ${pr.requisitionNumber} Id: ${pr.id}]`;
+        const instructions = pr.notes
+          ? `${prInstructionTag} Requisition requirement: ${pr.notes}`
+          : `${prInstructionTag} Source Requisition requirement.`;
+        this.formInstructions.set(instructions);
+
+        if (pr.requiredDate) {
+          this.formDeliveryRequiredDate.set(pr.requiredDate.split('T')[0]);
+        }
+
+        // Transfer PR lines into draft RFQ lines
+        const lines: DraftRfqLineItem[] = [];
+        let lineIdx = 1;
+        for (const item of pr.items || []) {
+          if (!item.isActive && item.isActive !== undefined) continue;
+          const prod = this.products().find(p => p.productId === item.productId);
+          const uom = this.uoms().find(u => u.unitOfMeasureId === item.unitOfMeasureId);
+          lines.push({
+            lineNumber: lineIdx++,
+            productId: item.productId,
+            productCode: item.productCode || prod?.productCode || '',
+            productName: item.productName || prod?.productName || '',
+            quantity: Number(item.quantity) || 0,
+            unitOfMeasureId: item.unitOfMeasureId || '',
+            unitOfMeasureCode: item.unitOfMeasureCode || uom?.code || '',
+            technicalSpecifications: item.remarks || '',
+            notes: `[PR: ${pr.requisitionNumber} Line: ${item.id}]`
+          });
+        }
+
+        if (lines.length > 0) {
+          this.newRfqLines.set(lines);
+          this.message.set({
+            text: `Pre-populated ${lines.length} requirement line(s) from Requisition ${pr.requisitionNumber}. Review closing date and suppliers before issuing.`,
+            severity: 'info'
+          });
+        }
+      },
+      error: err => {
+        this.message.set({
+          text: err?.error?.message || err?.message || 'Failed to load source purchase requisition.',
+          severity: 'danger'
+        });
+      }
+    });
+  }
+
+  navigateToCreatePurchaseOrder(quote?: any): void {
+    const currentRfq = this.rfq();
+    if (!currentRfq) return;
+    const winningQuote = quote || (currentRfq.quotations || []).find(q =>
+      getSupplierQuotationStatusName(q.status) === 'Approved' ||
+      String(q.status).toLowerCase() === 'approved' ||
+      Number(q.status) === 4
+    );
+    if (!winningQuote) {
+      this.message.set({
+        text: 'No approved winning quotation found to convert to Purchase Order.',
+        severity: 'warn'
+      });
+      return;
+    }
+
+    const quoteId = winningQuote.id || (winningQuote as any).quotationId || (winningQuote as any).supplierQuotationId || '';
+    const branchId = currentRfq.branchId || this.scopeService.selectedBranch()?.id || '';
+
+    this.router.navigate(['/app/procurement/purchase-orders/new'], {
+      queryParams: {
+        rfqId: currentRfq.id,
+        quotationId: quoteId,
+        branchId: branchId
+      }
+    });
   }
 
   loadMasterData(): void {

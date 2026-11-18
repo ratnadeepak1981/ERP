@@ -10,6 +10,7 @@ using Domain.Features.MasterData.Company;
 using Domain.Features.MasterData.PriceCard;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseOrder;
+using Domain.Features.Procurement.Route;
 using ERP.Application.Common.Email;
 using ERP.Application.Features.Procurement.PurchaseOrderFeature;
 using ERP.Application.Features.Procurement.PurchaseOrderFeature.Templates;
@@ -34,6 +35,7 @@ public class PurchaseOrderController : BaseApiController
     private readonly IEmailTemplateEngine _templateEngine;
     private readonly ISupplierRepository _supplierRepository;
     private readonly ICompanyService _companyService;
+    private readonly IProcurementRouteService? _routeService;
 
     private static readonly SortMapping<PurchaseOrder> _sortMapping = new SortMapping<PurchaseOrder>()
         .Add("orderNumber", o => o.OrderNumber, isDefault: true)
@@ -52,7 +54,8 @@ public class PurchaseOrderController : BaseApiController
         IEmailService emailService,
         IEmailTemplateEngine templateEngine,
         ISupplierRepository supplierRepository,
-        ICompanyService companyService)
+        ICompanyService companyService,
+        IProcurementRouteService? routeService = null)
     {
         _orderService = orderService;
         _pricingResolutionService = pricingResolutionService;
@@ -64,6 +67,7 @@ public class PurchaseOrderController : BaseApiController
         _templateEngine = templateEngine;
         _supplierRepository = supplierRepository;
         _companyService = companyService;
+        _routeService = routeService;
     }
 
     [HttpGet("~/api/companies/{companyId:guid}/purchase-orders")]
@@ -253,6 +257,7 @@ public class PurchaseOrderController : BaseApiController
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
+
         try
         {
             var item = await _orderService.AddItemAsync(
@@ -281,6 +286,7 @@ public class PurchaseOrderController : BaseApiController
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
+
         try
         {
             var order = await _orderService.RefreshCurrencyAsync(
@@ -306,6 +312,7 @@ public class PurchaseOrderController : BaseApiController
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
+
 
         try
         {
@@ -335,6 +342,7 @@ public class PurchaseOrderController : BaseApiController
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
+
 
         try
         {
@@ -366,6 +374,7 @@ public class PurchaseOrderController : BaseApiController
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
+
         try
         {
             var order = await _orderService.RejectOrderAsync(
@@ -396,6 +405,7 @@ public class PurchaseOrderController : BaseApiController
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
+
         try
         {
             var order = await _orderService.CancelOrderAsync(
@@ -424,6 +434,7 @@ public class PurchaseOrderController : BaseApiController
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
+
 
         try
         {

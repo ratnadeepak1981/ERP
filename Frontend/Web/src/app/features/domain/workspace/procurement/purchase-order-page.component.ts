@@ -34,6 +34,14 @@ import { WorkspaceScopeService } from '../../../../core/services/workspace-scope
 import { AuthService } from '../../../../core/auth/auth.service';
 import { PurchaseRequisitionService } from '../../../../core/services/purchase-requisition.service';
 import { PurchaseRequisitionDto, PurchaseRequisitionStatus } from '../../../../core/models/purchase-requisition.models';
+import { RfqService } from '../../../../core/services/rfq.service';
+import {
+  RfqDetailsDto,
+  SupplierQuotationDto,
+  RfqLineDto,
+  getRfqStatusName,
+  getSupplierQuotationStatusName
+} from '../../../../core/models/rfq.models';
 import {
   PurchaseOrderDto,
   PurchaseOrderItemDto,
@@ -72,7 +80,8 @@ export interface EditablePOLine {
   notes?: string;
   sourceRequisitionItemId?: string;
   maxAllowedQuantity?: number;
-
+  isUnitPriceLocked?: boolean;
+  sourceQuotationLineId?: string;
 }
 
 @Component({
@@ -104,7 +113,10 @@ export interface EditablePOLine {
 export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly poService = inject(PurchaseOrderService);
   readonly prService = inject(PurchaseRequisitionService);
+  readonly rfqService = inject(RfqService);
   readonly sourceRequisition = signal<PurchaseRequisitionDto | null>(null);
+  readonly sourceRfq = signal<RfqDetailsDto | null>(null);
+  readonly sourceQuotation = signal<SupplierQuotationDto | null>(null);
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
@@ -138,13 +150,23 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   readonly taxCodes = signal<TaxCodeItem[]>([]);
   readonly currencies = signal<CurrencyItem[]>([]);
   readonly purchasePriceCards = signal<PriceCardItem[]>([]);
-  readonly currencyOptions = computed(() => [
-    { label: 'Use selected card / supplier default', value: '' },
-    ...this.currencies().map(currency => ({
-      label: `${currency.currencyCode} (${currency.symbol})`,
-      value: currency.currencyCode
-    }))
-  ]);
+  readonly currencyOptions = computed(() => {
+    const list = [
+      { label: 'Use selected card / supplier default', value: '' },
+      ...this.currencies().map(currency => ({
+        label: `${currency.currencyCode} (${currency.symbol})`,
+        value: currency.currencyCode
+      }))
+    ];
+    const currentCode = this.headerForm.controls.currency.value || this.sourceQuotation()?.currencyCode;
+    if (currentCode && !list.some(c => c.value?.toUpperCase() === currentCode.toUpperCase())) {
+      list.push({
+        label: currentCode.toUpperCase(),
+        value: currentCode
+      });
+    }
+    return list;
+  });
   readonly purchasePriceCardOptions = computed(() => [
     { label: 'Use supplier default', value: '' },
     ...this.purchasePriceCards().map(card => ({
@@ -336,12 +358,16 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       value: s.supplierId
     }))];
 
-    // Ensure currently selected order's supplier is in options if not present
+    // Ensure currently selected order's supplier or source quotation winning supplier is in options
     const currentOrd = this.currentOrder();
-    if (currentOrd?.supplierId && !supplierOptions.some(o => o.value === currentOrd.supplierId)) {
+    const sourceQuote = this.sourceQuotation();
+    const activeSupplierId = this.headerForm.controls.supplierId.value || sourceQuote?.supplierId || currentOrd?.supplierId;
+    if (activeSupplierId && !supplierOptions.some(o => o.value?.toLowerCase() === activeSupplierId.toLowerCase())) {
+      const supplierName = sourceQuote?.supplierName || currentOrd?.supplierName || 'Awarded Supplier';
+      const supplierCode = sourceQuote?.supplierCode || '';
       supplierOptions.unshift({
-        label: currentOrd.supplierName ? `${currentOrd.supplierName}` : currentOrd.supplierId,
-        value: currentOrd.supplierId
+        label: supplierCode ? `${supplierName} (${supplierCode})` : supplierName,
+        value: activeSupplierId
       });
     }
 
@@ -440,6 +466,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         sortable: true,
         width: '260px',
         editable: !isReadOnly,
+        isCellEditable: (row: EditablePOLine) => !isReadOnly && !row.isUnitPriceLocked,
         editType: 'lookup',
         lookupOptions: this.productLookupItems(),
         onLookupSelect: (item, row) => {
@@ -472,6 +499,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         sortable: true,
         width: '130px',
         editable: !isReadOnly,
+        isCellEditable: (row: EditablePOLine) => !isReadOnly && !row.isUnitPriceLocked,
         editType: 'select',
         editOptions: this.uomSelectOptions(),
         validators: [(val: any) => (val ? null : 'UOM is required')]
@@ -501,6 +529,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         width: '120px',
         type: 'currency',
         editable: !isReadOnly,
+        isCellEditable: (row: EditablePOLine) => !isReadOnly && !row.isUnitPriceLocked,
         editType: 'currency',
         validators: [
           (val: any) => {
@@ -635,7 +664,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   resolveLinePrice(row: EditablePOLine, force = false): void {
-    if (!row.productId) return;
+    if (!row.productId || row.isUnitPriceLocked) return;
     if (!force && row.isPriceOverridden) return;
 
     const companyId = this.selectedCompanyId() || this.scopeService.selectedCompany()?.id;
@@ -684,10 +713,10 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   reResolveLines(): void {
-    if (this.isReadOnlyMode()) return;
+    if (this.isReadOnlyMode() || this.sourceQuotation()) return;
     const lines = this.workingLines();
     for (const line of lines) {
-      if (line.productId && !line.isPriceOverridden) {
+      if (line.productId && !line.isPriceOverridden && !line.isUnitPriceLocked) {
         this.resolveLinePrice(line, true);
       }
     }
@@ -837,7 +866,14 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       this.initCreateForm();
       const prId = this.route.snapshot?.queryParamMap?.get('purchaseRequisitionId') ||
         (this.route.snapshot?.queryParams as any)?.['purchaseRequisitionId'];
-      if (prId) {
+      const rfqId = this.route.snapshot?.queryParamMap?.get('rfqId') ||
+        (this.route.snapshot?.queryParams as any)?.['rfqId'];
+      const quotationId = this.route.snapshot?.queryParamMap?.get('quotationId') ||
+        (this.route.snapshot?.queryParams as any)?.['quotationId'];
+
+      if (rfqId) {
+        this.loadSourceRfqAndQuotation(rfqId, quotationId);
+      } else if (prId) {
         this.loadSourceRequisition(prId);
       }
     } else if (id) {
@@ -976,6 +1012,146 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       }
     });
   }
+
+  loadSourceRfqAndQuotation(rfqId: string, quotationId?: string | null): void {
+    const comp = this.scopeService.selectedCompany();
+    const queryBranchId = this.route.snapshot?.queryParamMap?.get('branchId') ||
+      (this.route.snapshot?.queryParams as any)?.['branchId'];
+
+    if (!comp) {
+      const scopeSub = this.scopeService.scopeChange$.subscribe(scope => {
+        if (scope.company) {
+          scopeSub.unsubscribe();
+          this.loadSourceRfqAndQuotation(rfqId, quotationId);
+        }
+      });
+      this.subs.add(scopeSub);
+      return;
+    }
+
+    let br = this.scopeService.selectedBranch();
+    if (!br && queryBranchId) {
+      const branches = this.scopeService.branches();
+      let targetBranch = branches.find(b => b.id?.toLowerCase() === queryBranchId.toLowerCase());
+      if (!targetBranch) {
+        targetBranch = { id: queryBranchId, name: 'Branch', companyId: comp.id } as Branch;
+      }
+      this.selectedBranchId.set(targetBranch.id);
+      this.scopeService.selectBranch(targetBranch);
+      br = targetBranch;
+    } else if (!br && this.scopeService.branches().length === 1) {
+      br = this.scopeService.branches()[0];
+      this.selectedBranchId.set(br.id);
+      this.scopeService.selectBranch(br);
+    }
+
+    const branchIdToUse = br?.id || queryBranchId;
+    if (!branchIdToUse) {
+      this.showMessage('A branch must be selected or provided by the source RFQ.', 'warn');
+      return;
+    }
+
+    this.rfqService.getRfqById(comp.id, branchIdToUse, rfqId).subscribe({
+      next: (rfq: RfqDetailsDto | null) => {
+        if (!rfq) return;
+
+        this.sourceRfq.set(rfq);
+
+        const quote = (rfq.quotations || []).find((q: SupplierQuotationDto) => {
+          const qId = q.id || (q as any).quotationId || (q as any).supplierQuotationId;
+          if (quotationId && qId && String(qId).toLowerCase() === String(quotationId).toLowerCase()) {
+            return true;
+          }
+          const sName = String(getSupplierQuotationStatusName(q.status)).toLowerCase();
+          const raw = String(q.status).toLowerCase();
+          return sName === 'approved' || raw === 'approved' || Number(q.status) === 4;
+        });
+
+        if (!quote) {
+          this.showMessage(`Winning quotation not found on RFQ ${rfq.rfqNumber}.`, 'danger');
+          return;
+        }
+
+        this.sourceQuotation.set(quote);
+
+        // 1. Automatically populate the winning supplier from the awarded quotation
+        this.headerForm.controls.supplierId.setValue(quote.supplierId);
+
+        // 2. Automatically populate the quotation currency and reset priceCard
+        const quoteCurrency = quote.currencyCode || 'USD';
+        this.headerForm.controls.currency.setValue(quoteCurrency);
+        this.headerForm.controls.priceCardId.setValue('');
+
+        // 3. Populate PO lines from the awarded supplier quotation
+        const lines: EditablePOLine[] = [];
+        for (const qLine of quote.lines || []) {
+          const rfqLine = (rfq.lines || []).find((rl: RfqLineDto) =>
+            rl.id === qLine.rfqLineId ||
+            (rl.id && qLine.rfqLineId && rl.id.toLowerCase() === qLine.rfqLineId.toLowerCase())
+          );
+
+          const prodId = qLine.productId || rfqLine?.productId || '';
+          const prod = this.products().find(p => p.productId?.toLowerCase() === prodId.toLowerCase());
+          const pCode = qLine.productCode || rfqLine?.productCode || prod?.productCode || '';
+          const pName = qLine.productName || rfqLine?.productName || prod?.productName || '';
+          const uomId = qLine.unitOfMeasureId || rfqLine?.unitOfMeasureId || prod?.unitOfMeasureId || null;
+          const quotedQty = Number(qLine.quotedQuantity) || 0;
+          const unitPrice = Number(qLine.unitPrice) || 0;
+          const discPct = Number(qLine.discountPercentage) || 0;
+          const taxCode = qLine.taxCodeId || null;
+          const taxRate = Number(qLine.taxRate) || 0;
+
+          const rfqTag = `[RFQ: ${rfq.rfqNumber} Quote: ${quote.quotationReference} Line: ${qLine.id}]`;
+          const lineNotes = rfqLine?.notes ? `${rfqTag} ${rfqLine.notes}` : rfqTag;
+
+          const poLine: EditablePOLine = {
+            lineId: 'line-' + Math.random().toString(36).substring(2, 9),
+            productId: prodId,
+            productCode: pCode,
+            productName: pName,
+            unitOfMeasureId: uomId,
+            quantity: quotedQty,
+            unitCost: unitPrice,
+            isUnitPriceLocked: true, // Lock the unit price to the awarded quotation price!
+            originalResolvedPrice: unitPrice,
+            isPriceOverridden: false,
+            pricingSource: 'AwardedQuotation',
+            pricingSourceRecordId: qLine.id,
+            discountRate: discPct,
+            discountAmount: 0,
+            taxCodeId: taxCode,
+            taxRate: taxRate,
+            taxAmount: 0,
+            subTotal: 0,
+            lineTotal: 0,
+            isTaxInclusive: false,
+            notes: lineNotes,
+            sourceQuotationLineId: qLine.id,
+            maxAllowedQuantity: quotedQty
+          };
+          this.calculateRow(poLine);
+          lines.push(poLine);
+        }
+
+        if (lines.length > 0) {
+          const enriched = this.enrichLinesWithProductMaster(lines);
+          this.workingLines.set(enriched);
+          const prNotes = rfq.instructions?.match(/\[PR:\s*[^\]]+\]/i)?.[0] || '';
+          this.headerForm.patchValue({
+            currency: quoteCurrency,
+            priceCardId: '',
+            notes: `Source RFQ: ${rfq.rfqNumber} | Awarded Quotation: ${quote.quotationReference}\nSupplier: ${quote.supplierName} (${quote.supplierCode})\nDelivery Terms: ${rfq.deliveryTerms || 'N/A'}` +
+              (prNotes ? `\nOriginating ${prNotes}` : '') +
+              (quote.notes ? `\nQuotation Notes: ${quote.notes}` : '')
+          });
+          this.showMessage(`Pre-populated commercial values from Awarded Quotation ${quote.quotationReference} (${quote.supplierName}). Unit prices are locked to the awarded quotation.`, 'success');
+        }
+      },
+      error: (err: any) => {
+        this.showMessage(this.getCleanErrorMessage(err, 'Failed to load source RFQ details.'), 'danger');
+      }
+    });
+  }
   // Initialize scope based on WorkspaceScopeService
   private initScope(): void {
     const comp = this.scopeService.selectedCompany();
@@ -1074,6 +1250,9 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
     });
     this.workingLines.set([this.defaultNewRow() as EditablePOLine]);
     this.currentOrder.set(null);
+    this.sourceRequisition.set(null);
+    this.sourceRfq.set(null);
+    this.sourceQuotation.set(null);
     this.error.set(null);
     this.isAccessDenied.set(false);
   }
@@ -1126,7 +1305,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
 
         this.populateOrderData(order);
       },
-      error: err => {
+      error: (err: any) => {
         this.loading.set(false);
         if (this.isForbiddenError(err)) {
           this.isAccessDenied.set(true);
@@ -1262,6 +1441,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
   }
 
   private applySupplierCurrencyDefaults(supplierId: string): void {
+    if (this.sourceQuotation()) return;
     const supplier = this.suppliers().find(item => item.supplierId === supplierId);
     if (!supplier) return;
 
@@ -1333,7 +1513,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         this.showMessage('Exchange rate and base-currency amounts refreshed for this draft.', 'success');
         this.actionInProgress.set(false);
       },
-      error: err => {
+      error: (err: any) => {
         this.showMessage(this.getCleanErrorMessage(err, 'Unable to refresh the exchange rate.'), 'danger');
         this.actionInProgress.set(false);
       }
@@ -1426,7 +1606,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
             isTaxInclusive: !!line.isTaxInclusive
           }).subscribe({
             next: () => addSequentially(idx + 1),
-            error: err => {
+            error: (err: any) => {
               this.actionInProgress.set(false);
               this.showMessage(this.getCleanErrorMessage(err, 'Failed to add requisition line item.'), 'danger');
             }
@@ -1486,6 +1666,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
       orderDate: formVal.orderDate ? new Date(formVal.orderDate).toISOString() : new Date().toISOString(),
       currency: formVal.currency || null,
       priceCardId: formVal.priceCardId || null,
+      purchaseRequisitionId: this.sourceRequisition()?.id || null,
       items
     };
 
@@ -1516,7 +1697,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
           this.router.navigate(['/app/procurement/purchase-orders']);
         }
       },
-      error: err => {
+      error: (err: any) => {
         this.actionInProgress.set(false);
         const cleanMsg = this.getCleanErrorMessage(err, 'Failed to save purchase order.');
         this.showMessage(cleanMsg, 'danger');
@@ -1698,7 +1879,7 @@ export class PurchaseOrderPageComponent implements OnInit, OnDestroy {
         this.currentOrder.set(updated);
         this.showMessage(`Purchase Order ${ord.orderNumber} submitted for approval.`, 'success');
       },
-      error: err => {
+      error: (err: any) => {
         this.actionInProgress.set(false);
         this.showMessage(this.getCleanErrorMessage(err, 'Failed to submit order.'), 'danger');
       }

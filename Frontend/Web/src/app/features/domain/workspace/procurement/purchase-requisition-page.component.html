@@ -33,6 +33,28 @@
           </button>
         }
 
+        @if (canCreateRfq()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary erp-btn-sm"
+            (click)="navigateToCreateRfq()"
+          >
+            <i class="pi pi-file-edit"></i>
+            <span>Create RFQ</span>
+          </button>
+        }
+
+        @if (canResetRoute()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-outline erp-btn-sm"
+            (click)="openResetRouteDialog()"
+          >
+            <i class="pi pi-refresh"></i>
+            <span>Reset Route</span>
+          </button>
+        }
+
         @if (canEdit()) {
           <button
             type="button"
@@ -185,17 +207,112 @@
           </div>
         </div>
       </div>
-      @if (canCreatePurchaseOrder()) {
-        <button
-          type="button"
-          class="erp-btn erp-btn-primary erp-btn-sm"
-          (click)="navigateToCreatePurchaseOrder()"
-        >
-          <i class="pi pi-shopping-cart"></i>
-          <span>Create PO ({{ totalRemainingQuantity() }} Remaining)</span>
-        </button>
-      }
+      <div class="fulfillment-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        @if (canCreatePurchaseOrder()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-primary erp-btn-sm"
+            (click)="navigateToCreatePurchaseOrder()"
+          >
+            <i class="pi pi-shopping-cart"></i>
+            <span>Create PO ({{ totalRemainingQuantity() }} Remaining)</span>
+          </button>
+        }
+        @if (canCreateRfq()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-secondary erp-btn-sm"
+            (click)="navigateToCreateRfq()"
+          >
+            <i class="pi pi-file-edit"></i>
+            <span>Create RFQ</span>
+          </button>
+        }
+        @if (canResetRoute()) {
+          <button
+            type="button"
+            class="erp-btn erp-btn-outline erp-btn-sm"
+            (click)="openResetRouteDialog()"
+          >
+            <i class="pi pi-refresh"></i>
+            <span>Reset Route</span>
+          </button>
+        }
+      </div>
     </div>
+
+    @if (routeStatus(); as rs) {
+      <div class="erp-card route-status-card" style="margin-bottom: 1rem; padding: 1rem; border-left: 4px solid var(--primary-color, #2563eb);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <div style="font-size: 0.875rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary, #6b7280); letter-spacing: 0.05em;">
+              Procurement Route
+            </div>
+            <div style="font-size: 1.125rem; font-weight: 700; margin-top: 0.25rem;">
+              @if (rs.selectedRoute === 1) {
+                <span class="route-badge direct-po"><i class="pi pi-shopping-bag"></i> Direct Purchase Order</span>
+              } @else if (rs.selectedRoute === 2) {
+                <span class="route-badge rfq"><i class="pi pi-file-edit"></i> Request for Quotation (RFQ)</span>
+              } @else {
+                <span class="route-badge unselected"><i class="pi pi-compass"></i> Route Not Selected — Buyer Choice Available</span>
+              }
+            </div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary, #6b7280); margin-top: 0.25rem;">
+              @if (rs.selectedRoute === 1) {
+                <span>This requisition requirement is committed to Direct PO. RFQ creation is prohibited by route exclusivity.</span>
+              } @else if (rs.selectedRoute === 2) {
+                <span>This requisition requirement is routed to RFQ. Direct PO creation is prohibited while active RFQ is in progress.</span>
+              } @else {
+                <span>You may route this approved requisition either directly to a Purchase Order or initiate competitive RFQ bidding with suppliers.</span>
+              }
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            @if (rs.canCreateDirectPo) {
+              <button type="button" class="erp-btn erp-btn-primary erp-btn-sm" (click)="navigateToCreatePurchaseOrder()">
+                <i class="pi pi-shopping-cart"></i> Direct PO
+              </button>
+            }
+            @if (rs.canCreateRfq) {
+              <button type="button" class="erp-btn erp-btn-secondary erp-btn-sm" (click)="navigateToCreateRfq()">
+                <i class="pi pi-file-edit"></i> Create RFQ
+              </button>
+            }
+            @if (rs.canResetRoute) {
+              <button type="button" class="erp-btn erp-btn-warning erp-btn-sm" (click)="openResetRouteDialog()">
+                <i class="pi pi-refresh"></i> Reset Route
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (rs.linkedPurchaseOrders && rs.linkedPurchaseOrders.length > 0) {
+          <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color, #e5e7eb); font-size: 0.875rem;">
+            <span style="font-weight: 600;">Linked Purchase Orders:</span>
+            <span style="margin-left: 0.5rem;">
+              @for (po of rs.linkedPurchaseOrders; track po.purchaseOrderId) {
+                <span style="display: inline-block; background: var(--bg-hover, #f3f4f6); padding: 0.2rem 0.5rem; border-radius: 4px; margin-right: 0.5rem;">
+                  <strong>{{ po.orderNumber }}</strong> ({{ po.status }}) - {{ po.totalAmount | currency }}
+                </span>
+              }
+            </span>
+          </div>
+        }
+        @if (rs.linkedRfqs && rs.linkedRfqs.length > 0) {
+          <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color, #e5e7eb); font-size: 0.875rem;">
+            <span style="font-weight: 600;">Linked RFQs:</span>
+            <span style="margin-left: 0.5rem;">
+              @for (rfq of rs.linkedRfqs; track rfq.rfqId) {
+                <span style="display: inline-block; background: var(--bg-hover, #f3f4f6); padding: 0.2rem 0.5rem; border-radius: 4px; margin-right: 0.5rem;">
+                  <strong>{{ rfq.rfqNumber }}</strong> ({{ rfq.status }}) - {{ rfq.quotationCount }} quote(s)
+                </span>
+              }
+            </span>
+          </div>
+        }
+      </div>
+    }
   }
 
   <!-- 403 Forbidden Access Restricted State -->
@@ -480,6 +597,26 @@
               >
                 <i class="pi pi-shopping-cart"></i>
                 <span>Create Purchase Order</span>
+              </button>
+            }
+            @if (canCreateRfq()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-secondary"
+                (click)="navigateToCreateRfq()"
+              >
+                <i class="pi pi-file-edit"></i>
+                <span>Create RFQ</span>
+              </button>
+            }
+            @if (canResetRoute()) {
+              <button
+                type="button"
+                class="erp-btn erp-btn-warning"
+                (click)="openResetRouteDialog()"
+              >
+                <i class="pi pi-refresh"></i>
+                <span>Reset Route</span>
               </button>
             }
             @if (canEdit()) {

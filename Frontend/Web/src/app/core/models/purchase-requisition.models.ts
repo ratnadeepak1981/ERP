@@ -156,3 +156,69 @@ export interface PurchaseRequisitionHistoryDto {
   remarks?: string;
   snapshotAmount?: number | null;
 }
+
+export enum ProcurementRouteType {
+  None = 0,
+  DirectPO = 1,
+  RFQ = 2
+}
+
+export interface LinkedPoDto {
+  id?: string;
+  purchaseOrderId?: string;
+  orderNumber: string;
+  status: string;
+  orderDate?: string;
+  totalAmount: number;
+}
+
+export interface LinkedRfqDto {
+  id?: string;
+  rfqId?: string;
+  rfqNumber: string;
+  title: string;
+  status: string;
+  closingDate?: string | null;
+  lineCount?: number;
+  invitedSupplierCount?: number;
+  quotationCount?: number;
+  awardedSupplierName?: string | null;
+  awardedQuotationId?: string | null;
+}
+
+export interface ProcurementRouteStatusDto {
+  requisitionId: string;
+  requisitionNumber: string;
+  requisitionStatus?: string;
+  isApproved?: boolean;
+  statusName?: string;
+  selectedRoute: ProcurementRouteType | string;
+  selectedRouteName?: string;
+  canCreateDirectPo?: boolean;
+  canCreateDirectPO?: boolean;
+  canCreateRfq?: boolean;
+  canCreateRFQ?: boolean;
+  canResetRoute?: boolean;
+  blockReason?: string | null;
+  directPoBlockReason?: string | null;
+  rfqBlockReason?: string | null;
+  totalRequestedQuantity: number;
+  totalOrderedQuantity: number;
+  totalRemainingQuantity: number;
+  isFullyOrdered?: boolean;
+  linkedPurchaseOrders: LinkedPoDto[];
+  linkedRfq?: LinkedRfqDto | null;
+  linkedRfqs?: LinkedRfqDto[];
+}
+
+export interface CreateRfqFromRequisitionRequest {
+  title?: string;
+  description?: string;
+  instructions?: string;
+  closingDate?: string | null;
+  invitedSupplierIds?: string[];
+}
+
+export interface ResetProcurementRouteRequest {
+  reason: string;
+}

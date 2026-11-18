@@ -11,7 +11,11 @@ import {
   UpdatePurchaseRequisitionRequest,
   UpdatePurchaseRequisitionItemRequest,
   ApprovalDecisionRequest,
-  PurchaseRequisitionHistoryDto
+  PurchaseRequisitionHistoryDto,
+  ProcurementRouteStatusDto,
+  LinkedRfqDto,
+  CreateRfqFromRequisitionRequest,
+  ResetProcurementRouteRequest
 } from '../models/purchase-requisition.models';
 
 export interface PurchaseRequisitionQueryParams {
@@ -207,5 +211,57 @@ export class PurchaseRequisitionService {
         this.buildPath(companyId, branchId, `/${requisitionId}/approval-history`)
       )
       .pipe(map(res => res?.data ?? []));
+  }
+
+  getRouteStatus(
+    companyId: string,
+    branchId: string,
+    requisitionId: string
+  ): Observable<ProcurementRouteStatusDto> {
+    return this.http
+      .get<ApiResponse<ProcurementRouteStatusDto>>(
+        this.buildPath(companyId, branchId, `/${requisitionId}/route-status`)
+      )
+      .pipe(map(res => res.data));
+  }
+
+  createRfqFromRequisition(
+    companyId: string,
+    branchId: string,
+    requisitionId: string,
+    request: CreateRfqFromRequisitionRequest
+  ): Observable<LinkedRfqDto> {
+    return this.http
+      .post<ApiResponse<LinkedRfqDto>>(
+        this.buildPath(companyId, branchId, `/${requisitionId}/create-rfq`),
+        request
+      )
+      .pipe(map(res => res.data));
+  }
+
+  resetRoute(
+    companyId: string,
+    branchId: string,
+    requisitionId: string,
+    request: ResetProcurementRouteRequest
+  ): Observable<{ success: boolean; message: string }> {
+    return this.http
+      .post<ApiResponse<{ success: boolean; message: string }>>(
+        this.buildPath(companyId, branchId, `/${requisitionId}/reset-route`),
+        request
+      )
+      .pipe(map(res => res.data));
+  }
+
+  validateDirectPo(
+    companyId: string,
+    branchId: string,
+    requisitionId: string
+  ): Observable<{ canProceed: boolean; message?: string }> {
+    return this.http
+      .get<ApiResponse<{ canProceed: boolean; message?: string }>>(
+        this.buildPath(companyId, branchId, `/${requisitionId}/validate-direct-po`)
+      )
+      .pipe(map(res => res.data));
   }
 }

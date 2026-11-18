@@ -51,6 +51,7 @@ export interface DataTableColumn<T = any> {
   filterType?: FilterType;
   filterOptions?: SelectOption[];
   editable?: boolean;
+  isCellEditable?: (row: T) => boolean;
   editType?: EditType;
   required?: boolean;
   precision?: number;

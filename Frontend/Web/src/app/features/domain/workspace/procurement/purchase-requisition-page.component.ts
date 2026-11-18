@@ -35,7 +35,9 @@ import {
   getPurchaseRequisitionStatusName,
   getPurchaseRequisitionStatusSeverity,
   getPrioritySeverity,
-  PurchaseRequisitionHistoryDto
+  PurchaseRequisitionHistoryDto,
+  ProcurementRouteStatusDto,
+  ProcurementRouteType
 } from '../../../../core/models/purchase-requisition.models';
 import { PurchaseOrderStatus } from '../../../../core/models/purchase-order.models';
 import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
@@ -148,11 +150,18 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
   // PR-to-PO Fulfillment Map: itemId -> { ordered: number; remaining: number }
   readonly lineFulfillments = signal<Map<string, { ordered: number; remaining: number }>>(new Map());
 
+  // Procurement Route Selection (Direct PO vs RFQ)
+  readonly routeStatus = signal<ProcurementRouteStatusDto | null>(null);
+  readonly routeLoading = signal<boolean>(false);
+  readonly resetRouteDialogVisible = signal<boolean>(false);
+  readonly resetRouteReason = signal<string>('');
+  readonly resetRouteError = signal<string | null>(null);
+
   // Reusable Confirmation Dialog States (No PrimeNG)
   readonly confirmDialogVisible = signal<boolean>(false);
   readonly confirmDialogConfig = signal<ConfirmationDialogConfig | null>(null);
   readonly confirmDialogError = signal<string | null>(null);
-  readonly decisionAction = signal<'approve' | 'reject' | 'cancel' | 'delete' | null>(null);
+  readonly decisionAction = signal<'approve' | 'reject' | 'cancel' | 'delete' | 'reset-route' | null>(null);
   readonly decisionRemarks = signal<string>('');
   readonly decisionError = signal<string | null>(null);
 
@@ -591,9 +600,12 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
         this.populateForm(req);
         this.loadApprovalHistory(companyId, branchId, id);
 
-        // If approved, load PO fulfillment data
+        // If approved, load PO fulfillment data and route status
         if (Number(req.status) === PurchaseRequisitionStatus.Approved) {
           this.loadRequisitionFulfillment(companyId, branchId, req);
+          this.loadProcurementRouteStatus(companyId, branchId, req.id);
+        } else {
+          this.routeStatus.set(null);
         }
       },
       error: (err: any) => {
@@ -971,6 +983,27 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
     this.actionInProgress.set(true);
     this.confirmDialogError.set(null);
 
+    if (action === 'reset-route') {
+      if (!remarks || remarks.length < 5) {
+        this.actionInProgress.set(false);
+        this.confirmDialogError.set('A substantive business reason (at least 5 characters) is required to reset the procurement route.');
+        return;
+      }
+      this.prService.resetRoute(companyId, branchId, req.id, { reason: remarks }).subscribe({
+        next: res => {
+          this.actionInProgress.set(false);
+          this.closeDecision();
+          this.showMessage(res.message || 'Procurement route reset to Direct PO successfully.', 'success');
+          this.loadExistingRequisition(req.id);
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.confirmDialogError.set(this.getCleanErrorMessage(err, 'Failed to reset route.'));
+        }
+      });
+      return;
+    }
+
     let obs: Observable<any>;
     if (action === 'approve') {
       obs = this.prService.approveRequisition(companyId, branchId, req.id, remarks || undefined);
@@ -1028,6 +1061,19 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadProcurementRouteStatus(companyId: string, branchId: string, requisitionId: string): void {
+    this.routeLoading.set(true);
+    this.prService.getRouteStatus(companyId, branchId, requisitionId).subscribe({
+      next: status => {
+        this.routeLoading.set(false);
+        this.routeStatus.set(status);
+      },
+      error: () => {
+        this.routeLoading.set(false);
+      }
+    });
+  }
+
   // Navigation to Create PO from Approved PR
   canCreatePurchaseOrder(): boolean {
     const req = this.currentRequisition();
@@ -1036,6 +1082,14 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
     if (!isApproved) return false;
     const hasPerm = this.authService.hasPermission('PURCHASE_ORDER.CREATE') || this.authService.isTenantAdmin();
     if (!hasPerm) return false;
+    const rStatus = this.routeStatus();
+    if (rStatus) {
+      const isRfq = rStatus.selectedRoute === ProcurementRouteType.RFQ || rStatus.selectedRoute === 'RFQ' || (rStatus.linkedRfqs && rStatus.linkedRfqs.length > 0) || rStatus.linkedRfq != null;
+      if (isRfq) {
+        return false;
+      }
+      return (rStatus.canCreateDirectPo ?? rStatus.canCreateDirectPO ?? true) && this.totalRemainingQuantity() > 0;
+    }
     return this.totalRemainingQuantity() > 0;
   }
 
@@ -1049,6 +1103,65 @@ export class PurchaseRequisitionPageComponent implements OnInit, OnDestroy {
         }
       });
     }
+  }
+
+  // Navigation to Create RFQ from Approved PR
+  canCreateRfq(): boolean {
+    const req = this.currentRequisition();
+    if (!req) return false;
+    const isApproved = Number(req.status) === PurchaseRequisitionStatus.Approved;
+    if (!isApproved) return false;
+    const hasPerm = this.authService.hasPermission('RFQ.CREATE') || this.authService.isTenantAdmin();
+    if (!hasPerm) return false;
+    const rStatus = this.routeStatus();
+    if (rStatus) {
+      const isDirectPo = rStatus.selectedRoute === ProcurementRouteType.DirectPO || rStatus.selectedRoute === 'DirectPO' || (rStatus.linkedPurchaseOrders && rStatus.linkedPurchaseOrders.length > 0);
+      if (isDirectPo) {
+        return false;
+      }
+      const isRfqAlready = rStatus.selectedRoute === ProcurementRouteType.RFQ || rStatus.selectedRoute === 'RFQ' || (rStatus.linkedRfqs && rStatus.linkedRfqs.length > 0) || rStatus.linkedRfq != null;
+      if (isRfqAlready) {
+        return false;
+      }
+      return rStatus.canCreateRfq ?? rStatus.canCreateRFQ ?? true;
+    }
+    return !this.isFullyOrdered();
+  }
+
+  navigateToCreateRfq(): void {
+    const req = this.currentRequisition();
+    if (req) {
+      this.router.navigate(['/app/procurement/rfqs/new'], {
+        queryParams: {
+          purchaseRequisitionId: req.id,
+          branchId: req.branchId
+        }
+      });
+    }
+  }
+
+  canResetRoute(): boolean {
+    return this.routeStatus()?.canResetRoute === true;
+  }
+
+  openResetRouteDialog(): void {
+    const req = this.currentRequisition();
+    const config: ConfirmationDialogConfig = {
+      action: 'reset-route',
+      title: 'Reset Procurement Route',
+      message: `The Request for Quotation linked to ${req?.requisitionNumber} has been cancelled. Resetting the procurement route will release the requisition so a direct Purchase Order can be created.`,
+      commentLabel: 'Business Justification (Mandatory)',
+      commentPlaceholder: 'State reason for switching to Direct Purchase Order...',
+      commentRequired: true,
+      confirmLabel: 'Reset Route to Direct PO',
+      confirmIcon: 'pi pi-refresh',
+      confirmSeverity: 'primary',
+      cancelLabel: 'Cancel'
+    };
+    this.decisionAction.set('reset-route');
+    this.confirmDialogConfig.set(config);
+    this.confirmDialogError.set(null);
+    this.confirmDialogVisible.set(true);
   }
 
   // Navigation

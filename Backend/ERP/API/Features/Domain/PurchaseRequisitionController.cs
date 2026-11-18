@@ -6,6 +6,7 @@ using API.Common.Sorting;
 using API.Security.Authorization;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Procurement.PurchaseRequisition;
+using Domain.Features.Procurement.Route;
 using Microsoft.AspNetCore.Mvc;
 using Security.Interfaces;
 
@@ -19,6 +20,7 @@ public class PurchaseRequisitionController : BaseApiController
     private readonly IPurchaseRequisitionService _requisitionService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+    private readonly IProcurementRouteService? _routeService;
 
     private static readonly SortMapping<PurchaseRequisition> _sortMapping = new SortMapping<PurchaseRequisition>()
         .Add("requisitionNumber", r => r.RequisitionNumber, isDefault: true)
@@ -30,11 +32,13 @@ public class PurchaseRequisitionController : BaseApiController
     public PurchaseRequisitionController(
         IPurchaseRequisitionService requisitionService,
         ICurrentUserContext currentUserContext,
-        IUserAccessService userAccessService)
+        IUserAccessService userAccessService,
+        IProcurementRouteService? routeService = null)
     {
         _requisitionService = requisitionService;
         _currentUserContext = currentUserContext;
         _userAccessService = userAccessService;
+        _routeService = routeService;
     }
 
     [HttpGet]
@@ -376,6 +380,123 @@ public class PurchaseRequisitionController : BaseApiController
                 requisitionId);
 
             return SuccessResponse(history);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("{id:guid}/route-status")]
+    public async Task<IActionResult> GetRouteStatus(Guid companyId, Guid branchId, Guid id)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        if (_routeService == null)
+            return StatusCode(500, "Procurement route service is not configured.");
+
+        try
+        {
+            var status = await _routeService.GetRouteStatusAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id);
+            return SuccessResponse(status);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/create-rfq")]
+    [RequirePermission("RFQ.CREATE")]
+    public async Task<IActionResult> CreateRfqFromRequisition(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        [FromBody] CreateRfqFromRequisitionRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        if (_routeService == null)
+            return StatusCode(500, "Procurement route service is not configured.");
+
+        try
+        {
+            var rfq = await _routeService.CreateRfqFromRequisitionAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id,
+                request,
+                _currentUserContext.UserId);
+
+            return CreatedResponse(
+                nameof(RequestForQuotationController.GetRfqById),
+                new { companyId, branchId, id = rfq.Id },
+                rfq);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("{id:guid}/reset-route")]
+    [RequirePermission("PURCHASE_REQUISITION.EDIT")]
+    public async Task<IActionResult> ResetRoute(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        [FromBody] ResetProcurementRouteRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        if (_routeService == null)
+            return StatusCode(500, "Procurement route service is not configured.");
+
+        try
+        {
+            await _routeService.ResetCancelledRfqRouteAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id,
+                request,
+                _currentUserContext.UserId);
+
+            return SuccessResponse(new { message = "Procurement route reset successfully." });
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpGet("{id:guid}/validate-direct-po")]
+    [RequirePermission("PURCHASE_ORDER.CREATE")]
+    public async Task<IActionResult> ValidateDirectPo(Guid companyId, Guid branchId, Guid id)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        if (_routeService == null)
+            return StatusCode(500, "Procurement route service is not configured.");
+
+        try
+        {
+            await _routeService.ValidateDirectPoRouteAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id);
+
+            return SuccessResponse(new { eligible = true });
         }
         catch (Exception ex)
         {

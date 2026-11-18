@@ -34,6 +34,19 @@
         </button>
       }
 
+      @if (rfq()?.status === 'Awarded') {
+        <button
+          type="button"
+          class="erp-btn erp-btn-success erp-btn-sm"
+          [disabled]="actionLoading()"
+          (click)="navigateToCreatePurchaseOrder()"
+          title="Create Purchase Order from winning quotation"
+        >
+          <i class="pi pi-shopping-cart"></i>
+          <span>Create Purchase Order</span>
+        </button>
+      }
+
     </div>
   </app-page-header>
 
@@ -1216,7 +1229,17 @@
                           <small class="text-muted">4-Eyes Review</small>
                         }
                       } @else if (q.status === 'Approved') {
-                        <span class="text-success font-medium"><i class="pi pi-check-circle"></i> Awarded</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <span class="text-success font-medium"><i class="pi pi-check-circle"></i> Awarded</span>
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-xs erp-btn-primary"
+                            (click)="navigateToCreatePurchaseOrder(q)"
+                            title="Create Purchase Order from this awarded quotation"
+                          >
+                            <i class="pi pi-shopping-cart"></i> Create PO
+                          </button>
+                        </div>
                         @if (q.awardNotificationStatus === 'Sent') {
                           <span class="badge badge-success ml-1" [title]="'Award notification accepted by SMTP' + (q.awardNotificationSentAt ? (' at ' + (q.awardNotificationSentAt | date:'medium')) : '') + (q.awardNotificationRecipientEmail ? (' to ' + q.awardNotificationRecipientEmail) : '')"><i class="pi pi-check"></i> Sent</span>
                         } @else if (q.awardNotificationStatus === 'Failed') {
@@ -1707,6 +1730,14 @@
                         <div class="awarded-badge-box">
                           <i class="pi pi-check-circle text-success"></i>
                           <span class="font-medium text-success">Awarded Quotation</span>
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-sm erp-btn-primary w-full mt-2"
+                            (click)="navigateToCreatePurchaseOrder(quote)"
+                            title="Create Purchase Order from this awarded quotation"
+                          >
+                            <i class="pi pi-shopping-cart"></i> Create Purchase Order
+                          </button>
                         </div>
                       } @else if (quote.status === 'Submitted' || quote.status === 'UnderReview') {
                         @if (canApproveReject()) {
