@@ -404,6 +404,31 @@ export const workspaceRoutes: Routes = [
               import('./procurement/goods-receipt-page.component').then(m => m.GoodsReceiptPageComponent)
           }
         ]
+      },
+      {
+        path: 'rfqs',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./procurement/rfq.component').then(m => m.RfqComponent)
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./procurement/rfq-page.component').then(m => m.RfqPageComponent)
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () =>
+              import('./procurement/rfq-page.component').then(m => m.RfqPageComponent)
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./procurement/rfq-page.component').then(m => m.RfqPageComponent)
+          }
+        ]
       }
     ]
   },

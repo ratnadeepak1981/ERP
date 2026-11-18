@@ -236,6 +236,9 @@ export class TenantLayoutComponent implements OnInit {
     if (this.canViewPurchaseOrders()) {
       procurementChildren.push({ label: 'Purchase Orders', icon: 'pi pi-shopping-cart', route: '/app/procurement/purchase-orders' });
     }
+    if (this.canViewRfqs()) {
+      procurementChildren.push({ label: 'Request for Quotations', icon: 'pi pi-file', route: '/app/procurement/rfqs' });
+    }
     if (this.canViewGoodsReceipts()) {
       procurementChildren.push({ label: 'Product Receipts (GRN)', icon: 'pi pi-arrow-circle-down', route: '/app/procurement/goods-receipts' });
     }
@@ -324,6 +327,17 @@ export class TenantLayoutComponent implements OnInit {
     return true;
   }
 
+  canViewRfqs(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('RFQ.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
   canViewProcurementOverview(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
@@ -339,6 +353,7 @@ export class TenantLayoutComponent implements OnInit {
     return this.canViewProcurementOverview() ||
       this.canViewPurchaseRequisitions() ||
       this.canViewPurchaseOrders() ||
+      this.canViewRfqs() ||
       this.canViewGoodsReceipts();
   }
 

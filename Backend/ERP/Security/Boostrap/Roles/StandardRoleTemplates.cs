@@ -22,7 +22,7 @@ public sealed record StandardRoleTemplate(
 /// </summary>
 public static class StandardRoleTemplates
 {
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 7;
 
     public const string TenantAdminKey = "TENANT_ADMIN";
     public const string TenantAuditorKey = "TENANT_AUDITOR";
@@ -230,12 +230,13 @@ public static class StandardRoleTemplates
             new(
                 "PROCUREMENT_MANAGER",
                 "Procurement Manager",
-                "Manages requisitions, purchase orders and goods receipts, including approvals.",
+                "Manages requisitions, purchase orders, RFQs and goods receipts, including approvals.",
                 CurrentVersion,
                 Combine(
                     PurchaseRequisitionPermissions(),
                     PurchaseOrderPermissions(),
                     GrnPermissions(),
+                    RfqManagerPermissions(),
                     new[]
                     {
                         "PROCUREMENT.SETTINGS.VIEW", "PROCUREMENT.SETTINGS.EDIT",
@@ -247,7 +248,7 @@ public static class StandardRoleTemplates
             new(
                 "PROCUREMENT_OFFICER",
                 "Procurement Officer",
-                "Creates and submits requisitions, purchase orders and goods receipts. Cannot approve.",
+                "Creates and submits requisitions, purchase orders, RFQs and goods receipts. Cannot approve.",
                 CurrentVersion,
                 Combine(
                     new[]
@@ -263,7 +264,8 @@ public static class StandardRoleTemplates
                         "SUPPLIER.VIEW", "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW",
                         "WAREHOUSE.VIEW", "INVENTORY.VIEW",
                         "PRICE_CARD.VIEW"
-                    })),
+                    },
+                    RfqOfficerPermissions())),
 
             new(
                 "PROCUREMENT_VIEWER",
@@ -273,6 +275,7 @@ public static class StandardRoleTemplates
                 new[]
                 {
                     "PURCHASE_REQUISITION.VIEW", "PURCHASE_ORDER.VIEW", "GRN.VIEW",
+                    "RFQ.VIEW", "RFQ.QUOTATION.VIEW",
                     "PROCUREMENT.SETTINGS.VIEW", "SUPPLIER.VIEW",
                     "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW", "INVENTORY.VIEW"
                 }),
@@ -505,5 +508,19 @@ public static class StandardRoleTemplates
     {
         "SALES_INVOICE.VIEW", "SALES_INVOICE.CREATE", "SALES_INVOICE.EDIT",
         "SALES_INVOICE.CONFIRM", "SALES_INVOICE.CANCEL"
+    };
+
+    private static string[] RfqManagerPermissions() => new[]
+    {
+        "RFQ.VIEW", "RFQ.CREATE", "RFQ.EDIT", "RFQ.SUPPLIER.MANAGE",
+        "RFQ.SEND", "RFQ.QUOTATION.RECORD", "RFQ.QUOTATION.VIEW",
+        "RFQ.COMPARE", "RFQ.APPROVE", "RFQ.REJECT"
+    };
+
+    private static string[] RfqOfficerPermissions() => new[]
+    {
+        "RFQ.VIEW", "RFQ.CREATE", "RFQ.EDIT", "RFQ.SUPPLIER.MANAGE",
+        "RFQ.SEND", "RFQ.QUOTATION.RECORD", "RFQ.QUOTATION.VIEW",
+        "RFQ.COMPARE"
     };
 }

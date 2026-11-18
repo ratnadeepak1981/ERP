@@ -1,0 +1,352 @@
+<div class="portal-wrapper">
+  <!-- Portal Header -->
+  <header class="portal-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="logo-mark"><i class="pi pi-shield"></i></span>
+        <span class="brand-name">ApexERP Supplier Portal</span>
+        @if (rfqDetails()?.companyName) {
+          <span class="brand-company-tag">· {{ rfqDetails()!.companyName }}</span>
+        }
+      </div>
+      <div class="header-tag">Secure Quotation Submission</div>
+    </div>
+  </header>
+
+  <main class="portal-main">
+    @if (loading()) {
+      <div class="portal-card loading-card">
+        <i class="pi pi-spin pi-spinner spinner-icon"></i>
+        <p>Verifying invitation token and loading RFQ details...</p>
+      </div>
+    } @else if (error()) {
+      <div class="portal-card error-card">
+        <div class="error-icon"><i class="pi pi-exclamation-circle"></i></div>
+        <h2>Unable to Access Quotation</h2>
+        <p class="error-desc">{{ error() }}</p>
+        <div class="card-footer-tip">
+          If you believe this is an error, please contact the procurement officer who issued this invitation.
+        </div>
+      </div>
+    } @else if (submissionResult()) {
+      <div class="portal-card success-card">
+        <div class="success-icon"><i class="pi pi-check-circle"></i></div>
+        <h2>Quotation Submitted Successfully!</h2>
+        <p class="success-desc">
+          Thank you. Your quotation for <strong>{{ rfqDetails()?.rfqNumber }} - {{ rfqDetails()?.title }}</strong> has been formally received and registered in ApexERP.
+        </p>
+
+        <div class="receipt-box">
+          <div class="receipt-row">
+            <span class="label">Quotation Reference:</span>
+            <span class="val font-medium">{{ submissionResult()!.quotationReference || quotationReference() }}</span>
+          </div>
+          <div class="receipt-row">
+            <span class="label">Supplier:</span>
+            <span class="val">{{ rfqDetails()?.supplierName }}</span>
+          </div>
+          <div class="receipt-row">
+            <span class="label">Total Amount:</span>
+            <span class="val font-bold text-success">{{ calculatedGrandTotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
+          </div>
+          <div class="receipt-row">
+            <span class="label">Validity:</span>
+            <span class="val">Valid until {{ validUntil() | date:'mediumDate' }}</span>
+          </div>
+          <div class="receipt-row">
+            <span class="label">Status:</span>
+            <span class="val"><span class="badge badge-success">Submitted</span></span>
+          </div>
+        </div>
+
+        <p class="closing-note">
+          Our procurement team will evaluate your bid along with all participating submissions. You will be notified regarding the award decision.
+        </p>
+      </div>
+    } @else if (rfqDetails()) {
+      <!-- RFQ Overview Banner -->
+      <div class="portal-card rfq-overview-card">
+        <div class="rfq-meta-header">
+          <div class="rfq-meta-title-group">
+            <span class="rfq-badge">{{ rfqDetails()!.rfqNumber }}</span>
+            <h2>{{ rfqDetails()!.title }}</h2>
+          </div>
+          @if (rfqDetails()!.companyName) {
+            <div class="buyer-company-badge">
+              <span class="buyer-label">Invited by:</span>
+              <strong class="buyer-name">{{ rfqDetails()!.companyName }}</strong>
+            </div>
+          }
+        </div>
+
+        <div class="rfq-meta-grid">
+          <div>
+            <span class="meta-label">Inviting Company:</span>
+            <span class="meta-val font-semibold text-primary">{{ rfqDetails()!.companyName || 'Buyer Organization' }}</span>
+          </div>
+          <div>
+            <span class="meta-label">Submission Deadline:</span>
+            <span class="meta-val text-danger font-medium">{{ rfqDetails()!.closingDate | date:'medium' }}</span>
+          </div>
+          <div>
+            <span class="meta-label">Required Delivery:</span>
+            <span class="meta-val">{{ rfqDetails()!.deliveryRequiredDate ? (rfqDetails()!.deliveryRequiredDate | date:'mediumDate') : 'As agreed' }}</span>
+          </div>
+          <div>
+            <span class="meta-label">Delivery Terms:</span>
+            <span class="meta-val">{{ rfqDetails()!.deliveryTerms || 'Standard Terms' }}</span>
+          </div>
+          <div>
+            <span class="meta-label">Invited Supplier:</span>
+            <span class="meta-val font-medium">{{ rfqDetails()!.supplierName }}</span>
+          </div>
+        </div>
+
+        @if (rfqDetails()!.instructions) {
+          <div class="rfq-instructions">
+            <strong>Instructions from Buyer:</strong> {{ rfqDetails()!.instructions }}
+          </div>
+        }
+      </div>
+
+      <!-- Quotation Input Form -->
+      <div class="portal-card form-card">
+        <div class="card-title">
+          <h3>Your Quotation Information</h3>
+          <p>Please enter your commercial reference, validity period, and item pricing.</p>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="required">Your Quotation Reference #</label>
+            <input
+              type="text"
+              class="portal-input"
+              [class.input-invalid]="shouldShowError('reference') && errors()['reference']"
+              maxlength="50"
+              placeholder="e.g. QTE-2026-0881"
+              [ngModel]="quotationReference()"
+              (ngModelChange)="quotationReference.set($event)"
+              (blur)="markTouched('reference')"
+            />
+            @if (shouldShowError('reference') && errors()['reference']) {
+              <small class="field-error">{{ errors()['reference'] }}</small>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="required">Quotation Date</label>
+            <input
+              type="date"
+              class="portal-input"
+              [class.input-invalid]="shouldShowError('quotationDate') && errors()['quotationDate']"
+              [ngModel]="quotationDate()"
+              (ngModelChange)="quotationDate.set($event)"
+              (blur)="markTouched('quotationDate')"
+            />
+            @if (shouldShowError('quotationDate') && errors()['quotationDate']) {
+              <small class="field-error">{{ errors()['quotationDate'] }}</small>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="required">Valid Until (Expiry Date)</label>
+            <input
+              type="date"
+              class="portal-input"
+              [class.input-invalid]="shouldShowError('validUntil') && errors()['validUntil']"
+              [min]="quotationDate()"
+              [ngModel]="validUntil()"
+              (ngModelChange)="validUntil.set($event)"
+              (blur)="markTouched('validUntil')"
+            />
+            @if (shouldShowError('validUntil') && errors()['validUntil']) {
+              <small class="field-error">{{ errors()['validUntil'] }}</small>
+            }
+          </div>
+
+          <div class="form-group full-width">
+            <label>Commercial Remarks / Special Terms</label>
+            <input
+              type="text"
+              class="portal-input"
+              placeholder="e.g. Payment terms Net 30, prices inclusive of standard packing."
+              [ngModel]="notes()"
+              (ngModelChange)="notes.set($event)"
+            />
+          </div>
+        </div>
+
+        <h3 class="mt-4 mb-2">Item Pricing & Delivery Specifications</h3>
+        <div class="portal-table-wrapper">
+          <table class="portal-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th style="min-width: 180px;">Requested Item</th>
+                <th style="width: 95px;" class="text-right">Requested Qty</th>
+                <th style="width: 115px;" class="text-right required">Quoted Qty</th>
+                <th style="width: 70px;">UOM</th>
+                <th style="width: 135px;" class="text-right required">Unit Price ({{ currencyCode() || 'Base' }})</th>
+                <th style="width: 90px;" class="text-right">Disc %</th>
+                <th style="width: 90px;" class="text-right">Tax %</th>
+                <th style="width: 100px;" class="text-right">Lead (Days)</th>
+                <th style="width: 125px;" class="text-right">Line Total</th>
+                <th style="min-width: 150px;">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of lineEntries(); track line.rfqLineId) {
+                <tr>
+                  <td>{{ line.lineNumber }}</td>
+                  <td>
+                    <div class="font-medium">{{ line.productName }}</div>
+                    <small class="text-muted">{{ line.productCode }}</small>
+                    @if (line.technicalSpecifications) {
+                      <div class="specs-pill">{{ line.technicalSpecifications }}</div>
+                    }
+                  </td>
+                  <td class="text-right font-medium">{{ line.quantity | number:'1.2-2' }}</td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0.01"
+                      [max]="line.quantity"
+                      step="any"
+                      class="portal-input text-right font-medium"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']"
+                      [(ngModel)]="line.quotedQuantity"
+                      (ngModelChange)="onLineChange()"
+                      (blur)="markTouched(line.rfqLineId + '.quotedQuantity')"
+                    />
+                    @if (shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.quotedQuantity'] }}</small>
+                    }
+                  </td>
+                  <td><span class="badge badge-light">{{ line.unitOfMeasureCode }}</span></td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      class="portal-input text-right font-medium"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']"
+                      placeholder="0.00"
+                      [(ngModel)]="line.unitPrice"
+                      (ngModelChange)="onLineChange()"
+                      (blur)="markTouched(line.rfqLineId + '.unitPrice')"
+                    />
+                    @if (shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.unitPrice'] }}</small>
+                    }
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      class="portal-input text-right"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']"
+                      [(ngModel)]="line.discountPercentage"
+                      (ngModelChange)="onLineChange()"
+                      (blur)="markTouched(line.rfqLineId + '.discountPercentage')"
+                    />
+                    @if (shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.discountPercentage'] }}</small>
+                    }
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      class="portal-input text-right"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']"
+                      [(ngModel)]="line.taxRate"
+                      (ngModelChange)="onLineChange()"
+                      (blur)="markTouched(line.rfqLineId + '.taxRate')"
+                    />
+                    @if (shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.taxRate'] }}</small>
+                    }
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      max="365"
+                      class="portal-input text-right"
+                      [class.input-invalid]="shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']"
+                      [(ngModel)]="line.leadTimeDays"
+                      (ngModelChange)="onLineChange()"
+                      (blur)="markTouched(line.rfqLineId + '.leadTimeDays')"
+                    />
+                    @if (shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']) {
+                      <small class="field-error">{{ errors()[line.rfqLineId + '.leadTimeDays'] }}</small>
+                    }
+                  </td>
+                  <td class="text-right font-bold">
+                    {{ calculateLineTotal(line) | number:'1.2-2' }}
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      class="portal-input"
+                      maxlength="500"
+                      placeholder="e.g. Origin, brand"
+                      [(ngModel)]="line.technicalRemarks"
+                    />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Totals Summary & Submit Button -->
+        <div class="submission-summary-bar">
+          <div class="totals-breakdown">
+            <div class="total-line">
+              <span>Subtotal:</span>
+              <span>{{ calculatedSubtotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
+            </div>
+            @if (calculatedDiscountTotal() > 0) {
+              <div class="total-line text-success">
+                <span>Total Discount:</span>
+                <span>-{{ calculatedDiscountTotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
+              </div>
+            }
+            <div class="total-line">
+              <span>Estimated Tax:</span>
+              <span>{{ calculatedTax() | number:'1.2-2' }} {{ currencyCode() }}</span>
+            </div>
+            <div class="total-line grand-total font-bold">
+              <span>Grand Total:</span>
+              <span>{{ calculatedGrandTotal() | number:'1.2-2' }} {{ currencyCode() }}</span>
+            </div>
+          </div>
+
+          <div class="submit-action-box">
+            <button
+              type="button"
+              class="portal-submit-btn"
+              [disabled]="submitting() || !canSubmit()"
+              (click)="submitQuotation()"
+            >
+              @if (submitting()) {
+                <i class="pi pi-spin pi-spinner"></i> Submitting...
+              } @else {
+                <i class="pi pi-check"></i> Submit Formal Quotation
+              }
+            </button>
+            @if (!canSubmit()) {
+              <small class="validation-tip">Complete the highlighted fields before submitting. Unit prices must be greater than zero.</small>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  </main>
+</div>

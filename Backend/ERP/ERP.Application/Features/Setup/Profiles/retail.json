@@ -559,6 +559,32 @@
       "currencyCode": "LKR",
       "paymentTerms": "NET30",
       "contactPerson": "Saman Perera"
+    },
+    {
+      "code": "SUP-RET-002",
+      "name": "Ceylon Agro Provisions (Pvt) Ltd",
+      "email": "orders@ceylonagro.lk",
+      "phone": "+94 11 345 6789",
+      "addressLine1": "No. 85, Baseline Road, Dematagoda",
+      "city": "Colombo",
+      "postalCode": "00900",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Nimal Jayawardena"
+    },
+    {
+      "code": "SUP-RET-003",
+      "name": "Apex Wholesale Importers PLC",
+      "email": "sales@apexwholesale.lk",
+      "phone": "+94 11 567 8901",
+      "addressLine1": "No. 120, Kandy Road, Peliyagoda",
+      "city": "Peliyagoda",
+      "postalCode": "11830",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "contactPerson": "Rohan Fernando"
     }
   ],
   "customers": [

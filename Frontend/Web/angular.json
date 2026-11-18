@@ -67,7 +67,10 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "proxyConfig": "proxy.conf.json"
+            "proxyConfig": "proxy.conf.json",
+            "allowedHosts": [
+                ".192.168.1.183.nip.io"
+            ]
           },
           "configurations": {
             "production": {

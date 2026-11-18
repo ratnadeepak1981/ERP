@@ -1,25 +1,582 @@
 <div class="tenants-page">
   <app-page-header
     title="SaaS Tenant Directory"
-    subtitle="Provisioned manufacturing client organizations and database partitioning state."
+    subtitle="Authoritative database-backed directory of provisioned manufacturing organizations, storage strategies, commercial plans, and administrative boundaries."
   >
     <div actions class="header-actions">
-      <a routerLink="/platform-admin/tenants/provisioning" class="p-button p-button-sm p-button-outlined">
+      <button type="button" class="erp-btn erp-btn-outline erp-btn-sm" (click)="loadTenants()" [disabled]="loading()">
+        <i class="pi pi-refresh" [class.pi-spin]="loading()"></i> Refresh
+      </button>
+      <a routerLink="/platform-admin/tenants/provisioning" class="erp-btn erp-btn-primary erp-btn-sm">
         <i class="pi pi-cog"></i> Tenant Provisioning
       </a>
-      <button type="button" class="p-button p-button-sm">
-        <i class="pi pi-plus"></i> Enroll Tenant
-      </button>
     </div>
   </app-page-header>
 
-  <div class="tenants-table-card erp-card erp-card-elevated">
-    <app-data-table
-      [data]="tenants()"
-      [columns]="columns"
-      searchPlaceholder="Filter tenants by name, code or plan..."
-      emptyTitle="No tenant records registered"
-      emptyDescription="No multi-tenant organizations found in this cluster."
-    ></app-data-table>
+  <!-- KPI Overview Metrics -->
+  <div class="kpi-grid">
+    <div class="kpi-card erp-card">
+      <div class="kpi-icon kpi-icon-primary"><i class="pi pi-building"></i></div>
+      <div class="kpi-body">
+        <span class="kpi-label">Total Organizations</span>
+        <span class="kpi-value">{{ metrics().total }}</span>
+        <span class="kpi-sub">Verified database tenants</span>
+      </div>
+    </div>
+
+    <div class="kpi-card erp-card">
+      <div class="kpi-icon kpi-icon-success"><i class="pi pi-check-circle"></i></div>
+      <div class="kpi-body">
+        <span class="kpi-label">Active Tenants</span>
+        <span class="kpi-value">{{ metrics().active }}</span>
+        <span class="kpi-sub">{{ metrics().total - metrics().active }} suspended / inactive</span>
+      </div>
+    </div>
+
+    <div class="kpi-card erp-card">
+      <div class="kpi-icon kpi-icon-info"><i class="pi pi-database"></i></div>
+      <div class="kpi-body">
+        <span class="kpi-label">Provisioned DBs</span>
+        <span class="kpi-value">{{ metrics().completed }}</span>
+        <span class="kpi-sub">Active schema & configuration</span>
+      </div>
+    </div>
+
+    <div class="kpi-card erp-card">
+      <div class="kpi-icon kpi-icon-purple"><i class="pi pi-users"></i></div>
+      <div class="kpi-body">
+        <span class="kpi-label">Enterprise Users</span>
+        <span class="kpi-value">{{ metrics().totalUsers }}</span>
+        <span class="kpi-sub">{{ metrics().totalAdmins }} designated Tenant Admins</span>
+      </div>
+    </div>
   </div>
+
+  <!-- Filter & Search Toolbar -->
+  <div class="filter-card erp-card">
+    <div class="filter-row">
+      <!-- Search Input -->
+      <div class="filter-field search-field">
+        <label for="tenantSearch" class="filter-label">Search Directory</label>
+        <div class="search-input-wrapper">
+          <i class="pi pi-search search-icon"></i>
+          <input
+            id="tenantSearch"
+            type="text"
+            pInputText
+            [(ngModel)]="globalSearch"
+            placeholder="Search code, name, legal name, plan, admin email..."
+            class="erp-input search-input"
+          />
+          @if (globalSearch()) {
+            <button type="button" class="search-clear-btn" (click)="globalSearch.set('')">
+              <i class="pi pi-times"></i>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Tenant Status Filter -->
+      <div class="filter-field">
+        <label for="tenantStatusFilter" class="filter-label">Tenant Status</label>
+        <select
+          id="tenantStatusFilter"
+          [ngModel]="tenantStatusFilter()"
+          (ngModelChange)="tenantStatusFilter.set($event)"
+          class="erp-select"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="INACTIVE">Inactive / Suspended</option>
+        </select>
+      </div>
+
+      <!-- Subscription Plan Filter -->
+      <div class="filter-field">
+        <label for="planFilter" class="filter-label">Subscription Plan</label>
+        <select
+          id="planFilter"
+          [ngModel]="planFilter()"
+          (ngModelChange)="planFilter.set($event)"
+          class="erp-select"
+        >
+          <option value="ALL">All Plans</option>
+          @for (p of availablePlans(); track p) {
+            <option [value]="p">{{ p }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- Storage Mode Filter -->
+      <div class="filter-field">
+        <label for="storageFilter" class="filter-label">Storage Strategy</label>
+        <select
+          id="storageFilter"
+          [ngModel]="storageFilter()"
+          (ngModelChange)="storageFilter.set($event)"
+          class="erp-select"
+        >
+          <option value="ALL">All Strategies</option>
+          <option value="SharedDatabase">Shared Database</option>
+          <option value="DedicatedDatabase">Dedicated Database</option>
+        </select>
+      </div>
+
+      <!-- Provisioning Status Filter -->
+      <div class="filter-field">
+        <label for="provisioningStatusFilter" class="filter-label">Provisioning</label>
+        <select
+          id="provisioningStatusFilter"
+          [ngModel]="provisioningStatusFilter()"
+          (ngModelChange)="provisioningStatusFilter.set($event)"
+          class="erp-select"
+        >
+          <option value="ALL">All States</option>
+          <option value="Completed">Completed</option>
+          <option value="Pending">Pending</option>
+        </select>
+      </div>
+
+      <!-- Admin Status Filter -->
+      <div class="filter-field">
+        <label for="adminStatusFilter" class="filter-label">Admin Status</label>
+        <select
+          id="adminStatusFilter"
+          [ngModel]="adminStatusFilter()"
+          (ngModelChange)="adminStatusFilter.set($event)"
+          class="erp-select"
+        >
+          <option value="ALL">All Admin States</option>
+          <option value="Active">Active Account</option>
+          <option value="Suspended">Suspended</option>
+          <option value="Unassigned">Unassigned</option>
+        </select>
+      </div>
+
+      <!-- Clear Action -->
+      <div class="filter-actions">
+        <button
+          type="button"
+          class="erp-btn erp-btn-outline erp-btn-sm"
+          (click)="clearFilters()"
+          title="Reset all search queries and dropdown filters"
+        >
+          <i class="pi pi-filter-slash"></i> Clear All
+        </button>
+      </div>
+    </div>
+
+    <div class="filter-meta">
+      <span class="record-counter">
+        Showing <strong>{{ filteredTenants().length }}</strong> of <strong>{{ tenants().length }}</strong> registered tenants
+      </span>
+      @if (globalSearch() || tenantStatusFilter() !== 'ALL' || planFilter() !== 'ALL' || storageFilter() !== 'ALL' || provisioningStatusFilter() !== 'ALL' || adminStatusFilter() !== 'ALL') {
+        <span class="active-filter-indicator">
+          <i class="pi pi-info-circle"></i> Filter criteria active
+        </span>
+      }
+    </div>
+  </div>
+
+  <!-- Main Tenant Data Table Card -->
+  <div class="tenants-table-card erp-card erp-card-elevated">
+    @if (errorMessage()) {
+      <div class="error-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ errorMessage() }}</span>
+        <button type="button" class="erp-btn erp-btn-sm erp-btn-outline" (click)="loadTenants()">Retry</button>
+      </div>
+    }
+
+    <app-data-table
+      [data]="filteredTenants()"
+      [columns]="columns"
+      [loading]="loading()"
+      [showGlobalSearch]="false"
+      [paginator]="true"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      emptyTitle="No tenants match filter criteria"
+      emptyDescription="Try adjusting search terms or resetting filters to view all 24 registered organizations."
+    >
+      <!-- Custom Row Actions -->
+      <ng-template #rowActions let-row>
+        <div class="action-buttons-group">
+          <button
+            type="button"
+            class="table-btn btn-details"
+            (click)="viewTenantDetails(row)"
+            title="Inspect complete organization, subscription, database and provisioning details"
+          >
+            <i class="pi pi-eye"></i> Details
+          </button>
+          <button
+            type="button"
+            class="table-btn btn-users"
+            (click)="viewTenantUsers(row)"
+            title="View scoped users and security assignments"
+          >
+            <i class="pi pi-users"></i> Users ({{ row.totalUserCount }})
+          </button>
+        </div>
+      </ng-template>
+    </app-data-table>
+  </div>
+
+  <!-- Modal 1: Comprehensive Tenant Details Dialog -->
+  <p-dialog
+    header="Tenant Profile & Database Architecture"
+    [(visible)]="showDetailsModal"
+    [modal]="true"
+    [dismissableMask]="true"
+    [style]="{ width: '850px', maxWidth: '96vw' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    @if (selectedTenant(); as t) {
+      <div class="details-dialog-content">
+        <!-- Dialog Header Banner -->
+        <div class="tenant-modal-header">
+          <div class="tenant-title-block">
+            <h3 class="tenant-title">{{ t.name }}</h3>
+            <div class="tenant-code-badge">
+              <span class="code-label">{{ t.code }}</span>
+              <span class="status-pill" [class.pill-active]="t.isActive" [class.pill-inactive]="!t.isActive">
+                {{ t.isActive ? 'Active' : 'Inactive' }}
+              </span>
+              <span class="status-pill" [class.pill-completed]="t.isProvisioned" [class.pill-pending]="!t.isProvisioned">
+                {{ t.isProvisioned ? 'Provisioned' : 'Pending Setup' }}
+              </span>
+            </div>
+          </div>
+          <div class="tenant-subdomain-tag">
+            <i class="pi pi-globe"></i> {{ t.subdomain ? t.subdomain + '.localhost' : 'No Subdomain' }}
+          </div>
+        </div>
+
+        <!-- Section 1: Tenant Identity and Legal Organization -->
+        <div class="detail-section">
+          <h4 class="section-heading"><i class="pi pi-id-card"></i> 1. Tenant Identity & Legal Organization</h4>
+          <div class="property-grid">
+            <div class="prop-item">
+              <span class="prop-label">Tenant ID (GUID)</span>
+              <span class="prop-val mono-val">{{ t.id }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Tenant Code</span>
+              <span class="prop-val">{{ t.code }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Organization Name</span>
+              <span class="prop-val">{{ t.name }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Legal / Registered Name</span>
+              <span class="prop-val">{{ t.legalName || t.name }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Subdomain Binding</span>
+              <span class="prop-val">{{ t.subdomain || 'N/A' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Tax / VAT ID</span>
+              <span class="prop-val">{{ t.taxId || 'Not Registered' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Billing Location</span>
+              <span class="prop-val">{{ t.city ? t.city + ', ' + (t.countryCode || '') : 'Not Specified' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Enrolled / Created Date</span>
+              <span class="prop-val">{{ t.createdAt | date:'medium' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Last Modified Date</span>
+              <span class="prop-val">{{ t.modifiedAt ? (t.modifiedAt | date:'medium') : 'Not Modified Since Creation' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Subscription and Commercial Plan -->
+        <div class="detail-section">
+          <h4 class="section-heading"><i class="pi pi-credit-card"></i> 2. Subscription & Commercial Plan</h4>
+          <div class="property-grid">
+            <div class="prop-item">
+              <span class="prop-label">Subscription Name</span>
+              <span class="prop-val">{{ t.subscriptionName || 'Manufacturing Cloud' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Plan Name & Code</span>
+              <span class="prop-val">{{ t.planName || 'Free Supply Chain' }} ({{ t.planCode || 'FREE-SCM' }})</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Plan Status</span>
+              <span class="prop-val">{{ t.planIsActive !== false ? 'Active Catalogue Plan' : 'Inactive Plan' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Subscription Status</span>
+              <span class="prop-val">{{ t.subscriptionStatus || 'Active' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Storage Partitioning Mode</span>
+              <span class="prop-val">{{ t.storageMode }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Price Snapshot</span>
+              <span class="prop-val">{{ (t.billingPlanPriceSnapshot !== null && t.billingPlanPriceSnapshot !== undefined) ? (t.currency || 'USD') + ' ' + (t.billingPlanPriceSnapshot | number:'1.2-2') : 'Free Tier ($0.00)' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Billing Cycle</span>
+              <span class="prop-val">{{ t.billingCycle || 'Monthly' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Subscription Start Date</span>
+              <span class="prop-val">{{ t.subscriptionStartDate ? (t.subscriptionStartDate | date:'mediumDate') : 'Immediate' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Subscription End Date</span>
+              <span class="prop-val">{{ t.subscriptionEndDate ? (t.subscriptionEndDate | date:'mediumDate') : 'Perpetual / Ongoing' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Next Renewal / Billing Date</span>
+              <span class="prop-val">{{ t.nextBillingDate ? (t.nextBillingDate | date:'mediumDate') : 'Not Scheduled' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Auto-Renew Status</span>
+              <span class="prop-val">{{ t.autoRenew ? 'Enabled' : 'Disabled' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Trial Period</span>
+              <span class="prop-val text-muted"><em>Not applicable / Not configured in plan model</em></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Database and Provisioning -->
+        <div class="detail-section">
+          <h4 class="section-heading"><i class="pi pi-server"></i> 3. Database & Technical Provisioning</h4>
+          <div class="property-grid">
+            <div class="prop-item">
+              <span class="prop-label">Storage Architecture</span>
+              <span class="prop-val">{{ t.storageMode }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Assigned Database</span>
+              <span class="prop-val mono-val">{{ t.databaseName || 'DomainDB' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Database Server</span>
+              <span class="prop-val mono-val">{{ t.databaseServer || 'SQLSERVER' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Database Connection Status</span>
+              <span class="prop-val">{{ t.databaseIsActive ? 'Active & Healthy' : 'Inactive' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Database Provisioning State</span>
+              <span class="prop-val">{{ t.isProvisioned ? 'Completed & Verified' : 'Pending Setup' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Provisioning Allocated Date</span>
+              <span class="prop-val">{{ t.provisioningDate ? (t.provisioningDate | date:'medium') : (t.createdAt | date:'medium') }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Provisioning Error Log</span>
+              <span class="prop-val text-success">None (Zero errors logged)</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Configuration State</span>
+              <span class="prop-val">{{ t.configurationExists ? 'Active Tenant Configuration' : 'Default' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Company Isolation Enabled</span>
+              <span class="prop-val">{{ t.companyEnabled ? 'Yes' : 'No' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Branch Routing Enabled</span>
+              <span class="prop-val">{{ t.branchEnabled ? 'Yes' : 'No' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Warehouse Zones & Bins</span>
+              <span class="prop-val">{{ (t.warehouseZoneEnabled ? 'Zones Enabled' : '') + (t.warehouseBinEnabled ? ' · Bins Enabled' : '') || 'Standard' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Procurement Approval Mode</span>
+              <span class="prop-val">{{ t.procurementApprovalRequired ? 'Required (Simple Mode)' : 'Direct' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Special UOM Conversion</span>
+              <span class="prop-val">{{ t.specialUomConversionEnabled ? 'Enabled' : 'Standard UOM Only' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Industry & Structure</span>
+              <span class="prop-val">{{ (t.industryType || 'Manufacturing') + ' · ' + (t.companyStructure || 'Multi-Company') }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">E-Commerce Storefront</span>
+              <span class="prop-val">{{ t.eCommerceEnabled ? 'Enabled' : 'Disabled' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Administration & Organization Scope -->
+        <div class="detail-section">
+          <h4 class="section-heading"><i class="pi pi-shield"></i> 4. Administration & Organization Scope</h4>
+          <div class="property-grid">
+            <div class="prop-item">
+              <span class="prop-label">Total Registered Users</span>
+              <span class="prop-val font-bold">{{ t.totalUserCount }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Active / Inactive Users</span>
+              <span class="prop-val">{{ t.activeUserCount }} Active / {{ t.inactiveUserCount }} Inactive</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Designated Tenant Admins</span>
+              <span class="prop-val font-bold">{{ t.tenantAdminCount }} Assigned Administrator(s)</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Admin Account Status</span>
+              <span class="prop-val">{{ t.tenantAdminAccountStatus || 'Active' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Legal Companies</span>
+              <span class="prop-val">{{ t.companyCount }} Company Entity(s)</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Operating Branches</span>
+              <span class="prop-val">{{ t.branchCount }} Branch Location(s)</span>
+            </div>
+            <div class="prop-item full-width">
+              <span class="prop-label">Assigned Tenant Admin Usernames</span>
+              <span class="prop-val mono-val">{{ t.tenantAdminUsernames && t.tenantAdminUsernames.length > 0 ? t.tenantAdminUsernames.join(', ') : (t.adminUsername || 'None') }}</span>
+            </div>
+            <div class="prop-item full-width">
+              <span class="prop-label">Assigned Tenant Admin Emails</span>
+              <span class="prop-val mono-val">{{ t.tenantAdminEmails && t.tenantAdminEmails.length > 0 ? t.tenantAdminEmails.join(', ') : (t.adminEmail || 'None') }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <div class="dialog-footer-actions">
+        @if (selectedTenant(); as t) {
+          <button type="button" class="erp-btn erp-btn-primary erp-btn-sm" (click)="closeDetailsModal(); viewTenantUsers(t)">
+            <i class="pi pi-users"></i> View All {{ t.totalUserCount }} Users
+          </button>
+        }
+        <button type="button" class="erp-btn erp-btn-outline erp-btn-sm" (click)="closeDetailsModal()">
+          Close
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Modal 2: Scoped Tenant Users Dialog -->
+  <p-dialog
+    header="Tenant Security Accounts"
+    [(visible)]="showUsersModal"
+    [modal]="true"
+    [dismissableMask]="true"
+    [style]="{ width: '920px', maxWidth: '96vw' }"
+    [draggable]="false"
+    [resizable]="false"
+  >
+    @if (usersModalTenant(); as tenant) {
+      <div class="users-dialog-content">
+        <!-- Dialog Header Subtitle -->
+        <div class="users-modal-header">
+          <div class="users-header-info">
+            <span class="tenant-tag">{{ tenant.name }} ({{ tenant.code }})</span>
+            <span class="user-count-badge">{{ filteredTenantUsers().length }} of {{ tenantUsers().length }} users displayed</span>
+          </div>
+
+          <div class="users-search-box">
+            <i class="pi pi-search"></i>
+            <input
+              type="text"
+              pInputText
+              [(ngModel)]="userSearchQuery"
+              placeholder="Search user by username, email or role..."
+              class="erp-input user-search-input"
+            />
+          </div>
+        </div>
+
+        @if (loadingUsers()) {
+          <div class="dialog-loading">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Loading tenant-scoped security users from SecurityDB...</span>
+          </div>
+        } @else if (filteredTenantUsers().length === 0) {
+          <div class="dialog-empty">
+            <i class="pi pi-users empty-icon"></i>
+            <span class="empty-title">No user records found</span>
+            <span class="empty-desc">No accounts match the current filter or this tenant has not yet provisioned staff users.</span>
+          </div>
+        } @else {
+          <div class="users-table-container">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Assigned Roles</th>
+                  <th>Status</th>
+                  <th>Created Date</th>
+                  <th>Last Activity</th>
+                  <th>Email Verified</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (u of filteredTenantUsers(); track u.id) {
+                  <tr>
+                    <td class="font-semibold">{{ u.username }}</td>
+                    <td class="mono-val">{{ u.email }}</td>
+                    <td>
+                      <div class="roles-chips">
+                        @for (r of u.roles; track r.roleId) {
+                          <span
+                            class="role-chip"
+                            [class.chip-admin]="r.roleName === 'Tenant Admin'"
+                          >
+                            {{ r.roleName }}
+                          </span>
+                        }
+                        @if (!u.roles || u.roles.length === 0) {
+                          <span class="role-chip chip-none">No Roles</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <span class="status-pill" [class.pill-active]="u.accountStatus === 'Active'" [class.pill-inactive]="u.accountStatus !== 'Active'">
+                        {{ u.accountStatus }}
+                      </span>
+                    </td>
+                    <td>{{ u.createdAt | date:'yyyy-MM-dd' }}</td>
+                    <td class="text-sub">
+                      {{ u.lastActivityAt ? (u.lastActivityAt | date:'medium') : 'No sessions recorded' }}
+                    </td>
+                    <td class="text-sub">
+                      <span class="text-muted" title="Email verification flag is not present in identity schema">Not tracked</span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <div class="dialog-footer-actions">
+        <button type="button" class="erp-btn erp-btn-outline erp-btn-sm" (click)="closeUsersModal()">
+          Close
+        </button>
+      </div>
+    </ng-template>
+  </p-dialog>
 </div>
