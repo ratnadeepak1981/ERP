@@ -8,7 +8,9 @@ import {
   ProvisioningQueueItem,
   ProvisioningMetrics,
   TenantDetails,
-  TenantLifecycleStatus
+  TenantLifecycleStatus,
+  TenantDirectoryRecord,
+  TenantUserRecord
 } from '../models/tenant-provisioning.model';
 import { buildApiUrl } from '../utils/api-url.util';
 
@@ -103,5 +105,23 @@ export class TenantProvisioningService {
    */
   getTenantStatus(tenantId: string): Observable<ApiResponse<TenantLifecycleStatus>> {
     return this.http.get<ApiResponse<TenantLifecycleStatus>>(buildApiUrl(`/Tenant/${tenantId}/status`));
+  }
+
+  /**
+   * Retrieves all actual database-backed tenants with enriched SaaS, RBAC and storage metadata.
+   */
+  getTenantDirectory(): Observable<TenantDirectoryRecord[]> {
+    return this.http.get<ApiResponse<TenantDirectoryRecord[]>>(buildApiUrl('/Tenant')).pipe(
+      map(res => res?.data || [])
+    );
+  }
+
+  /**
+   * Retrieves all users scoped to a specific tenant for platform administrator inspection.
+   */
+  getTenantUsers(tenantId: string): Observable<TenantUserRecord[]> {
+    return this.http.get<ApiResponse<TenantUserRecord[]>>(buildApiUrl(`/User?tenantId=${encodeURIComponent(tenantId)}`)).pipe(
+      map(res => res?.data || [])
+    );
   }
 }

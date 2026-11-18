@@ -59,7 +59,14 @@ export const routes: Routes = [
       import('./features/domain/customer-portal/customer-portal.routes').then(m => m.customerPortalRoutes)
   },
 
-  // 8. Access Denied (403 Forbidden Page)
+  // 8. Public Supplier RFQ Quotation Portal
+  {
+    path: 'public/rfq-submit',
+    loadComponent: () =>
+      import('./features/public/public-rfq-submit/public-rfq-submit.component').then(m => m.PublicRfqSubmitComponent)
+  },
+
+  // 9. Access Denied (403 Forbidden Page)
   {
     path: 'access-denied',
     loadComponent: () =>

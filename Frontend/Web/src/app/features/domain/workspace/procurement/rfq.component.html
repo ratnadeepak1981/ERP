@@ -1,0 +1,188 @@
+<div class="rfqs-page">
+  <app-page-header
+    title="Request for Quotations"
+    subtitle="Invite multiple suppliers to bid on required items, receive public or manual quotations, and compare bids side-by-side."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <button
+        type="button"
+        class="erp-btn erp-btn-secondary erp-btn-sm"
+        [disabled]="loading()"
+        (click)="loadRfqs()"
+        title="Reload RFQ list"
+      >
+        <i class="pi pi-refresh" [class.pi-spin]="loading()"></i>
+        <span>Refresh</span>
+      </button>
+
+      <button
+        type="button"
+        class="erp-btn erp-btn-primary erp-btn-sm"
+        [disabled]="!canCreateRfq() || actionInProgress()"
+        [title]="!scopeService.hasCompany() ? 'Select an operating company first' : 'Create a new Request for Quotation'"
+        (click)="navigateToCreate()"
+      >
+        <i class="pi pi-plus"></i>
+        <span>New RFQ</span>
+      </button>
+    </div>
+  </app-page-header>
+
+  <!-- Global Status / Notification Message -->
+  @if (message()) {
+    <div class="message-banner" [ngClass]="'banner-' + message()!.severity">
+      <i class="pi" [ngClass]="{
+        'pi-check-circle': message()!.severity === 'success',
+        'pi-info-circle': message()!.severity === 'info',
+        'pi-exclamation-triangle': message()!.severity === 'warn',
+        'pi-times-circle': message()!.severity === 'danger'
+      }"></i>
+      <span class="message-text">{{ message()!.text }}</span>
+      <button type="button" class="dismiss-btn" (click)="message.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Access Restricted State -->
+  @if (isAccessDenied()) {
+    <div class="rfq-access-denied-wrapper erp-card">
+      <app-access-denied
+        [inline]="true"
+        title="Access restricted"
+        [message]="accessDeniedMessage()"
+        [showBackAction]="true"
+        [showHomeAction]="true"
+        homeUrl="/app/dashboard"
+        homeLabel="Workspace Home"
+      ></app-access-denied>
+    </div>
+  } @else if (!scopeService.hasCompany()) {
+    <div class="scope-required-wrapper erp-card">
+      <app-empty-state
+        icon="pi pi-compass"
+        title="Operating Company and Branch Required"
+        description="Request for Quotations require an operating company and branch scope. Please select them from the scope switcher in the navigation bar to proceed."
+      ></app-empty-state>
+    </div>
+  } @else if (loading()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading Request for Quotations from server..."></app-loading-state>
+    </div>
+  } @else if (error()) {
+    <div class="erp-card state-card">
+      <app-error-state [message]="error()!" (retry)="loadRfqs()"></app-error-state>
+    </div>
+  } @else {
+    <!-- Main Content Area: Search, Filter Pills & Data Table -->
+    <div class="rfq-table-card erp-card">
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <!-- Quick Search -->
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="erp-search-field"
+              placeholder="Search RFQ # or title..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+
+          <!-- Status Filter Pills -->
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'all'"
+              (click)="activeStatusFilter.set('all')"
+            >
+              All ({{ rfqs().length }})
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'draft'"
+              (click)="activeStatusFilter.set('draft')"
+            >
+              <i class="pi pi-pencil pill-icon"></i> Draft
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'issued'"
+              (click)="activeStatusFilter.set('issued')"
+            >
+              <i class="pi pi-send pill-icon"></i> Issued
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'closed'"
+              (click)="activeStatusFilter.set('closed')"
+            >
+              <i class="pi pi-lock pill-icon"></i> Closed
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'awarded'"
+              (click)="activeStatusFilter.set('awarded')"
+            >
+              <i class="pi pi-check pill-icon"></i> Awarded
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'cancelled'"
+              (click)="activeStatusFilter.set('cancelled')"
+            >
+              <i class="pi pi-ban pill-icon"></i> Cancelled
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Badge Indicator -->
+        <div class="scope-info-pill" title="Current Transaction Scope">
+          <i class="pi pi-building"></i>
+          <span class="scope-text">
+            {{ scopeService.currentScopeDescription() }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Main RFQ Data Table -->
+      <app-data-table
+        [data]="filteredRfqs()"
+        [columns]="tableColumns()"
+        [rowActions]="tableActions"
+        rowKey="id"
+        [loading]="loading()"
+        emptyTitle="No Request for Quotations found"
+        emptyDescription="No RFQs match your current filter or none exist for this operating branch yet."
+        [showGlobalSearch]="false"
+        [showColumnChooser]="true"
+        [showExport]="true"
+        [showViewSwitcher]="true"
+        cardTitleField="rfqNumber"
+        cardSubtitleField="title"
+        cardIcon="pi pi-file"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+      ></app-data-table>
+    </div>
+  }
+
+  <!-- Confirmation Dialog -->
+  <app-confirmation-dialog
+    [(visible)]="confirmDialogVisible"
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    [errorMessage]="confirmDialogError()"
+    (confirmed)="executeConfirmModal($event)"
+    (cancelled)="closeConfirmModal()"
+  ></app-confirmation-dialog>
+</div>

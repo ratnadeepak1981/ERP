@@ -106,6 +106,10 @@ public static class ServiceRegistration
         services.AddScoped<Domain.Features.Procurement.Approval.IProcurementApprovalSettingsProvider, API.Services.ProcurementApprovalSettingsProvider>();
         services.AddScoped<Domain.Features.Procurement.Approval.IApprovalWorkflowService, ERP.Application.Features.Procurement.Approval.ApprovalWorkflowService>();
         services.AddScoped<Domain.Features.Procurement.PurchaseRequisition.IPurchaseRequisitionService, ERP.Application.Features.Procurement.PurchaseRequisitionFeature.PurchaseRequisitionService>();
+        services.AddScoped<Domain.Features.Procurement.RequestForQuotation.IRfqTokenService, Domain.Features.Procurement.RequestForQuotation.RfqTokenService>();
+        services.AddScoped<Domain.Features.Procurement.RequestForQuotation.IRfqEmailNotificationService, ERP.Application.Features.Procurement.RFQ.RfqEmailNotificationService>();
+        services.AddScoped<Domain.Features.Procurement.RequestForQuotation.IRFQService, Domain.Features.Procurement.RequestForQuotation.RFQService>();
+        services.AddScoped<Domain.Features.Procurement.RequestForQuotation.ISupplierQuotationService, Domain.Features.Procurement.RequestForQuotation.SupplierQuotationService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryPostingService, ERP.Application.Features.Inventory.InventoryPosting.InventoryPostingService>();
         services.AddScoped<ERP.Domain.Features.Inventory.IInventoryService, ERP.Application.Features.Inventory.Management.InventoryService>();
         services.AddScoped<ERP.Domain.Features.Inventory.StockCount.IStockCountService, ERP.Domain.Features.Inventory.StockCount.StockCountService>();

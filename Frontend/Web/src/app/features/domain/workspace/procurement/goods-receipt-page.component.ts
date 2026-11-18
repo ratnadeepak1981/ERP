@@ -21,7 +21,7 @@ import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppReactiveFormComponent } from '../../../../shared/components/forms/reactive-form.component';
-import { FormFieldConfig } from '../../../../shared/components/forms/form-field-config.model';
+import { FormFieldConfig, FormFieldOption } from '../../../../shared/components/forms/form-field-config.model';
 import { AppEditableDataTableComponent } from '../../../../shared/components/data-table/editable-data-table.component';
 import { AppStatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 import { AppLoadingStateComponent } from '../../../../shared/components/loading-state/loading-state.component';
@@ -43,8 +43,8 @@ import {
   getGrnStatusSeverity
 } from '../../../../core/models/goods-receipt-note.models';
 import { PurchaseOrderDto, PurchaseOrderStatus } from '../../../../core/models/purchase-order.models';
-import { TrackingMode, ProductItem, Branch } from '../../../../core/models/scope.models';
-import { DataTableColumn } from '../../../../shared/models/data-table-config.model';
+import { TrackingMode, ProductItem, Branch, WarehouseItem, WarehouseLocationItem } from '../../../../core/models/scope.models';
+import { DataTableColumn, SelectOption } from '../../../../shared/models/data-table-config.model';
 import {
   BatchSerialTrackingDialogComponent,
   BatchSerialDialogData
@@ -168,6 +168,25 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
   );
   readonly message = signal<{ text: string; severity: 'success' | 'info' | 'warn' | 'danger' } | null>(null);
 
+  // Master Data & Location Cache
+  readonly warehouses = signal<WarehouseItem[]>([]);
+  readonly locationsMap = signal<Record<string, WarehouseLocationItem[]>>({});
+  readonly headerWarehouseId = signal<string>('');
+
+  readonly warehouseOptions = computed<SelectOption[]>(() => {
+    return this.warehouses().map(w => ({
+      label: `${w.warehouseCode} - ${w.warehouseName}`,
+      value: w.warehouseId
+    }));
+  });
+
+  readonly warehouseFormOptions = computed<FormFieldOption[]>(() => {
+    return this.warehouses().map(w => ({
+      label: `${w.warehouseCode} - ${w.warehouseName}`,
+      value: w.warehouseId
+    }));
+  });
+
   // Line items
   readonly workingLines = signal<EditableGRNLine[]>([]);
 
@@ -180,6 +199,7 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
     }),
     purchaseOrderNumber: new FormControl<string>('', { nonNullable: true }),
     supplierName: new FormControl<string>('', { nonNullable: true }),
+    warehouseId: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
     deliveryNoteNumber: new FormControl<string>(''),
     remarks: new FormControl<string>('')
   });
@@ -254,6 +274,17 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
         colSpan: 1
       },
       {
+        name: 'warehouseId',
+        label: 'Receiving Warehouse',
+        type: 'select',
+        required: true,
+        disabled: isView,
+        placeholder: '-- Select Warehouse Facility --',
+        options: this.warehouseFormOptions(),
+        tooltip: 'Default receiving warehouse facility for delivered items',
+        colSpan: 1
+      },
+      {
         name: 'deliveryNoteNumber',
         label: 'Delivery Note Ref',
         type: 'text',
@@ -268,10 +299,169 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
         placeholder: 'Enter dock inspection comments, carrier tracking, or package condition...',
         rows: 2,
         disabled: isView,
-        colSpan: 2
+        colSpan: 3
       }
     ];
   });
+
+  // Location helpers matching Stock Receipt pattern
+  ensureLocationsLoaded(warehouseId: string, callback?: () => void): void {
+    if (!warehouseId) return;
+    const current = this.locationsMap();
+    if (current[warehouseId]) {
+      if (callback) callback();
+      return;
+    }
+
+    this.masterDataService.getWarehouseLocations(warehouseId).subscribe({
+      next: locs => {
+        const activeLocs = (locs || []).filter(l => l.isActive);
+        this.locationsMap.update(map => ({
+          ...map,
+          [warehouseId]: activeLocs
+        }));
+        if (callback) callback();
+      },
+      error: () => {
+        this.locationsMap.update(map => ({
+          ...map,
+          [warehouseId]: []
+        }));
+        if (callback) callback();
+      }
+    });
+  }
+
+  getLocationsForWarehouse(warehouseId: string): WarehouseLocationItem[] {
+    return this.locationsMap()[warehouseId] || [];
+  }
+
+  getLocationOptionsForRow(row: EditableGRNLine): SelectOption[] {
+    const targetWh = row.warehouseId || this.headerWarehouseId();
+    if (!targetWh) {
+      return [{ label: '-- Select Facility First --', value: '' }];
+    }
+    const locs = this.getLocationsForWarehouse(targetWh);
+    if (!locs || locs.length === 0) {
+      return [{ label: '-- No Storage Locations Available --', value: '' }];
+    }
+    return locs.map(l => ({
+      label: this.formatLocationHierarchy(l),
+      value: l.warehouseLocationId ?? l.locationId
+    }));
+  }
+
+  findLocation(locationId: string): WarehouseLocationItem | undefined {
+    if (!locationId) return undefined;
+    const map = this.locationsMap();
+    for (const list of Object.values(map)) {
+      const found = list.find(l => (l.warehouseLocationId ?? l.locationId) === locationId);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  formatLocationHierarchy(loc: WarehouseLocationItem): string {
+    if (!loc) return '';
+    if (loc.locationName && (loc.locationName.includes('>') || loc.locationName.includes('→'))) {
+      return `${loc.locationCode} • ${loc.locationName.replace(/>/g, '→')}`;
+    }
+
+    const segments = loc.locationCode.split('-');
+    if (segments.length >= 3) {
+      return `${loc.locationCode} (Rack ${segments[0]} → Level ${segments[1]} → Bin ${segments[2]})`;
+    }
+
+    return `${loc.locationCode} — ${loc.locationName}`;
+  }
+
+  onHeaderWarehouseChange(warehouseId: string): void {
+    this.headerWarehouseId.set(warehouseId);
+    if (!warehouseId) {
+      this.workingLines.update(curr =>
+        curr.map(l => ({
+          ...l,
+          warehouseId: '',
+          warehouseLocationId: ''
+        }))
+      );
+      return;
+    }
+
+    this.ensureLocationsLoaded(warehouseId, () => {
+      const locs = this.getLocationsForWarehouse(warehouseId);
+      const defaultLocId = locs.length > 0 ? (locs[0].warehouseLocationId ?? locs[0].locationId ?? '') : '';
+
+      this.workingLines.update(curr =>
+        curr.map(l => {
+          const wh = (!l.warehouseId || l.warehouseId === warehouseId) ? warehouseId : l.warehouseId;
+          const loc = wh === warehouseId
+            ? (l.warehouseLocationId && locs.some(x => (x.warehouseLocationId ?? x.locationId) === l.warehouseLocationId) ? l.warehouseLocationId : defaultLocId)
+            : (l.warehouseLocationId || '');
+          return {
+            ...l,
+            warehouseId: wh,
+            warehouseLocationId: loc
+          };
+        })
+      );
+    });
+  }
+
+  onTableCellValueChange(event: { row: EditableGRNLine; column: DataTableColumn<EditableGRNLine>; value: any }): void {
+    const { row, column, value } = event;
+    const field = String(column.field);
+
+    if (field === 'warehouseId') {
+      this.onLineWarehouseChange(row, value);
+    } else if (field === 'warehouseLocationId') {
+      this.onLocationChange(row, value);
+    }
+  }
+
+  onLineWarehouseChange(line: EditableGRNLine, warehouseId: string): void {
+    line.warehouseId = warehouseId;
+    line.warehouseLocationId = '';
+
+    if (!warehouseId) {
+      this.workingLines.update(curr =>
+        curr.map(l =>
+          (l.lineId && l.lineId === line.lineId) ||
+          (l.purchaseOrderItemId && l.purchaseOrderItemId === line.purchaseOrderItemId)
+            ? { ...l, ...line }
+            : l
+        )
+      );
+      return;
+    }
+
+    this.ensureLocationsLoaded(warehouseId, () => {
+      const locs = this.getLocationsForWarehouse(warehouseId);
+      if (locs.length > 0) {
+        line.warehouseLocationId = locs[0].warehouseLocationId ?? locs[0].locationId ?? '';
+      }
+      this.workingLines.update(curr =>
+        curr.map(l =>
+          (l.lineId && l.lineId === line.lineId) ||
+          (l.purchaseOrderItemId && l.purchaseOrderItemId === line.purchaseOrderItemId)
+            ? { ...l, ...line }
+            : l
+        )
+      );
+    });
+  }
+
+  onLocationChange(line: EditableGRNLine, locationId: string): void {
+    line.warehouseLocationId = locationId;
+    this.workingLines.update(curr =>
+      curr.map(l =>
+        (l.lineId && l.lineId === line.lineId) ||
+        (l.purchaseOrderItemId && l.purchaseOrderItemId === line.purchaseOrderItemId)
+          ? { ...l, ...line }
+          : l
+      )
+    );
+  }
 
   // Columns for the Received Items Table
   readonly itemColumns = computed<DataTableColumn<EditableGRNLine>[]>(() => {
@@ -291,6 +481,38 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
         sortable: true,
         width: '220px',
         editable: false
+      },
+      {
+        field: 'warehouseId',
+        header: 'Warehouse Facility *',
+        sortable: false,
+        width: '210px',
+        editable: !isView && !this.isFullyReceived(),
+        editType: 'select',
+        editOptions: this.warehouseOptions(),
+        format: (val) => {
+          const w = this.warehouses().find(x => x.warehouseId === val);
+          return w ? `${w.warehouseCode} - ${w.warehouseName}` : (val || '—');
+        },
+        validators: [
+          (val, row) => (row && row.receivedQuantityNow > 0 && !val && !this.headerWarehouseId() ? 'Warehouse is required' : null)
+        ]
+      },
+      {
+        field: 'warehouseLocationId',
+        header: 'Destination Location *',
+        sortable: false,
+        width: '270px',
+        editable: !isView && !this.isFullyReceived(),
+        editType: 'select',
+        getEditOptions: (row) => this.getLocationOptionsForRow(row),
+        format: (val) => {
+          const loc = this.findLocation(val);
+          return loc ? this.formatLocationHierarchy(loc) : (val || '—');
+        },
+        validators: [
+          (val, row) => (row && row.receivedQuantityNow > 0 && !val ? 'Storage location is required' : null)
+        ]
       },
       {
         field: 'unitOfMeasure',
@@ -430,6 +652,26 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
     this.subs.add(
       this.route.paramMap.subscribe(() => {
         this.detectRoute();
+      })
+    );
+
+    // Load active warehouses
+    this.subs.add(
+      this.masterDataService.getWarehouses().subscribe({
+        next: whs => {
+          const active = (whs || []).filter(w => w.isActive);
+          this.warehouses.set(active);
+        },
+        error: () => {}
+      })
+    );
+
+    // Watch header warehouse selection to synchronize default warehouse and locations
+    this.subs.add(
+      this.headerForm.get('warehouseId')!.valueChanges.subscribe(whId => {
+        if (whId !== this.headerWarehouseId()) {
+          this.onHeaderWarehouseChange(whId || '');
+        }
       })
     );
 
@@ -608,12 +850,23 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
         (netLineAmount * receivedNow / (ordered || 1)) * 100
       ) / 100;
 
+      const whId = this.headerWarehouseId() || '';
+      let defaultLocId = '';
+      if (whId) {
+        const locs = this.getLocationsForWarehouse(whId);
+        if (locs.length > 0) {
+          defaultLocId = locs[0].warehouseLocationId ?? locs[0].locationId ?? '';
+        }
+      }
+
       return {
         lineId,
         purchaseOrderItemId,
         productId: item.productId,
         productCode,
         productName,
+        warehouseId: whId,
+        warehouseLocationId: defaultLocId,
         unitOfMeasure,
         unitOfMeasureId,
         orderedQuantity: ordered,
@@ -871,11 +1124,18 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private populateFromSavedGrn(grn: GoodsReceiptNoteDto): void {
+    const firstLineWh = (grn.lines || []).find(l => l.warehouseId)?.warehouseId || '';
+    if (firstLineWh) {
+      this.headerWarehouseId.set(firstLineWh);
+      this.ensureLocationsLoaded(firstLineWh);
+    }
+
     this.headerForm.patchValue({
       grnNumber: grn.grnNumber,
       receiptDate: grn.receiptDate ? grn.receiptDate.substring(0, 10) : '',
       purchaseOrderNumber: 'PO Reference',
       supplierName: grn.supplierName || 'Vendor',
+      warehouseId: firstLineWh,
       deliveryNoteNumber: grn.deliveryNoteNumber || '',
       remarks: grn.remarks || ''
     });
@@ -883,6 +1143,9 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
     const groupedMap = new Map<string, { headerLine: EditableGRNLine; allocations: BatchSerialAllocation[] }>();
 
     for (const l of grn.lines || []) {
+      if (l.warehouseId) {
+        this.ensureLocationsLoaded(l.warehouseId);
+      }
       const alloc: BatchSerialAllocation = {
         id: l.goodsReceiptNoteLineId || `alloc-${l.purchaseOrderItemId || 'line'}-${groupedMap.size}`,
         batchNumber: l.batchNumber || '',
@@ -1025,6 +1288,8 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
 
       return {
         ...incoming,
+        warehouseId: incoming.warehouseId || existing?.warehouseId || this.headerWarehouseId() || '',
+        warehouseLocationId: incoming.warehouseLocationId || existing?.warehouseLocationId || '',
         trackingMode: incoming.trackingMode ?? existing?.trackingMode ?? TrackingMode.None,
         trackingAllocations: allocs,
         batchNumber: incoming.batchNumber ?? existing?.batchNumber,
@@ -1110,17 +1375,32 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
 
     const formVal = this.headerForm.getRawValue();
 
+    // Receiving Warehouse & Storage Location completeness validation
+    for (const line of linesToReceive) {
+      const lineWh = line.warehouseId || formVal.warehouseId;
+      if (!lineWh) {
+        this.showMessage(`Receiving Warehouse must be selected for line '${line.productCode}'.`, 'danger');
+        return;
+      }
+      if (!line.warehouseLocationId) {
+        this.showMessage(`Storage location must be selected for line '${line.productCode}'.`, 'danger');
+        return;
+      }
+    }
+
     // Map request DTO - expands tracking allocations into individual line items for server
     const requestLines: CreateGoodsReceiptNoteLineRequest[] = [];
     for (const l of linesToReceive) {
+      const lineWarehouseId = l.warehouseId || formVal.warehouseId;
+      const lineLocationId = l.warehouseLocationId;
       const mode = Number(l.trackingMode) || TrackingMode.None;
       if (mode !== TrackingMode.None && l.trackingAllocations && l.trackingAllocations.length > 0) {
         for (const alloc of l.trackingAllocations) {
           requestLines.push({
             purchaseOrderItemId: l.purchaseOrderItemId,
             productId: l.productId,
-            warehouseId: l.warehouseId,
-            warehouseLocationId: l.warehouseLocationId,
+            warehouseId: lineWarehouseId,
+            warehouseLocationId: lineLocationId,
             quantityReceived: Number(alloc.quantity),
             unitOfMeasureId: l.unitOfMeasureId ?? null,
             batchNumber: alloc.batchNumber?.trim() || null,
@@ -1135,8 +1415,8 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
         requestLines.push({
           purchaseOrderItemId: l.purchaseOrderItemId,
           productId: l.productId,
-          warehouseId: l.warehouseId,
-          warehouseLocationId: l.warehouseLocationId,
+          warehouseId: lineWarehouseId,
+          warehouseLocationId: lineLocationId,
           quantityReceived: Number(l.receivedQuantityNow),
           unitOfMeasureId: l.unitOfMeasureId ?? null,
           batchNumber: null,

@@ -212,6 +212,10 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
         Assert.Contains("STOCK_ISSUE.POST", codes);
         Assert.Contains("PUTAWAY.POST", codes);
         Assert.Contains("STOCK_COUNT.POST", codes);
+        Assert.All(
+            PermissionCatalogue.TenantCodes.Where(code =>
+                code.StartsWith("RFQ.", StringComparison.OrdinalIgnoreCase)),
+            code => Assert.Contains(code, codes));
     }
 
     [Fact]
@@ -405,6 +409,38 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
     }
 
     [Fact]
+    public async Task LegacyTenantAdminPermissionSeed_IncludesAllRfqPermissionsIdempotently()
+    {
+        var rfqCodes = PermissionCatalogue.TenantCodes
+            .Where(code => code.StartsWith("RFQ.", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        using (var db = CreateSecurityDb())
+        {
+            var repository = new SecurityBootstrapRepository(db);
+            await PermissionCatalogueSeeder.SeedAsync(repository);
+            await CreateBootstrap(db).EnsureTenantAdminRoleAsync();
+
+            var role = await db.Roles.SingleAsync(x =>
+                x.TenantId == null &&
+                x.Name == "Tenant Admin");
+
+            await TenantAdminRolePermissionSeed.SeedAsync(repository);
+            await TenantAdminRolePermissionSeed.SeedAsync(repository);
+
+            var assignments = await db.RolePermissions
+                .Where(x => x.RoleId == role.Id &&
+                            rfqCodes.Contains(x.Permission.Code))
+                .GroupBy(x => x.Permission.Code)
+                .Select(group => new { Code = group.Key, Count = group.Count() })
+                .ToListAsync();
+
+            Assert.Equal(rfqCodes.Length, assignments.Count);
+            Assert.All(assignments, assignment => Assert.Equal(1, assignment.Count));
+        }
+    }
+
+    [Fact]
     public async Task TenantRoleProvisioning_UpgradeAddsPermissions_WithoutRemovingCustomisations()
     {
         var customPermissionCode = "PRODUCT.CREATE";
@@ -479,6 +515,148 @@ public class F1PermissionCatalogueAndStandardRolesTests : IClassFixture<TestSecu
             }
 
             await cleanupDb.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task TenantRoleProvisioning_RfqBackfill_IsAdditiveAndPreservesApprovalSeparation()
+    {
+        var tenantId = Guid.NewGuid();
+        var adminId = Guid.NewGuid();
+        var managerId = Guid.NewGuid();
+        var officerId = Guid.NewGuid();
+        var olderVersion = StandardRoleTemplates.CurrentVersion - 1;
+        var rfqCodes = new[]
+        {
+            "RFQ.VIEW",
+            "RFQ.CREATE",
+            "RFQ.EDIT",
+            "RFQ.SUPPLIER.MANAGE",
+            "RFQ.SEND",
+            "RFQ.QUOTATION.RECORD",
+            "RFQ.QUOTATION.VIEW",
+            "RFQ.COMPARE",
+            "RFQ.APPROVE",
+            "RFQ.REJECT"
+        };
+
+        try
+        {
+            using (var setupDb = CreateSecurityDb())
+            {
+                var adminTemplate = StandardRoleTemplates.Find(StandardRoleTemplates.TenantAdminKey)!;
+                var managerTemplate = StandardRoleTemplates.Find("PROCUREMENT_MANAGER")!;
+                var officerTemplate = StandardRoleTemplates.Find("PROCUREMENT_OFFICER")!;
+                var preservedPermission = await setupDb.Permissions
+                    .SingleAsync(x => x.Code == "PRICE_CARD.OVERRIDE");
+                var officerCustomPermission = await setupDb.Permissions
+                    .SingleAsync(x => x.Code == "PRODUCT.CREATE");
+
+                setupDb.Roles.AddRange(
+                    new Role
+                    {
+                        Id = adminId,
+                        TenantId = tenantId,
+                        Name = adminTemplate.Name,
+                        Description = adminTemplate.Description,
+                        IsActive = true,
+                        TemplateKey = adminTemplate.Key,
+                        TemplateVersion = olderVersion
+                    },
+                    new Role
+                    {
+                        Id = managerId,
+                        TenantId = tenantId,
+                        Name = managerTemplate.Name,
+                        Description = managerTemplate.Description,
+                        IsActive = true,
+                        TemplateKey = managerTemplate.Key,
+                        TemplateVersion = olderVersion
+                    },
+                    new Role
+                    {
+                        Id = officerId,
+                        TenantId = tenantId,
+                        Name = officerTemplate.Name,
+                        Description = officerTemplate.Description,
+                        IsActive = true,
+                        TemplateKey = officerTemplate.Key,
+                        TemplateVersion = olderVersion
+                    });
+
+                setupDb.RolePermissions.AddRange(
+                    new RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = adminId,
+                        PermissionId = preservedPermission.Id
+                    },
+                    new RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = officerId,
+                        PermissionId = officerCustomPermission.Id
+                    });
+
+                await setupDb.SaveChangesAsync();
+            }
+
+            using (var db = CreateSecurityDb())
+            {
+                var result = await CreateBootstrap(db)
+                    .EnsureTenantStandardRolesAsync(tenantId);
+
+                Assert.Contains(StandardRoleTemplates.TenantAdminKey, result.UpdatedTemplateKeys);
+                Assert.Contains("PROCUREMENT_MANAGER", result.UpdatedTemplateKeys);
+                Assert.Contains("PROCUREMENT_OFFICER", result.UpdatedTemplateKeys);
+            }
+
+            using var verifyDb = CreateSecurityDb();
+            var adminCodes = await verifyDb.RolePermissions
+                .Where(x => x.RoleId == adminId)
+                .Select(x => x.Permission.Code)
+                .ToListAsync();
+            var managerCodes = await verifyDb.RolePermissions
+                .Where(x => x.RoleId == managerId)
+                .Select(x => x.Permission.Code)
+                .ToListAsync();
+            var officerCodes = await verifyDb.RolePermissions
+                .Where(x => x.RoleId == officerId)
+                .Select(x => x.Permission.Code)
+                .ToListAsync();
+
+            Assert.All(rfqCodes, code => Assert.Contains(code, adminCodes));
+            Assert.All(rfqCodes, code => Assert.Contains(code, managerCodes));
+            Assert.Contains("PRODUCT.CREATE", officerCodes);
+            Assert.Contains("RFQ.SUPPLIER.MANAGE", officerCodes);
+            Assert.DoesNotContain("RFQ.APPROVE", officerCodes);
+            Assert.DoesNotContain("RFQ.REJECT", officerCodes);
+
+            var upgradedAdmin = await verifyDb.Roles.SingleAsync(x => x.Id == adminId);
+            Assert.Equal(StandardRoleTemplates.CurrentVersion, upgradedAdmin.TemplateVersion);
+        }
+        finally
+        {
+            using var cleanupDb = CreateSecurityDb();
+            var roleIds = await cleanupDb.Roles
+                .Where(x => x.TenantId == tenantId)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            if (roleIds.Count > 0)
+            {
+                await cleanupDb.RolePermissions
+                    .Where(x => roleIds.Contains(x.RoleId))
+                    .ExecuteDeleteAsync();
+
+                await cleanupDb.UserRoles
+                    .Where(x => roleIds.Contains(x.RoleId))
+                    .ExecuteDeleteAsync();
+
+                await cleanupDb.Roles
+                    .Where(x => roleIds.Contains(x.Id))
+                    .ExecuteDeleteAsync();
+            }
         }
     }
 

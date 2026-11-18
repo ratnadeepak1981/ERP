@@ -181,7 +181,7 @@
                         @switch (col.type) {
                           @case ('badge') {
                             <app-status-badge
-                              [label]="getFieldValue(rowData, col.field)"
+                              [label]="formatValue(col, rowData)"
                               [severity]="getBadgeSeverity(col, rowData)"
                             ></app-status-badge>
                           }
@@ -240,7 +240,7 @@
               @if (getBadgeColumn(); as badgeCol) {
                 <div class="list-status">
                   <app-status-badge
-                    [label]="getFieldValue(rowData, badgeCol.field)"
+                    [label]="formatValue(badgeCol, rowData)"
                     [severity]="getBadgeSeverity(badgeCol, rowData)"
                   ></app-status-badge>
                 </div>
@@ -311,7 +311,7 @@
               <div class="card-footer-line">
                 @if (getBadgeColumn(); as badgeCol) {
                   <app-status-badge
-                    [label]="getFieldValue(rowData, badgeCol.field)"
+                    [label]="formatValue(badgeCol, rowData)"
                     [severity]="getBadgeSeverity(badgeCol, rowData)"
                   ></app-status-badge>
                 } @else {
