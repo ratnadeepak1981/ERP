@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Domain.Features.Procurement.RequestForQuotation;
 
@@ -43,7 +44,31 @@ public class SendRfqInvitationsRequest
 {
     public List<Guid>? SupplierIds { get; set; }
     public string? PortalBaseUrl { get; set; }
+    public string? TenantSubdomain { get; set; }
+    public string? ExternalBaseUrl { get; set; }
     public string? CustomEmailNote { get; set; }
+}
+
+public class RfqInvitationEmailContext
+{
+    public string RecipientEmail { get; set; } = string.Empty;
+    public string RecipientName { get; set; } = string.Empty;
+    public string RfqNumber { get; set; } = string.Empty;
+    public string RfqTitle { get; set; } = string.Empty;
+    public string BuyingCompanyName { get; set; } = string.Empty;
+    public DateTime ResponseDeadline { get; set; }
+    public string? CustomNote { get; set; }
+
+    // Option 1: Standard localhost
+    public string StandardLocalhostUrl { get; set; } = string.Empty;
+
+    // Option 2: Localhost tenant subdomain
+    public string? TenantLocalhostUrl { get; set; }
+    public string? TenantLocalhostUnavailableReason { get; set; }
+
+    // Option 3: External tenant access
+    public string? ExternalTenantUrl { get; set; }
+    public string? ExternalTenantUnavailableReason { get; set; }
 }
 
 public class RecordManualQuotationRequest
@@ -133,6 +158,7 @@ public class RfqHeaderDto
     public Guid BranchId { get; set; }
     public string RFQNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public RequestForQuotationStatus Status { get; set; }
     public DateTime ClosingDate { get; set; }
     public DateTime? DeliveryRequiredDate { get; set; }
@@ -175,6 +201,7 @@ public class RfqSupplierDto
     public string SupplierCode { get; set; } = string.Empty;
     public string SupplierName { get; set; } = string.Empty;
     public string ContactEmail { get; set; } = string.Empty;
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public RFQSupplierInvitationStatus InvitationStatus { get; set; }
     public DateTime? InvitedAt { get; set; }
     public bool HasToken { get; set; }
@@ -200,6 +227,7 @@ public class SupplierQuotationDto
     public decimal TaxAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal BaseTotalAmount { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public SupplierQuotationStatus Status { get; set; }
     public string? Notes { get; set; }
     public bool IsManualEntry { get; set; }
@@ -237,6 +265,7 @@ public class PublicRfqDetailsDto
     public Guid RFQId { get; set; }
     public string RFQNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
     public DateTime ClosingDate { get; set; }
     public DateTime? DeliveryRequiredDate { get; set; }
     public string? DeliveryTerms { get; set; }
@@ -296,12 +325,16 @@ public class RfqComparisonSupplierBidDto
     public string SupplierName { get; set; } = string.Empty;
     public string QuotationReference { get; set; } = string.Empty;
     public DateTime QuotationDate { get; set; }
+    public DateTime? SubmissionDate { get; set; }
     public DateTime ValidUntil { get; set; }
     public bool IsExpired => DateTime.UtcNow.Date > ValidUntil.Date;
     public string CurrencyCode { get; set; } = string.Empty;
     public decimal ExchangeRate { get; set; }
+    public bool HasValidExchangeRate { get; set; } = true;
+    public string? CurrencyConversionError { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal BaseTotalAmount { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public SupplierQuotationStatus Status { get; set; }
     public bool IsManualEntry { get; set; }
 }
@@ -327,6 +360,11 @@ public class RfqComparisonLineBidDto
     public decimal UnitPrice { get; set; }
     public decimal BaseUnitPrice { get; set; }
     public decimal DiscountPercentage { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal BaseDiscountAmount { get; set; }
+    public decimal TaxRate { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal BaseTaxAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal BaseLineTotal { get; set; }
     public int? LeadTimeDays { get; set; }

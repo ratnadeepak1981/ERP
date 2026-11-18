@@ -16,4 +16,18 @@ public interface IRfqEmailNotificationService
         string submissionUrl,
         DateTime responseDeadline,
         CancellationToken ct = default);
+
+    Task<RfqEmailDispatchResult> SendInvitationAsync(
+        RfqInvitationEmailContext context,
+        CancellationToken ct = default)
+    {
+        return SendInvitationAsync(
+            context.RecipientEmail,
+            context.RecipientName,
+            context.RfqNumber,
+            context.RfqTitle,
+            context.StandardLocalhostUrl,
+            context.ResponseDeadline,
+            ct);
+    }
 }

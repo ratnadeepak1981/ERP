@@ -31,6 +31,43 @@ export function getRfqStatusSeverity(status: any): 'neutral' | 'info' | 'warning
   }
 }
 
+export function getSupplierQuotationStatusName(status: any): SupplierQuotationStatus {
+  if (typeof status === 'string') {
+    const s = status.trim();
+    if (s === 'Draft' || s === 'Submitted' || s === 'UnderReview' || s === 'Approved' || s === 'Rejected' || s === 'Withdrawn') {
+      return s as SupplierQuotationStatus;
+    }
+  }
+  switch (Number(status)) {
+    case 1: return 'Draft';
+    case 2: return 'Submitted';
+    case 3: return 'UnderReview';
+    case 4: return 'Approved';
+    case 5: return 'Rejected';
+    case 6: return 'Withdrawn';
+    default: return 'Draft';
+  }
+}
+
+export function getSupplierInvitationStatusName(status: any): RFQSupplierInvitationStatus {
+  if (typeof status === 'string') {
+    const s = status.trim();
+    if (s === 'Pending' || s === 'Sending' || s === 'Sent' || s === 'Failed' || s === 'Opened' || s === 'Submitted' || s === 'Declined') {
+      return s as RFQSupplierInvitationStatus;
+    }
+  }
+  switch (Number(status)) {
+    case 1: return 'Pending';
+    case 2: return 'Sent';
+    case 3: return 'Opened';
+    case 4: return 'Submitted';
+    case 5: return 'Failed';
+    case 6: return 'Declined';
+    case 7: return 'Sending';
+    default: return 'Pending';
+  }
+}
+
 export interface DraftRfqLineItem {
   id?: string;
   lineNumber: number;
@@ -83,6 +120,16 @@ export interface RfqLineDto {
   notes?: string;
 }
 
+export interface RfqInvitationAccessOptionsDto {
+  standardLocalhostUrl?: string;
+  tenantLocalhostUrl?: string;
+  tenantLocalhostUnavailableReason?: string;
+  externalTenantUrl?: string;
+  externalTenantUnavailableReason?: string;
+  lanIpUrl?: string;
+  lanIpUnavailableReason?: string;
+}
+
 export interface RfqSupplierDto {
   id: string;
   tenantId: string;
@@ -97,6 +144,14 @@ export interface RfqSupplierDto {
   hasToken: boolean;
   tokenExpiresAt?: string;
   responseReceivedAt?: string;
+  standardLocalhostUrl?: string;
+  tenantLocalhostUrl?: string;
+  tenantLocalhostUnavailableReason?: string;
+  externalTenantUrl?: string;
+  externalTenantUnavailableReason?: string;
+  lanIpUrl?: string;
+  lanIpUnavailableReason?: string;
+  accessOptions?: RfqInvitationAccessOptionsDto;
 }
 
 export interface RfqDetailsDto extends RfqHeaderDto {
@@ -199,12 +254,23 @@ export interface SendRfqInvitationsRequest {
   supplierIds?: string[];
   customEmailNote?: string;
   portalBaseUrl?: string;
+  tenantSubdomain?: string;
+  externalBaseUrl?: string;
+  lanBaseUrl?: string;
 }
 
 export interface RfqInvitationResultDto {
   sentCount: number;
   failedCount: number;
   messages: string[];
+  standardLocalhostUrl?: string;
+  tenantLocalhostUrl?: string;
+  tenantLocalhostUnavailableReason?: string;
+  externalTenantUrl?: string;
+  externalTenantUnavailableReason?: string;
+  lanIpUrl?: string;
+  lanIpUnavailableReason?: string;
+  accessOptions?: RfqInvitationAccessOptionsDto;
 }
 
 export interface RecordQuotationLineRequest {
@@ -250,10 +316,13 @@ export interface RfqComparisonSupplierBidDto {
   supplierName: string;
   quotationReference: string;
   quotationDate: string;
+  submissionDate?: string;
   validUntil: string;
   isExpired: boolean;
   currencyCode: string;
   exchangeRate: number;
+  hasValidExchangeRate: boolean;
+  currencyConversionError?: string;
   totalAmount: number;
   baseTotalAmount: number;
   status: SupplierQuotationStatus;
@@ -268,6 +337,11 @@ export interface RfqComparisonLineBidDto {
   unitPrice: number;
   baseUnitPrice: number;
   discountPercentage: number;
+  discountAmount: number;
+  baseDiscountAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  baseTaxAmount: number;
   lineTotal: number;
   baseLineTotal: number;
   leadTimeDays?: number;
@@ -312,6 +386,7 @@ export interface PublicRfqDetailsDto {
   rfqId: string;
   rfqNumber: string;
   title: string;
+  companyName?: string;
   supplierId?: string;
   supplierName: string;
   supplierCode: string;

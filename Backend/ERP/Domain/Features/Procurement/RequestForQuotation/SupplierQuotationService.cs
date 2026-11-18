@@ -44,6 +44,9 @@ public class SupplierQuotationService : ISupplierQuotationService
             .AnyAsync(q => q.RFQId == rfq.Id && q.SupplierId == rfqSupplier.SupplierId, ct);
 
         var currency = await GetDefaultCurrencyAsync(rfq.TenantId, rfq.CompanyId, ct);
+        var company = await _dbContext.Companies
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId && c.Id == rfq.CompanyId, ct);
 
         // Opening the invitation records the supplier response state (Step 3 progress).
         if (rfqSupplier.InvitationStatus == RFQSupplierInvitationStatus.Sent)
@@ -58,6 +61,7 @@ public class SupplierQuotationService : ISupplierQuotationService
             RFQId = rfq.Id,
             RFQNumber = rfq.RFQNumber,
             Title = rfq.Title,
+            CompanyName = company?.Name ?? string.Empty,
             ClosingDate = rfq.ClosingDate,
             DeliveryRequiredDate = rfq.DeliveryRequiredDate,
             DeliveryTerms = rfq.DeliveryTerms,
@@ -515,6 +519,106 @@ public class SupplierQuotationService : ISupplierQuotationService
 
         var baseCurrency = await GetDefaultCurrencyAsync(tenantId, rfq.CompanyId, ct);
         var baseCurrencyCode = baseCurrency?.CurrencyCode ?? "LKR";
+        var baseCurrencyId = baseCurrency?.CurrencyId ?? Guid.Empty;
+
+        // Exclude Draft, Withdrawn, and Rejected quotations from active competing bids.
+        var eligibleQuotations = rfq.Quotations
+            .Where(q => q.Status is SupplierQuotationStatus.Submitted
+                     or SupplierQuotationStatus.UnderReview
+                     or SupplierQuotationStatus.Approved)
+            .ToList();
+
+        // Resolve exchange rates for each eligible quotation
+        var supplierBidDtos = new List<RfqComparisonSupplierBidDto>();
+        var quotationRates = new Dictionary<Guid, (decimal Rate, bool HasValidRate)>();
+
+        foreach (var q in eligibleQuotations)
+        {
+            var isSameCurrency = (baseCurrencyId != Guid.Empty && q.CurrencyId == baseCurrencyId)
+                || string.Equals(q.CurrencyCode, baseCurrencyCode, StringComparison.OrdinalIgnoreCase);
+
+            decimal rate = 1.0m;
+            bool hasValidRate = true;
+            string? conversionError = null;
+
+            if (isSameCurrency)
+            {
+                rate = 1.0m;
+                hasValidRate = true;
+            }
+            else
+            {
+                if (q.ExchangeRate > 0 && q.ExchangeRate != 1.0m)
+                {
+                    rate = q.ExchangeRate;
+                    hasValidRate = true;
+                }
+                else if (_exchangeRateService != null && baseCurrencyId != Guid.Empty && q.CurrencyId != Guid.Empty)
+                {
+                    try
+                    {
+                        var resolved = await _exchangeRateService.ResolveAsync(
+                            tenantId,
+                            q.CurrencyId,
+                            baseCurrencyId,
+                            q.QuotationDate);
+                        if (resolved.Rate > 0)
+                        {
+                            rate = resolved.Rate;
+                            hasValidRate = true;
+                        }
+                        else
+                        {
+                            hasValidRate = false;
+                            conversionError = $"Exchange rate for {q.CurrencyCode} to {baseCurrencyCode} is not available.";
+                            rate = 0m;
+                        }
+                    }
+                    catch
+                    {
+                        hasValidRate = false;
+                        conversionError = $"Exchange rate for {q.CurrencyCode} to {baseCurrencyCode} could not be resolved.";
+                        rate = 0m;
+                    }
+                }
+                else if (q.ExchangeRate > 0)
+                {
+                    // Rate is explicitly recorded on quotation
+                    rate = q.ExchangeRate;
+                    hasValidRate = true;
+                }
+                else
+                {
+                    hasValidRate = false;
+                    conversionError = $"Missing exchange rate for {q.CurrencyCode} to {baseCurrencyCode}.";
+                    rate = 0m;
+                }
+            }
+
+            quotationRates[q.Id] = (rate, hasValidRate);
+
+            decimal baseTotal = hasValidRate ? RoundMoney(q.TotalAmount * rate) : 0m;
+
+            supplierBidDtos.Add(new RfqComparisonSupplierBidDto
+            {
+                QuotationId = q.Id,
+                SupplierId = q.SupplierId,
+                SupplierCode = q.SupplierCode,
+                SupplierName = q.SupplierName,
+                QuotationReference = q.QuotationReference,
+                QuotationDate = q.QuotationDate,
+                SubmissionDate = q.CreatedAt,
+                ValidUntil = q.ValidUntil,
+                CurrencyCode = q.CurrencyCode,
+                ExchangeRate = rate,
+                HasValidExchangeRate = hasValidRate,
+                CurrencyConversionError = conversionError,
+                TotalAmount = q.TotalAmount,
+                BaseTotalAmount = baseTotal,
+                Status = q.Status,
+                IsManualEntry = q.IsManualEntry
+            });
+        }
 
         var matrix = new RfqComparisonMatrixDto
         {
@@ -522,24 +626,9 @@ public class SupplierQuotationService : ISupplierQuotationService
             RFQNumber = rfq.RFQNumber,
             Title = rfq.Title,
             BaseCurrencyCode = baseCurrencyCode,
-            Suppliers = rfq.Quotations
-                .OrderBy(q => q.BaseTotalAmount)
-                .Select(q => new RfqComparisonSupplierBidDto
-                {
-                    QuotationId = q.Id,
-                    SupplierId = q.SupplierId,
-                    SupplierCode = q.SupplierCode,
-                    SupplierName = q.SupplierName,
-                    QuotationReference = q.QuotationReference,
-                    QuotationDate = q.QuotationDate,
-                    ValidUntil = q.ValidUntil,
-                    CurrencyCode = q.CurrencyCode,
-                    ExchangeRate = q.ExchangeRate,
-                    TotalAmount = q.TotalAmount,
-                    BaseTotalAmount = q.BaseTotalAmount,
-                    Status = q.Status,
-                    IsManualEntry = q.IsManualEntry
-                }).ToList()
+            Suppliers = supplierBidDtos
+                .OrderBy(s => s.BaseTotalAmount > 0 ? s.BaseTotalAmount : decimal.MaxValue)
+                .ToList()
         };
 
         foreach (var line in rfq.Lines.OrderBy(l => l.LineNumber))
@@ -555,13 +644,27 @@ public class SupplierQuotationService : ISupplierQuotationService
                 TargetUnitPrice = line.TargetUnitPrice
             };
 
-            foreach (var quote in rfq.Quotations)
+            foreach (var supplier in matrix.Suppliers)
             {
+                var quote = eligibleQuotations.FirstOrDefault(q => q.Id == supplier.QuotationId);
+                if (quote == null) continue;
+
                 var quoteLine = quote.Lines.FirstOrDefault(ql => ql.RFQLineId == line.Id || ql.ProductId == line.ProductId);
                 if (quoteLine != null)
                 {
-                    var baseUnitPrice = quoteLine.UnitPrice * quote.ExchangeRate;
-                    var baseLineTotal = quoteLine.LineTotal * quote.ExchangeRate;
+                    var (rate, hasValidRate) = quotationRates.TryGetValue(quote.Id, out var rInfo)
+                        ? rInfo
+                        : (1.0m, true);
+
+                    var lineGross = RoundMoney(quoteLine.QuotedQuantity * quoteLine.UnitPrice);
+                    var lineDiscount = RoundMoney(lineGross * (quoteLine.DiscountPercentage / 100m));
+                    var lineNet = lineGross - lineDiscount;
+                    var lineTax = RoundMoney(lineNet * (quoteLine.TaxRate / 100m));
+
+                    var baseUnitPrice = hasValidRate ? RoundMoney(quoteLine.UnitPrice * rate) : 0m;
+                    var baseLineTotal = hasValidRate ? RoundMoney(quoteLine.LineTotal * rate) : 0m;
+                    var baseDiscountAmount = hasValidRate ? RoundMoney(lineDiscount * rate) : 0m;
+                    var baseTaxAmount = hasValidRate ? RoundMoney(lineTax * rate) : 0m;
 
                     compLine.Bids.Add(new RfqComparisonLineBidDto
                     {
@@ -572,6 +675,11 @@ public class SupplierQuotationService : ISupplierQuotationService
                         UnitPrice = quoteLine.UnitPrice,
                         BaseUnitPrice = baseUnitPrice,
                         DiscountPercentage = quoteLine.DiscountPercentage,
+                        DiscountAmount = lineDiscount,
+                        BaseDiscountAmount = baseDiscountAmount,
+                        TaxRate = quoteLine.TaxRate,
+                        TaxAmount = lineTax,
+                        BaseTaxAmount = baseTaxAmount,
                         LineTotal = quoteLine.LineTotal,
                         BaseLineTotal = baseLineTotal,
                         LeadTimeDays = quoteLine.LeadTimeDays,
@@ -608,11 +716,34 @@ public class SupplierQuotationService : ISupplierQuotationService
         if (rfq == null)
             throw new KeyNotFoundException($"RFQ with ID {rfqId} not found.");
 
+        // Guard 1: RFQ Status Check
+        if (rfq.Status is RequestForQuotationStatus.Cancelled or RequestForQuotationStatus.Closed)
+        {
+            throw new InvalidOperationException($"Cannot award quotation on an RFQ in '{rfq.Status}' status.");
+        }
+
         var quote = rfq.Quotations.FirstOrDefault(q => q.Id == quotationId);
         if (quote == null)
             throw new KeyNotFoundException($"Quotation with ID {quotationId} not found on RFQ {rfq.RFQNumber}.");
 
-        // Rule 1: Quotation Validity Check at Approval Time
+        // Guard 2: Quotation Status Check (cannot award rejected or draft)
+        if (quote.Status == SupplierQuotationStatus.Rejected)
+        {
+            throw new InvalidOperationException($"Cannot award quotation '{quote.QuotationReference}' because it has been rejected.");
+        }
+
+        if (quote.Status == SupplierQuotationStatus.Draft)
+        {
+            throw new InvalidOperationException($"Cannot award quotation '{quote.QuotationReference}' because it is in Draft status.");
+        }
+
+        // Guard 3: Idempotent Handling for Already Approved Quotation
+        if (quote.Status == SupplierQuotationStatus.Approved)
+        {
+            return MapToQuotationDto(quote);
+        }
+
+        // Guard 4: Quotation Validity Check at Approval Time
         if (DateTime.UtcNow.Date > quote.ValidUntil.Date)
         {
             throw new InvalidOperationException(
@@ -620,7 +751,7 @@ public class SupplierQuotationService : ISupplierQuotationService
                 $"The quotation expired on {quote.ValidUntil:yyyy-MM-dd}. An expired quotation cannot be approved.");
         }
 
-        // Rule 2: Self-Approval Guard (Creator cannot approve own RFQ)
+        // Guard 5: Self-Approval Guard (Creator cannot approve own RFQ)
         if (rfq.CreatedBy == userId)
         {
             throw new InvalidOperationException(
@@ -649,6 +780,17 @@ public class SupplierQuotationService : ISupplierQuotationService
         Guid branchId,
         CancellationToken ct = default)
     {
+        var rfq = await _dbContext.RequestForQuotations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r =>
+                r.TenantId == tenantId &&
+                r.CompanyId == companyId &&
+                r.BranchId == branchId &&
+                r.Id == rfqId, ct);
+
+        if (rfq == null)
+            throw new KeyNotFoundException($"RFQ with ID {rfqId} not found.");
+
         var quote = await _dbContext.SupplierQuotations
             .Include(q => q.Lines)
             .FirstOrDefaultAsync(q =>
@@ -659,7 +801,12 @@ public class SupplierQuotationService : ISupplierQuotationService
                 q.Id == quotationId, ct);
 
         if (quote == null)
-            throw new KeyNotFoundException($"Quotation with ID {quotationId} not found.");
+            throw new KeyNotFoundException($"Quotation with ID {quotationId} not found on RFQ {rfq.RFQNumber}.");
+
+        if (quote.Status == SupplierQuotationStatus.Approved)
+        {
+            throw new InvalidOperationException($"Cannot reject quotation '{quote.QuotationReference}' because it has already been approved.");
+        }
 
         quote.Status = SupplierQuotationStatus.Rejected;
         quote.RejectedAt = DateTime.UtcNow;

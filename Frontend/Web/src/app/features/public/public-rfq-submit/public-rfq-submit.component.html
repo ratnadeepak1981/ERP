@@ -5,6 +5,9 @@
       <div class="brand">
         <span class="logo-mark"><i class="pi pi-shield"></i></span>
         <span class="brand-name">ApexERP Supplier Portal</span>
+        @if (rfqDetails()?.companyName) {
+          <span class="brand-company-tag">· {{ rfqDetails()!.companyName }}</span>
+        }
       </div>
       <div class="header-tag">Secure Quotation Submission</div>
     </div>
@@ -64,11 +67,23 @@
       <!-- RFQ Overview Banner -->
       <div class="portal-card rfq-overview-card">
         <div class="rfq-meta-header">
-          <span class="rfq-badge">{{ rfqDetails()!.rfqNumber }}</span>
-          <h2>{{ rfqDetails()!.title }}</h2>
+          <div class="rfq-meta-title-group">
+            <span class="rfq-badge">{{ rfqDetails()!.rfqNumber }}</span>
+            <h2>{{ rfqDetails()!.title }}</h2>
+          </div>
+          @if (rfqDetails()!.companyName) {
+            <div class="buyer-company-badge">
+              <span class="buyer-label">Invited by:</span>
+              <strong class="buyer-name">{{ rfqDetails()!.companyName }}</strong>
+            </div>
+          }
         </div>
 
         <div class="rfq-meta-grid">
+          <div>
+            <span class="meta-label">Inviting Company:</span>
+            <span class="meta-val font-semibold text-primary">{{ rfqDetails()!.companyName || 'Buyer Organization' }}</span>
+          </div>
           <div>
             <span class="meta-label">Submission Deadline:</span>
             <span class="meta-val text-danger font-medium">{{ rfqDetails()!.closingDate | date:'medium' }}</span>
@@ -201,6 +216,7 @@
                       class="portal-input text-right font-medium"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']"
                       [(ngModel)]="line.quotedQuantity"
+                      (ngModelChange)="onLineChange()"
                       (blur)="markTouched(line.rfqLineId + '.quotedQuantity')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.quotedQuantity') && errors()[line.rfqLineId + '.quotedQuantity']) {
@@ -217,6 +233,7 @@
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']"
                       placeholder="0.00"
                       [(ngModel)]="line.unitPrice"
+                      (ngModelChange)="onLineChange()"
                       (blur)="markTouched(line.rfqLineId + '.unitPrice')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.unitPrice') && errors()[line.rfqLineId + '.unitPrice']) {
@@ -232,6 +249,7 @@
                       class="portal-input text-right"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']"
                       [(ngModel)]="line.discountPercentage"
+                      (ngModelChange)="onLineChange()"
                       (blur)="markTouched(line.rfqLineId + '.discountPercentage')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.discountPercentage') && errors()[line.rfqLineId + '.discountPercentage']) {
@@ -247,6 +265,7 @@
                       class="portal-input text-right"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']"
                       [(ngModel)]="line.taxRate"
+                      (ngModelChange)="onLineChange()"
                       (blur)="markTouched(line.rfqLineId + '.taxRate')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.taxRate') && errors()[line.rfqLineId + '.taxRate']) {
@@ -261,6 +280,7 @@
                       class="portal-input text-right"
                       [class.input-invalid]="shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']"
                       [(ngModel)]="line.leadTimeDays"
+                      (ngModelChange)="onLineChange()"
                       (blur)="markTouched(line.rfqLineId + '.leadTimeDays')"
                     />
                     @if (shouldShowError(line.rfqLineId + '.leadTimeDays') && errors()[line.rfqLineId + '.leadTimeDays']) {

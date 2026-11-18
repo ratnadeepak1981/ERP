@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using API.Common;
 using API.Security.Authorization;
 using Domain.Features.Procurement.RequestForQuotation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using SaaS.Application.Interfaces;
 using Security.Interfaces;
 
 namespace API.Features.Domain;
@@ -61,7 +64,7 @@ public class RequestForQuotationController : BaseApiController
         if (authResult.Action != null) return authResult.Action;
 
         var rfq = await _rfqService.GetRfqByIdAsync(id, authResult.TenantId, ct);
-        if (rfq == null)
+        if (rfq == null || rfq.CompanyId != companyId || rfq.BranchId != branchId)
             return NotFoundResponse($"RFQ with ID {id} not found in the authorized scope.");
 
         // Quotation commercial data is permission-controlled separately from the RFQ header.
@@ -181,10 +184,33 @@ public class RequestForQuotationController : BaseApiController
         Guid branchId,
         Guid id,
         [FromBody] SendRfqInvitationsRequest request,
+        [FromServices] ITenantDomainRepository tenantDomainRepository,
+        [FromServices] IConfiguration configuration,
         CancellationToken ct = default)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
+
+        // Auto-resolve tenant subdomain from repository if not explicitly passed
+        if (string.IsNullOrWhiteSpace(request.TenantSubdomain))
+        {
+            var tenantDomains = await tenantDomainRepository.GetByTenantIdAsync(authResult.TenantId);
+            var primaryDomain = tenantDomains.FirstOrDefault(d => d.IsPrimary && d.IsActive) ?? tenantDomains.FirstOrDefault(d => d.IsActive);
+            if (primaryDomain != null && !string.IsNullOrWhiteSpace(primaryDomain.Subdomain))
+            {
+                request.TenantSubdomain = primaryDomain.Subdomain;
+            }
+        }
+
+        // Auto-resolve external base domain from configuration if not explicitly passed
+        if (string.IsNullOrWhiteSpace(request.ExternalBaseUrl))
+        {
+            var configuredExternal = configuration["Hosting:ExternalBaseDomain"] ?? configuration["Hosting:TenantBaseDomain"];
+            if (!string.IsNullOrWhiteSpace(configuredExternal) && configuredExternal != "localhost")
+            {
+                request.ExternalBaseUrl = configuredExternal;
+            }
+        }
 
         var userId = _currentUserContext.UserId;
         var result = await _rfqService.SendInvitationsAsync(id, request, userId, authResult.TenantId, ct);

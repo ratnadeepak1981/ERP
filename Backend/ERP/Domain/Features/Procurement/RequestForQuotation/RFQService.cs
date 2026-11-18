@@ -365,7 +365,7 @@ public class RFQService : IRFQService
         if (supplier == null)
             throw new InvalidOperationException($"Supplier with ID {request.SupplierId} not found.");
 
-        rfq.InvitedSuppliers.Add(new RFQSupplier
+        var newSupplier = new RFQSupplier
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
@@ -376,7 +376,10 @@ public class RFQService : IRFQService
             SupplierName = supplier.SupplierName,
             ContactEmail = supplier.Email ?? string.Empty,
             InvitationStatus = RFQSupplierInvitationStatus.Pending
-        });
+        };
+
+        await _dbContext.RFQSuppliers.AddAsync(newSupplier, ct);
+        _dbContext.Entry(newSupplier).Property(x => x.CreatedBy).CurrentValue = userId;
 
         await _dbContext.SaveChangesAsync(ct);
         return MapToDetailsDto(rfq);
@@ -456,9 +459,10 @@ public class RFQService : IRFQService
         }
 
         var result = new RfqInvitationResultDto();
-        var baseUrl = !string.IsNullOrWhiteSpace(request.PortalBaseUrl)
-            ? request.PortalBaseUrl.TrimEnd('/')
-            : "http://localhost:4200";
+        var company = await _dbContext.Companies
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == rfq.CompanyId, ct);
+        var companyName = company?.Name ?? string.Empty;
 
         foreach (var supplier in targetList)
         {
@@ -497,15 +501,14 @@ public class RFQService : IRFQService
             RfqEmailDispatchResult dispatch;
             try
             {
-                var submissionUrl = $"{baseUrl}/public/rfq-submit?token={plaintextToken}";
-                dispatch = await _emailService.SendInvitationAsync(
-                    supplier.ContactEmail,
-                    supplier.SupplierName,
-                    rfq.RFQNumber,
-                    rfq.Title,
-                    submissionUrl,
-                    rfq.ClosingDate,
-                    ct);
+                var emailContext = BuildInvitationEmailContext(
+                    supplier,
+                    rfq,
+                    companyName,
+                    plaintextToken,
+                    request);
+
+                dispatch = await _emailService.SendInvitationAsync(emailContext, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -514,7 +517,7 @@ public class RFQService : IRFQService
                 supplier.TokenExpiresAt = null;
                 result.FailedCount++;
                 _logger?.LogWarning(ex, "RFQ invitation dispatch failed for supplier {SupplierId}.", supplier.SupplierId);
-                result.Messages.Add($"Invitation could not be dispatched to '{supplier.SupplierName}'. Correct the supplier email or mail configuration and retry.");
+                result.Messages.Add($"Invitation could not be dispatched to '{supplier.SupplierName}': {ex.Message}");
                 await _dbContext.SaveChangesAsync(ct);
                 continue;
             }
@@ -536,7 +539,10 @@ public class RFQService : IRFQService
                     "RFQ invitation dispatch failed for supplier {SupplierId}: {FailureReason}",
                     supplier.SupplierId,
                     dispatch.FailureReason);
-                result.Messages.Add($"Invitation could not be dispatched to '{supplier.SupplierName}'. Correct the supplier email or mail configuration and retry.");
+                var detail = !string.IsNullOrWhiteSpace(dispatch.FailureReason)
+                    ? $": {dispatch.FailureReason}"
+                    : ". Correct the supplier email or mail configuration and retry.";
+                result.Messages.Add($"Invitation could not be dispatched to '{supplier.SupplierName}'{detail}");
             }
 
             await _dbContext.SaveChangesAsync(ct);
@@ -705,6 +711,117 @@ public class RFQService : IRFQService
                     TechnicalRemarks = ql.TechnicalRemarks
                 }).ToList()
             }).ToList()
+        };
+    }
+
+    private static RfqInvitationEmailContext BuildInvitationEmailContext(
+        RFQSupplier supplier,
+        RequestForQuotation rfq,
+        string companyName,
+        string plaintextToken,
+        SendRfqInvitationsRequest request)
+    {
+        var rawPortalUrl = !string.IsNullOrWhiteSpace(request.PortalBaseUrl)
+            ? request.PortalBaseUrl.Trim()
+            : "http://localhost:4200";
+
+        if (!Uri.TryCreate(rawPortalUrl, UriKind.Absolute, out var portalUri))
+        {
+            portalUri = new Uri("http://localhost:4200");
+        }
+
+        var scheme = portalUri.Scheme;
+        var portPart = portalUri.IsDefaultPort ? string.Empty : $":{portalUri.Port}";
+        var originalHost = portalUri.Host.ToLowerInvariant();
+
+        // 1. Resolve candidate tenant subdomain
+        var subdomain = !string.IsNullOrWhiteSpace(request.TenantSubdomain)
+            ? request.TenantSubdomain.Trim().ToLowerInvariant()
+            : null;
+
+        if (string.IsNullOrWhiteSpace(subdomain) && originalHost.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = originalHost.Split('.');
+            if (parts.Length == 2 && parts[0].Length >= 3)
+            {
+                subdomain = parts[0];
+            }
+        }
+
+        // Option 1: Standard localhost
+        var standardBase = $"{scheme}://localhost{portPart}";
+        var standardUrl = $"{standardBase}/public/rfq-submit?token={plaintextToken}";
+
+        // Option 2: Localhost tenant subdomain
+        string? tenantLocalhostUrl = null;
+        string? tenantLocalhostUnavailableReason = null;
+        if (!string.IsNullOrWhiteSpace(subdomain))
+        {
+            tenantLocalhostUrl = $"{scheme}://{subdomain}.localhost{portPart}/public/rfq-submit?token={plaintextToken}";
+        }
+        else
+        {
+            tenantLocalhostUnavailableReason = "Tenant subdomain is not registered or assigned for this organization.";
+        }
+
+        // Option 3: External tenant access
+        string? externalTenantUrl = null;
+        string? externalTenantUnavailableReason = null;
+
+        var externalHost = !string.IsNullOrWhiteSpace(request.ExternalBaseUrl)
+            ? request.ExternalBaseUrl.Trim()
+            : null;
+
+        if (!string.IsNullOrWhiteSpace(externalHost))
+        {
+            if (externalHost.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                externalHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Uri.TryCreate(externalHost, UriKind.Absolute, out var extUri))
+                {
+                    externalHost = extUri.Host;
+                }
+            }
+            else
+            {
+                externalHost = externalHost.TrimEnd('/');
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(externalHost) || externalHost.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            externalHost = "apexerp.com";
+        }
+
+        bool isIpAddress = System.Net.IPAddress.TryParse(externalHost, out _);
+        if (isIpAddress)
+        {
+            // IP addresses cannot serve conventional DNS subdomains (e.g. tenant.192.168.1.1 is invalid DNS)
+            externalTenantUrl = $"http://{externalHost}{portPart}/public/rfq-submit?token={plaintextToken}";
+        }
+        else if (!string.IsNullOrWhiteSpace(subdomain))
+        {
+            externalTenantUrl = $"https://{subdomain}.{externalHost}/public/rfq-submit?token={plaintextToken}";
+        }
+        else
+        {
+            externalTenantUnavailableReason = "Tenant subdomain is required for external hosted domain access.";
+        }
+
+        return new RfqInvitationEmailContext
+        {
+            RecipientEmail = supplier.ContactEmail,
+            RecipientName = supplier.SupplierName,
+            RfqNumber = rfq.RFQNumber,
+            RfqTitle = rfq.Title,
+            BuyingCompanyName = companyName,
+            ResponseDeadline = rfq.ClosingDate,
+            CustomNote = request.CustomEmailNote,
+            StandardLocalhostUrl = standardUrl,
+            TenantLocalhostUrl = tenantLocalhostUrl,
+            TenantLocalhostUnavailableReason = tenantLocalhostUnavailableReason,
+            ExternalTenantUrl = externalTenantUrl,
+            ExternalTenantUnavailableReason = externalTenantUnavailableReason
         };
     }
 }

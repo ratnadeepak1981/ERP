@@ -41,6 +41,12 @@
       font-weight: 700;
       color: #0f172a;
     }
+
+    .brand-company-tag {
+      font-size: 14px;
+      font-weight: 600;
+      color: #475569;
+    }
   }
 
   .header-tag {
@@ -167,8 +173,16 @@
   .rfq-meta-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 16px;
+
+    .rfq-meta-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
     .rfq-badge {
       background: #eff6ff;
@@ -183,6 +197,27 @@
       margin: 0;
       font-size: 20px;
       font-weight: 700;
+    }
+
+    .buyer-company-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+
+      .buyer-label {
+        color: #15803d;
+        font-weight: 500;
+      }
+
+      .buyer-name {
+        font-weight: 700;
+      }
     }
   }
 

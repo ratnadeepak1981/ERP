@@ -21,7 +21,10 @@ import {
   RejectQuotationRequest,
   PublicRfqDetailsDto,
   SubmitPublicQuotationRequest,
-  SubmitQuotationResultDto
+  SubmitQuotationResultDto,
+  getRfqStatusName,
+  getSupplierInvitationStatusName,
+  getSupplierQuotationStatusName
 } from '../models/rfq.models';
 
 export interface RfqQueryParams {
@@ -40,6 +43,34 @@ export class RfqService {
     return buildApiUrl(`/companies/${companyId}/branches/${branchId}/rfqs${suffix}`);
   }
 
+  private normalizeRfqHeader(header: RfqHeaderDto): RfqHeaderDto {
+    if (!header) return header;
+    header.status = getRfqStatusName(header.status);
+    return header;
+  }
+
+  private normalizeRfqDetails(rfq: RfqDetailsDto | null): RfqDetailsDto | null {
+    if (!rfq) return null;
+    this.normalizeRfqHeader(rfq);
+    if (rfq.invitedSuppliers) {
+      for (const sup of rfq.invitedSuppliers) {
+        sup.invitationStatus = getSupplierInvitationStatusName(sup.invitationStatus);
+      }
+    }
+    if (rfq.quotations) {
+      for (const q of rfq.quotations) {
+        this.normalizeSupplierQuotation(q);
+      }
+    }
+    return rfq;
+  }
+
+  private normalizeSupplierQuotation(q: SupplierQuotationDto): SupplierQuotationDto {
+    if (!q) return q;
+    q.status = getSupplierQuotationStatusName(q.status);
+    return q;
+  }
+
   // --- RFQ Lifecycle Management ---
 
   getRfqs(
@@ -54,13 +85,13 @@ export class RfqService {
 
     return this.http
       .get<ApiResponse<RfqHeaderDto[]>>(this.buildPath(companyId, branchId), { params: httpParams })
-      .pipe(map(res => res?.data ?? []));
+      .pipe(map(res => (res?.data ?? []).map(r => this.normalizeRfqHeader(r))));
   }
 
   getRfqById(companyId: string, branchId: string, id: string): Observable<RfqDetailsDto | null> {
     return this.http
       .get<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}`))
-      .pipe(map(res => res?.data ?? null));
+      .pipe(map(res => this.normalizeRfqDetails(res?.data ?? null)));
   }
 
   createRfq(
@@ -70,7 +101,7 @@ export class RfqService {
   ): Observable<RfqDetailsDto> {
     return this.http
       .post<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId), request)
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   updateRfq(
@@ -81,7 +112,7 @@ export class RfqService {
   ): Observable<RfqDetailsDto> {
     return this.http
       .put<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}`), request)
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   addLine(
@@ -92,7 +123,7 @@ export class RfqService {
   ): Observable<RfqDetailsDto> {
     return this.http
       .post<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}/lines`), request)
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   removeLine(
@@ -103,7 +134,7 @@ export class RfqService {
   ): Observable<RfqDetailsDto> {
     return this.http
       .delete<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}/lines/${lineId}`))
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   addSupplier(
@@ -114,7 +145,7 @@ export class RfqService {
   ): Observable<RfqDetailsDto> {
     return this.http
       .post<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}/suppliers`), request)
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   removeSupplier(
@@ -125,7 +156,7 @@ export class RfqService {
   ): Observable<RfqDetailsDto> {
     return this.http
       .delete<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}/suppliers/${supplierId}`))
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   sendInvitations(
@@ -145,7 +176,7 @@ export class RfqService {
   closeRfq(companyId: string, branchId: string, id: string): Observable<RfqDetailsDto> {
     return this.http
       .post<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}/close`), {})
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   cancelRfq(
@@ -156,7 +187,7 @@ export class RfqService {
   ): Observable<RfqDetailsDto> {
     return this.http
       .post<ApiResponse<RfqDetailsDto>>(this.buildPath(companyId, branchId, `/${id}/cancel`), { reason })
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeRfqDetails(res.data)!));
   }
 
   // --- Quotation Management ---
@@ -168,7 +199,7 @@ export class RfqService {
   ): Observable<SupplierQuotationDto[]> {
     return this.http
       .get<ApiResponse<SupplierQuotationDto[]>>(this.buildPath(companyId, branchId, `/${id}/quotations`))
-      .pipe(map(res => res?.data ?? []));
+      .pipe(map(res => (res?.data ?? []).map(q => this.normalizeSupplierQuotation(q))));
   }
 
   getQuotation(
@@ -179,7 +210,7 @@ export class RfqService {
   ): Observable<SupplierQuotationDto> {
     return this.http
       .get<ApiResponse<SupplierQuotationDto>>(this.buildPath(companyId, branchId, `/${id}/quotations/${quotationId}`))
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeSupplierQuotation(res.data)));
   }
 
   recordManualQuotation(
@@ -193,7 +224,7 @@ export class RfqService {
         this.buildPath(companyId, branchId, `/${id}/manual-quotations`),
         request
       )
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeSupplierQuotation(res.data)));
   }
 
   getComparisonMatrix(
@@ -203,7 +234,15 @@ export class RfqService {
   ): Observable<RfqComparisonMatrixDto> {
     return this.http
       .get<ApiResponse<RfqComparisonMatrixDto>>(this.buildPath(companyId, branchId, `/${id}/comparison-matrix`))
-      .pipe(map(res => res.data));
+      .pipe(map(res => {
+        const matrix = res.data;
+        if (matrix?.suppliers) {
+          for (const s of matrix.suppliers) {
+            s.status = getSupplierQuotationStatusName(s.status);
+          }
+        }
+        return matrix;
+      }));
   }
 
   approveQuotation(
@@ -218,7 +257,7 @@ export class RfqService {
         this.buildPath(companyId, branchId, `/${id}/quotations/${quotationId}/approve`),
         request
       )
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeSupplierQuotation(res.data)));
   }
 
   rejectQuotation(
@@ -233,7 +272,7 @@ export class RfqService {
         this.buildPath(companyId, branchId, `/${id}/quotations/${quotationId}/reject`),
         request
       )
-      .pipe(map(res => res.data));
+      .pipe(map(res => this.normalizeSupplierQuotation(res.data)));
   }
 
   // --- Public Supplier Portal ---

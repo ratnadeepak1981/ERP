@@ -83,14 +83,18 @@ public class UserController : BaseApiController
 
     [HttpGet]
     [RequirePermission("USER.VIEW")]
-    public async Task<IActionResult> GetUsers()
+    public async Task<IActionResult> GetUsers([FromQuery] Guid? tenantId = null)
     {
         try
         {
-            var tenantId = _currentUserContext.TenantId;
+            var userTenantId = _currentUserContext.TenantId;
             var query = _dbContext.Users.AsQueryable();
 
-            if (tenantId.HasValue)
+            if (userTenantId.HasValue)
+            {
+                query = query.Where(u => u.TenantId == userTenantId.Value);
+            }
+            else if (tenantId.HasValue)
             {
                 query = query.Where(u => u.TenantId == tenantId.Value);
             }
@@ -116,7 +120,8 @@ public class UserController : BaseApiController
                             branchId = s.BranchId.HasValue ? s.BranchId.Value.ToString() : null
                         }).ToList()
                     }).ToList(),
-                    createdAt = u.CreatedAt.ToString("o")
+                    createdAt = u.CreatedAt.ToString("o"),
+                    lastActivityAt = u.UserSessions.OrderByDescending(s => s.LastActivityAt).Select(s => (DateTime?)s.LastActivityAt).FirstOrDefault()
                 })
                 .ToListAsync();
 

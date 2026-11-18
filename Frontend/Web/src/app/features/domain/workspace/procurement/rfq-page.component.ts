@@ -23,12 +23,16 @@ import { RfqService } from '../../../../core/services/rfq.service';
 import { MasterDataService } from '../../../../core/services/master-data.service';
 import { WorkspaceScopeService } from '../../../../core/services/workspace-scope.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { TenantHostService } from '../../../../core/tenant/tenant-host.service';
+import { TenantContextService } from '../../../../core/services/tenant-context.service';
 import {
   RfqDetailsDto,
   RfqLineDto,
   RfqSupplierDto,
   SupplierQuotationDto,
   RfqComparisonMatrixDto,
+  RfqComparisonLineDto,
+  RfqComparisonLineBidDto,
   CreateRfqRequest,
   UpdateRfqRequest,
   CreateRfqLineRequest,
@@ -39,8 +43,11 @@ import {
   RejectQuotationRequest,
   RequestForQuotationStatus,
   DraftRfqLineItem,
+  RfqInvitationAccessOptionsDto,
   getRfqStatusName,
-  getRfqStatusSeverity
+  getRfqStatusSeverity,
+  getSupplierInvitationStatusName,
+  getSupplierQuotationStatusName
 } from '../../../../core/models/rfq.models';
 import { ProductItem, SupplierItem, UnitOfMeasureItem } from '../../../../core/models/scope.models';
 
@@ -66,10 +73,17 @@ export type RfqWorkflowStep = 'details' | 'suppliers' | 'invitations' | 'quotati
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RfqPageComponent implements OnInit, OnDestroy {
+  readonly getRfqStatusName = getRfqStatusName;
+  readonly getRfqStatusSeverity = getRfqStatusSeverity;
+  readonly getSupplierInvitationStatusName = getSupplierInvitationStatusName;
+  readonly getSupplierQuotationStatusName = getSupplierQuotationStatusName;
+
   readonly rfqService = inject(RfqService);
   readonly masterDataService = inject(MasterDataService);
   readonly scopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
+  readonly tenantHostService = inject(TenantHostService, { optional: true });
+  readonly tenantContextService = inject(TenantContextService, { optional: true });
   readonly router = inject(Router);
   readonly route = inject(ActivatedRoute);
 
@@ -170,6 +184,49 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   readonly comparisonMatrix = signal<RfqComparisonMatrixDto | null>(null);
   readonly matrixLoading = signal<boolean>(false);
 
+  readonly comparisonAnalysis = computed(() => {
+    const m = this.comparisonMatrix();
+    if (!m || m.suppliers.length === 0) return null;
+
+    const eligibleSuppliers = m.suppliers.filter(s => s.status !== 'Draft' && s.status !== 'Rejected');
+    if (eligibleSuppliers.length === 0) return null;
+
+    const validBids = eligibleSuppliers.filter(s => s.baseTotalAmount > 0);
+    const sortedByPrice = [...validBids].sort((a, b) => a.baseTotalAmount - b.baseTotalAmount);
+
+    const lowest = sortedByPrice.length > 0 ? sortedByPrice[0] : null;
+    const highest = sortedByPrice.length > 0 ? sortedByPrice[sortedByPrice.length - 1] : null;
+    const priceSpread = lowest && highest ? Math.max(0, highest.baseTotalAmount - lowest.baseTotalAmount) : 0;
+
+    const leadTimes: number[] = [];
+    const discounts: number[] = [];
+    for (const line of m.lines) {
+      for (const bid of line.bids) {
+        if (bid.leadTimeDays !== undefined && bid.leadTimeDays !== null) {
+          leadTimes.push(bid.leadTimeDays);
+        }
+        if (bid.discountPercentage !== undefined && bid.discountPercentage !== null && bid.discountPercentage > 0) {
+          discounts.push(bid.discountPercentage);
+        }
+      }
+    }
+
+    const minLeadTime = leadTimes.length > 0 ? Math.min(...leadTimes) : null;
+    const maxLeadTime = leadTimes.length > 0 ? Math.max(...leadTimes) : null;
+    const maxDiscount = discounts.length > 0 ? Math.max(...discounts) : 0;
+
+    return {
+      eligibleCount: eligibleSuppliers.length,
+      lowestBid: lowest,
+      highestBid: highest,
+      priceSpread,
+      minLeadTime,
+      maxLeadTime,
+      maxDiscount,
+      hasCurrencyConversionIssue: eligibleSuppliers.some(s => s.hasValidExchangeRate === false)
+    };
+  });
+
   // Decision Modal (Approve / Reject) State
   readonly decisionModalVisible = signal<boolean>(false);
   readonly decisionType = signal<'approve' | 'reject'>('approve');
@@ -186,6 +243,30 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   readonly confirmDialogVisible = signal<boolean>(false);
   readonly confirmDialogConfig = signal<ConfirmationDialogConfig | null>(null);
   readonly confirmAction = signal<(() => void) | null>(null);
+
+  // Supplier Portal Access Options state
+  readonly latestAccessOptions = signal<RfqInvitationAccessOptionsDto | null>(null);
+  readonly portalAccessModalVisible = signal<boolean>(false);
+  readonly selectedSupplierForAccess = signal<RfqSupplierDto | null>(null);
+
+  readonly activeAccessOptions = computed<RfqInvitationAccessOptionsDto | null>(() => {
+    const selected = this.selectedSupplierForAccess();
+    if (selected) {
+      if (selected.accessOptions) return selected.accessOptions;
+      if (selected.standardLocalhostUrl || selected.lanIpUrl) {
+        return {
+          standardLocalhostUrl: selected.standardLocalhostUrl,
+          tenantLocalhostUrl: selected.tenantLocalhostUrl,
+          tenantLocalhostUnavailableReason: selected.tenantLocalhostUnavailableReason,
+          externalTenantUrl: selected.externalTenantUrl,
+          externalTenantUnavailableReason: selected.externalTenantUnavailableReason,
+          lanIpUrl: selected.lanIpUrl,
+          lanIpUnavailableReason: selected.lanIpUnavailableReason
+        };
+      }
+    }
+    return this.latestAccessOptions();
+  });
 
   // Breadcrumbs Computed
   readonly breadcrumbs = computed(() => [
@@ -222,7 +303,7 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   // Permissions & Workflow Guards
   readonly canManageSuppliers = computed(() => {
     const isPrivileged = this.authService.isTenantAdmin() || this.authService.isPlatformAdmin();
-    const status = this.rfq()?.status;
+    const status = getRfqStatusName(this.rfq()?.status);
     return (status === 'Draft' || status === 'Issued') &&
       (isPrivileged || this.authService.hasPermission('RFQ.SUPPLIER.MANAGE'));
   });
@@ -231,7 +312,8 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     const isPrivileged = this.authService.isTenantAdmin() || this.authService.isPlatformAdmin();
     const r = this.rfq();
     if (!r) return this.isNew() && (isPrivileged || this.authService.hasPermission('RFQ.CREATE'));
-    const isDraftOrIssued = r.status === 'Draft' || r.status === 'Issued';
+    const status = getRfqStatusName(r.status);
+    const isDraftOrIssued = status === 'Draft' || status === 'Issued';
     return isDraftOrIssued && (isPrivileged || this.authService.hasPermission('RFQ.EDIT'));
   });
 
@@ -246,16 +328,15 @@ export class RfqPageComponent implements OnInit, OnDestroy {
         return currentRfq.invitedSuppliers.length > 0;
       case 'invitations':
         return currentRfq.invitedSuppliers.length > 0 &&
-          currentRfq.invitedSuppliers.every(supplier =>
-            supplier.invitationStatus === 'Opened' ||
-            supplier.invitationStatus === 'Submitted' ||
-            supplier.invitationStatus === 'Declined'
-          );
+          currentRfq.invitedSuppliers.every(supplier => {
+            const invStatus = getSupplierInvitationStatusName(supplier.invitationStatus);
+            return invStatus === 'Opened' || invStatus === 'Submitted' || invStatus === 'Declined';
+          });
       case 'quotations':
         return currentRfq.quotations.length > 0;
       case 'comparison':
-        return currentRfq.status === 'Awarded' ||
-          currentRfq.quotations.some(quotation => quotation.status === 'Approved');
+        return getRfqStatusName(currentRfq.status) === 'Awarded' ||
+          currentRfq.quotations.some(quotation => getSupplierQuotationStatusName(quotation.status) === 'Approved');
     }
   }
 
@@ -263,7 +344,7 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     if (this.workflowStepComplete(step)) return 'Complete';
     if (step === 'comparison' && (this.rfq()?.quotations.length || 0) > 0) return 'Ready';
     if (step === 'quotations' && (this.rfq()?.quotations.length || 0) > 0) return 'Ready';
-    if (step === 'invitations' && this.rfq()?.invitedSuppliers.some(supplier => supplier.invitationStatus === 'Sent')) {
+    if (step === 'invitations' && this.rfq()?.invitedSuppliers.some(supplier => getSupplierInvitationStatusName(supplier.invitationStatus) === 'Sent')) {
       return 'Ready';
     }
     return 'Pending';
@@ -273,7 +354,8 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     const isPrivileged = this.authService.isTenantAdmin() || this.authService.isPlatformAdmin();
     const r = this.rfq();
     if (!r) return false;
-    return (r.status === 'Draft' || r.status === 'Issued') &&
+    const status = getRfqStatusName(r.status);
+    return (status === 'Draft' || status === 'Issued') &&
       r.invitedSuppliers.some(supplier => this.isInvitationEligible(supplier)) &&
       (isPrivileged || this.authService.hasPermission('RFQ.SEND'));
   });
@@ -282,7 +364,8 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     const isPrivileged = this.authService.isTenantAdmin() || this.authService.isPlatformAdmin();
     const r = this.rfq();
     if (!r) return false;
-    return (r.status === 'Draft' || r.status === 'Issued') &&
+    const status = getRfqStatusName(r.status);
+    return (status === 'Draft' || status === 'Issued') &&
       (isPrivileged || this.authService.hasPermission('RFQ.QUOTATION.RECORD'));
   });
 
@@ -299,7 +382,7 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   });
 
   readonly submittedQuotationCount = computed(() =>
-    (this.rfq()?.quotations || []).filter(q => q.status !== 'Draft').length
+    (this.rfq()?.quotations || []).filter(q => getSupplierQuotationStatusName(q.status) !== 'Draft').length
   );
 
   readonly pendingSupplierCount = computed(() => {
@@ -322,13 +405,14 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   readonly canCloseRfq = computed(() => {
     const isPrivileged = this.authService.isTenantAdmin() || this.authService.isPlatformAdmin();
     const r = this.rfq();
-    return r?.status === 'Issued' && (isPrivileged || this.authService.hasPermission('RFQ.EDIT'));
+    return getRfqStatusName(r?.status) === 'Issued' && (isPrivileged || this.authService.hasPermission('RFQ.EDIT'));
   });
 
   readonly canCancelRfq = computed(() => {
     const isPrivileged = this.authService.isTenantAdmin() || this.authService.isPlatformAdmin();
     const r = this.rfq();
-    const isDraftOrIssued = r?.status === 'Draft' || r?.status === 'Issued';
+    const status = getRfqStatusName(r?.status);
+    const isDraftOrIssued = status === 'Draft' || status === 'Issued';
     return isDraftOrIssued && (isPrivileged || this.authService.hasPermission('RFQ.EDIT'));
   });
 
@@ -584,7 +668,7 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   }
 
   switchStep(step: RfqWorkflowStep): void {
-    if (step !== 'quotations') {
+    if (step !== 'quotations' && step !== 'comparison') {
       this.expandedQuotationId.set(null);
       this.quotationDetail.set(null);
       this.quotationDetailLoading.set(false);
@@ -929,8 +1013,9 @@ export class RfqPageComponent implements OnInit, OnDestroy {
           ? `${savedNames.length} supplier(s) saved.`
           : 'No suppliers were saved.';
         const failureSummary = failures.length ? ` ${failures.join(' ')}` : '';
+        const note = savedNames.length ? ' Saving suppliers selects them for this RFQ; send invitations in Stage 3.' : '';
         this.message.set({
-          text: `${summary}${failureSummary} Saving suppliers does not send invitations.`,
+          text: `${summary}${failureSummary}${note}`,
           severity: failures.length ? (savedNames.length ? 'warn' : 'danger') : 'success'
         });
         return;
@@ -960,7 +1045,7 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   removeSupplier(supplierId: string): void {
     const scope = this.getCurrentScope();
     const id = this.rfqId();
-    if (!scope || !id || !this.canManageSuppliers() || this.rfq()?.status !== 'Draft') return;
+    if (!scope || !id || !this.canManageSuppliers() || getRfqStatusName(this.rfq()?.status) !== 'Draft') return;
 
     this.actionLoading.set(true);
     this.rfqService.removeSupplier(scope.companyId, scope.branchId, id, supplierId).subscribe({
@@ -977,7 +1062,8 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   }
 
   isInvitationEligible(supplier: RfqSupplierDto): boolean {
-    return supplier.invitationStatus === 'Pending' || supplier.invitationStatus === 'Failed';
+    const invStatus = getSupplierInvitationStatusName(supplier.invitationStatus);
+    return invStatus === 'Pending' || invStatus === 'Failed';
   }
 
   isInvitationSelected(supplierId: string): boolean {
@@ -1047,9 +1133,16 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     });
     this.confirmAction.set(() => {
       this.actionLoading.set(true);
+      const candidateSubdomain =
+        this.tenantHostService?.currentSubdomain() ||
+        this.tenantContextService?.subdomain() ||
+        this.tenantContextService?.currentTenant()?.subdomain ||
+        undefined;
+
       const request: SendRfqInvitationsRequest = {
         supplierIds: selectedSuppliers.map(supplier => supplier.supplierId),
-        portalBaseUrl: window.location.origin
+        portalBaseUrl: window.location.origin,
+        tenantSubdomain: candidateSubdomain
       };
 
       this.rfqService.sendInvitations(scope.companyId, scope.branchId, id, request).subscribe({
@@ -1063,6 +1156,17 @@ export class RfqPageComponent implements OnInit, OnDestroy {
               ? (resp.sentCount > 0 ? 'warn' : 'danger')
               : (resp.sentCount > 0 ? 'success' : 'info')
           });
+          if (resp.accessOptions || resp.standardLocalhostUrl || resp.lanIpUrl) {
+            this.latestAccessOptions.set({
+              standardLocalhostUrl: resp.accessOptions?.standardLocalhostUrl || resp.standardLocalhostUrl,
+              tenantLocalhostUrl: resp.accessOptions?.tenantLocalhostUrl || resp.tenantLocalhostUrl,
+              tenantLocalhostUnavailableReason: resp.accessOptions?.tenantLocalhostUnavailableReason || resp.tenantLocalhostUnavailableReason,
+              externalTenantUrl: resp.accessOptions?.externalTenantUrl || resp.externalTenantUrl,
+              externalTenantUnavailableReason: resp.accessOptions?.externalTenantUnavailableReason || resp.externalTenantUnavailableReason,
+              lanIpUrl: resp.accessOptions?.lanIpUrl || resp.lanIpUrl,
+              lanIpUnavailableReason: resp.accessOptions?.lanIpUnavailableReason || resp.lanIpUnavailableReason
+            });
+          }
           this.loadRfq(id);
         },
         error: err => {
@@ -1077,6 +1181,20 @@ export class RfqPageComponent implements OnInit, OnDestroy {
       });
     });
     this.confirmDialogVisible.set(true);
+  }
+
+  openPortalAccessModal(supplier?: RfqSupplierDto): void {
+    if (supplier) {
+      this.selectedSupplierForAccess.set(supplier);
+    } else {
+      this.selectedSupplierForAccess.set(null);
+    }
+    this.portalAccessModalVisible.set(true);
+  }
+
+  closePortalAccessModal(): void {
+    this.portalAccessModalVisible.set(false);
+    this.selectedSupplierForAccess.set(null);
   }
 
   // --- Manual Quotation Entry ---
@@ -1302,6 +1420,47 @@ export class RfqPageComponent implements OnInit, OnDestroy {
     return lowestId;
   }
 
+  getBidForSupplier(row: RfqComparisonLineDto | any, quotationId: string): RfqComparisonLineBidDto | undefined {
+    if (!row || !row.bids) return undefined;
+    return row.bids.find((b: any) => b.quotationId === quotationId);
+  }
+
+  inspectQuotationFromMatrix(quotationId: string): void {
+    const existingQuote = (this.rfq()?.quotations || []).find(q => q.id === quotationId);
+    if (existingQuote) {
+      this.toggleQuotationDetail(existingQuote);
+      return;
+    }
+
+    const scope = this.getCurrentScope();
+    const id = this.rfqId();
+    if (!scope || !id) return;
+
+    if (this.expandedQuotationId() === quotationId) {
+      this.expandedQuotationId.set(null);
+      this.quotationDetail.set(null);
+      this.quotationDetailLoading.set(false);
+      return;
+    }
+
+    this.expandedQuotationId.set(quotationId);
+    this.quotationDetailLoading.set(true);
+
+    this.rfqService.getQuotation(scope.companyId, scope.branchId, id, quotationId).subscribe({
+      next: detail => {
+        this.quotationDetail.set(detail);
+        this.quotationDetailLoading.set(false);
+      },
+      error: err => {
+        this.quotationDetailLoading.set(false);
+        this.message.set({
+          text: err?.error?.message || err?.message || 'Failed to load quotation details.',
+          severity: 'danger'
+        });
+      }
+    });
+  }
+
   openDecisionModal(quotation: SupplierQuotationDto, type: 'approve' | 'reject'): void {
     this.selectedQuotation.set(quotation);
     this.decisionType.set(type);
@@ -1311,33 +1470,82 @@ export class RfqPageComponent implements OnInit, OnDestroy {
   }
 
   openMatrixDecisionModal(quote: any, type: 'approve' | 'reject'): void {
-    const q: SupplierQuotationDto = {
-      id: quote.quotationId,
-      tenantId: '',
-      companyId: '',
-      branchId: '',
-      rfqId: '',
-      rfqNumber: '',
-      supplierId: quote.supplierId,
-      supplierCode: quote.supplierCode,
-      supplierName: quote.supplierName,
-      quotationReference: quote.quotationReference,
-      quotationDate: quote.quotationDate,
-      validUntil: quote.validUntil,
-      isExpired: quote.isExpired,
-      currencyId: quote.currencyId,
-      currencyCode: quote.currencyCode,
-      exchangeRate: 1,
-      status: quote.status,
-      subTotal: quote.subTotal || 0,
-      discountAmount: 0,
-      taxAmount: quote.taxAmount || 0,
-      totalAmount: quote.totalAmount,
-      baseTotalAmount: quote.baseTotalAmount,
-      isManualEntry: false,
-      lines: []
-    };
-    this.openDecisionModal(q, type);
+    const scope = this.getCurrentScope();
+    const id = this.rfqId();
+    const existingQuote = (this.rfq()?.quotations || []).find(q => q.id === quote.quotationId);
+
+    if (existingQuote && existingQuote.lines && existingQuote.lines.length > 0) {
+      this.openDecisionModal(existingQuote, type);
+      return;
+    }
+
+    if (scope && id) {
+      this.actionLoading.set(true);
+      this.rfqService.getQuotation(scope.companyId, scope.branchId, id, quote.quotationId).subscribe({
+        next: fullQuote => {
+          this.actionLoading.set(false);
+          this.openDecisionModal(fullQuote, type);
+        },
+        error: () => {
+          this.actionLoading.set(false);
+          const fallback: SupplierQuotationDto = {
+            id: quote.quotationId,
+            tenantId: '',
+            companyId: '',
+            branchId: '',
+            rfqId: id,
+            rfqNumber: this.rfq()?.rfqNumber || '',
+            supplierId: quote.supplierId,
+            supplierCode: quote.supplierCode,
+            supplierName: quote.supplierName,
+            quotationReference: quote.quotationReference,
+            quotationDate: quote.quotationDate,
+            validUntil: quote.validUntil,
+            isExpired: quote.isExpired,
+            currencyId: quote.currencyId || '',
+            currencyCode: quote.currencyCode,
+            exchangeRate: quote.exchangeRate || 1,
+            status: quote.status,
+            subTotal: quote.totalAmount,
+            discountAmount: 0,
+            taxAmount: 0,
+            totalAmount: quote.totalAmount,
+            baseTotalAmount: quote.baseTotalAmount,
+            isManualEntry: quote.isManualEntry || false,
+            lines: []
+          };
+          this.openDecisionModal(fallback, type);
+        }
+      });
+    } else {
+      const fallback: SupplierQuotationDto = {
+        id: quote.quotationId,
+        tenantId: '',
+        companyId: '',
+        branchId: '',
+        rfqId: id || '',
+        rfqNumber: this.rfq()?.rfqNumber || '',
+        supplierId: quote.supplierId,
+        supplierCode: quote.supplierCode,
+        supplierName: quote.supplierName,
+        quotationReference: quote.quotationReference,
+        quotationDate: quote.quotationDate,
+        validUntil: quote.validUntil,
+        isExpired: quote.isExpired,
+        currencyId: quote.currencyId || '',
+        currencyCode: quote.currencyCode,
+        exchangeRate: quote.exchangeRate || 1,
+        status: quote.status,
+        subTotal: quote.totalAmount,
+        discountAmount: 0,
+        taxAmount: 0,
+        totalAmount: quote.totalAmount,
+        baseTotalAmount: quote.baseTotalAmount,
+        isManualEntry: quote.isManualEntry || false,
+        lines: []
+      };
+      this.openDecisionModal(fallback, type);
+    }
   }
 
   closeDecisionModal(): void {

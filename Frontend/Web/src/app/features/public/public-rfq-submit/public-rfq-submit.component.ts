@@ -90,25 +90,30 @@ export class PublicRfqSubmitComponent implements OnInit {
     for (const line of this.lineEntries()) {
       const key = line.rfqLineId;
 
-      if (!(line.quotedQuantity > 0)) {
+      const quotedQty = Number(line.quotedQuantity);
+      if (!(quotedQty > 0)) {
         result[`${key}.quotedQuantity`] = 'Enter a quantity greater than zero.';
-      } else if (line.quotedQuantity > line.quantity) {
+      } else if (quotedQty > line.quantity) {
         result[`${key}.quotedQuantity`] = `Cannot exceed the requested ${line.quantity}.`;
       }
 
-      if (!(line.unitPrice > 0)) {
+      const unitPrice = Number(line.unitPrice);
+      if (!(unitPrice > 0)) {
         result[`${key}.unitPrice`] = 'Enter a unit price greater than zero.';
       }
 
-      if (line.discountPercentage < 0 || line.discountPercentage > 100) {
+      const discount = Number(line.discountPercentage);
+      if (isNaN(discount) || discount < 0 || discount > 100) {
         result[`${key}.discountPercentage`] = 'Discount must be between 0 and 100.';
       }
 
-      if (line.taxRate < 0 || line.taxRate > 100) {
+      const tax = Number(line.taxRate);
+      if (isNaN(tax) || tax < 0 || tax > 100) {
         result[`${key}.taxRate`] = 'Tax rate must be between 0 and 100.';
       }
 
-      if (line.leadTimeDays < 0 || line.leadTimeDays > 365) {
+      const lead = Number(line.leadTimeDays);
+      if (isNaN(lead) || lead < 0 || lead > 365) {
         result[`${key}.leadTimeDays`] = 'Lead time must be between 0 and 365 days.';
       }
     }
@@ -200,20 +205,28 @@ export class PublicRfqSubmitComponent implements OnInit {
     this.touched.set(next);
   }
 
+  onLineChange(): void {
+    this.lineEntries.update(entries => [...entries]);
+  }
+
   shouldShowError(key: string): boolean {
     return this.submitAttempted() || this.touched().has(key);
   }
 
   lineGross(line: SupplierLineEntry): number {
-    return this.round(line.quotedQuantity * line.unitPrice);
+    const qty = Number(line.quotedQuantity) || 0;
+    const price = Number(line.unitPrice) || 0;
+    return this.round(qty * price);
   }
 
   lineDiscount(line: SupplierLineEntry): number {
-    return this.round(this.lineGross(line) * (line.discountPercentage || 0) / 100);
+    const disc = Number(line.discountPercentage) || 0;
+    return this.round(this.lineGross(line) * disc / 100);
   }
 
   lineTax(line: SupplierLineEntry): number {
-    return this.round((this.lineGross(line) - this.lineDiscount(line)) * (line.taxRate || 0) / 100);
+    const tax = Number(line.taxRate) || 0;
+    return this.round((this.lineGross(line) - this.lineDiscount(line)) * tax / 100);
   }
 
   calculateLineTotal(line: SupplierLineEntry): number {
@@ -237,13 +250,13 @@ export class PublicRfqSubmitComponent implements OnInit {
       notes: this.notes().trim() || undefined,
       lines: this.lineEntries().map(line => ({
         rfqLineId: line.rfqLineId,
-        quotedQuantity: line.quotedQuantity,
+        quotedQuantity: Number(line.quotedQuantity),
         unitOfMeasureId: line.unitOfMeasureId,
-        unitPrice: line.unitPrice,
-        discountPercentage: line.discountPercentage || 0,
-        taxRate: line.taxRate || 0,
-        leadTimeDays: line.leadTimeDays,
-        technicalRemarks: line.technicalRemarks.trim() || undefined
+        unitPrice: Number(line.unitPrice),
+        discountPercentage: Number(line.discountPercentage) || 0,
+        taxRate: Number(line.taxRate) || 0,
+        leadTimeDays: Number(line.leadTimeDays) || 0,
+        technicalRemarks: (line.technicalRemarks || '').trim() || undefined
       }))
     };
 

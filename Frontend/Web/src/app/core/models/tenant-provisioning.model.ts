@@ -96,3 +96,94 @@ export interface BulkProvisioningSummary {
   isProcessing: boolean;
   isFinished: boolean;
 }
+
+export interface TenantDirectoryRecord {
+  id: string;
+  code: string;
+  name: string;
+  legalName?: string | null;
+  subdomain?: string | null;
+  taxId?: string | null;
+  billingEmail?: string | null;
+  city?: string | null;
+  countryCode?: string | null;
+  isActive: boolean;
+  status: string; // "Completed" | "Pending"
+  tenantStatus?: 'Active' | 'Inactive';
+  createdAt: string;
+  modifiedAt?: string | null;
+
+  // Subscription & Plan
+  subscriptionId?: string | null;
+  subscriptionPlanId?: string | null;
+  subscriptionName?: string | null;
+  planName?: string | null;
+  planCode?: string | null;
+  planIsActive?: boolean | null;
+  subscriptionStatus: string;
+  storageMode: string;
+  subscriptionStartDate?: string | null;
+  subscriptionEndDate?: string | null;
+  nextBillingDate?: string | null;
+  billingCycle?: string | null;
+  billingPlanPriceSnapshot?: number | null;
+  currency?: string | null;
+  autoRenew?: boolean | null;
+
+  // Database & Provisioning
+  isProvisioned: boolean;
+  databaseName?: string | null;
+  databaseServer?: string | null;
+  databaseIsActive?: boolean | null;
+  provisioningDate?: string | null;
+  configurationExists: boolean;
+  companyEnabled: boolean;
+  branchEnabled: boolean;
+  warehouseZoneEnabled?: boolean;
+  warehouseBinEnabled?: boolean;
+  procurementApprovalRequired?: boolean;
+  procurementApprovalMode?: number;
+  specialUomConversionEnabled?: boolean;
+  industryType?: string | null;
+  companyStructure?: string | null;
+  eCommerceEnabled?: boolean;
+
+  // Administration & RBAC
+  adminUsername?: string | null;
+  adminEmail?: string | null;
+  tenantAdminUsernames: string[];
+  tenantAdminEmails: string[];
+  tenantAdminCount: number;
+  tenantAdminAccountStatus?: string | null;
+
+  // Users
+  totalUserCount: number;
+  activeUserCount: number;
+  inactiveUserCount: number;
+
+  // Company & Branch Scope
+  companyCount: number;
+  branchCount: number;
+  primaryCompanyName?: string | null;
+  primaryCompanyStatus?: string | null;
+}
+
+export interface TenantUserRecord {
+  id: string;
+  tenantId?: string | null;
+  username: string;
+  email: string;
+  fullName: string;
+  accountStatus: 'Active' | 'Suspended';
+  roles: {
+    roleId: string;
+    roleName: string;
+    scopes: {
+      scopeId: string;
+      companyId?: string | null;
+      branchId?: string | null;
+    }[];
+  }[];
+  createdAt: string;
+  lastActivityAt?: string | null;
+}
