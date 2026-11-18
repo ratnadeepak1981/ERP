@@ -1,11 +1,16 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Currency;
 using Domain.Infrastructure.Persistence;
+using ERP.Infrastructure.Persistence.Auditing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Domain.Features.Procurement.RequestForQuotation;
 
@@ -14,15 +19,21 @@ public class SupplierQuotationService : ISupplierQuotationService
     private readonly DomainDbContext _dbContext;
     private readonly IRfqTokenService _tokenService;
     private readonly IExchangeRateService? _exchangeRateService;
+    private readonly IRfqEmailNotificationService? _emailNotificationService;
+    private readonly ILogger<SupplierQuotationService>? _logger;
 
     public SupplierQuotationService(
         DomainDbContext dbContext,
         IRfqTokenService tokenService,
-        IExchangeRateService? exchangeRateService = null)
+        IExchangeRateService? exchangeRateService = null,
+        IRfqEmailNotificationService? emailNotificationService = null,
+        ILogger<SupplierQuotationService>? logger = null)
     {
         _dbContext = dbContext;
         _tokenService = tokenService;
         _exchangeRateService = exchangeRateService;
+        _emailNotificationService = emailNotificationService;
+        _logger = logger;
     }
 
     public async Task<PublicRfqDetailsDto?> GetPublicRfqDetailsByTokenAsync(string token, CancellationToken ct = default)
@@ -46,7 +57,20 @@ public class SupplierQuotationService : ISupplierQuotationService
         var currency = await GetDefaultCurrencyAsync(rfq.TenantId, rfq.CompanyId, ct);
         var company = await _dbContext.Companies
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId && c.Id == rfq.CompanyId, ct);
+            .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId && c.Id == rfq.CompanyId, ct)
+            ?? await _dbContext.Companies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId, ct)
+            ?? await _dbContext.Companies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == rfq.CompanyId, ct)
+            ?? await _dbContext.Companies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.IsActive, ct);
+
+        var companyName = !string.IsNullOrWhiteSpace(company?.Name)
+            ? company.Name
+            : "ApexERP Purchasing Organization";
 
         // Opening the invitation records the supplier response state (Step 3 progress).
         if (rfqSupplier.InvitationStatus == RFQSupplierInvitationStatus.Sent)
@@ -61,7 +85,7 @@ public class SupplierQuotationService : ISupplierQuotationService
             RFQId = rfq.Id,
             RFQNumber = rfq.RFQNumber,
             Title = rfq.Title,
-            CompanyName = company?.Name ?? string.Empty,
+            CompanyName = companyName,
             ClosingDate = rfq.ClosingDate,
             DeliveryRequiredDate = rfq.DeliveryRequiredDate,
             DeliveryTerms = rfq.DeliveryTerms,
@@ -483,7 +507,21 @@ public class SupplierQuotationService : ISupplierQuotationService
             .OrderByDescending(q => q.CreatedAt)
             .ToListAsync(ct);
 
-        return quotes.Select(MapToQuotationDto).ToList();
+        var approvedQuoteIds = quotes.Where(q => q.Status == SupplierQuotationStatus.Approved).Select(q => q.Id.ToString()).ToList();
+        var audits = approvedQuoteIds.Count > 0
+            ? await _dbContext.DomainAuditRecords
+                .AsNoTracking()
+                .Where(a => a.TenantId == tenantId && a.EntityName == "RfqAwardNotification" && approvedQuoteIds.Contains(a.EntityId))
+                .OrderByDescending(a => a.Timestamp)
+                .ToListAsync(ct)
+            : new List<DomainAuditRecord>();
+
+        return quotes.Select(q =>
+        {
+            var audit = audits.FirstOrDefault(a => a.EntityId == q.Id.ToString());
+            var outcome = audit != null ? ParseAwardAudit(audit) : null;
+            return MapToQuotationDto(q, outcome?.Status, outcome?.SentAt, outcome?.FailureReason, outcome?.RecipientEmail);
+        }).ToList();
     }
 
     public async Task<SupplierQuotationDto?> GetQuotationByIdAsync(Guid rfqId, Guid quotationId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default)
@@ -498,7 +536,18 @@ public class SupplierQuotationService : ISupplierQuotationService
                 q.RFQId == rfqId &&
                 q.Id == quotationId, ct);
 
-        return quote == null ? null : MapToQuotationDto(quote);
+        if (quote == null) return null;
+
+        var audit = quote.Status == SupplierQuotationStatus.Approved
+            ? await _dbContext.DomainAuditRecords
+                .AsNoTracking()
+                .Where(a => a.TenantId == tenantId && a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString())
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefaultAsync(ct)
+            : null;
+
+        var outcome = audit != null ? ParseAwardAudit(audit) : null;
+        return MapToQuotationDto(quote, outcome?.Status, outcome?.SentAt, outcome?.FailureReason, outcome?.RecipientEmail);
     }
 
     public async Task<RfqComparisonMatrixDto> GetComparisonMatrixAsync(Guid rfqId, Guid tenantId, Guid companyId, Guid branchId, CancellationToken ct = default)
@@ -598,6 +647,16 @@ public class SupplierQuotationService : ISupplierQuotationService
             quotationRates[q.Id] = (rate, hasValidRate);
 
             decimal baseTotal = hasValidRate ? RoundMoney(q.TotalAmount * rate) : 0m;
+            decimal baseSubTotal = hasValidRate ? RoundMoney(q.SubTotal * rate) : 0m;
+            decimal baseDiscount = hasValidRate ? RoundMoney(q.DiscountAmount * rate) : 0m;
+            decimal baseTax = hasValidRate ? RoundMoney(q.TaxAmount * rate) : 0m;
+
+            var lineLeadTimes = q.Lines
+                .Where(l => l.LeadTimeDays.HasValue)
+                .Select(l => l.LeadTimeDays!.Value)
+                .ToList();
+            int? maxLeadTime = lineLeadTimes.Count > 0 ? lineLeadTimes.Max() : null;
+            int? minLeadTime = lineLeadTimes.Count > 0 ? lineLeadTimes.Min() : null;
 
             supplierBidDtos.Add(new RfqComparisonSupplierBidDto
             {
@@ -613,8 +672,17 @@ public class SupplierQuotationService : ISupplierQuotationService
                 ExchangeRate = rate,
                 HasValidExchangeRate = hasValidRate,
                 CurrencyConversionError = conversionError,
+                SubTotal = q.SubTotal,
+                BaseSubTotal = baseSubTotal,
+                DiscountAmount = q.DiscountAmount,
+                BaseDiscountAmount = baseDiscount,
+                TaxAmount = q.TaxAmount,
+                BaseTaxAmount = baseTax,
                 TotalAmount = q.TotalAmount,
                 BaseTotalAmount = baseTotal,
+                Notes = q.Notes,
+                MaxLeadTimeDays = maxLeadTime,
+                MinLeadTimeDays = minLeadTime,
                 Status = q.Status,
                 IsManualEntry = q.IsManualEntry
             });
@@ -626,6 +694,10 @@ public class SupplierQuotationService : ISupplierQuotationService
             RFQNumber = rfq.RFQNumber,
             Title = rfq.Title,
             BaseCurrencyCode = baseCurrencyCode,
+            ClosingDate = rfq.ClosingDate,
+            DeliveryRequiredDate = rfq.DeliveryRequiredDate,
+            DeliveryTerms = rfq.DeliveryTerms,
+            Instructions = rfq.Instructions,
             Suppliers = supplierBidDtos
                 .OrderBy(s => s.BaseTotalAmount > 0 ? s.BaseTotalAmount : decimal.MaxValue)
                 .ToList()
@@ -740,7 +812,13 @@ public class SupplierQuotationService : ISupplierQuotationService
         // Guard 3: Idempotent Handling for Already Approved Quotation
         if (quote.Status == SupplierQuotationStatus.Approved)
         {
-            return MapToQuotationDto(quote);
+            var existingAudit = await _dbContext.DomainAuditRecords
+                .AsNoTracking()
+                .Where(a => a.TenantId == tenantId && a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString())
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefaultAsync(ct);
+            var outcome = existingAudit != null ? ParseAwardAudit(existingAudit) : null;
+            return MapToQuotationDto(quote, outcome?.Status, outcome?.SentAt, outcome?.FailureReason, outcome?.RecipientEmail);
         }
 
         // Guard 4: Quotation Validity Check at Approval Time
@@ -767,7 +845,10 @@ public class SupplierQuotationService : ISupplierQuotationService
         rfq.Status = RequestForQuotationStatus.Awarded;
 
         await _dbContext.SaveChangesAsync(ct);
-        return MapToQuotationDto(quote);
+
+        // Dispatch award notification email to the winning supplier
+        var notificationOutcome = await DispatchAwardNotificationInternalAsync(rfq, quote, request, userId, ct);
+        return MapToQuotationDto(quote, notificationOutcome.Status, notificationOutcome.SentAt, notificationOutcome.FailureReason, notificationOutcome.RecipientEmail);
     }
 
     public async Task<SupplierQuotationDto> RejectQuotationAsync(
@@ -815,6 +896,69 @@ public class SupplierQuotationService : ISupplierQuotationService
 
         await _dbContext.SaveChangesAsync(ct);
         return MapToQuotationDto(quote);
+    }
+
+    public async Task<SupplierQuotationDto> RetryAwardNotificationAsync(
+        Guid rfqId,
+        Guid quotationId,
+        Guid userId,
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        CancellationToken ct = default)
+    {
+        var rfq = await _dbContext.RequestForQuotations
+            .Include(r => r.Quotations)
+            .FirstOrDefaultAsync(r =>
+                r.TenantId == tenantId &&
+                r.CompanyId == companyId &&
+                r.BranchId == branchId &&
+                r.Id == rfqId, ct);
+
+        if (rfq == null)
+            throw new KeyNotFoundException($"RFQ with ID {rfqId} not found.");
+
+        if (rfq.Status != RequestForQuotationStatus.Awarded)
+            throw new InvalidOperationException($"Cannot retry award notification for an RFQ in '{rfq.Status}' status. RFQ must be Awarded.");
+
+        var quote = rfq.Quotations.FirstOrDefault(q => q.Id == quotationId);
+        if (quote == null)
+            throw new KeyNotFoundException($"Quotation with ID {quotationId} not found on RFQ {rfq.RFQNumber}.");
+
+        if (quote.Status != SupplierQuotationStatus.Approved)
+            throw new InvalidOperationException($"Cannot send award notification for quotation '{quote.QuotationReference}' because it is in '{quote.Status}' status. Only Approved quotations are eligible.");
+
+        // Check if already sent (prevent accidental duplicate notifications)
+        if (_recentlySentAwards.ContainsKey(quote.Id))
+        {
+            throw new InvalidOperationException($"Award notification has already been successfully sent to '{quote.SupplierName}'. Duplicate notifications are prevented.");
+        }
+
+        var latestAudit = await _dbContext.DomainAuditRecords
+            .AsNoTracking()
+            .Where(a => a.TenantId == tenantId && a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString())
+            .OrderByDescending(a => a.Timestamp)
+            .FirstOrDefaultAsync(ct);
+
+        if (latestAudit != null && latestAudit.Action == "AwardNotificationSent")
+        {
+            _recentlySentAwards.TryAdd(quote.Id, latestAudit.Timestamp);
+            throw new InvalidOperationException($"Award notification has already been successfully sent to '{quote.SupplierName}'. Duplicate notifications are prevented.");
+        }
+
+        if (latestAudit != null && latestAudit.Action == "AwardNotificationSending" &&
+            DateTime.UtcNow - latestAudit.Timestamp < TimeSpan.FromSeconds(30))
+        {
+            throw new InvalidOperationException("Award notification dispatch is currently in progress. Please wait.");
+        }
+
+        var request = new ApproveQuotationRequest
+        {
+            Remarks = quote.ApprovalRemarks
+        };
+
+        var outcome = await DispatchAwardNotificationInternalAsync(rfq, quote, request, userId, ct);
+        return MapToQuotationDto(quote, outcome.Status, outcome.SentAt, outcome.FailureReason, outcome.RecipientEmail);
     }
 
     private async Task<Currency?> GetDefaultCurrencyAsync(Guid tenantId, Guid companyId, CancellationToken ct)
@@ -871,7 +1015,257 @@ public class SupplierQuotationService : ISupplierQuotationService
     private static decimal RoundMoney(decimal value) =>
         decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 
-    private static SupplierQuotationDto MapToQuotationDto(SupplierQuotation q)
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _awardLocks = new();
+    private static readonly ConcurrentDictionary<Guid, DateTime> _recentlySentAwards = new();
+    private static readonly Regex EmailFormatRegex = new(
+        @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private sealed record AwardNotificationOutcome(string Status, DateTime? SentAt, string? FailureReason, string? RecipientEmail);
+
+    private async Task<(bool IsValid, string? Email, string? ErrorMessage)> ResolveAndValidateSupplierEmailAsync(
+        Guid tenantId,
+        Guid rfqId,
+        Guid supplierId,
+        CancellationToken ct)
+    {
+        // 1. Authoritative registered email from Supplier master record
+        var supplier = await _dbContext.Suppliers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.SupplierId == supplierId, ct);
+
+        var email = supplier?.Email?.Trim();
+
+        // 2. Fall back to RFQSupplier.ContactEmail if supplier master email is blank
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            var rfqSupplier = await _dbContext.RFQSuppliers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.RFQId == rfqId && s.SupplierId == supplierId, ct);
+            email = rfqSupplier?.ContactEmail?.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return (false, null, "Winning supplier has no registered contact email address in the supplier record.");
+        }
+
+        if (!EmailFormatRegex.IsMatch(email))
+        {
+            return (false, email, $"Winning supplier contact email '{email}' has an invalid format.");
+        }
+
+        return (true, email, null);
+    }
+
+    private async Task<AwardNotificationOutcome> DispatchAwardNotificationInternalAsync(
+        RequestForQuotation rfq,
+        SupplierQuotation quote,
+        ApproveQuotationRequest request,
+        Guid userId,
+        CancellationToken ct)
+    {
+        var sem = _awardLocks.GetOrAdd(quote.Id, _ => new SemaphoreSlim(1, 1));
+        if (!await sem.WaitAsync(TimeSpan.FromSeconds(5), ct))
+        {
+            return new AwardNotificationOutcome("Sending", null, "An award notification dispatch is already in progress for this quotation.", null);
+        }
+
+        try
+        {
+            // 1. Check in-memory fast cache first (suppresses duplicate sends even if DB write was delayed)
+            if (_recentlySentAwards.TryGetValue(quote.Id, out var cachedSentAt))
+            {
+                _logger?.LogInformation("Award notification was already dispatched in-memory for quotation {QuotationId}", quote.Id);
+                return new AwardNotificationOutcome("Sent", cachedSentAt, null, null);
+            }
+
+            // 2. Check DB audit records
+            var existingAudit = await _dbContext.DomainAuditRecords
+                .AsNoTracking()
+                .Where(a => a.TenantId == rfq.TenantId && a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString())
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefaultAsync(ct);
+
+            if (existingAudit != null && existingAudit.Action == "AwardNotificationSent")
+            {
+                var outcome = ParseAwardAudit(existingAudit);
+                if (outcome.SentAt.HasValue)
+                {
+                    _recentlySentAwards.TryAdd(quote.Id, outcome.SentAt.Value);
+                }
+                _logger?.LogInformation("Award notification has already been dispatched for quotation {QuotationId}", quote.Id);
+                return outcome;
+            }
+
+            // 3. Check in-flight dispatch (< 30 seconds old)
+            if (existingAudit != null && existingAudit.Action == "AwardNotificationSending" &&
+                DateTime.UtcNow - existingAudit.Timestamp < TimeSpan.FromSeconds(30))
+            {
+                return new AwardNotificationOutcome("Sending", null, "Award notification dispatch is currently in progress.", null);
+            }
+
+            // 4. Resolve and validate supplier registered email
+            var (isValidEmail, recipientEmail, emailValidationError) = await ResolveAndValidateSupplierEmailAsync(rfq.TenantId, rfq.Id, quote.SupplierId, ct);
+            if (!isValidEmail)
+            {
+                await RecordAwardNotificationAuditAsync(rfq.TenantId, quote.Id, userId, "AwardNotificationFailed", "Failed", recipientEmail, emailValidationError, ct);
+                return new AwardNotificationOutcome("Failed", null, emailValidationError, recipientEmail);
+            }
+
+            if (_emailNotificationService == null)
+            {
+                const string failReason = "Email notification service is not configured or unavailable.";
+                await RecordAwardNotificationAuditAsync(rfq.TenantId, quote.Id, userId, "AwardNotificationFailed", "Failed", recipientEmail, failReason, ct);
+                return new AwardNotificationOutcome("Failed", null, failReason, recipientEmail);
+            }
+
+            // 5. Record in-flight intent before calling SMTP transport (mirrors RFQSupplierInvitationStatus.Sending)
+            await RecordAwardNotificationAuditAsync(rfq.TenantId, quote.Id, userId, "AwardNotificationSending", "Sending", recipientEmail, null, ct);
+
+            // 6. Resolve buyer company details
+            var company = await _dbContext.Companies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.TenantId == rfq.TenantId && c.Id == rfq.CompanyId, ct);
+            var companyName = !string.IsNullOrWhiteSpace(company?.Name) ? company.Name : "ApexERP Procurement";
+
+            var emailContext = new RfqAwardEmailContext
+            {
+                RecipientEmail = recipientEmail!,
+                WinningSupplierName = quote.SupplierName,
+                RfqNumber = rfq.RFQNumber,
+                RfqTitle = rfq.Title,
+                QuotationReference = quote.QuotationReference,
+                BuyerCompanyName = companyName,
+                AwardDate = quote.ApprovedAt ?? DateTime.UtcNow,
+                CustomRemarks = quote.ApprovalRemarks,
+                BuyerContactName = companyName,
+                BuyerContactEmail = null,
+                BuyerContactPhone = null
+            };
+
+            RfqEmailDispatchResult dispatch;
+            try
+            {
+                dispatch = await _emailNotificationService.SendAwardNotificationAsync(emailContext, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger?.LogWarning(ex, "Failed to send award notification email for RFQ {RfqNumber} to {RecipientEmail}", rfq.RFQNumber, recipientEmail);
+                dispatch = new RfqEmailDispatchResult(false, ex.Message);
+            }
+
+            if (dispatch.IsSuccess)
+            {
+                var sentAt = DateTime.UtcNow;
+                _recentlySentAwards.TryAdd(quote.Id, sentAt);
+                await RecordAwardNotificationAuditAsync(rfq.TenantId, quote.Id, userId, "AwardNotificationSent", "Sent", recipientEmail, null, ct, sentAt);
+                return new AwardNotificationOutcome("Sent", sentAt, null, recipientEmail);
+            }
+            else
+            {
+                var failReason = !string.IsNullOrWhiteSpace(dispatch.FailureReason)
+                    ? dispatch.FailureReason
+                    : "SMTP transport rejected message.";
+                await RecordAwardNotificationAuditAsync(rfq.TenantId, quote.Id, userId, "AwardNotificationFailed", "Failed", recipientEmail, failReason, ct);
+                return new AwardNotificationOutcome("Failed", null, failReason, recipientEmail);
+            }
+        }
+        finally
+        {
+            sem.Release();
+        }
+    }
+
+    private async Task RecordAwardNotificationAuditAsync(
+        Guid tenantId,
+        Guid quoteId,
+        Guid userId,
+        string action,
+        string status,
+        string? recipient,
+        string? failureReason,
+        CancellationToken ct,
+        DateTime? sentAt = null)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            Status = status,
+            Recipient = recipient,
+            FailureReason = failureReason,
+            SentAt = sentAt ?? (status == "Sent" ? DateTime.UtcNow : (DateTime?)null),
+            AttemptedAt = DateTime.UtcNow
+        });
+
+        const int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                var audit = new DomainAuditRecord
+                {
+                    AuditId = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    EntityName = "RfqAwardNotification",
+                    EntityId = quoteId.ToString(),
+                    Action = action,
+                    UserId = userId,
+                    Timestamp = DateTime.UtcNow,
+                    NewValues = payload
+                };
+
+                await _dbContext.DomainAuditRecords.AddAsync(audit, ct);
+                await _dbContext.SaveChangesAsync(ct);
+                return;
+            }
+            catch (Exception ex) when (attempt < maxAttempts && ex is not OperationCanceledException)
+            {
+                _logger?.LogWarning(ex, "Attempt {Attempt} to save award notification audit failed. Retrying...", attempt);
+                try { await Task.Delay(50 * attempt, ct); } catch { /* ignore */ }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger?.LogError(ex, "Could not record award notification audit record for quotation {QuoteId} after {Attempts} attempts.", quoteId, attempt);
+            }
+        }
+    }
+
+    private static AwardNotificationOutcome ParseAwardAudit(DomainAuditRecord record)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(record.NewValues))
+            {
+                using var doc = JsonDocument.Parse(record.NewValues);
+                var root = doc.RootElement;
+                var status = root.TryGetProperty("Status", out var sp) ? sp.GetString() : (record.Action == "AwardNotificationSent" ? "Sent" : "Failed");
+                var recipient = root.TryGetProperty("Recipient", out var rp) ? rp.GetString() : null;
+                var failureReason = root.TryGetProperty("FailureReason", out var fp) ? fp.GetString() : null;
+                DateTime? sentAt = null;
+                if (root.TryGetProperty("SentAt", out var stp) && stp.TryGetDateTime(out var dt))
+                {
+                    sentAt = dt;
+                }
+                else if (status == "Sent")
+                {
+                    sentAt = record.Timestamp;
+                }
+                return new AwardNotificationOutcome(status ?? "Sent", sentAt, failureReason, recipient);
+            }
+        }
+        catch
+        {
+            // fallback
+        }
+        return new AwardNotificationOutcome(record.Action == "AwardNotificationSent" ? "Sent" : "Failed", record.Timestamp, null, null);
+    }
+
+    private static SupplierQuotationDto MapToQuotationDto(
+        SupplierQuotation q,
+        string? awardStatus = null,
+        DateTime? awardSentAt = null,
+        string? awardFailureReason = null,
+        string? awardRecipientEmail = null)
     {
         return new SupplierQuotationDto
         {
@@ -900,6 +1294,10 @@ public class SupplierQuotationService : ISupplierQuotationService
             RejectedAt = q.RejectedAt,
             RejectedByUserId = q.RejectedByUserId,
             RejectionRemarks = q.RejectionRemarks,
+            AwardNotificationStatus = awardStatus,
+            AwardNotificationSentAt = awardSentAt,
+            AwardNotificationFailureReason = awardFailureReason,
+            AwardNotificationRecipientEmail = awardRecipientEmail,
             Lines = q.Lines.Select(ql => new SupplierQuotationLineDto
             {
                 Id = ql.Id,

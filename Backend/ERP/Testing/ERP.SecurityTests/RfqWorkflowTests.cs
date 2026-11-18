@@ -10,6 +10,7 @@ using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.Procurement.RequestForQuotation;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.MasterData.Supplier;
+using ERP.Infrastructure.Persistence.Auditing;
 using Microsoft.EntityFrameworkCore;
 using Security.Bootstrap.Permissions;
 using Security.Bootstrap.Roles;
@@ -23,8 +24,10 @@ public class RfqWorkflowTests
     {
         public RfqEmailDispatchResult Result { get; set; } = new(true);
         public int CallCount { get; private set; }
+        public int AwardCallCount { get; private set; }
         public string? LastSubmissionUrl { get; private set; }
         public RfqInvitationEmailContext? LastContext { get; private set; }
+        public RfqAwardEmailContext? LastAwardContext { get; private set; }
 
         public Task<RfqEmailDispatchResult> SendInvitationAsync(
             string recipientEmail,
@@ -47,6 +50,15 @@ public class RfqWorkflowTests
             CallCount++;
             LastContext = context;
             LastSubmissionUrl = context.StandardLocalhostUrl;
+            return Task.FromResult(Result);
+        }
+
+        public Task<RfqEmailDispatchResult> SendAwardNotificationAsync(
+            RfqAwardEmailContext context,
+            CancellationToken ct = default)
+        {
+            AwardCallCount++;
+            LastAwardContext = context;
             return Task.FromResult(Result);
         }
     }
@@ -1790,5 +1802,677 @@ public class RfqWorkflowTests
         // Specifically verify Test Supplier: sum of lines is 2,654,132,100.00, matching supplier header
         var testLinesSum = matrix.Lines.SelectMany(l => l.Bids).Where(b => b.QuotationId == quoteTestId).Sum(b => b.LineTotal);
         Assert.Equal(2654132100.00m, testLinesSum);
+    }
+
+    [Fact]
+    public async Task ApproveQuotation_SuccessfulAward_TriggersAwardNotificationEmailToWinningSupplier()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "WIN1");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-WIN-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 250000m,
+            BaseTotalAmount = 250000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        var approveReq = new ApproveQuotationRequest
+        {
+            Remarks = "Lowest compliant commercial proposal."
+        };
+
+        // Act
+        var result = await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, quote.Id, approveReq, approverUserId, tenantId, companyId, branchId);
+
+        // Assert
+        Assert.Equal(SupplierQuotationStatus.Approved, result.Status);
+        Assert.Equal(RequestForQuotationStatus.Awarded, (await db.RequestForQuotations.FindAsync(seed.Rfq.Id))!.Status);
+
+        // 1. Verify email service was invoked exactly once for award notification
+        Assert.Equal(1, emailService.AwardCallCount);
+        Assert.NotNull(emailService.LastAwardContext);
+        Assert.Equal(seed.Supplier.Email, emailService.LastAwardContext.RecipientEmail);
+        Assert.Equal(seed.Supplier.SupplierName, emailService.LastAwardContext.WinningSupplierName);
+        Assert.Equal(seed.Rfq.RFQNumber, emailService.LastAwardContext.RfqNumber);
+        Assert.Equal("QT-WIN-001", emailService.LastAwardContext.QuotationReference);
+        Assert.False(string.IsNullOrWhiteSpace(emailService.LastAwardContext.BuyerCompanyName));
+
+        // 2. Verify DTO and audit record reflection
+        Assert.Equal("Sent", result.AwardNotificationStatus);
+        Assert.Null(result.AwardNotificationFailureReason);
+
+        var audit = await db.DomainAuditRecords.FirstOrDefaultAsync(
+            a => a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString());
+        Assert.NotNull(audit);
+        Assert.Equal("AwardNotificationSent", audit.Action);
+    }
+
+    [Fact]
+    public async Task ApproveQuotation_FailedEmailDelivery_DoesNotUndoAwardAndRecordsFailure()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService
+        {
+            Result = new RfqEmailDispatchResult(false, "SMTP server connection timed out.")
+        };
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "FAIL1");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-FAIL-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 150000m,
+            BaseTotalAmount = 150000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        // Act
+        var result = await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, quote.Id, new ApproveQuotationRequest { Remarks = "Approved with delivery failure" }, approverUserId, tenantId, companyId, branchId);
+
+        // Assert: Award MUST be preserved despite email failure
+        Assert.Equal(SupplierQuotationStatus.Approved, result.Status);
+        var persistedQuote = await db.SupplierQuotations.FindAsync(quote.Id);
+        Assert.NotNull(persistedQuote);
+        Assert.Equal(SupplierQuotationStatus.Approved, persistedQuote.Status);
+
+        var persistedRfq = await db.RequestForQuotations.FindAsync(seed.Rfq.Id);
+        Assert.NotNull(persistedRfq);
+        Assert.Equal(RequestForQuotationStatus.Awarded, persistedRfq.Status);
+
+        // Failure recorded
+        Assert.Equal("Failed", result.AwardNotificationStatus);
+        Assert.Contains("SMTP server connection timed out", result.AwardNotificationFailureReason);
+
+        var audit = await db.DomainAuditRecords.FirstOrDefaultAsync(
+            a => a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString());
+        Assert.NotNull(audit);
+        Assert.Equal("AwardNotificationFailed", audit.Action);
+    }
+
+    [Fact]
+    public async Task RejectQuotation_DoesNotTriggerAwardNotification()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "REJ1");
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-REJ-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 500000m,
+            BaseTotalAmount = 500000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        // Act
+        var result = await quoteService.RejectQuotationAsync(
+            seed.Rfq.Id, quote.Id, new RejectQuotationRequest { Remarks = "Price exceeded target." }, userId, tenantId, companyId, branchId);
+
+        // Assert
+        Assert.Equal(SupplierQuotationStatus.Rejected, result.Status);
+        Assert.Equal(0, emailService.AwardCallCount);
+    }
+
+    [Fact]
+    public async Task AwardNotification_DuplicatePrevention_DoesNotResendIfAlreadySent()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "DUP1");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-DUP-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 250000m,
+            BaseTotalAmount = 250000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        // 1. Initial award (sends notification)
+        await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, quote.Id, new ApproveQuotationRequest { Remarks = "Initial award" }, approverUserId, tenantId, companyId, branchId);
+        Assert.Equal(1, emailService.AwardCallCount);
+
+        // 2. Subsequent idempotent approve call does not resend
+        await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, quote.Id, new ApproveQuotationRequest { Remarks = "Repeat call" }, approverUserId, tenantId, companyId, branchId);
+        Assert.Equal(1, emailService.AwardCallCount);
+
+        // 3. RetryAwardNotificationAsync explicitly throws InvalidOperationException when already sent
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            quoteService.RetryAwardNotificationAsync(seed.Rfq.Id, quote.Id, approverUserId, tenantId, companyId, branchId));
+        Assert.Equal(1, emailService.AwardCallCount);
+    }
+
+    [Fact]
+    public async Task SendInvitationsAsync_WhenRfqAwarded_RetriesOnlyAwardNotificationForWinningSupplier()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var rfqService = new RFQService(db, tokenService, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "RETRY1");
+
+        // Set RFQ status to Awarded
+        seed.Rfq.Status = RequestForQuotationStatus.Awarded;
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-RETRY-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 300000m,
+            BaseTotalAmount = 300000m,
+            Status = SupplierQuotationStatus.Approved,
+            ApprovedAt = DateTime.UtcNow
+        };
+
+        // Record initial failure in audit
+        var failedAudit = new DomainAuditRecord
+        {
+            AuditId = Guid.NewGuid(),
+            TenantId = tenantId,
+            EntityName = "RfqAwardNotification",
+            EntityId = quote.Id.ToString(),
+            Action = "AwardNotificationFailed",
+            UserId = userId,
+            Timestamp = DateTime.UtcNow.AddMinutes(-5),
+            NewValues = "{\"Status\":\"Failed\",\"FailureReason\":\"Temporary network glitch\"}"
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.DomainAuditRecords.AddAsync(failedAudit);
+        await db.SaveChangesAsync();
+
+        var retryRequest = new SendRfqInvitationsRequest
+        {
+            SupplierIds = new List<Guid> { seed.Supplier.SupplierId }
+        };
+
+        // Act: Invoke existing SendInvitationsAsync action on Awarded RFQ
+        var result = await rfqService.SendInvitationsAsync(seed.Rfq.Id, retryRequest, userId, tenantId);
+
+        // Assert
+        Assert.Equal(1, result.SentCount);
+        Assert.Equal(0, result.FailedCount);
+
+        // Verify award notification was called, NOT invitation
+        Assert.Equal(1, emailService.AwardCallCount);
+        Assert.Equal(0, emailService.CallCount); // SendInvitation was NOT called!
+        Assert.NotNull(emailService.LastAwardContext);
+        Assert.Equal(seed.Supplier.Email, emailService.LastAwardContext.RecipientEmail);
+
+        // Verify new audit record is recorded as Sent
+        var latestAudit = await db.DomainAuditRecords
+            .Where(a => a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString())
+            .OrderByDescending(a => a.Timestamp)
+            .FirstAsync();
+        Assert.Equal("AwardNotificationSent", latestAudit.Action);
+    }
+
+    [Fact]
+    public async Task AwardNotification_OnlyWinningSupplierReceivesEmail_NeverCompetingSuppliers()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "WIN");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        // Add second competing supplier
+        var competitor = Supplier.Create(tenantId, "SUP-COMPETITOR", "Competitor Supplies Ltd", email: "competitor@test.lk");
+        db.Suppliers.Add(competitor);
+        await db.RFQSuppliers.AddAsync(new RFQSupplier
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = competitor.SupplierId,
+            SupplierCode = competitor.SupplierCode,
+            SupplierName = competitor.SupplierName,
+            ContactEmail = competitor.Email!,
+            InvitationStatus = RFQSupplierInvitationStatus.Submitted
+        });
+
+        var winningQuote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-WINNER-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 100000m,
+            BaseTotalAmount = 100000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        var competitorQuote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = competitor.SupplierId,
+            SupplierCode = competitor.SupplierCode,
+            SupplierName = competitor.SupplierName,
+            QuotationReference = "QT-LOSER-002",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 180000m,
+            BaseTotalAmount = 180000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddRangeAsync(winningQuote, competitorQuote);
+        await db.SaveChangesAsync();
+
+        // Act: Award winning quotation
+        await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, winningQuote.Id, new ApproveQuotationRequest { Remarks = "Selected winning bid" }, approverUserId, tenantId, companyId, branchId);
+
+        // Assert
+        Assert.Equal(1, emailService.AwardCallCount);
+        Assert.Equal(seed.Supplier.Email, emailService.LastAwardContext!.RecipientEmail);
+        Assert.NotEqual(competitor.Email, emailService.LastAwardContext.RecipientEmail);
+
+        // Context must not mention competitor quote or competitor name
+        Assert.DoesNotContain("Competitor Supplies Ltd", emailService.LastAwardContext.QuotationReference);
+        Assert.DoesNotContain("QT-LOSER-002", emailService.LastAwardContext.QuotationReference);
+    }
+
+    [Fact]
+    public async Task ApproveQuotation_MissingSupplierEmail_RecordsFailureAndDoesNotSend()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "NOEMAIL");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        // Clear email on both master record and RFQSupplier record
+        db.Entry(seed.Supplier).Property(x => x.Email).CurrentValue = null;
+        var rfqSup = await db.RFQSuppliers.FirstAsync(s => s.SupplierId == seed.Supplier.SupplierId && s.RFQId == seed.Rfq.Id);
+        rfqSup.ContactEmail = string.Empty;
+        await db.SaveChangesAsync();
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-NOEMAIL-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 250000m,
+            BaseTotalAmount = 250000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        // Act
+        var result = await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, quote.Id, new ApproveQuotationRequest { Remarks = "Awarded without email" }, approverUserId, tenantId, companyId, branchId);
+
+        // Assert: Quotation and RFQ are awarded, but email is NOT sent and failure is recorded
+        Assert.Equal(SupplierQuotationStatus.Approved, result.Status);
+        Assert.Equal(RequestForQuotationStatus.Awarded, (await db.RequestForQuotations.FindAsync(seed.Rfq.Id))!.Status);
+        Assert.Equal(0, emailService.AwardCallCount);
+        Assert.Equal("Failed", result.AwardNotificationStatus);
+        Assert.NotNull(result.AwardNotificationFailureReason);
+        Assert.Contains("missing", result.AwardNotificationFailureReason, StringComparison.OrdinalIgnoreCase);
+
+        var audit = await db.DomainAuditRecords.FirstOrDefaultAsync(
+            a => a.EntityName == "RfqAwardNotification" && a.EntityId == quote.Id.ToString());
+        Assert.NotNull(audit);
+        Assert.Equal("AwardNotificationFailed", audit.Action);
+    }
+
+    [Fact]
+    public async Task ApproveQuotation_InvalidSupplierEmail_RecordsFailureAndDoesNotSend()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "BADEMAIL");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        // Set invalid email format
+        db.Entry(seed.Supplier).Property(x => x.Email).CurrentValue = "not-an-email";
+        var rfqSup = await db.RFQSuppliers.FirstAsync(s => s.SupplierId == seed.Supplier.SupplierId && s.RFQId == seed.Rfq.Id);
+        rfqSup.ContactEmail = "not-an-email";
+        await db.SaveChangesAsync();
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-BADEMAIL-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 150000m,
+            BaseTotalAmount = 150000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        // Act
+        var result = await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, quote.Id, new ApproveQuotationRequest { Remarks = "Awarded with invalid email" }, approverUserId, tenantId, companyId, branchId);
+
+        // Assert: Email is not dispatched due to invalid format
+        Assert.Equal(SupplierQuotationStatus.Approved, result.Status);
+        Assert.Equal(0, emailService.AwardCallCount);
+        Assert.Equal("Failed", result.AwardNotificationStatus);
+        Assert.NotNull(result.AwardNotificationFailureReason);
+        Assert.Contains("invalid", result.AwardNotificationFailureReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AwardNotification_ConcurrentRetries_DoNotSendDuplicateEmails()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "CONCUR");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-CONCUR-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 250000m,
+            BaseTotalAmount = 250000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        // 1. Initial award (sends notification)
+        await quoteService.ApproveQuotationAsync(
+            seed.Rfq.Id, quote.Id, new ApproveQuotationRequest { Remarks = "Approved for concurrency test" }, approverUserId, tenantId, companyId, branchId);
+        Assert.Equal(1, emailService.AwardCallCount);
+
+        // 2. Simulate 5 concurrent retry tasks
+        var tasks = Enumerable.Range(0, 5).Select(_ =>
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await quoteService.RetryAwardNotificationAsync(
+                        seed.Rfq.Id, quote.Id, approverUserId, tenantId, companyId, branchId);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Expected when already sent or lock rejected
+                }
+            })).ToArray();
+
+        await Task.WhenAll(tasks);
+
+        // Assert: Email was sent exactly once, never duplicated
+        Assert.Equal(1, emailService.AwardCallCount);
+    }
+
+    [Fact]
+    public async Task AwardNotification_TenantCompanyBranchIsolation_Enforced()
+    {
+        // Arrange
+        using var db = CreateInMemoryDomainDb();
+        var tokenService = new RfqTokenService(db);
+        var emailService = new StubRfqEmailNotificationService();
+        var quoteService = new SupplierQuotationService(db, tokenService, null, emailService);
+
+        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var creatorUserId = Guid.NewGuid();
+        var approverUserId = Guid.NewGuid();
+
+        var seed = await SeedStep4Async(db, tokenService, tenantId, companyId, branchId, "ISOLATE");
+        db.Entry(seed.Rfq).Property(x => x.CreatedBy).CurrentValue = creatorUserId;
+
+        var quote = new SupplierQuotation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
+            RFQId = seed.Rfq.Id,
+            SupplierId = seed.Supplier.SupplierId,
+            SupplierCode = seed.Supplier.SupplierCode,
+            SupplierName = seed.Supplier.SupplierName,
+            QuotationReference = "QT-ISOLATE-001",
+            QuotationDate = DateTime.UtcNow,
+            ValidUntil = DateTime.UtcNow.AddDays(14),
+            CurrencyId = seed.Currency.CurrencyId,
+            CurrencyCode = seed.Currency.CurrencyCode,
+            TotalAmount = 250000m,
+            BaseTotalAmount = 250000m,
+            Status = SupplierQuotationStatus.Submitted
+        };
+
+        await db.SupplierQuotations.AddAsync(quote);
+        await db.SaveChangesAsync();
+
+        var wrongTenantId = Guid.NewGuid();
+        var wrongCompanyId = Guid.NewGuid();
+        var wrongBranchId = Guid.NewGuid();
+
+        // Act & Assert: Cross-tenant approval must fail
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            quoteService.ApproveQuotationAsync(seed.Rfq.Id, quote.Id, new ApproveQuotationRequest(), approverUserId, wrongTenantId, companyId, branchId));
+
+        // Cross-company approval must fail
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            quoteService.ApproveQuotationAsync(seed.Rfq.Id, quote.Id, new ApproveQuotationRequest(), approverUserId, tenantId, wrongCompanyId, branchId));
+
+        // Cross-branch approval must fail
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            quoteService.ApproveQuotationAsync(seed.Rfq.Id, quote.Id, new ApproveQuotationRequest(), approverUserId, tenantId, companyId, wrongBranchId));
+
+        // Ensure 0 emails were dispatched
+        Assert.Equal(0, emailService.AwardCallCount);
     }
 }

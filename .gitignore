@@ -4,6 +4,8 @@
 
 **/bin/
 **/obj/
+.nuget/
+.tmp/
 .vs/
 *.user
 *.suo

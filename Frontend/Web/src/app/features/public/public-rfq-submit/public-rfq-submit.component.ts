@@ -209,6 +209,41 @@ export class PublicRfqSubmitComponent implements OnInit {
     this.lineEntries.update(entries => [...entries]);
   }
 
+  updateQuotedQuantity(line: SupplierLineEntry, val: unknown): void {
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    line.quotedQuantity = isNaN(num) ? 0 : num;
+    this.lineEntries.update(entries => [...entries]);
+  }
+
+  updateUnitPrice(line: SupplierLineEntry, val: unknown): void {
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    line.unitPrice = isNaN(num) ? 0 : num;
+    this.lineEntries.update(entries => [...entries]);
+  }
+
+  updateDiscount(line: SupplierLineEntry, val: unknown): void {
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    line.discountPercentage = isNaN(num) ? 0 : num;
+    this.lineEntries.update(entries => [...entries]);
+  }
+
+  updateTaxRate(line: SupplierLineEntry, val: unknown): void {
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    line.taxRate = isNaN(num) ? 0 : num;
+    this.lineEntries.update(entries => [...entries]);
+  }
+
+  updateLeadTime(line: SupplierLineEntry, val: unknown): void {
+    const num = typeof val === 'number' ? val : parseInt(String(val), 10);
+    line.leadTimeDays = isNaN(num) ? 0 : num;
+    this.lineEntries.update(entries => [...entries]);
+  }
+
+  updateRemarks(line: SupplierLineEntry, val: string): void {
+    line.technicalRemarks = val;
+    this.lineEntries.update(entries => [...entries]);
+  }
+
   shouldShowError(key: string): boolean {
     return this.submitAttempted() || this.touched().has(key);
   }

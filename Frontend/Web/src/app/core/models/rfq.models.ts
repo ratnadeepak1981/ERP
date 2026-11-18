@@ -152,6 +152,10 @@ export interface RfqSupplierDto {
   lanIpUrl?: string;
   lanIpUnavailableReason?: string;
   accessOptions?: RfqInvitationAccessOptionsDto;
+  awardNotificationStatus?: 'Pending' | 'Sending' | 'Sent' | 'Failed';
+  awardNotificationSentAt?: string;
+  awardNotificationFailureReason?: string;
+  awardNotificationRecipientEmail?: string;
 }
 
 export interface RfqDetailsDto extends RfqHeaderDto {
@@ -214,6 +218,10 @@ export interface SupplierQuotationDto {
   rejectedAt?: string;
   rejectedByUserId?: string;
   rejectionRemarks?: string;
+  awardNotificationStatus?: 'Pending' | 'Sending' | 'Sent' | 'Failed';
+  awardNotificationSentAt?: string;
+  awardNotificationFailureReason?: string;
+  awardNotificationRecipientEmail?: string;
   lines: SupplierQuotationLineDto[];
 }
 
@@ -271,6 +279,10 @@ export interface RfqInvitationResultDto {
   lanIpUrl?: string;
   lanIpUnavailableReason?: string;
   accessOptions?: RfqInvitationAccessOptionsDto;
+  awardNotificationStatus?: 'Pending' | 'Sending' | 'Sent' | 'Failed';
+  awardNotificationSentAt?: string;
+  awardNotificationFailureReason?: string;
+  awardNotificationRecipientEmail?: string;
 }
 
 export interface RecordQuotationLineRequest {
@@ -323,10 +335,19 @@ export interface RfqComparisonSupplierBidDto {
   exchangeRate: number;
   hasValidExchangeRate: boolean;
   currencyConversionError?: string;
+  subTotal?: number;
+  baseSubTotal?: number;
+  discountAmount?: number;
+  baseDiscountAmount?: number;
+  taxAmount?: number;
+  baseTaxAmount?: number;
   totalAmount: number;
   baseTotalAmount: number;
   status: SupplierQuotationStatus;
   isManualEntry: boolean;
+  notes?: string;
+  maxLeadTimeDays?: number;
+  minLeadTimeDays?: number;
 }
 
 export interface RfqComparisonLineBidDto {
@@ -364,8 +385,31 @@ export interface RfqComparisonMatrixDto {
   rfqNumber: string;
   title: string;
   baseCurrencyCode: string;
+  closingDate?: string;
+  deliveryRequiredDate?: string;
+  deliveryTerms?: string;
+  instructions?: string;
   suppliers: RfqComparisonSupplierBidDto[];
   lines: RfqComparisonLineDto[];
+}
+
+export type RfqEvaluationSortOption =
+  | 'PRICE_ASC'
+  | 'PRICE_DESC'
+  | 'LEAD_TIME_ASC'
+  | 'VALIDITY_DESC'
+  | 'NAME_ASC';
+
+export interface RfqEvaluationFilterState {
+  searchTerm: string;
+  statusFilter: string;
+  expiryFilter: 'ALL' | 'ACTIVE' | 'EXPIRED';
+  maxLeadTimeDays?: number | null;
+  minBaseAmount?: number | null;
+  maxBaseAmount?: number | null;
+  currencyFilter: string;
+  sortBy: RfqEvaluationSortOption;
+  viewMode: 'grid' | 'list';
 }
 
 export interface PublicRfqLineDto {

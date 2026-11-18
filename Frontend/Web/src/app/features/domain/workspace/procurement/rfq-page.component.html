@@ -893,14 +893,37 @@
                     <td>
                       <div class="font-medium">{{ sup.supplierName }}</div>
                       <small class="text-muted">{{ sup.supplierCode }}</small>
+                      @if (rfq()?.status === 'Awarded' && sup.supplierId === winningSupplierId()) {
+                        <span class="badge badge-success ml-1"><i class="pi pi-star-fill"></i> Winning Supplier</span>
+                      }
                     </td>
                     <td>{{ supplierContactName(sup.supplierId) }}</td>
                     <td>
                       {{ sup.contactEmail || '—' }}
-                      @if (sup.invitationStatus === 'Failed') {
-                        <small class="invitation-help-text">Retry is available; detailed attempt errors are not retained.</small>
-                      } @else if (sup.invitationStatus === 'Pending' && !sup.contactEmail) {
-                        <small class="text-danger invitation-help-text">A contact email is required to dispatch.</small>
+                      @if (rfq()?.status === 'Awarded' && sup.supplierId === winningSupplierId()) {
+                        @if (sup.awardNotificationStatus === 'Sent') {
+                          <small class="text-success invitation-help-text d-block">
+                            <i class="pi pi-check-circle"></i> Award email accepted by SMTP{{ sup.awardNotificationSentAt ? ' at ' + (sup.awardNotificationSentAt | date:'short') : '' }}.
+                          </small>
+                        } @else if (sup.awardNotificationStatus === 'Failed') {
+                          <small class="text-danger invitation-help-text d-block">
+                            <i class="pi pi-exclamation-triangle"></i> Award notification failed: {{ sup.awardNotificationFailureReason || 'SMTP transport error' }}. Retry is available.
+                          </small>
+                        } @else if (sup.awardNotificationStatus === 'Sending') {
+                          <small class="text-info invitation-help-text d-block">
+                            <i class="pi pi-spin pi-spinner"></i> Award notification dispatch in progress...
+                          </small>
+                        } @else {
+                          <small class="text-muted invitation-help-text d-block">
+                            <i class="pi pi-clock"></i> Award notification pending dispatch.
+                          </small>
+                        }
+                      } @else {
+                        @if (sup.invitationStatus === 'Failed') {
+                          <small class="invitation-help-text">Retry is available; detailed attempt errors are not retained.</small>
+                        } @else if (sup.invitationStatus === 'Pending' && !sup.contactEmail) {
+                          <small class="text-danger invitation-help-text">A contact email is required to dispatch.</small>
+                        }
                       }
                     </td>
                     <td>
@@ -915,6 +938,17 @@
                       >
                         {{ sup.invitationStatus }}
                       </span>
+                      @if (rfq()?.status === 'Awarded' && sup.supplierId === winningSupplierId()) {
+                        @if (sup.awardNotificationStatus === 'Sent') {
+                          <span class="badge badge-success ml-1" title="Award notification accepted by SMTP server"><i class="pi pi-check"></i> Sent</span>
+                        } @else if (sup.awardNotificationStatus === 'Failed') {
+                          <span class="badge badge-danger ml-1" [title]="sup.awardNotificationFailureReason || 'Award notification failed'"><i class="pi pi-times"></i> Failed</span>
+                        } @else if (sup.awardNotificationStatus === 'Sending') {
+                          <span class="badge badge-info ml-1" title="Dispatch in progress"><i class="pi pi-spin pi-spinner"></i> Sending</span>
+                        } @else if (sup.awardNotificationStatus === 'Pending') {
+                          <span class="badge badge-warning ml-1" title="Pending dispatch"><i class="pi pi-clock"></i> Pending</span>
+                        }
+                      }
                     </td>
                     <td>
                       @if (sup.invitationStatus === 'Sending') {
@@ -945,8 +979,8 @@
                               [disabled]="actionLoading()"
                               (click)="sendSingleInvitation(sup.supplierId)"
                             >
-                              <i class="pi" [ngClass]="sup.invitationStatus === 'Failed' ? 'pi-refresh' : 'pi-send'"></i>
-                              <span>{{ sup.invitationStatus === 'Failed' ? 'Retry' : 'Send' }}</span>
+                              <i class="pi" [ngClass]="(sup.invitationStatus === 'Failed' || sup.awardNotificationStatus === 'Failed') ? 'pi-refresh' : 'pi-send'"></i>
+                              <span>{{ (sup.invitationStatus === 'Failed' || sup.awardNotificationStatus === 'Failed') ? 'Retry' : 'Send' }}</span>
                             </button>
                           } @else if (sup.invitationStatus === 'Sending') {
                             <span class="text-muted">In progress</span>
@@ -971,7 +1005,7 @@
                 (click)="sendInvitations()"
               >
                 <i class="pi pi-send"></i>
-                <span>Send / Retry Selected Invitations</span>
+                <span>{{ rfq()?.status === 'Awarded' ? 'Send / Retry Award Notification' : 'Send / Retry Selected Invitations' }}</span>
               </button>
             </div>
           }
@@ -1183,6 +1217,24 @@
                         }
                       } @else if (q.status === 'Approved') {
                         <span class="text-success font-medium"><i class="pi pi-check-circle"></i> Awarded</span>
+                        @if (q.awardNotificationStatus === 'Sent') {
+                          <span class="badge badge-success ml-1" [title]="'Award notification accepted by SMTP' + (q.awardNotificationSentAt ? (' at ' + (q.awardNotificationSentAt | date:'medium')) : '') + (q.awardNotificationRecipientEmail ? (' to ' + q.awardNotificationRecipientEmail) : '')"><i class="pi pi-check"></i> Sent</span>
+                        } @else if (q.awardNotificationStatus === 'Failed') {
+                          <span class="badge badge-danger ml-1" [title]="(q.awardNotificationFailureReason || 'Notification delivery failed') + (q.awardNotificationRecipientEmail ? (' (Recipient: ' + q.awardNotificationRecipientEmail + ')') : '')"><i class="pi pi-times"></i> Failed</span>
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-xs erp-btn-secondary ml-1"
+                            title="Retry award notification email"
+                            [disabled]="actionLoading()"
+                            (click)="retryAwardNotificationFromQuote(q)"
+                          >
+                            <i class="pi pi-refresh"></i> Retry
+                          </button>
+                        } @else if (q.awardNotificationStatus === 'Sending') {
+                          <span class="badge badge-info ml-1" title="Dispatch in progress"><i class="pi pi-spin pi-spinner"></i> Sending</span>
+                        } @else if (q.awardNotificationStatus === 'Pending') {
+                          <span class="badge badge-warning ml-1" title="Pending dispatch"><i class="pi pi-clock"></i> Pending</span>
+                        }
                       } @else if (q.status === 'Rejected') {
                         <span class="text-muted"><i class="pi pi-times-circle"></i> Rejected</span>
                       }
@@ -1327,154 +1379,562 @@
             description="At least one submitted quotation is required to generate the comparison matrix."
           ></app-empty-state>
         } @else {
-          <!-- Commercial Analysis Summary Bar -->
-          @if (comparisonAnalysis(); as analysis) {
+          <!-- Evaluation Dashboard Summary Metrics -->
+          @if (evaluationSummaryMetrics(); as metrics) {
             <div class="analysis-summary-bar mb-4">
               <div class="analysis-card">
-                <span class="analysis-label">Eligible Quotations</span>
-                <span class="analysis-value">{{ analysis.eligibleCount }}</span>
-                <span class="analysis-subtext">Active competing bids</span>
+                <span class="analysis-label">Submissions</span>
+                <span class="analysis-value">{{ metrics.totalSubmissions }}</span>
+                <span class="analysis-subtext">{{ metrics.activeBidsCount }} active competing</span>
               </div>
-              <div class="analysis-card highlight-card">
-                <span class="analysis-label">Lowest Evaluated Price</span>
-                <span class="analysis-value text-success">
-                  {{ analysis.lowestBid?.baseTotalAmount | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
-                </span>
-                <span class="analysis-subtext">
-                  {{ analysis.lowestBid?.supplierName }} ({{ analysis.lowestBid?.quotationReference }})
-                </span>
-                <span class="analysis-disclaimer">Commercial benchmark only · Not automated recommendation</span>
-              </div>
-              @if (analysis.highestBid && analysis.highestBid !== analysis.lowestBid) {
+              @if (metrics.lowestBid) {
+                <div class="analysis-card highlight-card">
+                  <span class="analysis-label">Lowest Evaluated Price</span>
+                  <span class="analysis-value text-success">
+                    {{ metrics.lowestBid.baseTotalAmount | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
+                  </span>
+                  <span class="analysis-subtext">
+                    {{ metrics.lowestBid.supplierName }} ({{ metrics.lowestBid.quotationReference }})
+                  </span>
+                  <span class="analysis-disclaimer">Commercial benchmark · Preserves manual award authority</span>
+                </div>
+              }
+              @if (metrics.highestBid && metrics.highestBid.quotationId !== metrics.lowestBid?.quotationId) {
                 <div class="analysis-card">
                   <span class="analysis-label">Highest Eligible Bid</span>
                   <span class="analysis-value">
-                    {{ analysis.highestBid.baseTotalAmount | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
+                    {{ metrics.highestBid.baseTotalAmount | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
                   </span>
-                  <span class="analysis-subtext">{{ analysis.highestBid.supplierName }}</span>
+                  <span class="analysis-subtext">{{ metrics.highestBid.supplierName }}</span>
                 </div>
                 <div class="analysis-card">
                   <span class="analysis-label">Price Spread</span>
                   <span class="analysis-value">
-                    {{ analysis.priceSpread | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
+                    {{ metrics.priceSpread | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
                   </span>
-                  <span class="analysis-subtext">Variance between highest & lowest</span>
+                  <span class="analysis-subtext">Spread: {{ metrics.spreadPercentage | number:'1.1-1' }}% variance</span>
                 </div>
               }
               <div class="analysis-card">
-                <span class="analysis-label">Delivery Lead Time</span>
+                <span class="analysis-label">Fastest Order Delivery</span>
                 <span class="analysis-value">
-                  {{ analysis.minLeadTime !== null ? analysis.minLeadTime + ' – ' + analysis.maxLeadTime + ' d' : 'N/A' }}
+                  {{ getLeadTimeDisplay(metrics.fastestOrderDelivery) }}
                 </span>
-                <span class="analysis-subtext">Range across all lines</span>
+                <span class="analysis-subtext">Full order fulfillment</span>
               </div>
-              @if (analysis.maxDiscount > 0) {
+              @if (metrics.expiredCount > 0) {
                 <div class="analysis-card">
-                  <span class="analysis-label">Max Discount</span>
-                  <span class="analysis-value text-success">{{ analysis.maxDiscount | number:'1.1-2' }}%</span>
-                  <span class="analysis-subtext">Best line discount</span>
+                  <span class="analysis-label">Expired Quotations</span>
+                  <span class="analysis-value text-danger">{{ metrics.expiredCount }}</span>
+                  <span class="analysis-subtext">Passed validity deadline</span>
                 </div>
               }
             </div>
 
-            @if (analysis.hasCurrencyConversionIssue) {
+            @if (metrics.hasExchangeRateWarning) {
               <div class="message-banner message-banner-warning mb-3">
                 <i class="pi pi-exclamation-triangle"></i>
                 <div>
-                  <strong>Currency Conversion Warning:</strong> One or more supplier quotations use a foreign currency without an active exchange rate. Base currency totals could not be converted automatically.
+                  <strong>Currency Conversion Warning:</strong> One or more supplier quotations use a foreign currency without an active exchange rate. These bids cannot be automatically converted to {{ comparisonMatrix()!.baseCurrencyCode }} and are excluded from lowest-price ranking.
                 </div>
               </div>
             }
           }
 
-          <!-- Summary Cards -->
-          <div class="matrix-summary-grid">
-            @for (quote of comparisonMatrix()!.suppliers; track quote.quotationId) {
-              <div
-                class="quote-summary-card"
-                [class.is-lowest]="getLowestOverallQuotationId() === quote.quotationId"
-                [class.is-approved]="quote.status === 'Approved'"
-              >
-                @if (getLowestOverallQuotationId() === quote.quotationId) {
-                  <div class="lowest-bid-badge">
-                    <i class="pi pi-tag"></i> Lowest Evaluated Price
-                  </div>
-                }
-                <h4>{{ quote.supplierName }}</h4>
-                <div class="ref-text">
-                  <span>{{ quote.quotationReference }}</span>
-                  @if (quote.submissionDate || quote.quotationDate) {
-                    <span class="submission-date">· {{ (quote.submissionDate || quote.quotationDate) | date:'mediumDate' }}</span>
-                  }
-                </div>
-                <div class="total-price">
-                  {{ quote.totalAmount | number:'1.2-2' }} {{ quote.currencyCode }}
-                  @if (quote.currencyCode !== comparisonMatrix()!.baseCurrencyCode && quote.hasValidExchangeRate) {
-                    <div class="base-total-hint">
-                      Base: {{ quote.baseTotalAmount | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
-                      (Rate: {{ quote.exchangeRate | number:'1.2-4' }})
-                    </div>
-                  }
-                </div>
+          <!-- Filter and Search Toolbar -->
+          <div class="evaluation-toolbar mb-4">
+            <div class="toolbar-search-box">
+              <i class="pi pi-search search-icon"></i>
+              <input
+                type="text"
+                class="erp-input search-input"
+                placeholder="Search supplier, code, reference..."
+                [value]="evaluationFilterState().searchTerm"
+                (input)="setEvaluationSearch($any($event.target).value)"
+              />
+              @if (evaluationFilterState().searchTerm) {
+                <button type="button" class="btn-clear-search" (click)="setEvaluationSearch('')">
+                  <i class="pi pi-times"></i>
+                </button>
+              }
+            </div>
 
-                @if (!quote.hasValidExchangeRate) {
-                  <div class="conversion-error-alert">
-                    <i class="pi pi-exclamation-circle"></i>
-                    <span>{{ quote.currencyConversionError || 'No exchange rate found' }}</span>
-                  </div>
-                }
+            <div class="toolbar-filters-row">
+              <div class="filter-group">
+                <label>Status:</label>
+                <select
+                  class="erp-select"
+                  [value]="evaluationFilterState().statusFilter"
+                  (change)="setEvaluationStatus($any($event.target).value)"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="UnderReview">Under Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
 
-                <div class="status-row">
-                  <span class="badge" [ngClass]="quote.status === 'Approved' ? 'badge-success' : 'badge-info'">{{ quote.status }}</span>
-                  @if (quote.isExpired) {
-                    <span class="badge badge-danger">Expired</span>
-                  }
-                  @if (quote.isManualEntry) {
-                    <span class="badge badge-light">Manual Entry</span>
-                  }
-                </div>
+              <div class="filter-group">
+                <label>Validity:</label>
+                <select
+                  class="erp-select"
+                  [value]="evaluationFilterState().expiryFilter"
+                  (change)="setEvaluationExpiry($any($event.target).value)"
+                >
+                  <option value="ALL">All</option>
+                  <option value="ACTIVE">Active (Valid)</option>
+                  <option value="EXPIRED">Expired Only</option>
+                </select>
+              </div>
 
-                <div class="card-actions">
-                  <button
-                    type="button"
-                    class="erp-btn erp-btn-sm erp-btn-secondary w-full mb-1"
-                    (click)="inspectQuotationFromMatrix(quote.quotationId)"
+              <div class="filter-group">
+                <label>Max Lead Time (d):</label>
+                <input
+                  type="number"
+                  min="1"
+                  class="erp-input lead-input"
+                  placeholder="e.g. 14"
+                  [value]="evaluationFilterState().maxLeadTimeDays ?? ''"
+                  (change)="setEvaluationMaxLeadTime($any($event.target).value ? +$any($event.target).value : null)"
+                />
+              </div>
+
+              @if (availableCurrencies().length > 1) {
+                <div class="filter-group">
+                  <label>Currency:</label>
+                  <select
+                    class="erp-select"
+                    [value]="evaluationFilterState().currencyFilter"
+                    (change)="setEvaluationCurrency($any($event.target).value)"
                   >
-                    <i class="pi" [ngClass]="expandedQuotationId() === quote.quotationId ? 'pi-chevron-up' : 'pi-eye'"></i>
-                    <span>{{ expandedQuotationId() === quote.quotationId ? 'Hide Details' : 'Inspect Quotation' }}</span>
-                  </button>
-
-                  @if (quote.status === 'Approved') {
-                    <div class="awarded-badge-box">
-                      <i class="pi pi-check-circle text-success"></i>
-                      <span class="font-medium text-success">Awarded Quotation</span>
-                    </div>
-                  } @else if (quote.status === 'Submitted' || quote.status === 'UnderReview') {
-                    @if (canApproveReject()) {
-                      <button
-                        type="button"
-                        class="erp-btn erp-btn-sm erp-btn-success w-full mb-1"
-                        [disabled]="actionLoading() || quote.isExpired"
-                        (click)="openMatrixDecisionModal(quote, 'approve')"
-                      >
-                        <i class="pi pi-check"></i>
-                        <span>Award / Approve</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="erp-btn erp-btn-sm erp-btn-danger w-full"
-                        [disabled]="actionLoading()"
-                        (click)="openMatrixDecisionModal(quote, 'reject')"
-                      >
-                        <i class="pi pi-times"></i>
-                        <span>Reject</span>
-                      </button>
+                    <option value="ALL">All Currencies</option>
+                    @for (curr of availableCurrencies(); track curr) {
+                      <option [value]="curr">{{ curr }}</option>
                     }
-                  }
+                  </select>
                 </div>
+              }
+
+              <div class="filter-group">
+                <label>Sort By:</label>
+                <select
+                  class="erp-select"
+                  [value]="evaluationFilterState().sortBy"
+                  (change)="setEvaluationSort($any($event.target).value)"
+                >
+                  <option value="PRICE_ASC">Lowest Price (Base)</option>
+                  <option value="PRICE_DESC">Highest Price (Base)</option>
+                  <option value="LEAD_TIME_ASC">Fastest Delivery</option>
+                  <option value="VALIDITY_DESC">Latest Validity</option>
+                  <option value="NAME_ASC">Supplier Name</option>
+                </select>
+              </div>
+
+              <div class="view-mode-toggle">
+                <button
+                  type="button"
+                  class="erp-btn erp-btn-sm"
+                  [ngClass]="evaluationFilterState().viewMode === 'grid' ? 'erp-btn-primary' : 'erp-btn-secondary'"
+                  title="Card Grid View"
+                  (click)="setEvaluationViewMode('grid')"
+                >
+                  <i class="pi pi-th-large"></i>
+                </button>
+                <button
+                  type="button"
+                  class="erp-btn erp-btn-sm"
+                  [ngClass]="evaluationFilterState().viewMode === 'list' ? 'erp-btn-primary' : 'erp-btn-secondary'"
+                  title="Dense List View"
+                  (click)="setEvaluationViewMode('list')"
+                >
+                  <i class="pi pi-list"></i>
+                </button>
+              </div>
+
+              @if (hasActiveEvaluationFilters()) {
+                <button
+                  type="button"
+                  class="erp-btn erp-btn-sm erp-btn-secondary"
+                  (click)="resetEvaluationFilters()"
+                >
+                  <i class="pi pi-refresh"></i> Reset Filters
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Dashboard Section Tabs -->
+          <div class="evaluation-tabs-bar mb-4">
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="evaluationActiveTab() === 'cards'"
+              (click)="setEvaluationTab('cards')"
+            >
+              <i class="pi pi-id-card"></i> Supplier Summary ({{ filteredSuppliers().length }})
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="evaluationActiveTab() === 'commercial'"
+              (click)="setEvaluationTab('commercial')"
+            >
+              <i class="pi pi-file-edit"></i> Commercial Terms Comparison
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="evaluationActiveTab() === 'matrix'"
+              (click)="setEvaluationTab('matrix')"
+            >
+              <i class="pi pi-table"></i> Line-by-Line Breakdown
+            </button>
+          </div>
+
+          <!-- Tab 1: Supplier Summary Cards or Dense List -->
+          @if (evaluationActiveTab() === 'cards') {
+            @if (filteredSuppliers().length === 0) {
+              <div class="empty-filter-results p-4 text-center">
+                <i class="pi pi-filter-slash text-2xl text-muted mb-2"></i>
+                <p class="text-muted m-0">No supplier quotations match the selected filters.</p>
+                <button type="button" class="erp-btn erp-btn-sm erp-btn-secondary mt-2" (click)="resetEvaluationFilters()">
+                  Clear Filters
+                </button>
+              </div>
+            } @else if (evaluationFilterState().viewMode === 'grid') {
+              <div class="matrix-summary-grid">
+                @for (quote of filteredSuppliers(); track quote.quotationId) {
+                  <div
+                    class="quote-summary-card"
+                    [class.is-lowest]="getLowestOverallQuotationId() === quote.quotationId"
+                    [class.is-approved]="quote.status === 'Approved'"
+                  >
+                    @if (getLowestOverallQuotationId() === quote.quotationId) {
+                      <div class="lowest-bid-badge">
+                        <i class="pi pi-tag"></i> Lowest Evaluated Price
+                      </div>
+                    }
+                    <h4>{{ quote.supplierName }}</h4>
+                    <div class="ref-text">
+                      <span class="font-medium">{{ quote.supplierCode }}</span>
+                      <span class="mx-1">·</span>
+                      <span>{{ quote.quotationReference }}</span>
+                      @if (quote.submissionDate || quote.quotationDate) {
+                        <span class="submission-date">· {{ (quote.submissionDate || quote.quotationDate) | date:'mediumDate' }}</span>
+                      }
+                    </div>
+
+                    <div class="status-row mt-2">
+                      <span class="badge" [ngClass]="quote.status === 'Approved' ? 'badge-success' : quote.status === 'Rejected' ? 'badge-danger' : 'badge-info'">
+                        {{ quote.status }}
+                      </span>
+                      @if (quote.isExpired) {
+                        <span class="badge badge-danger">Expired</span>
+                      }
+                      @if (quote.isManualEntry) {
+                        <span class="badge badge-light">Manual Entry</span>
+                      }
+                    </div>
+
+                    <div class="financial-breakdown-box mt-3">
+                      @if (quote.subTotal !== undefined && quote.subTotal !== null) {
+                        <div class="financial-row text-muted text-sm">
+                          <span>Subtotal:</span>
+                          <span>{{ quote.subTotal | number:'1.2-2' }} {{ quote.currencyCode }}</span>
+                        </div>
+                      }
+                      @if (quote.discountAmount) {
+                        <div class="financial-row text-success text-sm">
+                          <span>Discount:</span>
+                          <span>-{{ quote.discountAmount | number:'1.2-2' }} {{ quote.currencyCode }}</span>
+                        </div>
+                      }
+                      @if (quote.taxAmount) {
+                        <div class="financial-row text-muted text-sm">
+                          <span>Tax:</span>
+                          <span>+{{ quote.taxAmount | number:'1.2-2' }} {{ quote.currencyCode }}</span>
+                        </div>
+                      }
+                      <div class="financial-row total-row font-bold">
+                        <span>Total:</span>
+                        <span>{{ quote.totalAmount | number:'1.2-2' }} {{ quote.currencyCode }}</span>
+                      </div>
+                      @if (quote.currencyCode !== comparisonMatrix()!.baseCurrencyCode && quote.hasValidExchangeRate) {
+                        <div class="base-total-hint mt-1">
+                          Base: {{ quote.baseTotalAmount | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
+                          (Rate: {{ quote.exchangeRate | number:'1.2-4' }})
+                        </div>
+                      }
+                    </div>
+
+                    @if (!quote.hasValidExchangeRate) {
+                      <div class="conversion-error-alert mt-2">
+                        <i class="pi pi-exclamation-circle"></i>
+                        <span>{{ quote.currencyConversionError || 'No exchange rate found' }}</span>
+                      </div>
+                    }
+
+                    <div class="meta-footer-info mt-2">
+                      <div class="meta-row text-xs text-muted">
+                        <span>Fulfilment Lead Time:</span>
+                        <strong class="text-dark">{{ getLeadTimeDisplay(quote.maxLeadTimeDays) }}</strong>
+                      </div>
+                      <div class="meta-row text-xs text-muted">
+                        <span>Valid Until:</span>
+                        <strong class="text-dark">{{ quote.validUntil | date:'mediumDate' }}</strong>
+                      </div>
+                    </div>
+
+                    @if (quote.notes) {
+                      <div class="quote-notes-preview mt-2">
+                        <span class="notes-tag">Supplier Notes:</span>
+                        <p class="notes-text" [title]="quote.notes">{{ quote.notes }}</p>
+                      </div>
+                    }
+
+                    <div class="card-actions mt-3">
+                      <button
+                        type="button"
+                        class="erp-btn erp-btn-sm erp-btn-secondary w-full mb-1"
+                        (click)="inspectQuotationFromMatrix(quote.quotationId)"
+                      >
+                        <i class="pi" [ngClass]="expandedQuotationId() === quote.quotationId ? 'pi-chevron-up' : 'pi-eye'"></i>
+                        <span>{{ expandedQuotationId() === quote.quotationId ? 'Hide Details' : 'Inspect Quotation' }}</span>
+                      </button>
+
+                      @if (quote.status === 'Approved') {
+                        <div class="awarded-badge-box">
+                          <i class="pi pi-check-circle text-success"></i>
+                          <span class="font-medium text-success">Awarded Quotation</span>
+                        </div>
+                      } @else if (quote.status === 'Submitted' || quote.status === 'UnderReview') {
+                        @if (canApproveReject()) {
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-sm erp-btn-success w-full mb-1"
+                            [disabled]="actionLoading() || quote.isExpired"
+                            (click)="openMatrixDecisionModal(quote, 'approve')"
+                          >
+                            <i class="pi pi-check"></i>
+                            <span>Award / Approve</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="erp-btn erp-btn-sm erp-btn-danger w-full"
+                            [disabled]="actionLoading()"
+                            (click)="openMatrixDecisionModal(quote, 'reject')"
+                          >
+                            <i class="pi pi-times"></i>
+                            <span>Reject</span>
+                          </button>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <!-- Dense List View -->
+              <div class="erp-table-responsive mb-4">
+                <table class="erp-table evaluation-dense-table">
+                  <thead>
+                    <tr>
+                      <th>Supplier</th>
+                      <th>Reference</th>
+                      <th class="text-right">Subtotal</th>
+                      <th class="text-right">Discount</th>
+                      <th class="text-right">Tax</th>
+                      <th class="text-right">Total Amount</th>
+                      <th class="text-right">Base Total</th>
+                      <th>Fulfilment Lead</th>
+                      <th>Valid Until</th>
+                      <th>Status</th>
+                      <th class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (quote of filteredSuppliers(); track quote.quotationId) {
+                      <tr [class.row-lowest]="getLowestOverallQuotationId() === quote.quotationId" [class.row-approved]="quote.status === 'Approved'">
+                        <td>
+                          <div class="font-medium">{{ quote.supplierName }}</div>
+                          <small class="text-muted">{{ quote.supplierCode }}</small>
+                          @if (getLowestOverallQuotationId() === quote.quotationId) {
+                            <span class="badge badge-success ml-1">Lowest</span>
+                          }
+                        </td>
+                        <td>
+                          <div>{{ quote.quotationReference }}</div>
+                          <small class="text-muted">{{ (quote.submissionDate || quote.quotationDate) | date:'mediumDate' }}</small>
+                        </td>
+                        <td class="text-right">
+                          {{ (quote.subTotal ?? quote.totalAmount) | number:'1.2-2' }} {{ quote.currencyCode }}
+                        </td>
+                        <td class="text-right text-success">
+                          {{ quote.discountAmount ? ('-' + (quote.discountAmount | number:'1.2-2')) : '—' }}
+                        </td>
+                        <td class="text-right text-muted">
+                          {{ quote.taxAmount ? ('+' + (quote.taxAmount | number:'1.2-2')) : '—' }}
+                        </td>
+                        <td class="text-right font-bold">
+                          {{ quote.totalAmount | number:'1.2-2' }} {{ quote.currencyCode }}
+                        </td>
+                        <td class="text-right font-medium">
+                          @if (quote.hasValidExchangeRate) {
+                            {{ quote.baseTotalAmount | number:'1.2-2' }} {{ comparisonMatrix()!.baseCurrencyCode }}
+                          } @else {
+                            <span class="text-danger" title="No exchange rate">Unconverted</span>
+                          }
+                        </td>
+                        <td>{{ getLeadTimeDisplay(quote.maxLeadTimeDays) }}</td>
+                        <td>
+                          <span [class.text-danger]="quote.isExpired">{{ quote.validUntil | date:'mediumDate' }}</span>
+                          @if (quote.isExpired) {
+                            <span class="badge badge-danger ml-1">Expired</span>
+                          }
+                        </td>
+                        <td>
+                          <span class="badge" [ngClass]="quote.status === 'Approved' ? 'badge-success' : quote.status === 'Rejected' ? 'badge-danger' : 'badge-info'">
+                            {{ quote.status }}
+                          </span>
+                        </td>
+                        <td class="text-right">
+                          <div class="dense-actions-group">
+                            <button
+                              type="button"
+                              class="erp-btn erp-btn-sm erp-btn-secondary"
+                              title="Inspect"
+                              (click)="inspectQuotationFromMatrix(quote.quotationId)"
+                            >
+                              <i class="pi pi-eye"></i>
+                            </button>
+                            @if (quote.status === 'Approved') {
+                              <span class="badge badge-success">Awarded</span>
+                            } @else if (quote.status === 'Submitted' || quote.status === 'UnderReview') {
+                              @if (canApproveReject()) {
+                                <button
+                                  type="button"
+                                  class="erp-btn erp-btn-sm erp-btn-success"
+                                  title="Award"
+                                  [disabled]="actionLoading() || quote.isExpired"
+                                  (click)="openMatrixDecisionModal(quote, 'approve')"
+                                >
+                                  <i class="pi pi-check"></i>
+                                </button>
+                                <button
+                                  type="button"
+                                  class="erp-btn erp-btn-sm erp-btn-danger"
+                                  title="Reject"
+                                  [disabled]="actionLoading()"
+                                  (click)="openMatrixDecisionModal(quote, 'reject')"
+                                >
+                                  <i class="pi pi-times"></i>
+                                </button>
+                              }
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               </div>
             }
-          </div>
+          }
+
+          <!-- Tab 2: Commercial Terms Comparison -->
+          @if (evaluationActiveTab() === 'commercial') {
+            <!-- Buyer Baseline Requirements -->
+            <div class="buyer-baseline-card erp-card p-4 mb-4">
+              <div class="baseline-header mb-3">
+                <h4 class="m-0 font-medium"><i class="pi pi-building mr-2 text-primary"></i> Buyer RFQ Baseline Requirements</h4>
+                <span class="text-sm text-muted">Authoritative requirements issued in this Request for Quotation</span>
+              </div>
+              <div class="baseline-grid">
+                <div class="baseline-item">
+                  <span class="baseline-label">Closing Date:</span>
+                  <span class="baseline-value font-medium text-danger">{{ comparisonMatrix()!.closingDate | date:'medium' }}</span>
+                </div>
+                <div class="baseline-item">
+                  <span class="baseline-label">Required Delivery Date:</span>
+                  <span class="baseline-value font-medium">{{ comparisonMatrix()!.deliveryRequiredDate ? (comparisonMatrix()!.deliveryRequiredDate | date:'mediumDate') : 'As agreed' }}</span>
+                </div>
+                <div class="baseline-item">
+                  <span class="baseline-label">Delivery Terms:</span>
+                  <span class="baseline-value">{{ comparisonMatrix()!.deliveryTerms || 'Standard Commercial Terms' }}</span>
+                </div>
+                <div class="baseline-item">
+                  <span class="baseline-label">Buyer Instructions:</span>
+                  <span class="baseline-value">{{ comparisonMatrix()!.instructions || 'None specified' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Supplier Declared Terms Table -->
+            <div class="commercial-table-wrapper">
+              <div class="commercial-alert mb-3">
+                <i class="pi pi-info-circle mr-1 text-primary"></i>
+                <small class="text-muted">
+                  <strong>Supplier-Declared Information (Requires Buyer Verification):</strong> Commercial conditions, notes, and lead times below are supplier-provided representations and must be formally verified before contract execution.
+                </small>
+              </div>
+
+              <div class="erp-table-responsive mb-4">
+                <table class="erp-table commercial-terms-table">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 200px;">Supplier</th>
+                      <th style="width: 140px;">Quotation Ref</th>
+                      <th style="width: 150px;">Fulfilment Lead Time</th>
+                      <th style="width: 140px;">Validity / Expiry</th>
+                      <th style="width: 140px;">Currency / Rate</th>
+                      <th style="min-width: 250px;">Supplier Notes & Terms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (quote of filteredSuppliers(); track quote.quotationId) {
+                      <tr>
+                        <td>
+                          <div class="font-medium">{{ quote.supplierName }}</div>
+                          <small class="text-muted">{{ quote.supplierCode }}</small>
+                        </td>
+                        <td>
+                          <div>{{ quote.quotationReference }}</div>
+                          <small class="text-muted">{{ (quote.submissionDate || quote.quotationDate) | date:'mediumDate' }}</small>
+                        </td>
+                        <td>
+                          <div class="font-medium">{{ getLeadTimeDisplay(quote.maxLeadTimeDays) }}</div>
+                          <small class="text-muted">Maximum quoted line</small>
+                        </td>
+                        <td>
+                          <div [class.text-danger]="quote.isExpired">{{ quote.validUntil | date:'mediumDate' }}</div>
+                          @if (quote.isExpired) {
+                            <span class="badge badge-danger">Expired</span>
+                          } @else {
+                            <span class="badge badge-success">Valid</span>
+                          }
+                        </td>
+                        <td>
+                          <div>{{ quote.currencyCode }}</div>
+                          <small class="text-muted">Rate: {{ quote.exchangeRate | number:'1.2-4' }}</small>
+                        </td>
+                        <td>
+                          @if (quote.notes) {
+                            <div class="supplier-notes-box">
+                              <span class="badge badge-light text-xs mb-1">Supplier Declared</span>
+                              <p class="m-0 text-sm">{{ quote.notes }}</p>
+                            </div>
+                          } @else {
+                            <span class="text-muted text-sm italic">Not Specified</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
 
           <!-- Inline Quotation Inspection Panel (Stage 5) -->
           @if (expandedQuotationId() && quotationDetail(); as detail) {
@@ -1589,84 +2049,95 @@
             </div>
           }
 
-          <!-- Product Line Comparison Table -->
-          <div class="table-section-heading mt-4 mb-2">
-            <h4 class="font-medium m-0">Line-by-Line Breakdown</h4>
-            <span class="text-sm text-muted">Comparison against requested RFQ items</span>
-          </div>
-          <div class="erp-table-responsive">
-            <table class="erp-table matrix-table">
-              <thead>
-                <tr>
-                  <th style="min-width: 220px;">Product Item</th>
-                  <th style="width: 90px;" class="text-right">Req. Qty</th>
-                  <th style="width: 70px;">UOM</th>
-                  @for (col of comparisonMatrix()!.suppliers; track col.quotationId) {
-                    <th class="supplier-col" [class.col-lowest]="getLowestOverallQuotationId() === col.quotationId">
-                      <div class="col-title">{{ col.supplierName }}</div>
-                      <small class="col-ref">{{ col.quotationReference }} ({{ col.currencyCode }})</small>
-                    </th>
-                  }
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of comparisonMatrix()!.lines; track row.rfqLineId) {
+          <!-- Tab 3: Product Line Comparison Table -->
+          @if (evaluationActiveTab() === 'matrix') {
+            <div class="table-section-heading mt-4 mb-2">
+              <h4 class="font-medium m-0">Line-by-Line Breakdown</h4>
+              <span class="text-sm text-muted">Comparison against requested RFQ items (matching bids via quotation ID)</span>
+            </div>
+            <div class="erp-table-responsive">
+              <table class="erp-table matrix-table">
+                <thead>
                   <tr>
-                    <td>
-                      <div class="font-medium">{{ row.productName }}</div>
-                      <small class="text-muted">{{ row.productCode }}</small>
-                    </td>
-                    <td class="text-right font-medium">{{ row.requestedQuantity | number:'1.2-2' }}</td>
-                    <td><span class="badge badge-light">{{ row.requestedUomCode }}</span></td>
-
-                    @for (col of comparisonMatrix()!.suppliers; track col.quotationId) {
-                      @let bid = getBidForSupplier(row, col.quotationId);
-                      <td class="bid-cell" [class.lowest-bid-cell]="bid && getLowestBidForLine(row) === bid.quotationId">
-                        @if (bid && bid.unitPrice > 0) {
-                          <div class="bid-price-row">
-                            <span class="bid-unit-price font-medium">{{ bid.unitPrice | number:'1.2-2' }}</span>
-                            @if (getLowestBidForLine(row) === bid.quotationId) {
-                              <span class="lowest-line-pill" title="Lowest Unit Price">Lowest</span>
-                            }
-                          </div>
-                          @if (bid.quotedQuantity !== row.requestedQuantity) {
-                            <div class="bid-qty-diff text-muted">
-                              Quoted: {{ bid.quotedQuantity | number:'1.2-2' }} {{ bid.quotedUomCode }}
-                            </div>
-                          }
-                          @if (bid.discountPercentage > 0) {
-                            <div class="bid-discount text-success">
-                              Disc: {{ bid.discountPercentage }}% (-{{ bid.discountAmount | number:'1.2-2' }})
-                            </div>
-                          }
-                          @if (bid.taxRate > 0) {
-                            <div class="bid-tax text-muted">
-                              Tax: {{ bid.taxRate }}% (+{{ bid.taxAmount | number:'1.2-2' }})
-                            </div>
-                          }
-                          <div class="bid-total font-medium">
-                            Total: {{ bid.lineTotal | number:'1.2-2' }}
-                          </div>
-                          @if (bid.leadTimeDays !== null && bid.leadTimeDays !== undefined) {
-                            <div class="bid-lead-time text-muted">
-                              <i class="pi pi-clock"></i> {{ bid.leadTimeDays }}d lead
-                            </div>
-                          }
-                          @if (bid.technicalRemarks) {
-                            <div class="bid-remarks text-muted" [title]="bid.technicalRemarks">
-                              {{ bid.technicalRemarks }}
-                            </div>
-                          }
-                        } @else {
-                          <span class="text-muted text-center d-block">—</span>
-                        }
-                      </td>
+                    <th style="min-width: 220px;">Product Item</th>
+                    <th style="width: 90px;" class="text-right">Req. Qty</th>
+                    <th style="width: 70px;">UOM</th>
+                    @for (col of filteredSuppliers(); track col.quotationId) {
+                      <th class="supplier-col" [class.col-lowest]="getLowestOverallQuotationId() === col.quotationId">
+                        <div class="col-title">{{ col.supplierName }}</div>
+                        <small class="col-ref">{{ col.quotationReference }} ({{ col.currencyCode }})</small>
+                      </th>
                     }
                   </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  @for (row of comparisonMatrix()!.lines; track row.rfqLineId) {
+                    <tr>
+                      <td>
+                        <div class="font-medium">{{ row.productName }}</div>
+                        <small class="text-muted">{{ row.productCode }}</small>
+                      </td>
+                      <td class="text-right font-medium">{{ row.requestedQuantity | number:'1.2-2' }}</td>
+                      <td><span class="badge badge-light">{{ row.requestedUomCode }}</span></td>
+
+                      @for (col of filteredSuppliers(); track col.quotationId) {
+                        @let bid = getBidForSupplier(row, col.quotationId);
+                        <td class="bid-cell" [class.lowest-bid-cell]="isLowestPriceForLine(row, col.quotationId)">
+                          @if (bid && bid.unitPrice > 0) {
+                            <div class="bid-price-row">
+                              <span class="bid-unit-price font-medium">{{ bid.unitPrice | number:'1.2-2' }}</span>
+                              @if (isLowestPriceForLine(row, col.quotationId)) {
+                                @if (isTiedLowestPriceForLine(row, col.quotationId)) {
+                                  <span class="lowest-line-pill tied-line-pill" title="Tied Lowest Unit Price">Tied Low</span>
+                                } @else {
+                                  <span class="lowest-line-pill" title="Lowest Unit Price">Lowest</span>
+                                }
+                              }
+                            </div>
+                            @if (col.currencyCode !== comparisonMatrix()!.baseCurrencyCode && col.hasValidExchangeRate) {
+                              <div class="bid-base-price text-muted text-xs">
+                                Base: {{ bid.baseUnitPrice | number:'1.2-2' }}
+                              </div>
+                            }
+                            @if (bid.quotedQuantity !== row.requestedQuantity) {
+                              <div class="bid-qty-diff text-muted">
+                                Quoted: {{ bid.quotedQuantity | number:'1.2-2' }} {{ bid.quotedUomCode }}
+                              </div>
+                            }
+                            @if (bid.discountPercentage > 0) {
+                              <div class="bid-discount text-success">
+                                Disc: {{ bid.discountPercentage }}% (-{{ bid.discountAmount | number:'1.2-2' }})
+                              </div>
+                            }
+                            @if (bid.taxRate > 0) {
+                              <div class="bid-tax text-muted">
+                                Tax: {{ bid.taxRate }}% (+{{ bid.taxAmount | number:'1.2-2' }})
+                              </div>
+                            }
+                            <div class="bid-total font-medium">
+                              Total: {{ bid.lineTotal | number:'1.2-2' }}
+                            </div>
+                            @if (bid.leadTimeDays !== null && bid.leadTimeDays !== undefined) {
+                              <div class="bid-lead-time text-muted">
+                                <i class="pi pi-clock"></i> {{ bid.leadTimeDays }}d lead
+                              </div>
+                            }
+                            @if (bid.technicalRemarks) {
+                              <div class="bid-remarks text-muted" [title]="bid.technicalRemarks">
+                                <span class="badge badge-light text-xs">Declared:</span> {{ bid.technicalRemarks }}
+                              </div>
+                            }
+                          } @else {
+                            <span class="text-muted text-center d-block">—</span>
+                          }
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         }
       </div>
     }
@@ -1922,6 +2393,16 @@
           </div>
 
           @if (decisionType() === 'approve') {
+            <div class="award-notification-preview mt-3 p-3 bg-light rounded border">
+              <h5 class="section-title mb-2 text-primary font-medium">
+                <i class="pi pi-envelope mr-1"></i> Supplier Award Notification Email
+              </h5>
+              <p class="text-sm text-muted mb-0">
+                Upon approval, an award notification email will be dispatched automatically to winning supplier <strong>{{ selectedQuotation()!.supplierName }}</strong> using their registered contact email.
+                Competitor bids and prices will remain strictly confidential. Purchase Order details will be communicated separately.
+              </p>
+            </div>
+
             <div class="checkbox-group mt-2">
               <label>
                 <input
