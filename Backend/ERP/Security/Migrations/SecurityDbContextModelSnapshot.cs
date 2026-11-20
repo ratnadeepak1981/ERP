@@ -201,6 +201,10 @@ namespace Security.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasFilter("[TenantId] IS NULL");
+
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "Name")
@@ -289,6 +293,10 @@ namespace Security.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasFilter("[TenantId] IS NULL");
+
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "Email")
@@ -298,6 +306,10 @@ namespace Security.Migrations
                     b.HasIndex("TenantId", "Username")
                         .IsUnique()
                         .HasFilter("[TenantId] IS NOT NULL");
+
+                    b.HasIndex("Username")
+                        .IsUnique()
+                        .HasFilter("[TenantId] IS NULL");
 
                     b.ToTable("Users", (string)null);
                 });

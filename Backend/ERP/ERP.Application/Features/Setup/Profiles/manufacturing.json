@@ -548,6 +548,19 @@
   ],
   "customers": [
     {
+      "code": "CUST-WALKIN",
+      "name": "Walk-in Cash Customer",
+      "email": "walkin@mfg.local",
+      "phone": "+94 11 000 0000",
+      "addressLine1": "Factory Outlet / Direct Sales Counter",
+      "city": "Colombo",
+      "postalCode": "00200",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "contactPerson": "Direct Sales Desk"
+    },
+    {
       "code": "CUST-MFG-001",
       "name": "Lanka Engineering Projects (Pvt) Ltd",
       "email": "accounts@example.local",

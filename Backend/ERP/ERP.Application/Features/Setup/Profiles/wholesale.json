@@ -558,6 +558,19 @@
   ],
   "customers": [
     {
+      "code": "CUST-WALKIN",
+      "name": "Walk-in Cash Customer",
+      "email": "walkin@wholesale.local",
+      "phone": "+94 11 000 0000",
+      "addressLine1": "Counter / Cash Sales Desk",
+      "city": "Colombo",
+      "postalCode": "00100",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "contactPerson": "Cashier Desk"
+    },
+    {
       "code": "CUST-WHO-001",
       "name": "Northern Retail Stores (Pvt) Ltd",
       "email": "accounts@example.local",
