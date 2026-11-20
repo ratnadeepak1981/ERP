@@ -280,3 +280,33 @@ The solution now guarantees:
 5. Invariant-compliant service product handling without stock tracking.
 6. Reliable, cross-platform JSON profile loading.
 7. Ready foundation for Direct Company Sales, E-commerce, and Sales Quotation channels.
+
+---
+
+## 9. Automated Integration Test Suite & Verification Results
+
+A fully automated, repeatable integration test suite has been implemented in `Backend/ERP/Testing/ERP.SecurityTests/DatabaseSync/` to continuously verify database structures, migrations, bootstrap execution, and idempotency across isolated test databases (`PlatformDB_Test`, `SecurityDB_Test`, `DomainDB_Test`, `AIDatabase_Test`).
+
+### Test Execution Command
+
+```bash
+dotnet test "Backend/ERP/Testing/ERP.SecurityTests/ERP.SecurityTests.csproj" --filter "FullyQualifiedName~DatabaseSync"
+```
+
+### Verification Results Summary (14 / 14 Passed)
+
+- **Test 01:** Isolated test database creation and strict safety guard enforcement (`_Test` suffix required; rejection of `PlatformDB`, `SecurityDB`, `DomainDB`, `AIDatabase`).
+- **Test 02:** EF Core migrations applied cleanly across all 4 databases (0 pending migrations).
+- **Test 03:** Physical SQL Server schema matched against EF Core entity models (100% table and column alignment, 0 discrepancies).
+- **Test 04:** Constraint and index integrity verified (PKs, FKs, unique indexes confirmed).
+- **Tests 05–09:** Bootstrap master data initialization across all 5 industry profiles:
+  - Retail (`retail.json`): 10 products, 6 categories, 13 UOMs, 2 warehouses, 2 price cards, 3 suppliers, 2 customers.
+  - Manufacturing (`manufacturing.json`): 10 products, 5 categories, 11 UOMs, 2 warehouses, 2 price cards, 1 supplier, 2 customers.
+  - Service (`service.json`): 10 non-stock products, 5 categories, 6 UOMs, 0 warehouses, 2 price cards, 1 supplier, 2 customers.
+  - Pharmacy (`pharmacy.json`): 10 medicinal products, 5 categories, 12 UOMs, 2 warehouses, 2 price cards, 1 supplier, 2 customers.
+  - Wholesale (`wholesale.json`): 10 bulk products, 5 categories, 12 UOMs, 2 warehouses, 2 price cards, 1 supplier, 2 customers.
+- **Test 10:** Platform admin authentication, PBKDF2-SHA256 password verification, role scoping, and rejection of invalid credentials.
+- **Test 11:** Multi-tenant isolation verified with zero cross-tenant entity leakage and zero cross-database foreign keys.
+- **Test 12:** Bootstrap second-run idempotency verified with exact zero count delta (0 duplicates).
+- **Test 13:** User data synchronisation verified: custom tenant modifications preserved intact during bootstrap reruns.
+- **Test 14:** Non-destruction safety verified: development databases protected and untouched.

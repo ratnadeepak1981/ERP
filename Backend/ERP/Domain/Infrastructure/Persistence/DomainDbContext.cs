@@ -235,6 +235,12 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.Ecommerce.EcommerceProduct> EcommerceProducts
         => Set<Domain.Features.Ecommerce.EcommerceProduct>();
 
+    public DbSet<Domain.Features.Ecommerce.EcommerceCart> EcommerceCarts
+        => Set<Domain.Features.Ecommerce.EcommerceCart>();
+
+    public DbSet<Domain.Features.Ecommerce.EcommerceCartLine> EcommerceCartLines
+        => Set<Domain.Features.Ecommerce.EcommerceCartLine>();
+
 
 
 

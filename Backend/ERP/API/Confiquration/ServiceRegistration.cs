@@ -169,8 +169,9 @@ public static class ServiceRegistration
         services.AddScoped<API.Features.Portal.Services.ICustomerAuthService, API.Features.Portal.Services.CustomerAuthService>();
         services.AddScoped<API.Features.Portal.Context.ICurrentCustomerContext, API.Features.Portal.Context.CurrentCustomerContext>();
 
-        // E-commerce Product Publishing
+        // E-commerce Product Publishing & Shopping Cart
         services.AddScoped<ERP.Application.Features.Ecommerce.IEcommerceProductService, ERP.Application.Features.Ecommerce.EcommerceProductService>();
+        services.AddScoped<ERP.Application.Features.Ecommerce.Cart.IEcommerceCartService, ERP.Application.Features.Ecommerce.Cart.EcommerceCartService>();
 
         return services;
     }

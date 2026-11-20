@@ -1057,3 +1057,84 @@ Thirteen dedicated integration and unit tests implemented in `ERP.SecurityTests.
 
 **All 13 E-commerce tests passed with 0 failures.**  
 **Combined regression test suite: 44/44 passed.**
+
+---
+
+## 20. E-commerce Shopping Cart & Free Checkout Backend Architecture
+
+### 20.1 Architecture Overview
+ApexERP provides a fully persistent, server-side validated Shopping Cart and Free Checkout subsystem that seamlessly extends the existing E-commerce Product Publishing and Public Catalogue functionality.
+
+Key principles enforced by the architecture:
+1. **Persistent Cart Storage:** Every cart and cart line is stored in SQL Server via EF Core (`EcommerceCarts` and `EcommerceCartLines`), isolated by `TenantId` and Selling `CompanyId`.
+2. **Dual Identity Support:** Supports both unauthenticated/anonymous storefront visitors (via persistent session token in `X-Cart-Session-Id` header) and authenticated B2B customer users (via `ICurrentCustomerContext`).
+3. **Session-to-Customer Merging:** When an anonymous visitor logs into the Customer Portal, their active session cart is automatically linked to their authenticated `CustomerId`.
+4. **Untrusted Client Pricing:** Cart lines persist strictly requested quantities, product IDs, UOMs, and packaging IDs. Client prices are **never trusted**. All unit prices, discounts, and taxes are evaluated dynamically server-side via `IPricingResolutionService` and `TaxCodeRepository`.
+5. **Free Checkout (Zero Payment Overhead):** Free checkout creates an authoritative ERP `SalesOrder` in `Draft` status via `ISalesOrderService`. Zero payment gateway, zero mock payments, and zero dummy transaction records are introduced.
+6. **Idempotency & Concurrency Protection:** Every checkout request accepts an `IdempotencyKey`. Repeated or concurrent submissions with the same key return the existing order details without duplicate order creation.
+
+### 20.2 Persistent Shopping Cart Domain Model
+
+#### `EcommerceCart` (`Backend/ERP/Domain/Features/Ecommerce/EcommerceCart.cs`)
+- **Key & Scoping:** `Id` (Guid, PK), `TenantId` (Guid, `ITenantScopedEntity`), `CompanyId` (Guid, `ICompanyScopedEntity`).
+- **Owner Identity:** `CustomerId` (Guid?, FK to `Customers`), `CustomerContactId` (Guid?), `SessionId` (string?, max 128 chars).
+- **Status & Lifecycle:** `Status` (`Active = 1`, `CheckedOut = 2`, `Abandoned = 3`).
+- **Checkout & Idempotency:** `SalesOrderId` (Guid?, FK to `SalesOrders`), `IdempotencyKey` (string?, max 128 chars), `CheckoutAttemptedAtUtc` (DateTime?).
+- **Audit:** `CreatedAtUtc`, `UpdatedAtUtc`, `Auditable` base fields.
+- **Collection:** `Lines` (`IReadOnlyCollection<EcommerceCartLine>`).
+
+#### `EcommerceCartLine` (`Backend/ERP/Domain/Features/Ecommerce/EcommerceCartLine.cs`)
+- **Key & Ownership:** `Id` (Guid, PK), `CartId` (Guid, FK to `EcommerceCarts`, cascade delete).
+- **Product & Measure:** `ProductId` (Guid, FK to `Products`), `UnitOfMeasureId` (Guid?, FK to `UnitsOfMeasure`), `ProductPackagingId` (Guid?, FK to `ProductPackagings`).
+- **Quantity:** `Quantity` (`decimal(18,4)`, strictly > 0).
+- **Audit:** `CreatedAtUtc`, `UpdatedAtUtc`.
+
+### 20.3 Server-Side Dynamic Pricing & Tax Evaluation
+- Prices are evaluated in real-time on cart retrieval (`GetCartAsync`), add-to-cart (`AddToCartAsync`), and checkout (`CheckoutAsync`).
+- For authenticated customers, `PricingResolutionService.ResolveSalesPriceAsync` checks the customer's assigned `DefaultSalesPriceCardId`.
+- If no price card exists, pricing falls back to `Product.SellingPrice` with automated UOM unit conversion where applicable.
+- For anonymous visitors, prices are evaluated against the default walk-in customer profile (`CUST-WALKIN`) or product master selling price.
+- Active sales tax codes are dynamically applied from `DomainDbContext.TaxCodes` where `Applicability == TaxApplicability.Sales`.
+
+### 20.4 Free Checkout Workflow & Sales Order Integration
+Checkout coordinates with authoritative domain services:
+1. **Cart Validation:** Ensures cart exists, is `Active`, and has non-zero line items.
+2. **Catalog Validation:** Re-verifies that every product in the cart is currently active, sellable, and published for the Selling Company (`EcommerceProduct.IsPublished == true`).
+3. **Selling Company & Branch Resolution:** Resolves active Selling Company currency and selects the default active Branch (e.g. `MAIN` or `HQ`).
+4. **Customer Resolution:**
+   - Authenticated portal customer uses verified `CustomerId`.
+   - Anonymous visitor resolves tenant walk-in cash customer (`CUST-WALKIN`).
+5. **Delivery Address Validation:** Validates normalized `CustomerAddress` or `Address` records belonging to the customer.
+6. **Order Number Generation:** Formats distinct, human-readable ERP order number (e.g. `SO-WEB-{yyyyMMdd}-{hash}`).
+7. **Sales Order Creation:** Passes `CreateSalesOrderRequest` to `ISalesOrderService.CreateOrderAsync`, generating an ERP `SalesOrder` in `Draft` status.
+8. **Cart Finalization:** Transitions cart to `Status = CheckedOut`, sets `SalesOrderId`, and persists `IdempotencyKey`.
+
+### 20.5 API Specifications (`/api/ecommerce/cart`)
+Protected by `[AllowAnonymous]` with automatic detection of authenticated customer portal tokens:
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/ecommerce/cart?companyId={id}` | Retrieves active cart with server-calculated prices, line totals, and grand total. |
+| `POST` | `/api/ecommerce/cart/items?companyId={id}` | Adds or increments product quantity in cart. Validates publication status. |
+| `PUT` | `/api/ecommerce/cart/items/{lineId}?companyId={id}` | Updates line quantity. Quantity `<= 0` removes the item. |
+| `DELETE` | `/api/ecommerce/cart/items/{lineId}?companyId={id}` | Removes a specific item from the cart. |
+| `DELETE` | `/api/ecommerce/cart?companyId={id}` | Clears all items from the cart. |
+| `POST` | `/api/ecommerce/cart/checkout?companyId={id}` | Executes free checkout, creates Draft Sales Order, and checks out cart. |
+
+### 20.6 Database Migration Status `[Verified Applied on Development]`
+- **Migration Name:** `AddEcommerceCartAndCheckout`
+- **Migration ID & File:** `20261120103052_AddEcommerceCartAndCheckout.cs` in `Backend/ERP/Domain/Migrations/`
+- **Database Backup:** `z:\ERP\DatabaseBackups\DomainDB_Pre_EcommerceCart.bak` verified with `RESTORE VERIFYONLY` prior to execution.
+- **Target Database:** `(localdb)\MSSQLLocalDB` / `DomainDB`.
+- **Tables Created:**
+  - `dbo.EcommerceCarts` (16 columns, indexes on `(TenantId, CompanyId, Status)`, `(TenantId, CustomerId, Status)`, `(TenantId, SessionId, Status)`, `(TenantId, CompanyId, IdempotencyKey)`).
+  - `dbo.EcommerceCartLines` (8 columns, indexes on `CartId`, `(CartId, ProductId)`, `ProductId`, `ProductPackagingId`, `UnitOfMeasureId`).
+- **Referential Integrity:** Cascading delete from Cart to CartLines; restrictive foreign keys to Companies, Customers, Products, UOMs, and ProductPackagings; SetNull on SalesOrderId.
+
+### 20.7 Automated Test Coverage
+Twenty-eight automated unit and integration tests passing in `ERP.SecurityTests.Ecommerce`:
+- `EcommerceCartServiceTests`: 9 tests covering published item adding, unpublished rejection, non-sellable rejection, quantity updates, zero-quantity removal, line removal, clearing, customer association merging, and dynamic pricing resolution.
+- `EcommerceCheckoutTests`: 6 tests covering checkout draft creation, idempotency key deduplication, empty cart rejection, unpublished item detection at checkout, anonymous walk-in customer assignment, and authenticated B2B customer address preservation.
+- `EcommerceProductPublishingTests`: 13 existing publication tests all passing.
+- **Total Test Suite Result: 28/28 passed with 0 failures.**
+
