@@ -33,6 +33,11 @@ public class CreatePurchaseOrderRequest
     public DateTime? OrderDate { get; set; }
 
     /// <summary>
+    /// Optional source Purchase Requisition reference for route exclusivity validation.
+    /// </summary>
+    public Guid? PurchaseRequisitionId { get; set; }
+
+    /// <summary>
     /// Optional currency override. When omitted the supplier's default currency is used.
     /// The value must match an existing active Currency.CurrencyCode for the tenant.
     /// </summary>

@@ -9,9 +9,18 @@ public class PermissionAuthorizationHandler
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
+        var portalType = context.User.FindFirst("portal_type")?.Value;
+        bool isCustomerPortal = string.Equals(portalType, "CUSTOMER", StringComparison.OrdinalIgnoreCase);
+
         var permissions = requirement.Permission.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var permission in permissions)
         {
+            // Customer portal tokens are strictly partitioned from internal employee permissions
+            if (isCustomerPortal && !permission.StartsWith("PORTAL_", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (context.User.HasClaim("permission", permission))
             {
                 context.Succeed(requirement);

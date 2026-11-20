@@ -136,6 +136,22 @@ public static class PermissionCatalogue
         AddTenant(permissions, "PRODUCT.SOFT_DELETE", "Soft Delete Product", "Product",
             "Allows soft deleting products.");
 
+        // =========================
+        // E-commerce product publishing
+        // =========================
+        AddTenant(permissions, "ECOMMERCE_PRODUCT.VIEW", "View E-commerce Publications", "Ecommerce",
+            "Allows viewing company e-commerce product publications.");
+        AddTenant(permissions, "ECOMMERCE_PRODUCT.CREATE", "Create E-commerce Publication", "Ecommerce",
+            "Allows selecting an ERP product to create an e-commerce publication.");
+        AddTenant(permissions, "ECOMMERCE_PRODUCT.EDIT", "Edit E-commerce Publication", "Ecommerce",
+            "Allows updating online description and display order for an e-commerce publication.");
+        AddTenant(permissions, "ECOMMERCE_PRODUCT.PUBLISH", "Publish E-commerce Product", "Ecommerce",
+            "Allows publishing an eligible ERP product to the public e-commerce catalogue.");
+        AddTenant(permissions, "ECOMMERCE_PRODUCT.UNPUBLISH", "Unpublish E-commerce Product", "Ecommerce",
+            "Allows unpublishing a product to remove it from public visibility.");
+        AddTenant(permissions, "ECOMMERCE_PRODUCT.DELETE", "Delete E-commerce Publication", "Ecommerce",
+            "Allows deleting an e-commerce publication record.");
+
         AddTenant(permissions, "CATEGORY.VIEW", "View Category", "Category",
             "Allows viewing product categories.");
         AddTenant(permissions, "CATEGORY.CREATE", "Create Category", "Category",
@@ -437,6 +453,21 @@ public static class PermissionCatalogue
             "Allows confirming or approving sales orders.");
         AddTenant(permissions, "SALES_ORDER.CANCEL", "Cancel Sales Order", "SalesOrder",
             "Allows cancelling sales orders.");
+
+        AddTenant(permissions, "SALES_QUOTATION.VIEW", "View Sales Quotation", "SalesQuotation",
+            "Allows viewing sales quotations.");
+        AddTenant(permissions, "SALES_QUOTATION.CREATE", "Create Sales Quotation", "SalesQuotation",
+            "Allows creating sales quotations and quotation requests.");
+        AddTenant(permissions, "SALES_QUOTATION.EDIT", "Edit Sales Quotation", "SalesQuotation",
+            "Allows editing sales quotation drafts.");
+        AddTenant(permissions, "SALES_QUOTATION.DELETE", "Delete Sales Quotation", "SalesQuotation",
+            "Allows deleting sales quotation drafts.");
+        AddTenant(permissions, "SALES_QUOTATION.SUBMIT", "Submit Sales Quotation", "SalesQuotation",
+            "Allows submitting sales quotations for managerial approval.");
+        AddTenant(permissions, "SALES_QUOTATION.CONFIRM", "Approve/Reject Sales Quotation", "SalesQuotation",
+            "Allows approving or rejecting sales quotations.");
+        AddTenant(permissions, "SALES_QUOTATION.CANCEL", "Cancel Sales Quotation", "SalesQuotation",
+            "Allows cancelling sales quotations.");
 
         AddTenant(permissions, "SALES_SHIPMENT.VIEW", "View Sales Shipment", "SalesShipment",
             "Allows viewing sales shipments.");

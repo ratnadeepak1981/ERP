@@ -309,4 +309,17 @@ export class RfqService {
       .post<ApiResponse<SubmitQuotationResultDto>>(url, request, { params })
       .pipe(map(res => res.data));
   }
+
+  validatePoCreation(
+    companyId: string,
+    branchId: string,
+    rfqId: string,
+    quotationId: string
+  ): Observable<{ canProceed: boolean; message?: string }> {
+    return this.http
+      .get<ApiResponse<{ canProceed: boolean; message?: string }>>(
+        this.buildPath(companyId, branchId, `/${rfqId}/quotations/${quotationId}/validate-po`)
+      )
+      .pipe(map(res => res.data));
+  }
 }

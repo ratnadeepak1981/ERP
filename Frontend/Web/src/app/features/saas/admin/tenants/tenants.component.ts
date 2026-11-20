@@ -140,6 +140,7 @@ export class TenantsComponent implements OnInit {
   readonly columns: TableColumn<TenantDirectoryRecord>[] = [
     { field: 'code', header: 'Tenant Code', width: '130px', sortable: true },
     { field: 'name', header: 'Organization Name', width: '220px', sortable: true },
+    { field: 'subdomain', header: 'Subdomain', width: '140px', sortable: true },
     { field: 'planName', header: 'Subscription Plan', width: '170px', sortable: true },
     { field: 'storageMode', header: 'Storage Mode', width: '150px' },
     {

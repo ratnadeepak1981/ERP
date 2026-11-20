@@ -18,6 +18,15 @@ namespace Security.Interfaces
             IEnumerable<string> permissions,
             TimeSpan? lifetime = null);
 
+        string GenerateCustomerAccessToken(
+            Guid userId,
+            string username,
+            Guid tenantId,
+            Guid customerId,
+            Guid contactId,
+            IEnumerable<string> roles,
+            IEnumerable<string> permissions);
+
         string GenerateRefreshToken();
 
         string HashToken(string token);

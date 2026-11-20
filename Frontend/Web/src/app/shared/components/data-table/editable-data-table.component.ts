@@ -315,6 +315,12 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     return col.editable === true;
   }
 
+  isCellEditable(row: T, col: DataTableColumn<T>): boolean {
+    if (!this.isColumnEditable(col)) return false;
+    if (col.isCellEditable && !col.isCellEditable(row)) return false;
+    return true;
+  }
+
   isNumericColumn(col: DataTableColumn<T>): boolean {
     const t = col.type;
     const e = col.editType;
@@ -330,14 +336,14 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
 
   // Click-to-edit management
   isCellEditing(row: T, col: DataTableColumn<T>): boolean {
-    if (!this.isColumnEditable(col)) return false;
+    if (!this.isCellEditable(row, col)) return false;
     const active = this.activeEditCell();
     if (!active) return false;
     return active.rowKey === this.getRowKey(row) && active.field === String(col.field);
   }
 
   startEditing(row: T, col: DataTableColumn<T>, event?: Event): void {
-    if (!this.isColumnEditable(col)) return;
+    if (!this.isCellEditable(row, col)) return;
     if (event) {
       event.stopPropagation();
     }
@@ -569,7 +575,7 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
     }
 
     this.isNavigatingCells = true;
-    const editableCols = this.visibleColumns().filter(c => this.isColumnEditable(c));
+    const editableCols = this.visibleColumns().filter(c => this.isCellEditable(row, c));
     if (editableCols.length === 0) {
       this.stopEditing();
       this.isNavigatingCells = false;
@@ -586,7 +592,12 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
       } else {
         if (currRowIdx > 0) {
           const prevRow = this.workingData()[currRowIdx - 1];
-          this.startEditing(prevRow, editableCols[editableCols.length - 1]);
+          const prevCols = this.visibleColumns().filter(c => this.isCellEditable(prevRow, c));
+          if (prevCols.length > 0) {
+            this.startEditing(prevRow, prevCols[prevCols.length - 1]);
+          } else {
+            this.stopEditing();
+          }
         } else {
           this.stopEditing();
         }
@@ -598,7 +609,12 @@ export class AppEditableDataTableComponent<T extends Record<string, any> = Recor
       } else {
         if (currRowIdx < this.workingData().length - 1) {
           const nextRow = this.workingData()[currRowIdx + 1];
-          this.startEditing(nextRow, editableCols[0]);
+          const nextCols = this.visibleColumns().filter(c => this.isCellEditable(nextRow, c));
+          if (nextCols.length > 0) {
+            this.startEditing(nextRow, nextCols[0]);
+          } else {
+            this.stopEditing();
+          }
         } else if (this.allowAddRow && !this.readonly) {
           this.addNewRow('end');
         } else {
