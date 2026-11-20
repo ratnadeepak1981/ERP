@@ -120,6 +120,7 @@ export interface CreatePurchaseOrderRequest {
   orderDate?: string;
   currency?: string | null;
   priceCardId?: string | null;
+  purchaseRequisitionId?: string | null;
   items: CreatePurchaseOrderItemRequest[];
 }
 

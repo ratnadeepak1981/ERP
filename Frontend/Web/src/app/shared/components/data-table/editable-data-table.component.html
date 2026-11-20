@@ -210,16 +210,16 @@
 
               @for (col of visibleColumns(); track col.field) {
                 <td
-                  [class.editable-cell]="isColumnEditable(col)"
+                  [class.editable-cell]="isCellEditable(row, col)"
                   [class.is-editing]="isCellEditing(row, col)"
-                  [class.readonly-cell]="!isColumnEditable(col)"
+                  [class.readonly-cell]="!isCellEditable(row, col)"
                   [class.calculated-cell]="col.type === 'calculated' || col.isCalculated"
                   [class.has-error]="getFieldError(row, getFieldKey(col))"
                   [style.textAlign]="col.align || 'left'"
                   (click)="startEditing(row, col, $event)"
                 >
                   <!-- Active Cell Editor (Shown ONLY when cell is clicked / active) -->
-                  @if (isColumnEditable(col) && isCellEditing(row, col)) {
+                  @if (isCellEditable(row, col) && isCellEditing(row, col)) {
                     <div class="cell-editor-container" (click)="$event.stopPropagation()">
                       @if ((col.editType === 'lookup' && col.lookupOptions) || (col.editType === 'select' && (col.editOptions || col.getEditOptions)) || col.type === 'select' || col.type === 'lookup') {
                         <app-table-select-editor
@@ -299,7 +299,7 @@
                     </div>
                   } @else {
                     <!-- Cell Display Mode (Standard text, formatted currency/badge, click to edit) -->
-                    <div class="cell-display-container" [class.clickable]="isColumnEditable(col)" [title]="isColumnEditable(col) ? 'Click to edit' : ''">
+                    <div class="cell-display-container" [class.clickable]="isCellEditable(row, col)" [title]="isCellEditable(row, col) ? 'Click to edit' : (col.editable ? 'Price locked to awarded quotation' : '')">
                       @if (col.cellTemplate) {
                         <ng-container *ngTemplateOutlet="col.cellTemplate; context: { $implicit: row[col.field], row: row, col: col }"></ng-container>
                       } @else if (col.type === 'badge') {
@@ -313,12 +313,14 @@
                         </span>
                       } @else {
                         <span class="cell-text-value" [class.font-mono]="col.field === 'productCode' || col.field === 'lineId'">
-                          {{ formatValue(col, row) || (isColumnEditable(col) ? '—' : '') }}
+                          {{ formatValue(col, row) || (isCellEditable(row, col) ? '—' : '') }}
                         </span>
                       }
 
-                      @if (isColumnEditable(col)) {
+                      @if (isCellEditable(row, col)) {
                         <i class="pi pi-pencil cell-edit-indicator" aria-hidden="true"></i>
+                      } @else if (col.editable) {
+                        <i class="pi pi-lock cell-lock-indicator" style="font-size: 0.72rem; color: #64748b; margin-left: 4px;" title="Locked to awarded quotation price" aria-hidden="true"></i>
                       }
                     </div>
 

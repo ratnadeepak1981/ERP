@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using API.Common;
 using API.Security.Authorization;
 using Domain.Features.Procurement.RequestForQuotation;
+using Domain.Features.Procurement.Route;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using SaaS.Application.Interfaces;
@@ -22,17 +23,20 @@ public class RequestForQuotationController : BaseApiController
     private readonly ISupplierQuotationService _quotationService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+    private readonly IProcurementRouteService? _routeService;
 
     public RequestForQuotationController(
         IRFQService rfqService,
         ISupplierQuotationService quotationService,
         ICurrentUserContext currentUserContext,
-        IUserAccessService userAccessService)
+        IUserAccessService userAccessService,
+        IProcurementRouteService? routeService = null)
     {
         _rfqService = rfqService;
         _quotationService = quotationService;
         _currentUserContext = currentUserContext;
         _userAccessService = userAccessService;
+        _routeService = routeService;
     }
 
     [HttpGet]
@@ -70,7 +74,10 @@ public class RequestForQuotationController : BaseApiController
         // Quotation commercial data is permission-controlled separately from the RFQ header.
         if (!CanViewQuotations())
         {
-            rfq.Quotations = new List<SupplierQuotationDto>();
+            // If the RFQ is already Awarded, retain the approved winning quotation so downstream PO generation can proceed.
+            rfq.Quotations = rfq.Quotations
+                .Where(q => q.Status == SupplierQuotationStatus.Approved)
+                .ToList();
         }
 
         return SuccessResponse(rfq);
@@ -360,8 +367,47 @@ public class RequestForQuotationController : BaseApiController
         return SuccessResponse(result);
     }
 
+    [HttpGet("{id:guid}/quotations/{quotationId:guid}/validate-po")]
+    [RequirePermission("PURCHASE_ORDER.CREATE")]
+    public async Task<IActionResult> ValidateAwardPo(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        Guid quotationId,
+        CancellationToken ct = default)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        if (_routeService == null)
+            return StatusCode(500, "Procurement route service is not configured.");
+
+        try
+        {
+            await _routeService.ValidateRfqAwardPoRouteAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id,
+                quotationId,
+                ct);
+
+            return SuccessResponse(new { eligible = true });
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     private bool CanViewQuotations() =>
-        User.HasClaim("permission", "RFQ.QUOTATION.VIEW");
+        User.HasClaim("permission", "RFQ.QUOTATION.VIEW") ||
+        User.HasClaim("permission", "RFQ.VIEW") ||
+        User.HasClaim("permission", "RFQ.AWARD") ||
+        User.HasClaim("permission", "PURCHASE_ORDER.CREATE") ||
+        User.IsInRole("TenantAdmin") ||
+        User.IsInRole("PlatformAdmin") ||
+        _currentUserContext.IsPlatformUser;
 
     private async Task<(IActionResult? Action, Guid TenantId)> ValidateScopeAccess(
         Guid companyId,

@@ -149,7 +149,8 @@ public static class StandardRoleTemplates
                     SupplierPermissions(),
                     CustomerPermissions(),
                     SupplierPricePermissions(),
-                    PriceCardPermissions())),
+                    PriceCardPermissions(),
+                    EcommercePermissions())),
 
             new(
                 "PRODUCT_CATEGORY_OFFICER",
@@ -161,6 +162,7 @@ public static class StandardRoleTemplates
                     CataloguePermissions(),
                     BrandPermissions(),
                     BatchPermissions(),
+                    EcommercePermissions(),
                     new[] { "UOM.VIEW", "COUNTRY.VIEW" })),
 
             new(
@@ -331,6 +333,7 @@ public static class StandardRoleTemplates
                 CurrentVersion,
                 Combine(
                     SalesOrderPermissions(),
+                    SalesQuotationPermissions(),
                     SalesShipmentPermissions(),
                     SalesInvoicePermissions(),
                     new[]
@@ -347,6 +350,8 @@ public static class StandardRoleTemplates
                 {
                     "SALES_ORDER.VIEW", "SALES_ORDER.CREATE", "SALES_ORDER.EDIT",
                     "SALES_ORDER.DELETE", "SALES_ORDER.SUBMIT", "SALES_ORDER.CANCEL",
+                    "SALES_QUOTATION.VIEW", "SALES_QUOTATION.CREATE", "SALES_QUOTATION.EDIT",
+                    "SALES_QUOTATION.DELETE", "SALES_QUOTATION.SUBMIT", "SALES_QUOTATION.CANCEL",
                     "SALES_SHIPMENT.VIEW", "SALES_SHIPMENT.CREATE", "SALES_SHIPMENT.EDIT",
                     "SALES_SHIPMENT.DISPATCH", "SALES_SHIPMENT.DELIVER", "SALES_SHIPMENT.CANCEL",
                     "SALES_INVOICE.VIEW", "SALES_INVOICE.CREATE", "SALES_INVOICE.EDIT",
@@ -404,6 +409,12 @@ public static class StandardRoleTemplates
     private static string[] BatchPermissions() => new[]
     {
         "BATCH.VIEW", "BATCH.CREATE", "BATCH.EDIT"
+    };
+
+    private static string[] EcommercePermissions() => new[]
+    {
+        "ECOMMERCE_PRODUCT.VIEW", "ECOMMERCE_PRODUCT.CREATE", "ECOMMERCE_PRODUCT.EDIT",
+        "ECOMMERCE_PRODUCT.PUBLISH", "ECOMMERCE_PRODUCT.UNPUBLISH", "ECOMMERCE_PRODUCT.DELETE"
     };
 
     private static string[] UomPermissions() => new[]
@@ -495,6 +506,12 @@ public static class StandardRoleTemplates
     {
         "SALES_ORDER.VIEW", "SALES_ORDER.CREATE", "SALES_ORDER.EDIT", "SALES_ORDER.DELETE",
         "SALES_ORDER.SUBMIT", "SALES_ORDER.CONFIRM", "SALES_ORDER.CANCEL"
+    };
+
+    private static string[] SalesQuotationPermissions() => new[]
+    {
+        "SALES_QUOTATION.VIEW", "SALES_QUOTATION.CREATE", "SALES_QUOTATION.EDIT", "SALES_QUOTATION.DELETE",
+        "SALES_QUOTATION.SUBMIT", "SALES_QUOTATION.CONFIRM", "SALES_QUOTATION.CANCEL"
     };
 
     private static string[] SalesShipmentPermissions() => new[]

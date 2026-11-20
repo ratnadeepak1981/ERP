@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetection
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin, of, catchError } from 'rxjs';
 import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AppDataTableComponent } from '../../../../shared/components/data-table/data-table.component';
 import { AppLoadingStateComponent } from '../../../../shared/components/loading-state/loading-state.component';
@@ -16,6 +16,8 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import {
   PurchaseRequisitionDto,
   PurchaseRequisitionStatus,
+  ProcurementRouteStatusDto,
+  ProcurementRouteType,
   getPurchaseRequisitionStatusName,
   getPurchaseRequisitionStatusSeverity
 } from '../../../../core/models/purchase-requisition.models';
@@ -69,6 +71,7 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
 
   // Data Signals
   readonly requisitions = signal<PurchaseRequisitionDto[]>([]);
+  readonly routeStatusMap = signal<Map<string, ProcurementRouteStatusDto>>(new Map());
 
   // Search & Filter State
   readonly searchTerm = signal<string>('');
@@ -160,7 +163,7 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
       {
         field: 'id',
         header: 'Actions',
-        width: '280px',
+        width: '320px',
         type: 'actions'
       }
     );
@@ -210,8 +213,8 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
       label: 'Create PO',
       icon: 'pi pi-shopping-cart',
       severity: 'primary',
-      visible: (row: PurchaseRequisitionDto) => this.isStatus(row, PurchaseRequisitionStatus.Approved),
-      disabled: () => !(this.authService.hasPermission('PURCHASE_ORDER.CREATE') || this.authService.isTenantAdmin()),
+      visible: (row: PurchaseRequisitionDto) => this.canShowCreatePo(row),
+      disabled: (row: PurchaseRequisitionDto) => !this.canCreatePo(row),
       action: (row: PurchaseRequisitionDto) => {
         if (this.router) {
           this.router.navigate(['/app/procurement/purchase-orders/new'], {
@@ -222,6 +225,32 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
           });
         }
       }
+    },
+    {
+      id: 'create-rfq',
+      label: 'Create RFQ',
+      icon: 'pi pi-file-edit',
+      severity: 'secondary',
+      visible: (row: PurchaseRequisitionDto) => this.canShowCreateRfq(row),
+      disabled: (row: PurchaseRequisitionDto) => !this.canCreateRfq(row),
+      action: (row: PurchaseRequisitionDto) => {
+        if (this.router) {
+          this.router.navigate(['/app/procurement/rfqs/new'], {
+            queryParams: {
+              purchaseRequisitionId: row.id,
+              branchId: row.branchId
+            }
+          });
+        }
+      }
+    },
+    {
+      id: 'view-rfq',
+      label: 'View RFQ',
+      icon: 'pi pi-external-link',
+      severity: 'info',
+      visible: (row: PurchaseRequisitionDto) => this.hasLinkedRfq(row),
+      action: (row: PurchaseRequisitionDto) => this.navigateToLinkedRfq(row)
     },
     {
       id: 'cancel',
@@ -324,6 +353,7 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.isAccessDenied.set(false);
         this.requisitions.set(data);
+        this.loadRouteStatuses(company.id, branchId, data);
       },
       error: err => {
         this.loading.set(false);
@@ -336,6 +366,108 @@ export class PurchaseRequisitionComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  private loadRouteStatuses(companyId: string, branchId: string, data: PurchaseRequisitionDto[]): void {
+    const approved = (data || []).filter(r => Number(r.status) === PurchaseRequisitionStatus.Approved);
+    if (approved.length === 0) {
+      this.routeStatusMap.set(new Map());
+      return;
+    }
+
+    const requests = approved.map(r =>
+      this.prService.getRouteStatus(companyId, branchId, r.id).pipe(
+        catchError(() => of(null))
+      )
+    );
+
+    forkJoin(requests).subscribe(results => {
+      const map = new Map<string, ProcurementRouteStatusDto>();
+      for (const res of results) {
+        if (res && res.requisitionId) {
+          map.set(String(res.requisitionId).toLowerCase(), res);
+        }
+      }
+      this.routeStatusMap.set(map);
+    });
+  }
+
+  private isRouteDirectPo(route: ProcurementRouteType | string | number | undefined): boolean {
+    const val = String(route ?? '');
+    return val === '1' || val === 'DirectPO' || (route as any) === ProcurementRouteType.DirectPO;
+  }
+
+  private isRouteRfq(route: ProcurementRouteType | string | number | undefined): boolean {
+    const val = String(route ?? '');
+    return val === '2' || val === 'RFQ' || (route as any) === ProcurementRouteType.RFQ;
+  }
+
+  canShowCreatePo(row: PurchaseRequisitionDto): boolean {
+    if (!this.isStatus(row, PurchaseRequisitionStatus.Approved)) {
+      return false;
+    }
+    const status = this.routeStatusMap().get((row.id || '').toLowerCase());
+    if (status) {
+      // If RFQ has been generated, HIDE the Create PO button!
+      if (this.isRouteRfq(status.selectedRoute) || status.linkedRfq != null || (status.linkedRfqs && status.linkedRfqs.length > 0)) {
+        return false;
+      }
+      return (status.canCreateDirectPo ?? status.canCreateDirectPO ?? true);
+    }
+    return true;
+  }
+
+  canCreatePo(row: PurchaseRequisitionDto): boolean {
+    const hasPerm = this.authService.hasPermission('PURCHASE_ORDER.CREATE') || this.authService.isTenantAdmin();
+    if (!hasPerm) return false;
+    const status = this.routeStatusMap().get((row.id || '').toLowerCase());
+    if (status) {
+      return (status.canCreateDirectPo ?? status.canCreateDirectPO ?? true);
+    }
+    return true;
+  }
+
+  canShowCreateRfq(row: PurchaseRequisitionDto): boolean {
+    if (!this.isStatus(row, PurchaseRequisitionStatus.Approved)) {
+      return false;
+    }
+    const status = this.routeStatusMap().get((row.id || '').toLowerCase());
+    if (status) {
+      // If Direct PO has been generated, HIDE the Create RFQ button!
+      if (this.isRouteDirectPo(status.selectedRoute) || (status.linkedPurchaseOrders && status.linkedPurchaseOrders.length > 0)) {
+        return false;
+      }
+      // If RFQ has already been generated, hide the Create RFQ button (use View RFQ)
+      if (this.isRouteRfq(status.selectedRoute) || status.linkedRfq != null || (status.linkedRfqs && status.linkedRfqs.length > 0)) {
+        return false;
+      }
+      return (status.canCreateRfq ?? status.canCreateRFQ ?? true);
+    }
+    return true;
+  }
+
+  canCreateRfq(row: PurchaseRequisitionDto): boolean {
+    const hasPerm = this.authService.hasPermission('RFQ.CREATE') || this.authService.isTenantAdmin();
+    if (!hasPerm) return false;
+    const status = this.routeStatusMap().get((row.id || '').toLowerCase());
+    if (status) {
+      return (status.canCreateRfq ?? status.canCreateRFQ ?? true);
+    }
+    return true;
+  }
+
+  hasLinkedRfq(row: PurchaseRequisitionDto): boolean {
+    if (!this.isStatus(row, PurchaseRequisitionStatus.Approved)) return false;
+    const status = this.routeStatusMap().get((row.id || '').toLowerCase());
+    return !!(status && (status.linkedRfq != null || (status.linkedRfqs && status.linkedRfqs.length > 0)));
+  }
+
+  navigateToLinkedRfq(row: PurchaseRequisitionDto): void {
+    const status = this.routeStatusMap().get((row.id || '').toLowerCase());
+    const rfqId = status?.linkedRfq?.id || status?.linkedRfqs?.[0]?.rfqId || status?.linkedRfqs?.[0]?.id;
+    if (rfqId && this.router) {
+      this.router.navigate(['/app/procurement/rfqs', rfqId]);
+    }
   }
 
   // Navigation methods
