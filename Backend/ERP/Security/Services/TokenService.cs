@@ -92,6 +92,55 @@ public class TokenService : ITokenService
             .WriteToken(token);
     }
 
+    public string GenerateCustomerAccessToken(
+        Guid userId,
+        string username,
+        Guid tenantId,
+        Guid customerId,
+        Guid contactId,
+        IEnumerable<string> roles,
+        IEnumerable<string> permissions)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(ClaimTypes.Name, username),
+            new("tenant_id", tenantId.ToString()),
+            new("customer_id", customerId.ToString()),
+            new("contact_id", contactId.ToString()),
+            new("portal_type", "CUSTOMER")
+        };
+
+        if (username.Contains('@'))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, username));
+        }
+
+        claims.AddRange(
+            roles.Select(role =>
+                new Claim(ClaimTypes.Role, role)));
+
+        claims.AddRange(
+            permissions.Select(permission =>
+                new Claim("permission", permission)));
+
+        var credentials = new SigningCredentials(
+            new RsaSecurityKey(_rsa),
+            SecurityAlgorithms.RsaSha256);
+
+        int lifetimeMinutes = GetAccessTokenLifetimeMinutes();
+
+        var token = new JwtSecurityToken(
+            issuer: "CSharpAuthServer",
+            audience: "ERP",
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(lifetimeMinutes),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler()
+            .WriteToken(token);
+    }
+
     // Explicit allowlist for service-to-service machine tokens
     private static readonly HashSet<string> AllowedServiceRoles = new(StringComparer.OrdinalIgnoreCase)
     {

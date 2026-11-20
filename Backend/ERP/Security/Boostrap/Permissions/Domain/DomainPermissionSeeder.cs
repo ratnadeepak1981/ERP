@@ -24,10 +24,12 @@ public static class DomainPermissionSeeder
         await Security.Bootstrap.Permissions.Domain.CountryPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.CrmPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.SalesOrderPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.SalesQuotationPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.SalesShipmentPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.SalesInvoicePermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.BatchPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.StockCountPermissionSeed.SeedAsync(repository);
         await Security.Bootstrap.Permissions.Domain.RfqPermissionSeed.SeedAsync(repository);
+        await Security.Bootstrap.Permissions.Domain.EcommerceProductPermissionSeed.SeedAsync(repository);
     }
 }

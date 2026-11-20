@@ -216,6 +216,12 @@ public class DomainDbContext : DbContext
     public DbSet<Domain.Features.Sales.Invoice.SalesInvoiceItem> SalesInvoiceItems
         => Set<Domain.Features.Sales.Invoice.SalesInvoiceItem>();
 
+    public DbSet<Domain.Features.Sales.SalesQuotation.SalesQuotation> SalesQuotations
+        => Set<Domain.Features.Sales.SalesQuotation.SalesQuotation>();
+
+    public DbSet<Domain.Features.Sales.SalesQuotation.SalesQuotationItem> SalesQuotationItems
+        => Set<Domain.Features.Sales.SalesQuotation.SalesQuotationItem>();
+
 
     public DbSet<Domain.Features.Inventory.Putaway.Putaway> Putaways
         => Set<Domain.Features.Inventory.Putaway.Putaway>();
@@ -225,6 +231,9 @@ public class DomainDbContext : DbContext
 
     public DbSet<Domain.Features.Inventory.Putaway.PutawayLineAllocation> PutawayLineAllocations
         => Set<Domain.Features.Inventory.Putaway.PutawayLineAllocation>();
+
+    public DbSet<Domain.Features.Ecommerce.EcommerceProduct> EcommerceProducts
+        => Set<Domain.Features.Ecommerce.EcommerceProduct>();
 
 
 

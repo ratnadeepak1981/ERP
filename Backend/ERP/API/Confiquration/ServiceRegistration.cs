@@ -72,9 +72,30 @@ public static class ServiceRegistration
         services.AddOptions<ERP.Infrastructure.Email.Configuration.SmtpOptions>()
             .Bind(configuration.GetSection(ERP.Infrastructure.Email.Configuration.SmtpOptions.SectionName));
 
+        services.AddOptions<ERP.Infrastructure.Email.Configuration.EmailRetrySettings>()
+            .Bind(configuration.GetSection(ERP.Infrastructure.Email.Configuration.EmailRetrySettings.SectionName))
+            .Validate(settings =>
+            {
+                settings.Validate();
+                return true;
+            }, "Invalid EmailRetrySettings configuration.")
+            .ValidateOnStart();
+
         services.AddSingleton<ERP.Infrastructure.Email.ISmtpClientFactory, ERP.Infrastructure.Email.DefaultSmtpClientFactory>();
         services.AddScoped<ERP.Application.Common.Email.IEmailTemplateEngine, ERP.Infrastructure.Email.Templates.EmailTemplateEngine>();
-        services.AddScoped<ERP.Application.Common.Email.IEmailService, ERP.Infrastructure.Email.MailKitSmtpEmailService>();
+        
+        // Register concrete MailKit transport implementation
+        services.AddScoped<ERP.Infrastructure.Email.MailKitSmtpEmailService>();
+
+        // Register IEmailService decorated with RetryingEmailServiceDecorator
+        services.AddScoped<ERP.Application.Common.Email.IEmailService>(sp =>
+        {
+            var transport = sp.GetRequiredService<ERP.Infrastructure.Email.MailKitSmtpEmailService>();
+            var retrySettings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ERP.Infrastructure.Email.Configuration.EmailRetrySettings>>();
+            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ERP.Infrastructure.Email.RetryingEmailServiceDecorator>>();
+            return new ERP.Infrastructure.Email.RetryingEmailServiceDecorator(transport, retrySettings, logger);
+        });
+
         services.AddScoped<ERP.Application.Features.Procurement.PurchaseOrderFeature.IPurchaseOrderPdfService, ERP.Infrastructure.Pdf.PurchaseOrderPdfService>();
 
         services.AddScoped<Domain.Features.MasterData.Company.ICompanyService, ERP.Application.Features.MasterData.Company.CompanyService>();
@@ -132,6 +153,7 @@ public static class ServiceRegistration
 
         // Sales
         services.AddScoped<Domain.Features.Sales.SalesOrder.ISalesOrderService, ERP.Application.Features.Sales.SalesOrder.SalesOrderService>();
+        services.AddScoped<ERP.Application.Features.Sales.SalesQuotation.ISalesQuotationService, ERP.Application.Features.Sales.SalesQuotation.SalesQuotationService>();
         services.AddScoped<Domain.Features.Sales.Shipment.ISalesShipmentService, ERP.Application.Features.Sales.Shipment.SalesShipmentService>();
         services.AddScoped<Domain.Features.Sales.Invoice.ISalesInvoiceService, ERP.Application.Features.Sales.Invoice.SalesInvoiceService>();
 
@@ -141,6 +163,14 @@ public static class ServiceRegistration
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
         services.AddScoped<PasswordService>();
+
+        // Customer Portal
+        services.AddScoped<API.Features.Portal.Services.ICustomerRegistrationService, API.Features.Portal.Services.CustomerRegistrationService>();
+        services.AddScoped<API.Features.Portal.Services.ICustomerAuthService, API.Features.Portal.Services.CustomerAuthService>();
+        services.AddScoped<API.Features.Portal.Context.ICurrentCustomerContext, API.Features.Portal.Context.CurrentCustomerContext>();
+
+        // E-commerce Product Publishing
+        services.AddScoped<ERP.Application.Features.Ecommerce.IEcommerceProductService, ERP.Application.Features.Ecommerce.EcommerceProductService>();
 
         return services;
     }
