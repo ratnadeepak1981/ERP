@@ -1,3 +1,4 @@
+
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -9,15 +10,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="MailKit">
-      <HintPath>$(UserProfile)\.nuget\packages\mailkit\4.17.0\lib\net8.0\MailKit.dll</HintPath>
-    </Reference>
-    <Reference Include="MimeKit">
-      <HintPath>$(UserProfile)\.nuget\packages\mimekit\4.17.0\lib\net8.0\MimeKit.dll</HintPath>
-    </Reference>
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="MimeKit" Version="4.17.0" />
   </ItemGroup>
 
   <ItemGroup>

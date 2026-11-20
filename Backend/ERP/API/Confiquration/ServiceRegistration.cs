@@ -159,6 +159,12 @@ public static class ServiceRegistration
 
         services.AddHttpContextAccessor();
 
+        // Application URL Resolution Infrastructure
+        services.Configure<Domain.Common.ApplicationUrl.ApplicationUrlOptions>(
+            configuration.GetSection(Domain.Common.ApplicationUrl.ApplicationUrlOptions.SectionName));
+        services.AddScoped<Domain.Common.ApplicationUrl.IHttpRequestOriginAccessor, API.Services.HttpRequestOriginAccessor>();
+        services.AddScoped<Domain.Common.ApplicationUrl.IApplicationUrlService, Domain.Common.ApplicationUrl.ApplicationUrlService>();
+
         services.AddScoped<API.Common.TenantResolution.ITenantContext, API.Common.TenantResolution.TenantContext>();
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
