@@ -27,6 +27,8 @@ public interface ISalesPersistenceCoordinator
 
     Task<Currency> GetActiveCompanyBaseCurrencyAsync(Guid tenantId, Guid companyId);
 
+    void AddShipmentItem(SalesShipmentItem item);
+
     void RemoveShipmentItems(IEnumerable<SalesShipmentItem> items);
 
     void RemoveInvoiceItems(IEnumerable<SalesInvoiceItem> items);

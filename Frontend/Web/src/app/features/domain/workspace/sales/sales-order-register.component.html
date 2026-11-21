@@ -128,6 +128,14 @@
             <button
               type="button"
               class="filter-pill"
+              [class.active]="activeStatusFilter() === 'partially-dispatched'"
+              (click)="activeStatusFilter.set('partially-dispatched')"
+            >
+              <i class="pi pi-truck pill-icon"></i> Partially Dispatched
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
               [class.active]="activeStatusFilter() === 'fulfilled'"
               (click)="activeStatusFilter.set('fulfilled')"
             >

@@ -93,6 +93,10 @@ public class SalesOrderItemDto
 
     public string? Notes { get; set; }
 
+    public decimal DispatchedQuantity { get; set; }
+
+    public decimal OutstandingQuantity { get; set; }
+
     public bool IsActive { get; set; }
 }
 
@@ -167,6 +171,14 @@ public class SalesOrderDto
     public string? DeliveryAddressSnapshot { get; set; }
 
     public bool IsActive { get; set; }
+
+    public decimal TotalOrderedQuantity { get; set; }
+
+    public decimal TotalDispatchedQuantity { get; set; }
+
+    public decimal TotalOutstandingQuantity { get; set; }
+
+    public string? FulfillmentStatus { get; set; }
 
     public List<SalesOrderItemDto> Items { get; set; } = new();
 }

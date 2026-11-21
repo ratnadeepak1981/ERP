@@ -25,7 +25,7 @@ import {
 import { CustomerItem } from '../../../../core/models/scope.models';
 import { DataTableColumn, DataTableAction } from '../../../../shared/models/data-table-config.model';
 
-export type SOStatusFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'fulfilled' | 'cancelled';
+export type SOStatusFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'partially-dispatched' | 'fulfilled' | 'cancelled';
 
 @Component({
   selector: 'app-sales-order-register',
@@ -186,8 +186,9 @@ export class SalesOrderRegisterComponent implements OnInit, OnDestroy {
         const num = Number(o.status);
         if (status === 'draft') return num === SalesOrderStatus.Draft;
         if (status === 'submitted') return num === SalesOrderStatus.Submitted;
-        if (status === 'confirmed') return num === SalesOrderStatus.Confirmed;
-        if (status === 'fulfilled') return num === SalesOrderStatus.Fulfilled;
+        if (status === 'confirmed') return num === SalesOrderStatus.Confirmed && o.fulfillmentStatus !== 'Partially Dispatched';
+        if (status === 'partially-dispatched') return o.fulfillmentStatus === 'Partially Dispatched';
+        if (status === 'fulfilled') return num === SalesOrderStatus.Fulfilled || o.fulfillmentStatus === 'Fulfilled';
         if (status === 'cancelled') return num === SalesOrderStatus.Cancelled || num === SalesOrderStatus.Rejected;
         return true;
       });
@@ -240,12 +241,37 @@ export class SalesOrderRegisterComponent implements OnInit, OnDestroy {
       type: 'currency'
     },
     {
+      field: 'totalDispatchedQuantity',
+      header: 'Dispatched / Ordered',
+      width: '170px',
+      format: (val: any, row?: SalesOrderDto) => {
+        if (!row || Number(row.status) === SalesOrderStatus.Draft) return '-';
+        const ordered = Number(row.totalOrderedQuantity) || 0;
+        const dispatched = Number(row.totalDispatchedQuantity) || 0;
+        if (ordered === 0) return '-';
+        if (dispatched >= ordered) return `100% (${dispatched}/${ordered})`;
+        if (dispatched > 0) {
+          const pct = Math.round((dispatched / ordered) * 100);
+          return `${pct}% (${dispatched}/${ordered})`;
+        }
+        return `0% (0/${ordered})`;
+      }
+    },
+    {
       field: 'status',
       header: 'Status',
       width: '160px',
       type: 'badge',
-      badgeSeverityMap: (val: any) => getSalesOrderStatusSeverity(val),
-      format: (val: any) => getSalesOrderStatusName(val)
+      badgeSeverityMap: (val: any, row?: SalesOrderDto) => {
+        if (row?.fulfillmentStatus === 'Partially Dispatched') return 'warning';
+        return getSalesOrderStatusSeverity(val);
+      },
+      format: (val: any, row?: SalesOrderDto) => {
+        if (row?.fulfillmentStatus === 'Partially Dispatched') {
+          return 'Partially Dispatched';
+        }
+        return getSalesOrderStatusName(val);
+      }
     },
     {
       field: 'id',
@@ -293,8 +319,8 @@ export class SalesOrderRegisterComponent implements OnInit, OnDestroy {
     },
     {
       id: 'dispatch',
-      label: 'Issue Stock',
-      icon: 'pi pi-box',
+      label: 'Dispatch Note',
+      icon: 'pi pi-truck',
       severity: 'success',
       visible: (row: SalesOrderDto) => this.isStatus(row, SalesOrderStatus.Confirmed),
       action: (row: SalesOrderDto) => this.navigateToDispatch(row)
@@ -433,11 +459,9 @@ export class SalesOrderRegisterComponent implements OnInit, OnDestroy {
   }
 
   navigateToDispatch(order: SalesOrderDto): void {
-    this.router.navigate(['/app/inventory/issue-stock/new'], {
+    this.router.navigate(['/app/sales/dispatches/new'], {
       queryParams: {
-        purpose: 'sales',
-        referenceNumber: order.orderNumber,
-        salesOrderId: order.id
+        orderId: order.id
       }
     });
   }

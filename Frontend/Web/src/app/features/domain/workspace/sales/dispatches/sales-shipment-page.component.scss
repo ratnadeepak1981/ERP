@@ -65,333 +65,253 @@
   }
 }
 
-/* Location Availability Section & Banners */
-.location-availability-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  .revalidating-badge {
-    font-size: 12px;
-    color: var(--erp-primary, #0f6cbd);
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-weight: 500;
-  }
-}
-
-.location-banner {
+/* Section Header */
+.section-header {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 14px 18px;
-  border-radius: 6px;
-  border: 1px solid transparent;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: var(--erp-space-4, 16px);
+  flex-wrap: wrap;
 
-  .banner-icon-wrap {
-    font-size: 22px;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
-  .banner-content {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1;
-
-    .banner-title {
-      font-size: 15px;
-      font-weight: 600;
-    }
-
-    .banner-desc {
-      font-size: 13px;
-      line-height: 1.45;
-    }
-  }
-
-  &.location-banner-success {
-    background: #edfcf2;
-    border-color: #bbf7d0;
-    color: #166534;
-
-    .banner-icon {
-      color: #15803d;
-    }
-
-    .selected-location-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 4px;
-      padding: 6px 12px;
-      background: #ffffff;
-      border: 1px solid #86efac;
-      border-radius: 6px;
-      font-weight: 600;
-      color: #14532d;
-      font-size: 13px;
-
-      i {
-        color: #15803d;
-      }
-    }
-  }
-
-  &.location-banner-warning {
-    background: #fffbeb;
-    border-color: #fde68a;
-    color: #92400e;
-
-    .banner-icon {
-      color: #d97706;
-    }
-
-    .alternative-selector-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-top: 8px;
-      max-width: 500px;
-
-      .selector-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #78350f;
-      }
-
-      .location-dropdown {
-        background: #ffffff;
-        font-weight: 500;
-        border-color: #d97706;
-      }
-    }
-
-    .selected-alt-confirmed {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 6px;
-      font-size: 12.5px;
-      color: #15803d;
-      font-weight: 600;
-    }
-  }
-
-  &.location-banner-danger {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #991b1b;
-
-    .banner-icon {
-      color: #dc2626;
-    }
-  }
-}
-
-/* Line Items Container & Table (matching Procurement) */
-.line-items-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
-
-  .line-items-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-
-      .table-subtitle {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--erp-text-main, #1e293b);
-      }
-
-      .item-count-badge {
-        font-size: 12px;
-        padding: 2px 8px;
-        border-radius: 12px;
-        background: var(--erp-bg-muted, #f1f5f9);
-        color: var(--erp-text-muted, #64748b);
-        font-weight: 500;
-      }
-    }
-  }
-}
-
-/* Filter Pills Group (matching goods-receipt-register.component.html) */
-.filter-pills-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  .filter-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    font-size: 12.5px;
-    font-weight: 500;
-    color: var(--erp-text-secondary, #475569);
-    background: var(--erp-bg-secondary, #f1f5f9);
-    border: 1px solid var(--erp-border, #cbd5e1);
-    border-radius: 16px;
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-
-    &:hover {
-      background: var(--erp-bg-hover, #e2e8f0);
-      color: var(--erp-text-main, #0f172a);
-    }
-
-    &.active {
-      background: var(--erp-primary, #0f6cbd);
-      border-color: var(--erp-primary, #0f6cbd);
-      color: #ffffff;
-      font-weight: 600;
-    }
-  }
-}
-
-/* ERP Data Table (matching Procurement standards) */
-.table-scroll-wrapper {
-  overflow-x: auto;
-  border: 1px solid var(--erp-border, #e2e8f0);
-  border-radius: 6px;
-}
-
-.erp-data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  background: var(--erp-bg-surface, #ffffff);
-
-  thead > tr > th {
-    background: var(--erp-bg-secondary, #f8fafc);
-    color: var(--erp-text-secondary, #475569);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--erp-border, #e2e8f0);
-  }
-
-  tbody > tr {
-    transition: background-color 0.15s;
-
-    > td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--erp-border, #f1f5f9);
-      vertical-align: middle;
-      color: var(--erp-text-main, #0f172a);
-    }
-
-    &:hover {
-      background: var(--erp-bg-hover, #f8fafc);
-    }
-
-    &.shortage-row {
-      background-color: #fef2f2;
-
-      &:hover {
-        background-color: #fee2e2;
-      }
-    }
-  }
-
-  .col-idx {
-    color: var(--erp-text-muted, #94a3b8);
-    font-size: 12px;
-  }
-
-  .col-product {
+  .section-title-wrap {
     display: flex;
     flex-direction: column;
     gap: 2px;
 
-    .prod-code {
+    .section-title {
+      margin: 0;
+      font-size: 16px;
       font-weight: 600;
       color: var(--erp-text-main, #0f172a);
     }
 
-    .prod-name {
-      font-size: 12px;
+    .section-desc {
+      margin: 0;
+      font-size: 13px;
       color: var(--erp-text-muted, #64748b);
     }
   }
 
-  .col-num {
-    text-align: right;
-  }
-
-  .shortage-pill {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: #fee2e2;
-    color: #991b1b;
-    font-weight: 700;
-  }
-
-  .zero-shortage {
-    color: var(--erp-text-muted, #94a3b8);
-  }
-
-  .status-pill {
-    display: inline-flex;
+  .header-badges,
+  .table-meta-badges {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-
-    &.status-pill-success {
-      background: #edfcf2;
-      color: #166534;
-    }
-
-    &.status-pill-danger {
-      background: #fee2e2;
-      color: #991b1b;
-    }
+    gap: 8px;
+    flex-wrap: wrap;
   }
 }
 
-/* Document Header Section */
-.section-header {
-  display: flex;
+/* Badges */
+.badge,
+.meta-pill {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--erp-space-3, 12px);
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
 
-  .section-title {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--erp-text-main, #0f172a);
+  &.badge-success {
+    background: #edfcf2;
+    color: #166534;
+    border: 1px solid #bbf7d0;
   }
 
-  .lines-count-badge {
-    font-size: 12px;
-    padding: 2px 8px;
-    border-radius: 10px;
+  &.badge-warning {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+  }
+
+  &.badge-neutral {
     background: var(--erp-bg-muted, #f1f5f9);
-    color: var(--erp-text-muted, #64748b);
-    font-weight: 500;
+    color: var(--erp-text-secondary, #475569);
+    border: 1px solid var(--erp-border, #e2e8f0);
   }
 }
 
+/* Availability & Shortage Management Section */
+.availability-summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shortage-alert-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+
+  .alert-icon-wrap {
+    font-size: 20px;
+    color: #d97706;
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+
+  .alert-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .alert-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .alert-desc {
+      font-size: 12.5px;
+      line-height: 1.4;
+      color: #78350f;
+    }
+  }
+}
+
+.shortage-lines-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shortage-card {
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  background: #fffaf5;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .shortage-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    .prod-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .prod-code {
+        font-weight: 700;
+        font-family: var(--erp-font-mono, monospace);
+        font-size: 13px;
+        color: #9a3412;
+        background: #ffedd5;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
+      .prod-name {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #1e293b;
+      }
+    }
+
+    .metrics-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      .metric-pill {
+        font-size: 12px;
+        padding: 3px 8px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        color: #475569;
+
+        &.shortage-pill {
+          background: #fee2e2;
+          border-color: #fca5a5;
+          color: #991b1b;
+        }
+      }
+    }
+  }
+
+  .shortage-card-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 6px;
+    border-top: 1px dashed #fed7aa;
+
+    .alternatives-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+
+      .alt-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .alt-tags {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+
+        .alt-wh-tag {
+          font-size: 11.5px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 2px 8px;
+          border-radius: 4px;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #334155;
+
+          &.has-stock {
+            border-color: #86efac;
+            background: #f0fdf4;
+            color: #166534;
+            font-weight: 600;
+          }
+
+          .wh-qty {
+            font-size: 11px;
+            opacity: 0.9;
+          }
+        }
+      }
+
+      .no-alt-text {
+        font-size: 12px;
+        color: #94a3b8;
+        font-style: italic;
+      }
+    }
+
+    .replenishment-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+}
+
+/* Header Form Grid */
 .header-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -415,6 +335,155 @@
 
   .full-width {
     width: 100%;
+  }
+
+  select.p-inputtext {
+    padding: 7px 10px;
+    font-size: 13px;
+    background-color: #ffffff;
+    border: 1px solid var(--erp-border, #cbd5e1);
+    border-radius: 4px;
+  }
+}
+
+/* Picking Grid Section */
+.picking-grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Custom Table Cell Elements */
+.stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+
+  &.stock-pill-success {
+    background: #edfcf2;
+    color: #166534;
+  }
+
+  &.stock-pill-warning {
+    background: #fffbeb;
+    color: #b45309;
+  }
+
+  &.stock-pill-danger {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+}
+
+.tracking-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+
+  &.untracked {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+}
+
+.tracking-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+  outline: none;
+
+  &.pending {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #b45309;
+
+    &:hover {
+      background: #fef3c7;
+      border-color: #f59e0b;
+    }
+  }
+
+  &.configured {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+
+    &:hover {
+      background: #dcfce7;
+      border-color: #22c55e;
+    }
+  }
+
+  i {
+    font-size: 11px;
+  }
+}
+
+.row-actions-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.erp-grid-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+
+  &.add-bin-btn {
+    background: #eff6fc;
+    border-color: #c7e0f4;
+    color: #0f6cbd;
+
+    &:hover {
+      background: #deecf9;
+      border-color: #0f6cbd;
+    }
+  }
+
+  &.remove-bin-btn {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+    padding: 3px 6px;
+
+    &:hover {
+      background: #fee2e2;
+      border-color: #b91c1c;
+    }
+  }
+
+  &.auto-split-btn {
+    background: #f5f3ff;
+    border-color: #ddd6fe;
+    color: #7c3aed;
+
+    &:hover {
+      background: #ede9fe;
+      border-color: #8b5cf6;
+    }
   }
 }
 
@@ -442,17 +511,16 @@
       gap: 8px;
       font-size: 13px;
       color: var(--erp-text-secondary, #475569);
+      max-width: 65%;
 
       .info-icon {
         color: #0f6cbd;
+        font-size: 15px;
       }
 
       .success-icon {
         color: #16a34a;
-      }
-
-      .warn-icon {
-        color: #d97706;
+        font-size: 15px;
       }
     }
 
@@ -465,7 +533,7 @@
   }
 }
 
-/* Buttons (Matching Procurement and Fluent tokens) */
+/* Standard Buttons */
 .erp-button {
   font-family: var(--erp-font-sans, 'Segoe UI', sans-serif);
   border-radius: var(--erp-radius-sm, 4px);
@@ -483,6 +551,11 @@
   &:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+  }
+
+  &.action-btn-sm {
+    font-size: 11.5px;
+    padding: 4px 8px;
   }
 
   &.erp-button-primary {
@@ -586,57 +659,59 @@
   }
 }
 
-/* Tracking Details Pills & Action Button */
-.tracking-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
+/* Replenishment Dialog Form Styles */
+.dialog-inner-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
 
-  &.untracked {
-    background: #f1f5f9;
-    color: #64748b;
+  .dialog-product-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--erp-bg-muted, #f8fafc);
+    border: 1px solid var(--erp-border, #e2e8f0);
+    border-radius: 6px;
+
+    .prod-code {
+      font-weight: 700;
+      font-family: var(--erp-font-mono, monospace);
+      color: #0f6cbd;
+    }
+
+    .prod-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .shortage-notice {
+      font-size: 12px;
+      color: #991b1b;
+      background: #fee2e2;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+  }
+
+  .dialog-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 }
 
-.tracking-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.15s ease-in-out;
-  outline: none;
+.dialog-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--erp-border, #e2e8f0);
+}
 
-  &.pending {
-    background: #fffbeb;
-    border-color: #fde68a;
-    color: #b45309;
-
-    &:hover {
-      background: #fef3c7;
-      border-color: #f59e0b;
-    }
-  }
-
-  &.configured {
-    background: #f0fdf4;
-    border-color: #bbf7d0;
-    color: #15803d;
-
-    &:hover {
-      background: #dcfce7;
-      border-color: #22c55e;
-    }
-  }
-
-  i {
-    font-size: 11px;
-  }
+.text-muted {
+  color: var(--erp-text-muted, #94a3b8);
 }

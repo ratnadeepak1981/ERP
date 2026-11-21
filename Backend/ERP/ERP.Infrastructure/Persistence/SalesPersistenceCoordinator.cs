@@ -98,6 +98,11 @@ public class SalesPersistenceCoordinator : ISalesPersistenceCoordinator
         return company.BaseCurrency;
     }
 
+    public void AddShipmentItem(SalesShipmentItem item)
+    {
+        _context.SalesShipmentItems.Add(item);
+    }
+
     public void RemoveShipmentItems(IEnumerable<SalesShipmentItem> items)
     {
         _context.SalesShipmentItems.RemoveRange(items);

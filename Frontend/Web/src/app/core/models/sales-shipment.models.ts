@@ -1,3 +1,5 @@
+import { BatchSerialAllocation } from './goods-receipt-note.models';
+
 export enum SalesShipmentStatus {
   Draft = 1,
   Dispatched = 2,
@@ -141,6 +143,44 @@ export interface EligibleLocationDto {
   locationCode: string;
   locationName: string;
   isDefault: boolean;
+  isStaging?: boolean;
+  availableQuantity?: number;
+}
+
+export interface LocationStockAvailabilityDto {
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  warehouseLocationId: string;
+  locationCode: string;
+  locationName: string;
+  isStaging: boolean;
+  availableQuantity: number;
+  canFulfil: boolean;
+}
+
+export interface SuggestedLocationSplitDto {
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  warehouseLocationId: string;
+  locationCode: string;
+  locationName: string;
+  isStaging: boolean;
+  availableQuantity: number;
+  suggestedQuantity: number;
+  batchNumber?: string | null;
+  expiryDate?: string | null;
+}
+
+export interface WarehouseStockSummaryDto {
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  isPrimary: boolean;
+  isSameBranch: boolean;
+  totalAvailableQuantity: number;
+  canFulfil: boolean;
 }
 
 export interface SalesOrderDispatchLineAvailabilityDto {
@@ -151,12 +191,22 @@ export interface SalesOrderDispatchLineAvailabilityDto {
   orderedQuantity: number;
   alreadyDispatchedQuantity: number;
   remainingQuantity: number;
+  currentDraftAllocatedQuantity?: number;
   availableQuantity: number;
   shortageQuantity: number;
   canFulfil: boolean;
   unitOfMeasureId?: string | null;
   unitOfMeasure?: string;
   trackingMode?: number;
+  defaultSuggestedWarehouseId?: string | null;
+  defaultSuggestedWarehouseName?: string | null;
+  defaultSuggestedLocationId?: string | null;
+  defaultSuggestedLocationCode?: string | null;
+  defaultSuggestedLocationName?: string | null;
+  isDefaultStaging?: boolean;
+  suggestedSplits?: SuggestedLocationSplitDto[];
+  eligibleLocations?: LocationStockAvailabilityDto[];
+  alternativeWarehouses?: WarehouseStockSummaryDto[];
 }
 
 export interface SalesOrderDispatchAvailabilityDto {
@@ -175,8 +225,77 @@ export interface SalesOrderDispatchAvailabilityDto {
   canDefaultLocationFulfil: boolean;
   canFulfil: boolean;
   hasShortages: boolean;
+  totalShortageLines?: number;
   eligibleLocations: EligibleLocationDto[];
+  eligibleWarehouses?: WarehouseStockSummaryDto[];
   lines: SalesOrderDispatchLineAvailabilityDto[];
+}
+
+export interface CreateReplenishmentTransferRequest {
+  salesOrderId: string;
+  salesOrderItemId: string;
+  productId: string;
+  sourceWarehouseId: string;
+  destinationWarehouseId: string;
+  quantity: number;
+  notes?: string | null;
+}
+
+export interface ReplenishmentTransferResult {
+  transferReferenceNumber: string;
+  status: string;
+  productId: string;
+  sourceWarehouseId: string;
+  destinationWarehouseId: string;
+  quantity: number;
+  message: string;
+}
+
+export interface CreateReplenishmentRequisitionRequest {
+  salesOrderId: string;
+  requiredDate?: string | null;
+  notes?: string | null;
+  items: CreateReplenishmentRequisitionItemRequest[];
+}
+
+export interface CreateReplenishmentRequisitionItemRequest {
+  productId: string;
+  unitOfMeasureId?: string | null;
+  quantity: number;
+  estimatedUnitPrice?: number | null;
+  remarks?: string | null;
+}
+
+export interface ReplenishmentRequisitionResult {
+  requisitionId: string;
+  requisitionNumber: string;
+  status: string;
+  itemCount: number;
+  message: string;
+}
+
+export interface EditableShipmentLine {
+  lineId: string;
+  id?: string;
+  salesOrderItemId: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  unitOfMeasureId?: string | null;
+  unitOfMeasure?: string;
+  orderedQuantity: number;
+  alreadyDispatchedQuantity: number;
+  outstandingQuantity: number;
+  quantityDispatched: number;
+  warehouseId: string;
+  warehouseLocationId: string;
+  availableQuantity?: number;
+  isSuggestedSource?: boolean;
+  batchNumber?: string | null;
+  serialNumber?: string | null;
+  notes?: string | null;
+  trackingMode?: number;
+  trackingAllocations?: BatchSerialAllocation[];
 }
 
 export interface DispatchOrderRequest {

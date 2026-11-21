@@ -10,7 +10,11 @@ import {
   UpdateSalesShipmentRequest,
   DeliverShipmentRequest,
   SalesOrderDispatchAvailabilityDto,
-  DispatchOrderRequest
+  DispatchOrderRequest,
+  CreateReplenishmentTransferRequest,
+  ReplenishmentTransferResult,
+  CreateReplenishmentRequisitionRequest,
+  ReplenishmentRequisitionResult
 } from '../models/sales-shipment.models';
 
 @Injectable({
@@ -139,6 +143,47 @@ export class SalesShipmentService {
       .post<ApiResponse<SalesShipmentDto>>(
         `${this.baseUrl(companyId, branchId)}/${id}/cancel`,
         {}
+      )
+      .pipe(map(res => res.data));
+  }
+
+  dispatchShipment(
+    companyId: string,
+    branchId: string,
+    id: string
+  ): Observable<SalesShipmentDto> {
+    return this.http
+      .post<ApiResponse<SalesShipmentDto>>(
+        `${this.baseUrl(companyId, branchId)}/${id}/dispatch`,
+        {}
+      )
+      .pipe(map(res => res.data));
+  }
+
+  createReplenishmentTransfer(
+    companyId: string,
+    branchId: string,
+    salesOrderId: string,
+    request: CreateReplenishmentTransferRequest
+  ): Observable<ReplenishmentTransferResult> {
+    return this.http
+      .post<ApiResponse<ReplenishmentTransferResult>>(
+        `${this.baseUrl(companyId, branchId)}/from-order/${salesOrderId}/replenishment-transfer`,
+        request
+      )
+      .pipe(map(res => res.data));
+  }
+
+  createReplenishmentRequisition(
+    companyId: string,
+    branchId: string,
+    salesOrderId: string,
+    request: CreateReplenishmentRequisitionRequest
+  ): Observable<ReplenishmentRequisitionResult> {
+    return this.http
+      .post<ApiResponse<ReplenishmentRequisitionResult>>(
+        `${this.baseUrl(companyId, branchId)}/from-order/${salesOrderId}/replenishment-requisition`,
+        request
       )
       .pipe(map(res => res.data));
   }
