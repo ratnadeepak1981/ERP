@@ -72,6 +72,8 @@ export interface SalesOrderItemDto {
   isTaxInclusive?: boolean;
   lineTotal: number;
   notes?: string | null;
+  dispatchedQuantity?: number;
+  outstandingQuantity?: number;
   isActive?: boolean;
 }
 
@@ -98,6 +100,10 @@ export interface SalesOrderDto {
   notes?: string | null;
   createdByUserId?: string | null;
   opportunityId?: string | null;
+  totalOrderedQuantity?: number;
+  totalDispatchedQuantity?: number;
+  totalOutstandingQuantity?: number;
+  fulfillmentStatus?: string;
   isActive: boolean;
   items: SalesOrderItemDto[];
 }

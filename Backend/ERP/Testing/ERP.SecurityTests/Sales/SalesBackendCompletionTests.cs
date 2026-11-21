@@ -602,4 +602,6 @@ internal class FakeRecordingShipmentService : ISalesShipmentService
     public Task<SalesShipmentDto> DispatchShipmentAsync(Guid tenantId, Guid companyId, Guid branchId, Guid shipmentId) => throw new NotImplementedException();
     public Task<SalesShipmentDto> DeliverShipmentAsync(Guid tenantId, Guid companyId, Guid branchId, Guid shipmentId, DeliverShipmentRequest? request = null) => throw new NotImplementedException();
     public Task<SalesShipmentDto> CancelDraftAsync(Guid tenantId, Guid companyId, Guid branchId, Guid shipmentId) => throw new NotImplementedException();
+    public Task<ReplenishmentTransferResult> CreateReplenishmentTransferDraftAsync(Guid tenantId, Guid companyId, Guid branchId, Guid salesOrderId, CreateReplenishmentTransferRequest request) => throw new NotImplementedException();
+    public Task<ReplenishmentRequisitionResult> CreateReplenishmentPurchaseRequisitionAsync(Guid tenantId, Guid companyId, Guid branchId, Guid salesOrderId, CreateReplenishmentRequisitionRequest request, Guid actorUserId, string actorUserName) => throw new NotImplementedException();
 }

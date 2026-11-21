@@ -63,7 +63,19 @@ public class SalesOrderService : ISalesOrderService
         SalesOrderStatus? status = null)
     {
         var orders = await _repository.GetByBranchAsync(tenantId, companyId, branchId, status);
-        return orders.Select(MapToDto).ToList();
+        Dictionary<Guid, decimal> dispatchedByOrderLine = new();
+        if (_shipmentRepository != null)
+        {
+            var branchShipments = await _shipmentRepository.GetByBranchAsync(tenantId, companyId, branchId);
+            dispatchedByOrderLine = branchShipments
+                .Where(s => s.Status == SalesShipmentStatus.Dispatched || s.Status == SalesShipmentStatus.Delivered)
+                .SelectMany(s => s.Items)
+                .Where(i => i.IsActive)
+                .GroupBy(i => i.SalesOrderItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
+        }
+
+        return orders.Select(o => MapToDto(o, dispatchedByOrderLine)).ToList();
     }
 
     public async Task<SalesOrderDto?> GetOrderAsync(
@@ -73,7 +85,21 @@ public class SalesOrderService : ISalesOrderService
         Guid orderId)
     {
         var order = await _repository.GetByIdAsync(tenantId, companyId, branchId, orderId);
-        return order == null ? null : MapToDto(order);
+        if (order == null) return null;
+
+        Dictionary<Guid, decimal> dispatchedByOrderLine = new();
+        if (_shipmentRepository != null)
+        {
+            var orderShipments = await _shipmentRepository.GetBySalesOrderIdAsync(tenantId, orderId);
+            dispatchedByOrderLine = orderShipments
+                .Where(s => s.Status == SalesShipmentStatus.Dispatched || s.Status == SalesShipmentStatus.Delivered)
+                .SelectMany(s => s.Items)
+                .Where(i => i.IsActive)
+                .GroupBy(i => i.SalesOrderItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.QuantityDispatched));
+        }
+
+        return MapToDto(order, dispatchedByOrderLine);
     }
 
     public async Task<SalesOrderDto> CreateOrderAsync(
@@ -476,8 +502,55 @@ public class SalesOrderService : ISalesOrderService
         return (product, uomId, unitPrice);
     }
 
-    private static SalesOrderDto MapToDto(global::Domain.Features.Sales.SalesOrder.SalesOrder order)
+    private static SalesOrderDto MapToDto(
+        global::Domain.Features.Sales.SalesOrder.SalesOrder order,
+        IReadOnlyDictionary<Guid, decimal>? dispatchedByOrderLine = null)
     {
+        var itemDtos = new List<SalesOrderItemDto>();
+        decimal totalOrdered = 0m;
+        decimal totalDispatched = 0m;
+
+        foreach (var item in order.Items)
+        {
+            decimal dispatched = 0m;
+            if (dispatchedByOrderLine != null && dispatchedByOrderLine.TryGetValue(item.Id, out decimal d))
+            {
+                dispatched = d;
+            }
+
+            decimal outstanding = Math.Max(0m, item.Quantity - dispatched);
+            if (item.IsActive)
+            {
+                totalOrdered += item.Quantity;
+                totalDispatched += dispatched;
+            }
+
+            itemDtos.Add(new SalesOrderItemDto
+            {
+                Id = item.Id,
+                SalesOrderId = item.SalesOrderId,
+                ProductId = item.ProductId,
+                UnitOfMeasureId = item.UnitOfMeasureId,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                DiscountRate = item.DiscountRate,
+                DiscountAmount = item.DiscountAmount,
+                TaxRate = item.TaxRate,
+                TaxAmount = item.TaxAmount,
+                SubTotal = item.SubTotal,
+                LineTotal = item.LineTotal,
+                TaxCodeId = item.TaxCodeId,
+                IsTaxInclusive = item.IsTaxInclusive,
+                Notes = item.Notes,
+                DispatchedQuantity = dispatched,
+                OutstandingQuantity = outstanding,
+                IsActive = item.IsActive
+            });
+        }
+
+        decimal totalOutstanding = Math.Max(0m, totalOrdered - totalDispatched);
+        string fulfillmentStatus = ComputeFulfillmentStatus(order.Status, totalOrdered, totalDispatched);
+
         return new SalesOrderDto
         {
             Id = order.Id,
@@ -514,8 +587,32 @@ public class SalesOrderService : ISalesOrderService
             DeliveryAddressId = order.DeliveryAddressId,
             DeliveryAddressSnapshot = order.DeliveryAddressSnapshot,
             IsActive = order.IsActive,
-            Items = order.Items.Select(MapItemToDto).ToList()
+            TotalOrderedQuantity = totalOrdered,
+            TotalDispatchedQuantity = totalDispatched,
+            TotalOutstandingQuantity = totalOutstanding,
+            FulfillmentStatus = fulfillmentStatus,
+            Items = itemDtos
         };
+    }
+
+    private static string ComputeFulfillmentStatus(SalesOrderStatus status, decimal totalOrdered, decimal totalDispatched)
+    {
+        if (status == SalesOrderStatus.Cancelled) return "Cancelled";
+        if (status == SalesOrderStatus.Rejected) return "Rejected";
+        if (status == SalesOrderStatus.Draft) return "Draft";
+        if (status == SalesOrderStatus.Submitted) return "Pending Confirmation";
+
+        if (status == SalesOrderStatus.Fulfilled || (totalOrdered > 0 && totalDispatched >= totalOrdered))
+        {
+            return "Fulfilled";
+        }
+
+        if (totalDispatched > 0)
+        {
+            return "Partially Dispatched";
+        }
+
+        return "Confirmed";
     }
 
     private static SalesOrderItemDto MapItemToDto(SalesOrderItem item)

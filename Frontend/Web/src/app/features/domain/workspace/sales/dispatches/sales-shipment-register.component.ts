@@ -217,13 +217,21 @@ export class SalesShipmentRegisterComponent implements OnInit, OnDestroy {
     },
     {
       id: 'deliver',
-      label: 'Deliver & Issue Stock',
+      label: 'Deliver Goods',
       icon: 'pi pi-check-circle',
       severity: 'success',
       visible: (shipment: SalesShipmentDto) =>
-        (Number(shipment.status) === SalesShipmentStatus.Draft || Number(shipment.status) === SalesShipmentStatus.Dispatched) &&
+        Number(shipment.status) === SalesShipmentStatus.Dispatched &&
         this.canDeliverShipment(),
       action: (shipment: SalesShipmentDto) => this.openDeliverDialog(shipment)
+    },
+    {
+      id: 'cancel',
+      label: 'Cancel Draft',
+      icon: 'pi pi-ban',
+      severity: 'danger',
+      visible: (shipment: SalesShipmentDto) => Number(shipment.status) === SalesShipmentStatus.Draft,
+      action: (shipment: SalesShipmentDto) => this.cancelDraftShipment(shipment)
     }
   ];
 
@@ -356,5 +364,34 @@ export class SalesShipmentRegisterComponent implements OnInit, OnDestroy {
           });
         }
       });
+  }
+
+  cancelDraftShipment(shipment: SalesShipmentDto): void {
+    const comp = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!comp?.id || !branch?.id) return;
+
+    if (!confirm(`Are you sure you want to cancel draft dispatch note ${shipment.shipmentNumber}?`)) {
+      return;
+    }
+
+    this.actionInProgress.set(true);
+    this.shipmentService.cancelDraft(comp.id, branch.id, shipment.id).subscribe({
+      next: () => {
+        this.actionInProgress.set(false);
+        this.message.set({
+          text: `Draft dispatch note ${shipment.shipmentNumber} has been cancelled.`,
+          severity: 'info'
+        });
+        this.loadData();
+      },
+      error: err => {
+        this.actionInProgress.set(false);
+        this.message.set({
+          text: err?.error?.message || err?.message || 'Failed to cancel draft dispatch note.',
+          severity: 'danger'
+        });
+      }
+    });
   }
 }

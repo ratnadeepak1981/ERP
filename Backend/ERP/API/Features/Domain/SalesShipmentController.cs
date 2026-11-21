@@ -246,6 +246,64 @@ public class SalesShipmentController : BaseApiController
         }
     }
 
+    [HttpPost("from-order/{salesOrderId:guid}/replenishment-transfer")]
+    [RequirePermission("SALES_SHIPMENT.EDIT")]
+    public async Task<IActionResult> CreateReplenishmentTransfer(
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        [FromBody] CreateReplenishmentTransferRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var result = await _shipmentService.CreateReplenishmentTransferDraftAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                salesOrderId,
+                request);
+
+            return SuccessResponse(result, "Replenishment transfer draft created successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
+    [HttpPost("from-order/{salesOrderId:guid}/replenishment-requisition")]
+    [RequirePermission("SALES_SHIPMENT.EDIT")]
+    public async Task<IActionResult> CreateReplenishmentRequisition(
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        [FromBody] CreateReplenishmentRequisitionRequest request)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var result = await _shipmentService.CreateReplenishmentPurchaseRequisitionAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                salesOrderId,
+                request,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString());
+
+            return SuccessResponse(result, "Replenishment purchase requisition created successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost]
     [RequirePermission("SALES_SHIPMENT.CREATE")]
     public async Task<IActionResult> CreateManualDraft(
