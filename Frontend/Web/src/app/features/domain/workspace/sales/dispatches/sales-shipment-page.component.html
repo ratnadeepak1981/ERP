@@ -1,8 +1,93 @@
 <div class="sales-shipment-page">
+  <!-- Custom Cell Template: Stock at Bin -->
+  <ng-template #availableStockTemplate let-row="row">
+    @if (row.warehouseId && row.warehouseLocationId) {
+      @if (row.availableQuantity >= row.quantityDispatched && row.availableQuantity > 0) {
+        <span class="stock-pill stock-pill-success" [title]="'Available stock: ' + (row.availableQuantity | number:'1.2-2')">
+          <i class="pi pi-check"></i>
+          {{ row.availableQuantity | number:'1.2-2' }}
+        </span>
+      } @else if (row.availableQuantity > 0) {
+        <span class="stock-pill stock-pill-warning" [title]="'Partial stock: ' + (row.availableQuantity | number:'1.2-2')">
+          <i class="pi pi-exclamation-triangle"></i>
+          {{ row.availableQuantity | number:'1.2-2' }}
+        </span>
+      } @else {
+        <span class="stock-pill stock-pill-danger" title="Zero stock in selected bin">
+          <i class="pi pi-times"></i>
+          0.00
+        </span>
+      }
+    } @else {
+      <span class="text-muted">—</span>
+    }
+  </ng-template>
+
+  <!-- Custom Cell Template: Tracking Details -->
+  <ng-template #trackingCellTemplate let-row="row">
+    @if (!row.trackingMode || row.trackingMode === 0) {
+      <span class="tracking-pill untracked">Not Tracked</span>
+    } @else {
+      <button
+        type="button"
+        class="tracking-action-btn"
+        [class.configured]="isLineTrackingComplete(row)"
+        [class.pending]="!isLineTrackingComplete(row)"
+        (click)="openTrackingDialog(row, $event)"
+        [title]="canEditDraft() ? 'Click to configure batch/serial tracking' : 'Click to view tracking'"
+      >
+        <i class="pi" [ngClass]="isLineTrackingComplete(row) ? 'pi-check-circle' : 'pi-exclamation-triangle'"></i>
+        <span>{{ getLineTrackingSummary(row) }}</span>
+      </button>
+    }
+  </ng-template>
+
+  <!-- Custom Cell Template: Multi-Bin Allocation Actions -->
+  <ng-template #splitActionTemplate let-row="row">
+    <div class="row-actions-group">
+      @if (canEditDraft()) {
+        <button
+          type="button"
+          class="erp-grid-btn add-bin-btn"
+          (click)="onAddBinSplit(row)"
+          title="Split allocation / add another bin for this order line"
+        >
+          <i class="pi pi-plus"></i>
+          <span>Add Bin</span>
+        </button>
+
+        @if (canRemoveRow(row)) {
+          <button
+            type="button"
+            class="erp-grid-btn remove-bin-btn"
+            (click)="onRemoveBinSplit(row)"
+            title="Remove this split allocation row"
+          >
+            <i class="pi pi-trash"></i>
+          </button>
+        }
+
+        @if (hasSuggestedSplits(row.salesOrderItemId)) {
+          <button
+            type="button"
+            class="erp-grid-btn auto-split-btn"
+            (click)="applySuggestedSplit(row.salesOrderItemId)"
+            title="Apply system recommended multi-bin split"
+          >
+            <i class="pi pi-sparkles"></i>
+            <span>Auto-Split</span>
+          </button>
+        }
+      } @else {
+        <span class="text-muted">—</span>
+      }
+    </div>
+  </ng-template>
+
   <!-- Page Header -->
   <app-page-header
-    [title]="mode() === 'create' ? 'Create Dispatch Note' : 'Dispatch Note ' + (headerForm.get('shipmentNumber')?.value || '')"
-    subtitle="Goods delivery note, issue location stock verification, and inventory movement"
+    [title]="mode() === 'create' ? 'Create Dispatch Note' : ('Dispatch Note ' + (currentShipment()?.shipmentNumber || headerForm.get('shipmentNumber')?.value || ''))"
+    subtitle="Goods delivery note, warehouse picking allocation, multi-bin issue, and inventory movement"
     [breadcrumbs]="breadcrumbs()"
   >
     <div actions class="page-header-actions">
@@ -19,7 +104,7 @@
         <button
           type="button"
           class="erp-button erp-button-secondary"
-          [disabled]="loading()"
+          [disabled]="loading() || actionInProgress()"
           (click)="loadShipment(shipmentId()!)"
           title="Reload dispatch details"
         >
@@ -27,7 +112,60 @@
         </button>
       }
 
-      @if (isDelivered() && currentShipment()?.invoiceId) {
+      @if (canEditDraft()) {
+        <button
+          type="button"
+          class="erp-button erp-button-secondary"
+          [disabled]="actionInProgress() || loading() || isOrderFullyDispatched()"
+          (click)="saveDraft()"
+          title="Save draft allocations without deducting warehouse stock"
+        >
+          <i class="pi pi-save"></i>
+          <span>Save Draft</span>
+        </button>
+
+        <button
+          type="button"
+          class="erp-button erp-button-success"
+          [disabled]="actionInProgress() || loading() || !canDispatchShipment()"
+          (click)="executeDispatch()"
+          title="Verify stock, deduct inventory transactionally, and confirm dispatch"
+        >
+          @if (actionInProgress()) {
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Posting Dispatch...</span>
+          } @else {
+            <i class="pi pi-send"></i>
+            <span>Post Dispatch</span>
+          }
+        </button>
+      }
+
+      @if (isDraft() && mode() !== 'create') {
+        <button
+          type="button"
+          class="erp-button erp-button-danger"
+          [disabled]="actionInProgress()"
+          (click)="cancelDraft()"
+        >
+          <i class="pi pi-ban"></i>
+          <span>Cancel Draft</span>
+        </button>
+      }
+
+      @if (isDispatched() && canDeliver()) {
+        <button
+          type="button"
+          class="erp-button erp-button-success"
+          [disabled]="actionInProgress()"
+          (click)="deliverShipment()"
+        >
+          <i class="pi pi-check-circle"></i>
+          <span>Deliver Goods</span>
+        </button>
+      }
+
+      @if (currentShipment()?.invoiceId) {
         <button
           type="button"
           class="erp-button erp-button-info"
@@ -56,6 +194,21 @@
     </div>
   }
 
+  <!-- Order Demand Fully Fulfilled Warning for Redundant Drafts -->
+  @if (isDraft() && isOrderFullyDispatched()) {
+    <div class="message-banner banner-warn">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">
+        <strong>Order Demand Fully Fulfilled:</strong> All goods on Sales Order {{ headerForm.get('orderNumber')?.value }} have already been dispatched by another dispatch note. Outstanding demand is 0.00. This redundant draft cannot be dispatched.
+      </span>
+      @if (mode() !== 'create') {
+        <button type="button" class="erp-button erp-button-danger erp-button-sm" [disabled]="actionInProgress()" (click)="cancelDraft()" style="margin-left: auto;">
+          <i class="pi pi-ban"></i> Cancel Redundant Draft
+        </button>
+      }
+    </div>
+  }
+
   <!-- Access Denied -->
   @if (isAccessDenied()) {
     <div class="erp-card">
@@ -69,17 +222,62 @@
         homeLabel="Back to Dispatches"
       ></app-access-denied>
     </div>
+  }
+
+  <!-- Order Demand Fully Fulfilled Warning for Redundant Drafts -->
+  @if (isDraft() && isOrderFullyDispatched()) {
+    <div class="message-banner banner-warn">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">
+        <strong>Order Demand Fully Fulfilled:</strong> All goods on Sales Order {{ headerForm.get('orderNumber')?.value }} have already been dispatched by another dispatch note. Outstanding demand is 0.00. This redundant draft cannot be dispatched.
+      </span>
+      @if (mode() !== 'create') {
+        <button type="button" class="erp-button erp-button-danger erp-button-sm" [disabled]="actionInProgress()" (click)="cancelDraft()" style="margin-left: auto;">
+          <i class="pi pi-ban"></i> Cancel Redundant Draft
+        </button>
+      }
+    </div>
   } @else if (loading()) {
     <div class="erp-card state-card">
-      <app-loading-state message="Loading dispatch note details and evaluating stock availability..."></app-loading-state>
+      <app-loading-state message="Loading dispatch note details and discovering warehouse stock availability..."></app-loading-state>
+    </div>
+  }
+
+  <!-- Order Demand Fully Fulfilled Warning for Redundant Drafts -->
+  @if (isDraft() && isOrderFullyDispatched()) {
+    <div class="message-banner banner-warn">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">
+        <strong>Order Demand Fully Fulfilled:</strong> All goods on Sales Order {{ headerForm.get('orderNumber')?.value }} have already been dispatched by another dispatch note. Outstanding demand is 0.00. This redundant draft cannot be dispatched.
+      </span>
+      @if (mode() !== 'create') {
+        <button type="button" class="erp-button erp-button-danger erp-button-sm" [disabled]="actionInProgress()" (click)="cancelDraft()" style="margin-left: auto;">
+          <i class="pi pi-ban"></i> Cancel Redundant Draft
+        </button>
+      }
     </div>
   } @else if (error()) {
     <div class="erp-card state-card">
       <app-error-state [message]="error()!" (retry)="shipmentId() ? loadShipment(shipmentId()!) : navigateBack()"></app-error-state>
     </div>
+  }
+
+  <!-- Order Demand Fully Fulfilled Warning for Redundant Drafts -->
+  @if (isDraft() && isOrderFullyDispatched()) {
+    <div class="message-banner banner-warn">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span class="message-text">
+        <strong>Order Demand Fully Fulfilled:</strong> All goods on Sales Order {{ headerForm.get('orderNumber')?.value }} have already been dispatched by another dispatch note. Outstanding demand is 0.00. This redundant draft cannot be dispatched.
+      </span>
+      @if (mode() !== 'create') {
+        <button type="button" class="erp-button erp-button-danger erp-button-sm" [disabled]="actionInProgress()" (click)="cancelDraft()" style="margin-left: auto;">
+          <i class="pi pi-ban"></i> Cancel Redundant Draft
+        </button>
+      }
+    </div>
   } @else {
     <div class="shipment-form-container">
-      <!-- Section: Inherited Scope Context (Read-only, matches Procurement) -->
+      <!-- Section: Inherited Scope Context -->
       <section class="erp-card scope-context-section">
         <div class="scope-context-item">
           <span class="scope-meta-label"><i class="pi pi-shield"></i> Tenant:</span>
@@ -97,223 +295,136 @@
         </div>
       </section>
 
-      <!-- Section: Stock Availability & Issue Location Workflow (Round 1) -->
-      @if (mode() === 'create' && sourceOrderId() && availability()) {
-        <section class="erp-card location-availability-section">
+      <!-- Section: Stock Availability, Shortage Detection & Replenishment -->
+      @if (availability()) {
+        <section class="erp-card availability-summary-section">
           <div class="section-header">
             <div class="section-title-wrap">
-              <h3 class="section-title">Stock Availability & Issue Location</h3>
+              <h3 class="section-title">Warehouse Availability & Shortage Management</h3>
+              <p class="section-desc">Live stock balances discovered across authorized facilities, bins, and staging locations.</p>
             </div>
-            @if (revalidatingStock()) {
-              <span class="revalidating-badge">
-                <i class="pi pi-spin pi-spinner"></i> Checking live stock...
+            <div class="header-badges">
+              @if (shortageCount() > 0) {
+                <span class="badge badge-warning">
+                  <i class="pi pi-exclamation-triangle"></i>
+                  {{ shortageCount() }} Shortage Line{{ shortageCount() === 1 ? '' : 's' }}
+                </span>
+              } @else {
+                <span class="badge badge-success">
+                  <i class="pi pi-check-circle"></i>
+                  All Demand Fulfilled
+                </span>
+              }
+              <span class="badge badge-neutral">
+                Picked: {{ totalPickedQuantity() | number:'1.2-2' }} / Demand: {{ totalOutstandingDemand() | number:'1.2-2' }}
               </span>
-            }
+            </div>
           </div>
 
-          <!-- Scenario A: Default Location Can Fulfil -->
-          @if (availability()!.canDefaultLocationFulfil) {
-            <div class="location-banner location-banner-success">
-              <div class="banner-icon-wrap">
-                <i class="pi pi-check-circle banner-icon"></i>
+          @if (shortageCount() > 0) {
+            <div class="shortage-alert-box">
+              <div class="alert-icon-wrap">
+                <i class="pi pi-exclamation-triangle"></i>
               </div>
-              <div class="banner-content">
-                <div class="banner-title">Default Issue Location Can Fulfil Order</div>
-                <div class="banner-desc">
-                  All remaining items on Sales Order <strong>{{ availability()!.orderNumber }}</strong> can be fulfilled from the configured default location:
-                </div>
-                <div class="selected-location-pill">
-                  <i class="pi pi-map-marker"></i>
-                  <span>{{ availability()!.defaultWarehouseName }} &mdash; {{ availability()!.defaultLocationCode }} ({{ availability()!.defaultLocationName }})</span>
-                </div>
-              </div>
-            </div>
-          }
-
-          <!-- Scenario B: Default Insufficient, Alternative Single Location Available -->
-          @else if (!availability()!.canDefaultLocationFulfil && availability()!.eligibleLocations.length > 0) {
-            <div class="location-banner location-banner-warning">
-              <div class="banner-icon-wrap">
-                <i class="pi pi-exclamation-triangle banner-icon"></i>
-              </div>
-              <div class="banner-content">
-                <div class="banner-title">Default Location Has Insufficient Stock</div>
-                <div class="banner-desc">
-                  The default issue location ({{ availability()!.defaultWarehouseName }} / {{ availability()!.defaultLocationName }}) cannot fulfil all remaining quantities.
-                  Please select an eligible alternative location within your authorized scope:
-                </div>
-
-                <div class="alternative-selector-wrap">
-                  <label for="altLocationSelect" class="selector-label">Alternative Issue Location:</label>
-                  <select
-                    id="altLocationSelect"
-                    class="p-inputtext p-inputtext-sm location-dropdown"
-                    [ngModel]="selectedLocationId()"
-                    (ngModelChange)="onSelectLocation($event)"
-                    [disabled]="actionInProgress() || revalidatingStock()"
-                  >
-                    @for (loc of availability()!.eligibleLocations; track loc.locationId) {
-                      <option [value]="loc.locationId">
-                        {{ loc.warehouseName }} &mdash; {{ loc.locationCode }} ({{ loc.locationName }})
-                      </option>
-                    }
-                  </select>
-                </div>
-
-                @if (availability()!.canFulfil) {
-                  <div class="selected-alt-confirmed">
-                    <i class="pi pi-check"></i>
-                    <span>Selected location has sufficient stock for all remaining lines. Ready to dispatch.</span>
-                  </div>
-                }
-              </div>
-            </div>
-          }
-
-          <!-- Scenario C: No Single Location Can Fulfil -->
-          @else {
-            <div class="location-banner location-banner-danger">
-              <div class="banner-icon-wrap">
-                <i class="pi pi-times-circle banner-icon"></i>
-              </div>
-              <div class="banner-content">
-                <div class="banner-title">Insufficient Stock &mdash; Dispatch Disabled</div>
-                <div class="banner-desc">
-                  No single location in your authorized company/branch scope has sufficient stock to fulfill the remaining quantities for Sales Order <strong>{{ availability()!.orderNumber }}</strong>.
-                  Dispatch cannot proceed until stock is replenished. Multi-location split allocation is not supported in this release.
-                </div>
-              </div>
-            </div>
-          }
-
-          <!-- Line Items & Shortage Table -->
-          <div class="line-items-container">
-            <div class="line-items-header">
-              <div class="header-left">
-                <span class="table-subtitle">Sales Order Demand vs Location Availability</span>
-                <span class="item-count-badge">
-                  {{ shortageCount() > 0 ? shortageCount() + ' Shortage ' + (shortageCount() === 1 ? 'Line' : 'Lines') : 'All Lines Fulfilled' }}
-                </span>
-              </div>
-
-              <div class="header-right">
-                <div class="filter-pills-group" role="group" aria-label="Toggle lines view">
-                  <button
-                    type="button"
-                    class="filter-pill"
-                    [class.active]="!showAllLines()"
-                    (click)="showAllLines.set(false)"
-                  >
-                    <i class="pi pi-exclamation-circle"></i>
-                    Shortages Only ({{ shortageCount() }})
-                  </button>
-                  <button
-                    type="button"
-                    class="filter-pill"
-                    [class.active]="showAllLines()"
-                    (click)="showAllLines.set(true)"
-                  >
-                    <i class="pi pi-list"></i>
-                    All Lines ({{ totalLineCount() }})
-                  </button>
+              <div class="alert-content">
+                <div class="alert-title">Stock Shortage Detected on {{ shortageCount() }} Order Line(s)</div>
+                <div class="alert-desc">
+                  Current warehouse facility has insufficient stock to fully dispatch all remaining quantities. You can split picks across alternative bins, request an inter-warehouse transfer, or generate a purchase requisition draft.
                 </div>
               </div>
             </div>
 
-            <div class="table-scroll-wrapper">
-              <table class="erp-data-table">
-                <thead>
-                  <tr>
-                    <th style="width: 48px;">#</th>
-                    <th style="min-width: 200px;">Product</th>
-                    <th style="width: 110px; text-align: right;">Ordered</th>
-                    <th style="width: 120px; text-align: right;">Already Dispatched</th>
-                    <th style="width: 120px; text-align: right;">Remaining Demand</th>
-                    <th style="width: 130px; text-align: right;">Available at Location</th>
-                    <th style="width: 120px; text-align: right;">Shortage</th>
-                    <th style="width: 150px; text-align: center;">Tracking Details</th>
-                    <th style="width: 120px; text-align: center;">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (line of displayedLines(); track line.salesOrderItemId; let idx = $index) {
-                    <tr [class.shortage-row]="line.shortageQuantity > 0">
-                      <td class="col-idx">{{ idx + 1 }}</td>
-                      <td class="col-product">
-                        <span class="prod-code">{{ line.productCode }}</span>
-                        <span class="prod-name">{{ line.productName }}</span>
-                      </td>
-                      <td class="col-num">{{ line.orderedQuantity | number:'1.2-4' }}</td>
-                      <td class="col-num">{{ line.alreadyDispatchedQuantity | number:'1.2-4' }}</td>
-                      <td class="col-num" style="font-weight: 600;">{{ line.remainingQuantity | number:'1.2-4' }}</td>
-                      <td class="col-num">{{ line.availableQuantity | number:'1.2-4' }}</td>
-                      <td class="col-num">
-                        @if (line.shortageQuantity > 0) {
-                          <span class="shortage-pill">-{{ line.shortageQuantity | number:'1.2-4' }}</span>
+            <!-- Shortage details per line -->
+            <div class="shortage-lines-list">
+              @for (al of availability()!.lines; track al.salesOrderItemId) {
+                @if (al.shortageQuantity > 0 || !al.canFulfil) {
+                  <div class="shortage-card">
+                    <div class="shortage-card-header">
+                      <div class="prod-info">
+                        <span class="prod-code">{{ al.productCode }}</span>
+                        <span class="prod-name">{{ al.productName }}</span>
+                      </div>
+                      <div class="metrics-row">
+                        <span class="metric-pill">Outstanding Demand: <strong>{{ al.remainingQuantity | number:'1.2-2' }} {{ al.unitOfMeasure }}</strong></span>
+                        <span class="metric-pill">Primary Available: <strong>{{ al.availableQuantity | number:'1.2-2' }}</strong></span>
+                        <span class="metric-pill shortage-pill">Shortage: <strong>-{{ al.shortageQuantity | number:'1.2-2' }}</strong></span>
+                      </div>
+                    </div>
+
+                    <div class="shortage-card-body">
+                      <!-- Alternative warehouses holding stock -->
+                      <div class="alternatives-wrap">
+                        <span class="alt-label"><i class="pi pi-building"></i> Stock in Other Authorized Warehouses:</span>
+                        @if (al.alternativeWarehouses && al.alternativeWarehouses.length > 0) {
+                          <div class="alt-tags">
+                            @for (wh of al.alternativeWarehouses; track wh.warehouseId) {
+                              <div class="alt-wh-tag" [class.has-stock]="wh.totalAvailableQuantity > 0">
+                                <span class="wh-name">{{ wh.warehouseName }}</span>
+                                <span class="wh-qty">{{ wh.totalAvailableQuantity | number:'1.2-2' }} avail</span>
+                              </div>
+                            }
+                          </div>
                         } @else {
-                          <span class="zero-shortage">0</span>
+                          <span class="no-alt-text">No alternative authorized warehouses have stock.</span>
                         }
-                      </td>
-                      <td style="text-align: center;">
-                        @if (!line.trackingMode || line.trackingMode === 0) {
-                          <span class="tracking-pill untracked">Not Tracked</span>
-                        } @else {
+                      </div>
+
+                      <!-- Replenishment Actions -->
+                      <div class="replenishment-actions">
+                        @if (al.alternativeWarehouses && al.alternativeWarehouses.length > 0) {
                           <button
                             type="button"
-                            class="tracking-action-btn"
-                            [class.configured]="isLineTrackingComplete(line)"
-                            [class.pending]="!isLineTrackingComplete(line)"
-                            (click)="openTrackingDialog(line, $event)"
-                            [title]="mode() === 'create' ? 'Click to configure batch/serial tracking' : 'Click to view batch/serial tracking'"
+                            class="erp-button erp-button-secondary action-btn-sm"
+                            (click)="openReplenishmentTransfer(al)"
+                            title="Initiate Inter-Warehouse Transfer Draft"
                           >
-                            <i class="pi" [ngClass]="isLineTrackingComplete(line) ? 'pi-check-circle' : 'pi-exclamation-triangle'"></i>
-                            <span>{{ getLineTrackingSummary(line) }}</span>
+                            <i class="pi pi-arrow-right-arrow-left"></i>
+                            <span>Transfer Stock</span>
                           </button>
                         }
-                      </td>
-                      <td style="text-align: center;">
-                        @if (line.canFulfil) {
-                          <span class="status-pill status-pill-success">
-                            <i class="pi pi-check"></i> Fulfilled
-                          </span>
-                        } @else {
-                          <span class="status-pill status-pill-danger">
-                            <i class="pi pi-exclamation-triangle"></i> Shortage
-                          </span>
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
+                        <button
+                          type="button"
+                          class="erp-button erp-button-secondary action-btn-sm"
+                          (click)="openReplenishmentRequisition(al)"
+                          title="Generate Purchase Requisition Draft"
+                        >
+                          <i class="pi pi-shopping-cart"></i>
+                          <span>Requisition Stock</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                }
+              }
             </div>
-          </div>
+          }
         </section>
       }
 
-      <!-- Section: Dispatch Document Information (Form) -->
+      <!-- Section: Dispatch Document Header Form -->
       <section class="erp-card section-card">
         <div class="section-header">
           <div class="section-title-wrap">
             <h3 class="section-title">Dispatch Document Information</h3>
+            <p class="section-desc">Consignment references, shipping dates, carrier details, and customer handover point.</p>
           </div>
           @if (currentShipment()) {
             <app-status-badge
-              [label]="currentShipment()!.status === 1 ? 'Draft' : (currentShipment()!.status === 3 ? 'Delivered' : 'Dispatched')"
-              [severity]="currentShipment()!.status === 3 ? 'success' : (currentShipment()!.status === 1 ? 'info' : 'warning')"
+              [label]="getSalesShipmentStatusName(currentShipment()!.status)"
+              [severity]="getSalesShipmentStatusSeverity(currentShipment()!.status)"
             ></app-status-badge>
           }
         </div>
 
         <form [formGroup]="headerForm" class="header-form-grid">
           <div class="form-field">
-            <label for="shipmentNumber">Dispatch Note #</label>
+            <label for="shipmentNumber">Dispatch Note # *</label>
             <input
               id="shipmentNumber"
               type="text"
               class="p-inputtext p-inputtext-sm"
               formControlName="shipmentNumber"
-              [disabled]="mode() !== 'create'"
+              [disabled]="!canEditDraft()"
             />
           </div>
 
@@ -328,7 +439,7 @@
           </div>
 
           <div class="form-field">
-            <label for="customerName">Customer</label>
+            <label for="customerName">Customer Account</label>
             <input
               id="customerName"
               type="text"
@@ -338,11 +449,12 @@
           </div>
 
           <div class="form-field">
-            <label for="method">Fulfillment Method</label>
+            <label for="method">Fulfillment Method *</label>
             <select
               id="method"
               class="p-inputtext p-inputtext-sm full-width"
               formControlName="method"
+              [disabled]="!canEditDraft()"
             >
               @for (opt of methodOptions; track opt.value) {
                 <option [value]="opt.value">{{ opt.label }}</option>
@@ -351,34 +463,37 @@
           </div>
 
           <div class="form-field">
-            <label for="shipmentDate">Dispatch Date</label>
+            <label for="shipmentDate">Dispatch Date *</label>
             <input
               id="shipmentDate"
               type="date"
               class="p-inputtext p-inputtext-sm"
               formControlName="shipmentDate"
+              [disabled]="!canEditDraft()"
             />
           </div>
 
           <div class="form-field">
-            <label for="carrierName">Carrier / Courier Name</label>
+            <label for="carrierName">Carrier / Logistics Provider</label>
             <input
               id="carrierName"
               type="text"
               class="p-inputtext p-inputtext-sm"
               formControlName="carrierName"
               placeholder="DHL, FedEx, In-house fleet..."
+              [disabled]="!canEditDraft()"
             />
           </div>
 
           <div class="form-field">
-            <label for="trackingNumber">Tracking / Consignment #</label>
+            <label for="trackingNumber">Waybill / Tracking Number</label>
             <input
               id="trackingNumber"
               type="text"
               class="p-inputtext p-inputtext-sm"
               formControlName="trackingNumber"
-              placeholder="Waybill or tracking reference..."
+              placeholder="Consignment tracking reference..."
+              [disabled]="!canEditDraft()"
             />
           </div>
 
@@ -390,17 +505,19 @@
               class="p-inputtext p-inputtext-sm"
               formControlName="vehicleNumber"
               placeholder="Vehicle plate / registration..."
+              [disabled]="!canEditDraft()"
             />
           </div>
 
           <div class="form-field">
-            <label for="recipientName">Recipient Name</label>
+            <label for="recipientName">Recipient Contact Name</label>
             <input
               id="recipientName"
               type="text"
               class="p-inputtext p-inputtext-sm"
               formControlName="recipientName"
               placeholder="Contact receiving goods..."
+              [disabled]="!canEditDraft()"
             />
           </div>
 
@@ -412,84 +529,70 @@
               class="p-inputtext p-inputtext-sm"
               formControlName="deliveryAddress"
               placeholder="Customer delivery site address..."
+              [disabled]="!canEditDraft()"
             />
           </div>
 
           <div class="form-field full-row">
-            <label for="notes">Notes / Handling Instructions</label>
+            <label for="notes">Handling Notes & Picking Instructions</label>
             <textarea
               id="notes"
               class="p-inputtext p-inputtext-sm full-width"
               rows="2"
               formControlName="notes"
-              placeholder="Special handling, delivery instructions..."
+              placeholder="Special handling instructions, gate pass notes..."
+              [disabled]="!canEditDraft()"
             ></textarea>
           </div>
         </form>
       </section>
 
-      <!-- Section: Saved Shipment Line Items (View / Edit Mode) -->
-      @if (mode() !== 'create' && workingLines().length > 0) {
-        <section class="erp-card section-card">
-          <div class="section-header">
-            <div class="section-title-wrap">
-              <h3 class="section-title">Dispatched Items & Warehouse Allocation</h3>
-            </div>
-            <span class="lines-count-badge">{{ workingLines().length }} items</span>
+      <!-- Section: Main Warehouse Picking & Allocation Table -->
+      <section class="erp-card section-card picking-grid-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Warehouse Picking & Allocation Grid</h3>
+            <p class="section-desc">
+              Assign source warehouse facilities, location bins, multi-bin split picks, and batch/serial numbers.
+            </p>
           </div>
-
-          <div class="table-scroll-wrapper">
-            <table class="erp-data-table">
-              <thead>
-                <tr>
-                  <th style="width: 50px;">#</th>
-                  <th style="min-width: 180px;">Product</th>
-                  <th style="width: 140px; text-align: right;">Dispatched Quantity</th>
-                  <th style="min-width: 140px;">Warehouse</th>
-                  <th style="min-width: 140px;">Location</th>
-                  <th style="min-width: 120px;">Batch #</th>
-                  <th style="min-width: 120px;">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (line of workingLines(); track line.lineId; let idx = $index) {
-                  <tr>
-                    <td class="col-idx">{{ idx + 1 }}</td>
-                    <td class="col-product">
-                      <span class="prod-code">{{ line.productCode }}</span>
-                      <span class="prod-name">{{ line.productName }}</span>
-                    </td>
-                    <td class="col-num" style="font-weight: 600;">{{ line.quantityDispatched | number:'1.2-4' }}</td>
-                    <td>{{ line.warehouseId }}</td>
-                    <td>{{ line.warehouseLocationId }}</td>
-                    <td>{{ line.batchNumber || '-' }}</td>
-                    <td>{{ line.notes || '-' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+          <div class="table-meta-badges">
+            <span class="meta-pill">
+              <i class="pi pi-list"></i>
+              {{ workingLines().length }} Allocation Row{{ workingLines().length === 1 ? '' : 's' }}
+            </span>
           </div>
-        </section>
-      }
+        </div>
 
-      <!-- Bottom Action Toolbar -->
+        <app-editable-data-table
+          [data]="workingLines()"
+          [columns]="itemColumns()"
+          rowKey="lineId"
+          [loading]="loading() || actionInProgress()"
+          [readonly]="!canEditDraft()"
+          [showActionBar]="false"
+          [allowAddRow]="false"
+          [allowDeleteRow]="false"
+          [paginator]="true"
+          [rows]="10"
+          (cellValueChange)="onTableCellValueChange($event)"
+          (dataChange)="onDraftLinesChange($event)"
+        ></app-editable-data-table>
+      </section>
+
+      <!-- Section: Sticky Action Toolbar -->
       <section class="erp-card action-bar-card">
         <div class="action-bar-content">
           <div class="action-info">
-            @if (mode() === 'create' && availability()) {
-              @if (availability()!.canFulfil) {
-                <i class="pi pi-check-circle success-icon"></i>
-                <span>Ready to dispatch. Inventory will be posted and deducted upon confirmation.</span>
-              } @else {
-                <i class="pi pi-exclamation-triangle warn-icon"></i>
-                <span>Dispatch is disabled due to stock shortages at the selected issue location.</span>
-              }
-            } @else if (isDispatched()) {
+            @if (canEditDraft()) {
               <i class="pi pi-info-circle info-icon"></i>
-              <span>Dispatched: Goods are issued from warehouse inventory. Ready for delivery handover.</span>
+              <span>Draft Mode: Saving draft preserves allocation decisions without deducting inventory. Dispatched status executes live stock movement.</span>
+            } @else if (isDispatched()) {
+              <i class="pi pi-check-circle success-icon"></i>
+              <span>Dispatched: Warehouse inventory has been deducted. Ready for customer delivery handover.</span>
             } @else if (isDelivered()) {
               <i class="pi pi-check-circle success-icon"></i>
-              <span>Delivered: Goods handed over and Sales Invoice generated.</span>
+              <span>Delivered: Goods handed over and Sales Invoice draft generated.</span>
             }
           </div>
 
@@ -501,38 +604,33 @@
               [disabled]="actionInProgress()"
             >
               <i class="pi pi-times"></i>
-              <span>Cancel</span>
+              <span>Close</span>
             </button>
 
-            <!-- Mode Create (Round 1: One Single Dispatch Action) -->
-            @if (mode() === 'create' && sourceOrderId()) {
+            @if (canEditDraft()) {
+              <button
+                type="button"
+                class="erp-button erp-button-secondary"
+                [disabled]="actionInProgress() || loading() || isOrderFullyDispatched()"
+                (click)="saveDraft()"
+              >
+                <i class="pi pi-save"></i>
+                <span>Save Draft</span>
+              </button>
+
               <button
                 type="button"
                 class="erp-button erp-button-success"
-                [disabled]="!canDispatch()"
-                (click)="executeDirectDispatch()"
-                title="Verify stock, deduct inventory, and issue dispatch note"
+                [disabled]="actionInProgress() || loading() || !canDispatchShipment()"
+                (click)="executeDispatch()"
               >
                 @if (actionInProgress()) {
                   <i class="pi pi-spin pi-spinner"></i>
                   <span>Posting Dispatch...</span>
                 } @else {
                   <i class="pi pi-send"></i>
-                  <span>Confirm & Dispatch</span>
+                  <span>Post Dispatch</span>
                 }
-              </button>
-            }
-
-            <!-- View / Edit mode actions -->
-            @if (mode() === 'view' && isDraft() && canDeliver()) {
-              <button
-                type="button"
-                class="erp-button erp-button-success"
-                [disabled]="actionInProgress()"
-                (click)="deliverShipment()"
-              >
-                <i class="pi pi-check-circle"></i>
-                <span>Deliver & Issue Stock</span>
               </button>
             }
           </div>
@@ -540,4 +638,203 @@
       </section>
     </div>
   }
+
+  <!-- Dialog: Inter-Warehouse Replenishment Transfer Draft -->
+  <p-dialog
+    header="Create Inter-Warehouse Transfer Draft"
+    [(visible)]="transferDialogVisible"
+    [modal]="true"
+    [closable]="true"
+    [style]="{ width: '540px', maxWidth: '96vw' }"
+  >
+    @if (selectedTransferLine(); as line) {
+      <div class="dialog-inner-form">
+        <div class="dialog-product-summary">
+          <span class="prod-code">{{ line.productCode }}</span>
+          <span class="prod-name">{{ line.productName }}</span>
+          <div class="shortage-notice">
+            Shortage: <strong>{{ line.shortageQuantity | number:'1.2-2' }} {{ line.unitOfMeasure }}</strong>
+          </div>
+        </div>
+
+        <form [formGroup]="transferForm" class="dialog-form-fields">
+          <div class="form-field">
+            <label for="sourceWhSelect">Source Warehouse (Holding Stock) *</label>
+            <select
+              id="sourceWhSelect"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="sourceWarehouseId"
+            >
+              <option value="">Select source warehouse facility...</option>
+              @for (wh of line.alternativeWarehouses || []; track wh.warehouseId) {
+                <option [value]="wh.warehouseId">
+                  {{ wh.warehouseName }} ({{ wh.totalAvailableQuantity | number:'1.2-2' }} available)
+                </option>
+              }
+              @for (wh of warehouses(); track wh.warehouseId) {
+                <option [value]="wh.warehouseId">
+                  {{ wh.warehouseCode }} - {{ wh.warehouseName }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="destWhSelect">Destination Warehouse (Picking Facility) *</label>
+            <select
+              id="destWhSelect"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="destinationWarehouseId"
+            >
+              <option value="">Select destination warehouse...</option>
+              @for (wh of warehouses(); track wh.warehouseId) {
+                <option [value]="wh.warehouseId">
+                  {{ wh.warehouseCode }} - {{ wh.warehouseName }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="transferQty">Transfer Quantity *</label>
+            <input
+              id="transferQty"
+              type="number"
+              step="0.01"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="quantity"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="transferNotes">Transfer Notes</label>
+            <textarea
+              id="transferNotes"
+              rows="2"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="notes"
+              placeholder="Instructions for warehouse dispatch..."
+            ></textarea>
+          </div>
+        </form>
+      </div>
+
+      <div class="dialog-actions-footer">
+        <button
+          type="button"
+          class="erp-button erp-button-secondary"
+          (click)="transferDialogVisible.set(false)"
+          [disabled]="actionInProgress()"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="erp-button erp-button-primary"
+          [disabled]="transferForm.invalid || actionInProgress()"
+          (click)="submitReplenishmentTransfer()"
+        >
+          @if (actionInProgress()) {
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Creating Transfer...</span>
+          } @else {
+            <i class="pi pi-check"></i>
+            <span>Create Transfer Draft</span>
+          }
+        </button>
+      </div>
+    }
+  </p-dialog>
+
+  <!-- Dialog: Purchase Requisition Replenishment Draft -->
+  <p-dialog
+    header="Create Purchase Requisition Draft"
+    [(visible)]="requisitionDialogVisible"
+    [modal]="true"
+    [closable]="true"
+    [style]="{ width: '540px', maxWidth: '96vw' }"
+  >
+    @if (selectedRequisitionLine(); as line) {
+      <div class="dialog-inner-form">
+        <div class="dialog-product-summary">
+          <span class="prod-code">{{ line.productCode }}</span>
+          <span class="prod-name">{{ line.productName }}</span>
+          <div class="shortage-notice">
+            Shortage: <strong>{{ line.shortageQuantity | number:'1.2-2' }} {{ line.unitOfMeasure }}</strong>
+          </div>
+        </div>
+
+        <form [formGroup]="requisitionForm" class="dialog-form-fields">
+          <div class="form-field">
+            <label for="reqDate">Required by Date *</label>
+            <input
+              id="reqDate"
+              type="date"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="requiredDate"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="reqQty">Requisition Quantity *</label>
+            <input
+              id="reqQty"
+              type="number"
+              step="0.01"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="quantity"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="reqPrice">Estimated Unit Price (Optional)</label>
+            <input
+              id="reqPrice"
+              type="number"
+              step="0.01"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="estimatedUnitPrice"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="reqNotes">Procurement Remarks</label>
+            <textarea
+              id="reqNotes"
+              rows="2"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="notes"
+              placeholder="Reason for requisition, customer deadline..."
+            ></textarea>
+          </div>
+        </form>
+      </div>
+
+      <div class="dialog-actions-footer">
+        <button
+          type="button"
+          class="erp-button erp-button-secondary"
+          (click)="requisitionDialogVisible.set(false)"
+          [disabled]="actionInProgress()"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="erp-button erp-button-primary"
+          [disabled]="requisitionForm.invalid || actionInProgress()"
+          (click)="submitReplenishmentRequisition()"
+        >
+          @if (actionInProgress()) {
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Creating Requisition...</span>
+          } @else {
+            <i class="pi pi-check"></i>
+            <span>Create Requisition Draft</span>
+          }
+        </button>
+      </div>
+    }
+  </p-dialog>
 </div>

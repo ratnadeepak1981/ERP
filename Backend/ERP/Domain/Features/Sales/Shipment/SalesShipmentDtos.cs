@@ -198,7 +198,9 @@ public class SalesOrderDispatchAvailabilityDto
     public bool CanDefaultLocationFulfil { get; set; }
     public bool CanFulfil { get; set; }
     public bool HasShortages { get; set; }
+    public int TotalShortageLines { get; set; }
     public List<EligibleLocationDto> EligibleLocations { get; set; } = new();
+    public List<WarehouseStockSummaryDto> EligibleWarehouses { get; set; } = new();
     public List<SalesOrderDispatchLineAvailabilityDto> Lines { get; set; } = new();
 }
 
@@ -211,6 +213,48 @@ public class EligibleLocationDto
     public string LocationCode { get; set; } = string.Empty;
     public string LocationName { get; set; } = string.Empty;
     public bool IsDefault { get; set; }
+    public bool IsStaging { get; set; }
+    public decimal AvailableQuantity { get; set; }
+}
+
+public class LocationStockAvailabilityDto
+{
+    public Guid WarehouseId { get; set; }
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string WarehouseName { get; set; } = string.Empty;
+    public Guid WarehouseLocationId { get; set; }
+    public string LocationCode { get; set; } = string.Empty;
+    public string LocationName { get; set; } = string.Empty;
+    public bool IsStaging { get; set; }
+    public decimal AvailableQuantity { get; set; }
+    public bool CanFulfil { get; set; }
+}
+
+public class SuggestedLocationSplitDto
+{
+    public Guid WarehouseId { get; set; }
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string WarehouseName { get; set; } = string.Empty;
+    public Guid WarehouseLocationId { get; set; }
+    public string LocationCode { get; set; } = string.Empty;
+    public string LocationName { get; set; } = string.Empty;
+    public bool IsStaging { get; set; }
+    public decimal AvailableQuantity { get; set; }
+    public decimal SuggestedQuantity { get; set; }
+    public string? BatchNumber { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+}
+
+public class WarehouseStockSummaryDto
+{
+    public Guid WarehouseId { get; set; }
+    public string WarehouseCode { get; set; } = string.Empty;
+    public string WarehouseName { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+    public bool IsSameBranch { get; set; }
+    public decimal TotalAvailableQuantity { get; set; }
+    public decimal TotalAvailableStock { get => TotalAvailableQuantity; set => TotalAvailableQuantity = value; }
+    public bool CanFulfil { get; set; }
 }
 
 public class SalesOrderDispatchLineAvailabilityDto
@@ -222,10 +266,77 @@ public class SalesOrderDispatchLineAvailabilityDto
     public decimal OrderedQuantity { get; set; }
     public decimal AlreadyDispatchedQuantity { get; set; }
     public decimal RemainingQuantity { get; set; }
+    public decimal CurrentDraftAllocatedQuantity { get; set; }
     public decimal AvailableQuantity { get; set; }
     public decimal ShortageQuantity { get; set; }
     public bool CanFulfil { get; set; }
     public Guid? UnitOfMeasureId { get; set; }
+    public string UnitOfMeasure { get; set; } = string.Empty;
+
+    // Default suggested picking source for this specific line
+    public Guid? DefaultSuggestedWarehouseId { get; set; }
+    public string? DefaultSuggestedWarehouseName { get; set; }
+    public Guid? DefaultSuggestedLocationId { get; set; }
+    public string? DefaultSuggestedLocationCode { get; set; }
+    public string? DefaultSuggestedLocationName { get; set; }
+    public bool IsDefaultStaging { get; set; }
+
+    // Multi-bin split suggestions when one bin cannot fulfill 100%
+    public List<SuggestedLocationSplitDto> SuggestedSplits { get; set; } = new();
+
+    // Locations with available stock in primary/selected warehouse
+    public List<LocationStockAvailabilityDto> EligibleLocations { get; set; } = new();
+
+    // Other authorized warehouses holding available stock
+    public List<WarehouseStockSummaryDto> AlternativeWarehouses { get; set; } = new();
+}
+
+public class CreateReplenishmentTransferRequest
+{
+    public Guid SalesOrderId { get; set; }
+    public Guid SalesOrderItemId { get; set; }
+    public Guid ProductId { get; set; }
+    public Guid SourceWarehouseId { get; set; }
+    public Guid DestinationWarehouseId { get; set; }
+    public decimal Quantity { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class ReplenishmentTransferResult
+{
+    public string TransferReferenceNumber { get; set; } = string.Empty;
+    public string Status { get; set; } = "Draft";
+    public Guid ProductId { get; set; }
+    public Guid SourceWarehouseId { get; set; }
+    public Guid DestinationWarehouseId { get; set; }
+    public decimal Quantity { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+public class CreateReplenishmentRequisitionRequest
+{
+    public Guid SalesOrderId { get; set; }
+    public DateTime? RequiredDate { get; set; }
+    public string? Notes { get; set; }
+    public List<CreateReplenishmentRequisitionItemRequest> Items { get; set; } = new();
+}
+
+public class CreateReplenishmentRequisitionItemRequest
+{
+    public Guid ProductId { get; set; }
+    public Guid? UnitOfMeasureId { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal? EstimatedUnitPrice { get; set; }
+    public string? Remarks { get; set; }
+}
+
+public class ReplenishmentRequisitionResult
+{
+    public Guid RequisitionId { get; set; }
+    public string RequisitionNumber { get; set; } = string.Empty;
+    public string Status { get; set; } = "Draft";
+    public int ItemCount { get; set; }
+    public string Message { get; set; } = string.Empty;
 }
 
 public class DispatchOrderRequest

@@ -173,3 +173,55 @@ Every capability has been audited and classified:
 - [x] Zero database drops, re-seedings, or unapproved migration executions.
 - [x] Zero unapproved NuGet dependencies added (used pure .NET BCL for PDF).
 - [x] All Markdown specifications updated to reflect verified completed status.
+
+---
+
+## 7. Sales Dispatch Note & Warehouse Picking Audit & Specification Alignment
+
+As mandated by the Phase 1 documentation and source-code inspection objective, the **Sales Dispatch Note (Shipment), Warehouse Picking, Replenishment, and Fulfilment** workflow has been audited against the existing **Partial Product Receipt (GRN)** screen (`goods-receipt-page.component.ts/html`) and warehouse inventory standards.
+
+A dedicated, comprehensive architectural specification has been updated and published in:
+- [ApexERP-Sales-Dispatch-Note-and-Warehouse-Picking-Specification.md](file:///z:/ERP/ApexERP-Sales-Dispatch-Note-and-Warehouse-Picking-Specification.md) (v1.1.0)
+
+### 7.1 The Core Picking Requirement
+The authoritative business rule governing ApexERP warehouse picking is:
+
+> **Automatic stock availability discovery + default source selection + manual override + authorised dispatch posting.**
+> 
+> **Automatic picking does NOT mean automatic stock allocation, reservation or deduction.**
+
+- **Automatic Discovery:** The system scans all authorized warehouses, bins, and staging docks, computes unreserved stock, and pre-populates a sensible default source suggestion. Zero stock is reserved or deducted.
+- **Manual Override:** Authorized Sales and Warehouse Officers can override the default warehouse/bin, select staging docks, change quantities, and split an order line across multiple bins or warehouses.
+- **Authorised Posting:** Stock is deducted exclusively upon authorized transactional posting (`SALES_SHIPMENT.DISPATCH`), creating sequenced ledger records in `InventoryTransactions`.
+
+### 7.2 Root Cause Analysis of the Original Picking-Source Defect
+Source inspection identified that the initial (Round 1) implementation suffered from three design defects:
+1. **Header-Level Monolithic Location Binding:** `sales-shipment-page.component.ts` bound the entire shipment to a single header picker (`selectedLocationId`), assuming all order lines originate from the exact same bin.
+2. **All-or-Nothing Evaluation:** `GetOrderDispatchAvailabilityAsync` checked if a single location could fulfill 100% of all lines on the order. If no single location held 100% of all items, `canFulfil` evaluated to `false`, causing the UI to block dispatching.
+3. **Missing Multi-Allocation Grid:** The UI lacked an `AppEditableDataTableComponent` grid allowing operators to split a line (e.g. 30 from Bin A, 20 from Bin B, 10 from Warehouse 2).
+4. **Resolution:** The backend domain model `SalesShipmentItem` already supports multi-allocation rows per order line (`SalesOrderItemId`). The UI picking grid will be refactored to align with `goods-receipt-page.component.ts`.
+
+### 7.3 Dispatch Note Capability Classification Matrix
+
+| Capability / Workflow Area | Status | Verified Implementation & Technical Summary |
+| :--- | :---: | :--- |
+| **Sales Order Confirmation Auto-Draft Generation** | `VERIFIED EXISTING` | `SalesOrderService.ConfirmOrderAsync` (lines 292-340) automatically creates Draft `SalesShipment` for physical products (`ProductType != ProductType.Service`). Service orders are excluded. |
+| **Zero Stock Deduction in Draft Mode** | `VERIFIED EXISTING` | `SalesShipmentService.CreateFromOrderAsync` merely creates `SalesShipment` and `SalesShipmentItem` in `DomainDbContext`. Zero inventory ledger transactions are written. |
+| **Draft Picking Allocation Amendment** | `VERIFIED EXISTING` | `UpdateDraftAsync` in `SalesShipmentService` and `PUT api/companies/{c}/branches/{b}/sales-shipments/{id}` allow modifying picking allocations, warehouses, bins, quantities, and carrier details. |
+| **Draft Cancellation Without Ledger Impact** | `VERIFIED EXISTING` | `CancelDraftAsync` in `SalesShipmentService` transitions status to `Cancelled` with zero ledger movements. Covered by `SalesShipmentWorkflowAndScopeTests.CancelDraftShipment_Succeeds_AndDoesNotMutateStock`. |
+| **Single Authoritative Aggregate Root** | `VERIFIED EXISTING` | `SalesShipment.cs` and `SalesShipmentItem.cs` in `Domain.Features.Sales.Shipment` serve as the single, authoritative aggregate. Supports multi-allocation rows per order line (`SalesOrderItemId`). |
+| **Zero Over-Shipment Tolerance Enforcement** | `VERIFIED EXISTING` | `ExecuteDispatchCoreAsync` enforces that cumulative dispatched quantity across completed shipments plus current dispatch cannot exceed ordered quantity (0% tolerance). Covered by `SalesShipmentWorkflowAndScopeTests.PartialShipments_CumulativeCalculation_And_OverShipmentRejection`. |
+| **Sales Order Concurrency Update Lock** | `VERIFIED EXISTING` | `ExecuteDispatchCoreAsync` executes `SELECT 1 FROM SalesOrders WITH (UPDLOCK, ROWLOCK)` to serialize concurrent dispatches against the same order. |
+| **Transactional Ledger Stock Deduction** | `VERIFIED EXISTING` | `ExecuteDispatchCoreAsync` posts `InventoryMovementType.ShipmentDispatch` via `IInventoryPostingService.PostMovementAsync` within an atomic EF Core transaction block. |
+| **Sales Order Fulfillment Recalculation** | `VERIFIED EXISTING` | Automatically re-evaluates all physical order lines and transitions `SalesOrder.Status = Fulfilled` once 100% of physical goods are dispatched and no pending service items exist. |
+| **Posted Shipment Immutability** | `VERIFIED EXISTING` | `SalesShipment.cs` and `SalesShipmentService.cs` strictly reject editing or physical deletion once in `Dispatched` or `Delivered` status. Reversals must be processed via Sales Return / Credit Note. |
+| **Unified Location & Staging Area Model** | `VERIFIED EXISTING` | Staging areas are modeled as standard `WarehouseLocation` entries with `LocationType.Code = "STAGING"` and `CanPick = true`. Picking directly from staging or storage bins prevents double deduction. |
+| **FEFO Batch Expiry Enforcement** | `VERIFIED EXISTING` | `ExecuteDispatchCoreAsync` enforces batch existence, active status, and rejects expired batches (`ExpiryDate >= DispatchDate`). `IInventoryRepository.GetEligibleBatchesAsync` orders batches by FEFO (`ExpiryDate ASC`). |
+| **Reusable Batch/Serial Tracking Dialog** | `VERIFIED EXISTING` | `BatchSerialTrackingDialogComponent` in `Frontend/Web` already supports `dialogMode: 'issue'`, calling `InventoryService.getEligibleBatches` with FEFO ordering and quantity capping per batch. |
+| **Delivery Confirmation & Direct Handover** | `VERIFIED EXISTING` | `DeliverShipmentAsync` supports both standard carrier delivery progression (`Dispatched -> Delivered`) and direct delivery from draft for `CustomerPickup` and `StoreHandover`. |
+| **Multi-Location / Multi-Bin Picking Grid** | `PARTIALLY IMPLEMENTED` | Backend domain model natively supports multiple allocation rows per `SalesOrderItemId`. Frontend `sales-shipment-page` currently uses a simplified single-location picker (Round 1) and requires refactoring to `AppEditableDataTableComponent` matching `goods-receipt-page.component.ts`. |
+| **Automated Multi-Bin Split Suggestions** | `PARTIALLY IMPLEMENTED` | `GetOrderDispatchAvailabilityAsync` detects shortages and checks which single locations can fulfill 100%. Backend DTO should be enhanced to return recommended multi-bin splits when a single bin cannot fulfill 100%. |
+| **Cross-Warehouse Replenishment Transfer Action** | `PENDING` | Contextual action to trigger an inter-warehouse `InventoryTransfer` draft from an authorized warehouse when local stock is exhausted. Destination stock moves only upon posted transfer completion. |
+| **Carrier Tracking API Integration** | `DEFERRED` | Direct courier API integrations (FedEx, UPS, DHL) deferred to future logistics milestones. Manual tracking fields are fully implemented. |
+
+

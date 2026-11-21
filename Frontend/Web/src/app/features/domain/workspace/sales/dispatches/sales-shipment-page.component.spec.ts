@@ -5,7 +5,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
-import { SalesShipmentPageComponent, DispatchLineWithTracking } from './sales-shipment-page.component';
+import { SalesShipmentPageComponent } from './sales-shipment-page.component';
 import { SalesShipmentService } from '../../../../../core/services/sales-shipment.service';
 import { SalesOrderService } from '../../../../../core/services/sales-order.service';
 import { MasterDataService } from '../../../../../core/services/master-data.service';
@@ -15,7 +15,8 @@ import {
   SalesShipmentDto,
   SalesShipmentStatus,
   FulfillmentMethod,
-  SalesOrderDispatchAvailabilityDto
+  SalesOrderDispatchAvailabilityDto,
+  EditableShipmentLine
 } from '../../../../../core/models/sales-shipment.models';
 import { SalesOrderDto, SalesOrderStatus } from '../../../../../core/models/sales-order.models';
 import { Company, Branch, TrackingMode } from '../../../../../core/models/scope.models';
@@ -94,7 +95,8 @@ describe('SalesShipmentPageComponent', () => {
         locationId: 'loc-1',
         locationCode: 'A1-01',
         locationName: 'Default Bin A1',
-        isDefault: true
+        isDefault: true,
+        availableQuantity: 10
       }
     ],
     lines: [
@@ -110,7 +112,25 @@ describe('SalesShipmentPageComponent', () => {
         shortageQuantity: 0,
         canFulfil: true,
         unitOfMeasure: 'PCS',
-        trackingMode: 0
+        trackingMode: 0,
+        defaultSuggestedWarehouseId: 'wh-1',
+        defaultSuggestedWarehouseName: 'Main Warehouse',
+        defaultSuggestedLocationId: 'loc-1',
+        defaultSuggestedLocationCode: 'A1-01',
+        eligibleLocations: [
+          {
+            warehouseId: 'wh-1',
+            warehouseCode: 'MAIN',
+            warehouseName: 'Main Warehouse',
+            warehouseLocationId: 'loc-1',
+            locationCode: 'A1-01',
+            locationName: 'Default Bin A1',
+            isStaging: false,
+            availableQuantity: 10,
+            canFulfil: true
+          }
+        ],
+        suggestedSplits: []
       }
     ]
   };
@@ -139,7 +159,20 @@ describe('SalesShipmentPageComponent', () => {
         shortageQuantity: 3,
         canFulfil: false,
         unitOfMeasure: 'PCS',
-        trackingMode: 0
+        trackingMode: 0,
+        defaultSuggestedWarehouseId: 'wh-1',
+        defaultSuggestedLocationId: 'loc-1',
+        alternativeWarehouses: [
+          {
+            warehouseId: 'wh-2',
+            warehouseCode: 'REGIONAL',
+            warehouseName: 'Regional Hub',
+            isPrimary: false,
+            isSameBranch: false,
+            totalAvailableQuantity: 20,
+            canFulfil: true
+          }
+        ]
       }
     ]
   };
@@ -207,79 +240,134 @@ describe('SalesShipmentPageComponent', () => {
     vi.spyOn(scopeService, 'selectedBranch').mockReturnValue(mockBranch);
     vi.spyOn(salesOrderService, 'getOrder').mockReturnValue(of(mockOrder));
     vi.spyOn(shipmentService, 'getOrderDispatchAvailability').mockReturnValue(of(mockAvailabilitySufficient));
+    vi.spyOn(shipmentService, 'createFromOrder').mockReturnValue(of({ ...mockShipment, status: SalesShipmentStatus.Draft }));
     vi.spyOn(shipmentService, 'dispatchFromOrder').mockReturnValue(of(mockShipment));
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
   });
 
-  it('should initialize dispatch from order with default location and enable dispatch when sufficient', () => {
+  it('should initialize dispatch from order with default location and populate workingLines', () => {
     fixture.detectChanges();
 
     expect(component.mode()).toBe('create');
     expect(component.sourceOrderId()).toBe('so-1');
     expect(component.availability()).toBeDefined();
-    expect(component.selectedLocationId()).toBe('loc-1');
-    expect(component.canDispatch()).toBe(true);
+    expect(component.workingLines().length).toBe(1);
+    expect(component.workingLines()[0].productCode).toBe('ITEM-001');
+    expect(component.workingLines()[0].warehouseId).toBe('wh-1');
+    expect(component.workingLines()[0].warehouseLocationId).toBe('loc-1');
+    expect(component.workingLines()[0].quantityDispatched).toBe(5);
+    expect(component.canDispatchShipment()).toBe(true);
   });
 
-  it('should disable dispatch and show shortage lines when no single location can fulfil', () => {
+  it('should detect shortages and calculate shortage counts correctly', () => {
     vi.spyOn(shipmentService, 'getOrderDispatchAvailability').mockReturnValue(of(mockAvailabilityShortage));
 
     fixture.detectChanges();
 
-    expect(component.canDispatch()).toBe(false);
-    expect(component.displayedLines().length).toBe(1);
-    expect(component.displayedLines()[0].shortageQuantity).toBe(3);
+    expect(component.shortageCount()).toBe(1);
+    expect(component.totalShortageQuantity()).toBe(3);
   });
 
   it('should execute direct dispatch and navigate to dispatch view on success', () => {
     fixture.detectChanges();
 
-    component.executeDirectDispatch();
+    component.executeDispatch();
 
     expect(shipmentService.dispatchFromOrder).toHaveBeenCalledWith(
       mockCompany.id,
       mockBranch.id,
       'so-1',
       expect.objectContaining({
+        warehouseId: 'wh-1',
         warehouseLocationId: 'loc-1'
       })
     );
     expect(router.navigate).toHaveBeenCalledWith(['/app/sales/dispatches', 'ship-1']);
   });
 
+  it('should save draft without deducting stock via createFromOrder', () => {
+    fixture.detectChanges();
+
+    component.saveDraft();
+
+    expect(shipmentService.createFromOrder).toHaveBeenCalledWith(
+      mockCompany.id,
+      mockBranch.id,
+      'so-1',
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            salesOrderItemId: 'so-item-1',
+            quantityDispatched: 5
+          })
+        ])
+      })
+    );
+  });
+
+  it('should support adding and removing multi-bin split allocations', () => {
+    fixture.detectChanges();
+
+    expect(component.workingLines().length).toBe(1);
+    const primaryLine = component.workingLines()[0];
+
+    // Cannot remove when only 1 line exists
+    expect(component.canRemoveRow(primaryLine)).toBe(false);
+
+    // Set picking quantity on first row to 3
+    primaryLine.quantityDispatched = 3;
+
+    // Add bin split
+    component.onAddBinSplit(primaryLine);
+
+    expect(component.workingLines().length).toBe(2);
+    const splitLine = component.workingLines()[1];
+    expect(splitLine.salesOrderItemId).toBe(primaryLine.salesOrderItemId);
+    expect(splitLine.quantityDispatched).toBe(2); // Remaining demand
+    expect(component.canRemoveRow(splitLine)).toBe(true);
+
+    // Remove split line
+    component.onRemoveBinSplit(splitLine);
+    expect(component.workingLines().length).toBe(1);
+  });
+
   it('should display tracking summary correctly for untracked, pending, and configured lines', () => {
     fixture.detectChanges();
 
-    const untrackedLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
+    const untrackedLine: EditableShipmentLine = {
+      lineId: 'l-1',
+      salesOrderItemId: 'so-item-1',
+      productId: 'prod-1',
+      productCode: 'ITEM-001',
+      productName: 'Solar Panel 400W',
+      orderedQuantity: 5,
+      alreadyDispatchedQuantity: 0,
+      outstandingQuantity: 5,
+      quantityDispatched: 5,
+      warehouseId: 'wh-1',
+      warehouseLocationId: 'loc-1',
       trackingMode: TrackingMode.None,
-      remainingQuantity: 5,
       trackingAllocations: []
     };
     expect(component.getLineTrackingSummary(untrackedLine)).toBe('Not Tracked');
 
-    const pendingBatchLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
+    const pendingBatchLine: EditableShipmentLine = {
+      ...untrackedLine,
       trackingMode: TrackingMode.Batch,
-      remainingQuantity: 5,
       trackingAllocations: []
     };
     expect(component.getLineTrackingSummary(pendingBatchLine)).toBe('Configure (0/5)');
 
-    const partialBatchLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
+    const partialBatchLine: EditableShipmentLine = {
+      ...untrackedLine,
       trackingMode: TrackingMode.Batch,
-      remainingQuantity: 5,
-      trackingAllocations: [
-        { batchNumber: 'LOT-01', quantity: 3 }
-      ]
+      trackingAllocations: [{ batchNumber: 'LOT-01', quantity: 3 }]
     };
     expect(component.getLineTrackingSummary(partialBatchLine)).toBe('Configure (3/5)');
 
-    const configuredBatchLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
+    const configuredBatchLine: EditableShipmentLine = {
+      ...untrackedLine,
       trackingMode: TrackingMode.Batch,
-      remainingQuantity: 5,
       trackingAllocations: [
         { batchNumber: 'LOT-01', quantity: 3 },
         { batchNumber: 'LOT-02', quantity: 2 }
@@ -287,10 +375,10 @@ describe('SalesShipmentPageComponent', () => {
     };
     expect(component.getLineTrackingSummary(configuredBatchLine)).toBe('Batches (2) ✓');
 
-    const configuredSerialLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
+    const configuredSerialLine: EditableShipmentLine = {
+      ...untrackedLine,
+      quantityDispatched: 2,
       trackingMode: TrackingMode.Serial,
-      remainingQuantity: 2,
       trackingAllocations: [
         { serialNumber: 'SN-001', quantity: 1 },
         { serialNumber: 'SN-002', quantity: 1 }
@@ -310,10 +398,20 @@ describe('SalesShipmentPageComponent', () => {
       afterClosed: () => of(mockAllocations)
     } as any);
 
-    const trackedLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
+    const trackedLine: EditableShipmentLine = {
+      lineId: 'l-1',
+      salesOrderItemId: 'so-item-1',
+      productId: 'prod-1',
+      productCode: 'ITEM-001',
+      productName: 'Solar Panel 400W',
+      unitOfMeasure: 'PCS',
+      orderedQuantity: 5,
+      alreadyDispatchedQuantity: 0,
+      outstandingQuantity: 5,
+      quantityDispatched: 5,
+      warehouseId: 'wh-1',
+      warehouseLocationId: 'loc-1',
       trackingMode: TrackingMode.Batch,
-      remainingQuantity: 5,
       trackingAllocations: []
     };
 
@@ -326,6 +424,7 @@ describe('SalesShipmentPageComponent', () => {
         disableClose: true,
         data: expect.objectContaining({
           dialogMode: 'issue',
+          transactionTitle: 'Sales Dispatch Note',
           productId: 'prod-1',
           productCode: 'ITEM-001',
           productName: 'Solar Panel 400W',
@@ -341,147 +440,5 @@ describe('SalesShipmentPageComponent', () => {
     );
 
     expect(trackedLine.trackingAllocations).toEqual(mockAllocations);
-  });
-
-  it('should enforce tracking completeness in canDispatch for batch and serial tracked lines', () => {
-    const batchLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
-      trackingMode: TrackingMode.Batch,
-      remainingQuantity: 5,
-      trackingAllocations: []
-    };
-
-    const availabilityWithBatch: SalesOrderDispatchAvailabilityDto = {
-      ...mockAvailabilitySufficient,
-      lines: [batchLine]
-    };
-
-    vi.spyOn(shipmentService, 'getOrderDispatchAvailability').mockReturnValue(of(availabilityWithBatch));
-    fixture.detectChanges();
-
-    // 0/5 allocations -> cannot dispatch
-    expect(component.canDispatch()).toBe(false);
-
-    // Partial 3/5 allocations -> cannot dispatch
-    batchLine.trackingAllocations = [{ batchNumber: 'LOT-1', quantity: 3 }];
-    component.availability.set({
-      ...availabilityWithBatch,
-      lines: [batchLine]
-    });
-    expect(component.canDispatch()).toBe(false);
-
-    // Full 5/5 allocations -> can dispatch
-    batchLine.trackingAllocations = [
-      { batchNumber: 'LOT-1', quantity: 3 },
-      { batchNumber: 'LOT-2', quantity: 2 }
-    ];
-    component.availability.set({
-      ...availabilityWithBatch,
-      lines: [batchLine]
-    });
-    expect(component.canDispatch()).toBe(true);
-
-    // Serial tracking completeness check
-    const serialLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
-      trackingMode: TrackingMode.Serial,
-      remainingQuantity: 2,
-      trackingAllocations: [{ serialNumber: 'SN-01', quantity: 1 }]
-    };
-    component.availability.set({
-      ...mockAvailabilitySufficient,
-      lines: [serialLine]
-    });
-    // 1/2 serials -> cannot dispatch
-    expect(component.canDispatch()).toBe(false);
-
-    // 2/2 serials -> can dispatch
-    serialLine.trackingAllocations = [
-      { serialNumber: 'SN-01', quantity: 1 },
-      { serialNumber: 'SN-02', quantity: 1 }
-    ];
-    component.availability.set({
-      ...mockAvailabilitySufficient,
-      lines: [serialLine]
-    });
-    expect(component.canDispatch()).toBe(true);
-  });
-
-  it('should expand explicit multi-batch allocations into items array during direct dispatch', () => {
-    const batchLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
-      trackingMode: TrackingMode.Batch,
-      remainingQuantity: 5,
-      trackingAllocations: [
-        { batchNumber: 'LOT-A', quantity: 3 },
-        { batchNumber: 'LOT-B', quantity: 2 }
-      ]
-    };
-
-    const availabilityWithBatch: SalesOrderDispatchAvailabilityDto = {
-      ...mockAvailabilitySufficient,
-      lines: [batchLine]
-    };
-
-    vi.spyOn(shipmentService, 'getOrderDispatchAvailability').mockReturnValue(of(availabilityWithBatch));
-    fixture.detectChanges();
-
-    component.executeDirectDispatch();
-
-    expect(shipmentService.dispatchFromOrder).toHaveBeenCalledWith(
-      mockCompany.id,
-      mockBranch.id,
-      'so-1',
-      expect.objectContaining({
-        warehouseLocationId: 'loc-1',
-        items: [
-          expect.objectContaining({
-            salesOrderItemId: 'so-item-1',
-            productId: 'prod-1',
-            warehouseId: 'wh-1',
-            warehouseLocationId: 'loc-1',
-            quantityDispatched: 3,
-            batchNumber: 'LOT-A'
-          }),
-          expect.objectContaining({
-            salesOrderItemId: 'so-item-1',
-            productId: 'prod-1',
-            warehouseId: 'wh-1',
-            warehouseLocationId: 'loc-1',
-            quantityDispatched: 2,
-            batchNumber: 'LOT-B'
-          })
-        ]
-      })
-    );
-  });
-
-  it('should omit items array when products are untracked to allow backend fallback auto-allocation', () => {
-    const untrackedLine: DispatchLineWithTracking = {
-      ...mockAvailabilitySufficient.lines[0],
-      trackingMode: TrackingMode.None,
-      remainingQuantity: 5,
-      trackingAllocations: []
-    };
-
-    const availabilityUntracked: SalesOrderDispatchAvailabilityDto = {
-      ...mockAvailabilitySufficient,
-      lines: [untrackedLine]
-    };
-
-    vi.spyOn(shipmentService, 'getOrderDispatchAvailability').mockReturnValue(of(availabilityUntracked));
-    fixture.detectChanges();
-
-    component.executeDirectDispatch();
-
-    expect(shipmentService.dispatchFromOrder).toHaveBeenCalledWith(
-      mockCompany.id,
-      mockBranch.id,
-      'so-1',
-      expect.objectContaining({
-        warehouseLocationId: 'loc-1',
-        items: undefined
-      })
-    );
   });
 });

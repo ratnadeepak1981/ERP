@@ -70,4 +70,20 @@ public interface ISalesShipmentService
         Guid companyId,
         Guid branchId,
         Guid shipmentId);
+
+    Task<ReplenishmentTransferResult> CreateReplenishmentTransferDraftAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        CreateReplenishmentTransferRequest request);
+
+    Task<ReplenishmentRequisitionResult> CreateReplenishmentPurchaseRequisitionAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid salesOrderId,
+        CreateReplenishmentRequisitionRequest request,
+        Guid actorUserId,
+        string actorUserName);
 }
