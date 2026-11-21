@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Domain.Common.ApplicationUrl;
 using Domain.Infrastructure.Persistence;
 using ERP.Infrastructure.Persistence.Auditing;
 using Microsoft.EntityFrameworkCore;
@@ -19,17 +20,20 @@ public class RFQService : IRFQService
     private readonly IRfqTokenService _tokenService;
     private readonly IRfqEmailNotificationService? _emailService;
     private readonly ILogger<RFQService>? _logger;
+    private readonly IApplicationUrlService _urlService;
 
     public RFQService(
         DomainDbContext dbContext,
         IRfqTokenService tokenService,
         IRfqEmailNotificationService? emailService = null,
-        ILogger<RFQService>? logger = null)
+        ILogger<RFQService>? logger = null,
+        IApplicationUrlService? urlService = null)
     {
         _dbContext = dbContext;
         _tokenService = tokenService;
         _emailService = emailService;
         _logger = logger;
+        _urlService = urlService ?? new ApplicationUrlService();
     }
 
     public async Task<RfqDetailsDto> CreateRfqAsync(
@@ -545,9 +549,10 @@ public class RFQService : IRFQService
             }
 
             RfqEmailDispatchResult dispatch;
+            RfqInvitationEmailContext? emailContext = null;
             try
             {
-                var emailContext = BuildInvitationEmailContext(
+                emailContext = BuildInvitationEmailContext(
                     supplier,
                     rfq,
                     companyName,
@@ -573,6 +578,13 @@ public class RFQService : IRFQService
                 supplier.InvitationStatus = RFQSupplierInvitationStatus.Sent;
                 supplier.InvitedAt = DateTime.UtcNow;
                 result.SentCount++;
+                if (emailContext != null)
+                {
+                    result.InvitationUrl = emailContext.InvitationUrl;
+                    result.StandardLocalhostUrl = emailContext.StandardLocalhostUrl;
+                    result.TenantLocalhostUrl = emailContext.TenantLocalhostUrl;
+                    result.ExternalTenantUrl = emailContext.ExternalTenantUrl;
+                }
                 result.Messages.Add($"Invitation email for '{supplier.SupplierName}' was accepted by the SMTP transport.");
             }
             else
@@ -760,13 +772,19 @@ public class RFQService : IRFQService
         };
     }
 
-    private static RfqInvitationEmailContext BuildInvitationEmailContext(
+    private RfqInvitationEmailContext BuildInvitationEmailContext(
         RFQSupplier supplier,
         RequestForQuotation rfq,
         string companyName,
         string plaintextToken,
         SendRfqInvitationsRequest request)
     {
+        // 1. Resolve unified dynamic application URL using IApplicationUrlService
+        var invitationUrl = _urlService.BuildAbsoluteUrl(
+            "/public/rfq-submit",
+            new Dictionary<string, string?> { ["token"] = plaintextToken },
+            request.PortalBaseUrl);
+
         var rawPortalUrl = !string.IsNullOrWhiteSpace(request.PortalBaseUrl)
             ? request.PortalBaseUrl.Trim()
             : "http://localhost:4200";
@@ -780,7 +798,7 @@ public class RFQService : IRFQService
         var portPart = portalUri.IsDefaultPort ? string.Empty : $":{portalUri.Port}";
         var originalHost = portalUri.Host.ToLowerInvariant();
 
-        // 1. Resolve candidate tenant subdomain
+        // 2. Resolve candidate tenant subdomain
         var subdomain = !string.IsNullOrWhiteSpace(request.TenantSubdomain)
             ? request.TenantSubdomain.Trim().ToLowerInvariant()
             : null;
@@ -863,6 +881,7 @@ public class RFQService : IRFQService
             BuyingCompanyName = companyName,
             ResponseDeadline = rfq.ClosingDate,
             CustomNote = request.CustomEmailNote,
+            InvitationUrl = invitationUrl,
             StandardLocalhostUrl = standardUrl,
             TenantLocalhostUrl = tenantLocalhostUrl,
             TenantLocalhostUnavailableReason = tenantLocalhostUnavailableReason,

@@ -121,6 +121,7 @@ export interface RfqLineDto {
 }
 
 export interface RfqInvitationAccessOptionsDto {
+  invitationUrl?: string;
   standardLocalhostUrl?: string;
   tenantLocalhostUrl?: string;
   tenantLocalhostUnavailableReason?: string;
@@ -144,6 +145,7 @@ export interface RfqSupplierDto {
   hasToken: boolean;
   tokenExpiresAt?: string;
   responseReceivedAt?: string;
+  invitationUrl?: string;
   standardLocalhostUrl?: string;
   tenantLocalhostUrl?: string;
   tenantLocalhostUnavailableReason?: string;
@@ -271,6 +273,7 @@ export interface RfqInvitationResultDto {
   sentCount: number;
   failedCount: number;
   messages: string[];
+  invitationUrl?: string;
   standardLocalhostUrl?: string;
   tenantLocalhostUrl?: string;
   tenantLocalhostUnavailableReason?: string;

@@ -1493,8 +1493,9 @@ export class RfqPageComponent implements OnInit, OnDestroy {
               ? (resp.sentCount > 0 ? 'warn' : 'danger')
               : (resp.sentCount > 0 ? 'success' : 'info')
           });
-          if (resp.accessOptions || resp.standardLocalhostUrl || resp.lanIpUrl) {
+          if (resp.accessOptions || resp.invitationUrl || resp.standardLocalhostUrl || resp.lanIpUrl) {
             this.latestAccessOptions.set({
+              invitationUrl: resp.invitationUrl || resp.accessOptions?.invitationUrl || resp.standardLocalhostUrl,
               standardLocalhostUrl: resp.accessOptions?.standardLocalhostUrl || resp.standardLocalhostUrl,
               tenantLocalhostUrl: resp.accessOptions?.tenantLocalhostUrl || resp.tenantLocalhostUrl,
               tenantLocalhostUnavailableReason: resp.accessOptions?.tenantLocalhostUnavailableReason || resp.tenantLocalhostUnavailableReason,

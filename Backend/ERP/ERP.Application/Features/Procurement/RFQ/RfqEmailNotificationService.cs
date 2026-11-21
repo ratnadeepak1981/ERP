@@ -131,106 +131,33 @@ public class RfqEmailNotificationService : IRfqEmailNotificationService
         </div>");
         }
 
-        sb.Append(@"
+        var effectiveUrl = !string.IsNullOrWhiteSpace(context.InvitationUrl)
+            ? context.InvitationUrl
+            : context.StandardLocalhostUrl;
+
+        sb.Append($@"
         <h3 style=""margin:28px 0 8px 0; font-size:16px; font-weight:700; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:8px;"">
-          Quotation Portal Access Options
+          Quotation Submission Portal
         </h3>
         <p style=""margin:0 0 18px 0; font-size:13px; color:#64748b;"">
-          Please select any of the authorized portal access options below to review requirements and submit your quotation:
-        </p>");
-
-        // --- OPTION 1: Standard Localhost ---
-        sb.Append($@"
-        <!-- Option 1: Standard Localhost -->
-        <div style=""margin-bottom:18px; padding:16px; border:1px solid #e2e8f0; border-radius:6px; background-color:#ffffff;"">
-          <div style=""font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px;"">
-            Option 1: Standard Localhost Portal
-          </div>
-          <div style=""font-size:12px; color:#64748b; margin-bottom:10px;"">
-            Direct access on the standard shared workstation host.
-          </div>
-          <div style=""margin-bottom:10px;"">
-            <a href=""{context.StandardLocalhostUrl}"" target=""_blank"" style=""display:inline-block; padding:10px 20px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:4px; font-size:13px; font-weight:600;"">
-              Open via Standard Localhost
+          Please click the button below to review requirements and submit your quotation securely online:
+        </p>
+        <div style=""margin-bottom:20px; padding:20px; border:1px solid #e2e8f0; border-radius:6px; background-color:#ffffff; text-align:center;"">
+          <div style=""margin-bottom:14px;"">
+            <a href=""{effectiveUrl}"" target=""_blank"" style=""display:inline-block; padding:12px 28px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:4px; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(13,110,253,0.2);"">
+              Open Quotation Submission Portal
             </a>
           </div>
-          <div style=""font-size:12px; color:#475569; word-break:break-all;"">
-            <strong>Direct Link:</strong> <a href=""{context.StandardLocalhostUrl}"" style=""color:#0d6efd;"">{context.StandardLocalhostUrl}</a>
+          <div style=""font-size:12px; color:#475569; word-break:break-all; text-align:left; background-color:#f8fafc; padding:10px 12px; border-radius:4px; border:1px solid #e2e8f0;"">
+            <strong>Direct Link:</strong> <a href=""{effectiveUrl}"" style=""color:#0d6efd;"">{effectiveUrl}</a>
           </div>
         </div>");
-
-        // --- OPTION 2: Localhost Tenant Subdomain ---
-        sb.Append(@"
-        <!-- Option 2: Localhost Tenant Subdomain -->
-        <div style=""margin-bottom:18px; padding:16px; border:1px solid #e2e8f0; border-radius:6px; background-color:#ffffff;"">
-          <div style=""font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px;"">
-            Option 2: Localhost Tenant Subdomain Portal
-          </div>
-          <div style=""font-size:12px; color:#64748b; margin-bottom:10px;"">
-            Access via the organization's dedicated local tenant subdomain (*.localhost).
-          </div>");
-
-        if (!string.IsNullOrWhiteSpace(context.TenantLocalhostUrl))
-        {
-            sb.Append($@"
-          <div style=""margin-bottom:10px;"">
-            <a href=""{context.TenantLocalhostUrl}"" target=""_blank"" style=""display:inline-block; padding:10px 20px; background-color:#059669; color:#ffffff; text-decoration:none; border-radius:4px; font-size:13px; font-weight:600;"">
-              Open via Tenant Subdomain (Localhost)
-            </a>
-          </div>
-          <div style=""font-size:12px; color:#475569; word-break:break-all;"">
-            <strong>Direct Link:</strong> <a href=""{context.TenantLocalhostUrl}"" style=""color:#059669;"">{context.TenantLocalhostUrl}</a>
-          </div>");
-        }
-        else
-        {
-            sb.Append($@"
-          <div style=""padding:8px 12px; background-color:#fef2f2; border:1px solid #fecaca; border-radius:4px; font-size:12px; color:#991b1b;"">
-            <strong>Option Unavailable:</strong> {context.TenantLocalhostUnavailableReason ?? "Tenant subdomain not configured."}
-          </div>");
-        }
-        sb.Append("</div>");
-
-        // --- OPTION 3: External Tenant Access ---
-        sb.Append(@"
-        <!-- Option 3: External Tenant Access -->
-        <div style=""margin-bottom:20px; padding:16px; border:1px solid #e2e8f0; border-radius:6px; background-color:#ffffff;"">
-          <div style=""font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px;"">
-            Option 3: External / Hosted Tenant Portal
-          </div>
-          <div style=""font-size:12px; color:#64748b; margin-bottom:10px;"">
-            External network access via configured hosted tenant domain or LAN IP.
-          </div>");
-
-        if (!string.IsNullOrWhiteSpace(context.ExternalTenantUrl))
-        {
-            sb.Append($@"
-          <div style=""margin-bottom:10px;"">
-            <a href=""{context.ExternalTenantUrl}"" target=""_blank"" style=""display:inline-block; padding:10px 20px; background-color:#4f46e5; color:#ffffff; text-decoration:none; border-radius:4px; font-size:13px; font-weight:600;"">
-              Open via External / Cloud Portal
-            </a>
-          </div>
-          <div style=""font-size:12px; color:#475569; word-break:break-all;"">
-            <strong>Direct Link:</strong> <a href=""{context.ExternalTenantUrl}"" style=""color:#4f46e5;"">{context.ExternalTenantUrl}</a>
-          </div>
-          <p style=""margin:6px 0 0 0; font-size:11px; color:#64748b;"">
-            <em>(Note: External DNS or local hosts entry required to resolve external domain in test environments)</em>
-          </p>");
-        }
-        else
-        {
-            sb.Append($@"
-          <div style=""padding:8px 12px; background-color:#fef2f2; border:1px solid #fecaca; border-radius:4px; font-size:12px; color:#991b1b;"">
-            <strong>Option Unavailable:</strong> {context.ExternalTenantUnavailableReason ?? "External tenant host not configured."}
-          </div>");
-        }
-        sb.Append("</div>");
 
         // Footer
         sb.Append($@"
         <div style=""border-top:1px solid #e2e8f0; padding-top:16px; margin-top:24px; font-size:12px; color:#64748b; line-height:1.5;"">
           <p style=""margin:0 0 8px 0;"">
-            <strong>Security Notice:</strong> The links above contain a secure, single-use token issued exclusively for {context.RecipientName}. Do not forward or distribute this email.
+            <strong>Security Notice:</strong> The link above contains a secure, single-use token issued exclusively for {context.RecipientName}. Do not forward or distribute this email.
           </p>
           <p style=""margin:0;"">
             Thank you,<br/>

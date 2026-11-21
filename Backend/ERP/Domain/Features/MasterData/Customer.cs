@@ -54,7 +54,8 @@ public class Customer : Auditable, ITenantScopedEntity
         decimal creditLimit = 0,
         string? paymentTerms = null,
         Guid? customerId = null,
-        Guid? currencyId = null)
+        Guid? currencyId = null,
+        Guid? defaultSalesPriceCardId = null)
     {
         return new Customer
         {
@@ -74,6 +75,7 @@ public class Customer : Auditable, ITenantScopedEntity
             CreditLimit = creditLimit,
             PaymentTerms = paymentTerms,
             CurrencyId = currencyId,
+            DefaultSalesPriceCardId = defaultSalesPriceCardId,
             IsActive = true
         };
     }
@@ -106,6 +108,11 @@ public class Customer : Auditable, ITenantScopedEntity
         CreditLimit = creditLimit;
         PaymentTerms = paymentTerms;
         CurrencyId = currencyId;
+    }
+
+    public void SetDefaultSalesPriceCard(Guid? priceCardId)
+    {
+        DefaultSalesPriceCardId = priceCardId;
     }
 
     public void SetDefaultCurrency(Guid? currencyId)

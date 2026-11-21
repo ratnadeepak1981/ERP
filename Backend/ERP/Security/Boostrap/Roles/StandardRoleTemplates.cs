@@ -367,18 +367,35 @@ public static class StandardRoleTemplates
                 {
                     "SALES_ORDER.VIEW", "SALES_SHIPMENT.VIEW", "SALES_INVOICE.VIEW",
                     "CUSTOMER.VIEW", "PRICE_CARD.VIEW", "PRODUCT.VIEW", "INVENTORY.VIEW"
+                }),
+
+            new(
+                "CUSTOMER_COMPANY_ADMIN",
+                "Customer Company Administrator",
+                "Customer portal administrator with access to customer-facing self-service portals, quotations, orders, deliveries and invoices.",
+                CurrentVersion,
+                new[]
+                {
+                    "PORTAL.PROFILE.VIEW",
+                    "PORTAL.QUOTATION.REQUEST",
+                    "PORTAL.QUOTATION.VIEW",
+                    "PORTAL.ORDER.VIEW",
+                    "PORTAL.DELIVERY.VIEW",
+                    "PORTAL.INVOICE.VIEW"
                 })
         };
 
-        // Tenant-boundary master data read baseline: every standard tenant role
-        // receives the ordinary read-only master data view permissions. This is
-        // additive only and never removes role-specific permissions.
+        // Tenant-boundary master data read baseline: every standard tenant employee role
+        // receives the ordinary read-only master data view permissions. External customer portal
+        // roles are strictly excluded from internal master data access.
         return templates
             .Select(template => template with
             {
-                PermissionCodes = Combine(
-                    template.PermissionCodes.ToArray(),
-                    MasterDataViewBaseline.ToArray())
+                PermissionCodes = template.Key == "CUSTOMER_COMPANY_ADMIN"
+                    ? template.PermissionCodes
+                    : Combine(
+                        template.PermissionCodes.ToArray(),
+                        MasterDataViewBaseline.ToArray())
             })
             .ToList();
     }

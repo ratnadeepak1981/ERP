@@ -45,5 +45,13 @@ public class UserConfiguration
             x.Email
         })
         .IsUnique();
+
+        builder.HasIndex(x => x.Username)
+            .IsUnique()
+            .HasFilter("[TenantId] IS NULL");
+
+        builder.HasIndex(x => x.Email)
+            .IsUnique()
+            .HasFilter("[TenantId] IS NULL");
     }
 }

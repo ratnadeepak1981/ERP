@@ -193,10 +193,17 @@ public class RequestForQuotationController : BaseApiController
         [FromBody] SendRfqInvitationsRequest request,
         [FromServices] ITenantDomainRepository tenantDomainRepository,
         [FromServices] IConfiguration configuration,
+        [FromServices] global::Domain.Common.ApplicationUrl.IApplicationUrlService urlService,
         CancellationToken ct = default)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
+
+        // Auto-resolve browser-accessible portal base URL via ApplicationUrlService if not supplied
+        if (string.IsNullOrWhiteSpace(request.PortalBaseUrl))
+        {
+            request.PortalBaseUrl = urlService.ResolveBaseUrl();
+        }
 
         // Auto-resolve tenant subdomain from repository if not explicitly passed
         if (string.IsNullOrWhiteSpace(request.TenantSubdomain))

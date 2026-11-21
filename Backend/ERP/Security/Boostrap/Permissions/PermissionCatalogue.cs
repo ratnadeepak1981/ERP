@@ -519,6 +519,22 @@ public static class PermissionCatalogue
         AddTenant(permissions, "CRM.ACTIVITY.MANAGE", "Manage CRM Activities", "CRM",
             "Allows managing CRM activities.");
 
+        // =========================
+        // Customer Portal
+        // =========================
+        AddTenant(permissions, "PORTAL.PROFILE.VIEW", "View Portal Profile", "Portal",
+            "Allows viewing customer portal profile information.");
+        AddTenant(permissions, "PORTAL.QUOTATION.REQUEST", "Request Quotation via Portal", "Portal",
+            "Allows requesting sales quotations via customer portal.");
+        AddTenant(permissions, "PORTAL.QUOTATION.VIEW", "View Portal Quotations", "Portal",
+            "Allows viewing customer sales quotations in portal.");
+        AddTenant(permissions, "PORTAL.ORDER.VIEW", "View Portal Orders", "Portal",
+            "Allows viewing customer sales orders in portal.");
+        AddTenant(permissions, "PORTAL.DELIVERY.VIEW", "View Portal Deliveries", "Portal",
+            "Allows viewing customer deliveries and shipments in portal.");
+        AddTenant(permissions, "PORTAL.INVOICE.VIEW", "View Portal Invoices", "Portal",
+            "Allows viewing customer sales invoices in portal.");
+
         return permissions;
     }
 

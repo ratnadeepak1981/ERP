@@ -589,6 +589,19 @@
   ],
   "customers": [
     {
+      "code": "CUST-WALKIN",
+      "name": "Walk-in Cash Customer",
+      "email": "walkin@retail.local",
+      "phone": "+94 11 000 0000",
+      "addressLine1": "Counter Sales / Retail Store",
+      "city": "Colombo",
+      "postalCode": "00100",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "contactPerson": "Cashier Desk"
+    },
+    {
       "code": "CUST-RET-001",
       "name": "Cargills Supermarkets PLC",
       "email": "procurement@cargillsretail.lk",

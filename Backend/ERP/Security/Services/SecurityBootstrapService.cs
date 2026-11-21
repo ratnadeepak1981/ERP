@@ -137,7 +137,7 @@ public class SecurityBootstrapService
         }
 
         var user =
-            await _repository.GetPlatformUserAsync(username);
+            await _repository.GetPlatformUserByUsernameOrEmailAsync(username, email);
 
         if (user == null)
         {

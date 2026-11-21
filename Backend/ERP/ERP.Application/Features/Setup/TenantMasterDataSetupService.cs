@@ -5,10 +5,12 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Address;
+using Domain.Features.MasterData.AddressType;
 using Domain.Features.MasterData.Branch;
 using Domain.Features.MasterData.Brand;
 using Domain.Features.MasterData.Common;
 using Domain.Features.MasterData.Company;
+using Domain.Features.MasterData.Contact;
 using Domain.Features.MasterData.Currency;
 using Domain.Features.MasterData.PaymentTerm;
 using Domain.Features.MasterData.PriceCard;
@@ -87,12 +89,12 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
         // 9. Warehouses, Zones, Locations
         await SeedWarehousesAsync(tenantId, company.Id, branch.Id, root, result);
 
-        // 10. Suppliers & Customers
+        // 10. Price Cards & Lines
+        await SeedPriceCardsAsync(tenantId, root, result);
+
+        // 11. Suppliers & Customers
         await SeedSuppliersAsync(tenantId, root, result);
         await SeedCustomersAsync(tenantId, root, result);
-
-        // 11. Price Cards & Lines
-        await SeedPriceCardsAsync(tenantId, root, result);
 
         await _db.SaveChangesAsync();
         result.Messages.Add("Master data setup completed successfully.");
@@ -124,17 +126,32 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
 
         string code = string.IsNullOrWhiteSpace(profileCode) ? "retail" : profileCode.Trim().ToLowerInvariant();
 
-        // Look for profile JSON in executable / output directories
-        var candidatePaths = new[]
+        // Dynamically probe for profile JSON in application base and parent directories
+        var candidatePaths = new List<string>
         {
             Path.Combine(AppContext.BaseDirectory, "Features", "Setup", "Profiles", $"{code}.json"),
             Path.Combine(AppContext.BaseDirectory, "Profiles", $"{code}.json"),
             Path.Combine(Directory.GetCurrentDirectory(), "Features", "Setup", "Profiles", $"{code}.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "Backend", "ERP", "ERP.Application", "Features", "Setup", "Profiles", $"{code}.json"),
-            Path.Combine("Z:\\ERP\\Backend\\ERP\\ERP.Application\\Features\\Setup\\Profiles", $"{code}.json")
+            Path.Combine(Directory.GetCurrentDirectory(), "Profiles", $"{code}.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "Backend", "ERP", "ERP.Application", "Features", "Setup", "Profiles", $"{code}.json")
         };
 
-        foreach (var path in candidatePaths)
+        // Probe up to 6 directory levels upwards from AppContext.BaseDirectory and CurrentDirectory
+        var probeRoots = new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() };
+        foreach (var probeRoot in probeRoots)
+        {
+            var dir = new DirectoryInfo(probeRoot);
+            for (int i = 0; i < 6 && dir != null; i++)
+            {
+                candidatePaths.Add(Path.Combine(dir.FullName, "Backend", "ERP", "ERP.Application", "Features", "Setup", "Profiles", $"{code}.json"));
+                candidatePaths.Add(Path.Combine(dir.FullName, "ERP.Application", "Features", "Setup", "Profiles", $"{code}.json"));
+                candidatePaths.Add(Path.Combine(dir.FullName, "Features", "Setup", "Profiles", $"{code}.json"));
+                candidatePaths.Add(Path.Combine(dir.FullName, "Profiles", $"{code}.json"));
+                dir = dir.Parent;
+            }
+        }
+
+        foreach (var path in candidatePaths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (File.Exists(path))
             {
@@ -143,7 +160,7 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
         }
 
         throw new ArgumentException(
-            $"Industry profile '{profileCode}' is not supported. Supported profiles: 'retail' (Retail Gate 6 Baseline).",
+            $"Industry profile '{profileCode}' is not supported or not found. Supported profiles: 'retail', 'manufacturing', 'wholesale', 'pharmacy', 'service'.",
             nameof(profileCode));
     }
 
@@ -380,7 +397,25 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
                 brandId = bid;
             }
 
+            string productTypeStr = p.TryGetProperty("productType", out var pt) ? pt.GetString()! : "StockItem";
+            var productType = Enum.TryParse<ProductType>(productTypeStr, true, out var pType) ? pType : ProductType.StockItem;
+
+            bool isStockTracked = productType != ProductType.Service && productType != ProductType.NonStockItem;
+            if (p.TryGetProperty("isStockTracked", out var ist))
+            {
+                isStockTracked = ist.GetBoolean();
+            }
+
+            if (productType == ProductType.Service || productType == ProductType.NonStockItem)
+            {
+                isStockTracked = false;
+            }
+
             var tracking = Enum.TryParse<TrackingMode>(trackingStr, true, out var trk) ? trk : TrackingMode.None;
+            if (!isStockTracked)
+            {
+                tracking = TrackingMode.None;
+            }
             var valuation = Enum.TryParse<ValuationMethod>(valuationStr, true, out var val) ? val : ValuationMethod.FIFO;
 
             var existingProduct = await _db.Products.FirstOrDefaultAsync(x => x.TenantId == tenantId && x.ProductCode == code);
@@ -398,12 +433,12 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
                     valuationMethod: valuation,
                     standardCost: purchasePrice,
                     sellingPrice: sellingPrice,
-                    reorderLevel: 20,
-                    reorderQuantity: 50,
+                    reorderLevel: isStockTracked ? 20 : 0,
+                    reorderQuantity: isStockTracked ? 50 : 0,
                     isPurchasable: purchasable,
                     isSellable: sellable,
-                    isStockTracked: true,
-                    productType: ProductType.StockItem,
+                    isStockTracked: isStockTracked,
+                    productType: productType,
                     trackingMode: tracking,
                     unitOfMeasureId: uomId,
                     brandId: brandId);
@@ -446,6 +481,29 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
 
                         await _db.ProductPackagings.AddAsync(packaging);
                         result.PackagingsProcessed++;
+                    }
+
+                    if (pkg.TryGetProperty("barcode", out var pbc) && pbc.GetString() is { } pkgBarcode && !string.IsNullOrWhiteSpace(pkgBarcode))
+                    {
+                        var trimmedBarcode = pkgBarcode.Trim();
+                        var existingBarcode = await _db.ProductIdentifiers.FirstOrDefaultAsync(x =>
+                            x.TenantId == tenantId && x.ProductId == product.ProductId && x.IdentifierValue == trimmedBarcode);
+
+                        if (existingBarcode == null)
+                        {
+                            var identifier = ProductIdentifier.Create(
+                                tenantId,
+                                product.ProductId,
+                                trimmedBarcode,
+                                IdentifierType.LinearBarcode,
+                                IdentifierSymbology.EAN13,
+                                IdentifierSource.Internal,
+                                pkgUomId,
+                                isPrimary: false);
+
+                            await _db.ProductIdentifiers.AddAsync(identifier);
+                            result.IdentifiersProcessed++;
+                        }
                     }
                 }
             }
@@ -594,6 +652,33 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
 
         var currencies = await _db.Currencies.Where(x => x.TenantId == tenantId).ToDictionaryAsync(x => x.CurrencyCode, x => x.CurrencyId);
 
+        // Resolve default purchase price card
+        Guid? defaultPurchaseCardId = (await _db.PriceCards
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.PriceCardType == PriceCardType.Purchase && x.IsActive))?.PriceCardId;
+
+        // Resolve or create primary AddressType and ContactType
+        var primaryAddressType = await _db.AddressTypes
+            .FirstOrDefaultAsync(x => (x.TenantId == tenantId || x.TenantId == null) && x.Code == "PRIMARY")
+            ?? await _db.AddressTypes.FirstOrDefaultAsync(x => x.TenantId == tenantId || x.TenantId == null);
+
+        if (primaryAddressType == null)
+        {
+            primaryAddressType = AddressType.Create(tenantId, "PRIMARY", "Primary Address");
+            await _db.AddressTypes.AddAsync(primaryAddressType);
+            await _db.SaveChangesAsync();
+        }
+
+        var primaryContactType = await _db.ContactTypes
+            .FirstOrDefaultAsync(x => (x.TenantId == tenantId || x.TenantId == null) && x.Code == "PRIMARY")
+            ?? await _db.ContactTypes.FirstOrDefaultAsync(x => x.TenantId == tenantId || x.TenantId == null);
+
+        if (primaryContactType == null)
+        {
+            primaryContactType = ContactType.Create(tenantId, "PRIMARY", "Primary Contact");
+            await _db.ContactTypes.AddAsync(primaryContactType);
+            await _db.SaveChangesAsync();
+        }
+
         foreach (var s in supEl.EnumerateArray())
         {
             string code = s.GetProperty("code").GetString()!.Trim().ToUpperInvariant();
@@ -610,10 +695,18 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
 
             Guid? currId = (currCode != null && currencies.TryGetValue(currCode, out var cid)) ? cid : null;
 
+            Guid? supplierPriceCardId = defaultPurchaseCardId;
+            if (s.TryGetProperty("defaultPriceCard", out var dpc) && dpc.GetString() is { } pcCode)
+            {
+                var matchedCard = await _db.PriceCards.FirstOrDefaultAsync(x => x.TenantId == tenantId && x.PriceCardCode == pcCode.Trim().ToUpperInvariant());
+                if (matchedCard != null) supplierPriceCardId = matchedCard.PriceCardId;
+            }
+
             var existing = await _db.Suppliers.FirstOrDefaultAsync(x => x.TenantId == tenantId && x.SupplierCode == code);
+            Supplier supplier;
             if (existing == null)
             {
-                var supplier = Supplier.Create(
+                supplier = Supplier.Create(
                     tenantId,
                     code,
                     name,
@@ -625,11 +718,80 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
                     postalCode: postal,
                     country: country,
                     paymentTerms: terms,
-                    currencyId: currId);
+                    currencyId: currId,
+                    defaultPurchasePriceCardId: supplierPriceCardId);
 
                 await _db.Suppliers.AddAsync(supplier);
+                await _db.SaveChangesAsync();
                 result.SuppliersProcessed++;
                 result.Messages.Add($"Created supplier '{code}' ({name}).");
+            }
+            else
+            {
+                supplier = existing;
+                if (!supplier.DefaultPurchasePriceCardId.HasValue && supplierPriceCardId.HasValue)
+                {
+                    supplier.SetDefaultPurchasePriceCard(supplierPriceCardId);
+                }
+            }
+
+            // Normalized Address and SupplierAddress
+            if (!string.IsNullOrWhiteSpace(addr1) || !string.IsNullOrWhiteSpace(city))
+            {
+                var existingSupplierAddr = await _db.SupplierAddresses.FirstOrDefaultAsync(x =>
+                    x.TenantId == tenantId && x.SupplierId == supplier.SupplierId);
+
+                if (existingSupplierAddr == null)
+                {
+                    var address = Address.Create(
+                        tenantId,
+                        $"{name} - Primary Address",
+                        addr1 ?? city ?? "Main Office",
+                        city ?? "Colombo",
+                        postalCode: postal,
+                        unmatchedCountryText: country);
+
+                    await _db.Addresses.AddAsync(address);
+                    await _db.SaveChangesAsync();
+
+                    var supplierAddress = SupplierAddress.Create(
+                        tenantId,
+                        supplier.SupplierId,
+                        address.AddressId,
+                        primaryAddressType.AddressTypeId,
+                        isDefault: true);
+
+                    await _db.SupplierAddresses.AddAsync(supplierAddress);
+                }
+            }
+
+            // Normalized Contact and SupplierContact
+            if (!string.IsNullOrWhiteSpace(contact) || !string.IsNullOrWhiteSpace(email) || !string.IsNullOrWhiteSpace(phone))
+            {
+                var existingSupplierContact = await _db.SupplierContacts.FirstOrDefaultAsync(x =>
+                    x.TenantId == tenantId && x.SupplierId == supplier.SupplierId);
+
+                if (existingSupplierContact == null)
+                {
+                    var contactPersonEntity = Contact.Create(
+                        tenantId,
+                        contact ?? name,
+                        email: email,
+                        phone: phone,
+                        mobileNumber: phone);
+
+                    await _db.Contacts.AddAsync(contactPersonEntity);
+                    await _db.SaveChangesAsync();
+
+                    var supplierContact = SupplierContact.Create(
+                        tenantId,
+                        supplier.SupplierId,
+                        contactPersonEntity.ContactId,
+                        primaryContactType.ContactTypeId,
+                        isPrimary: true);
+
+                    await _db.SupplierContacts.AddAsync(supplierContact);
+                }
             }
         }
         await _db.SaveChangesAsync();
@@ -640,6 +802,33 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
         if (!root.TryGetProperty("customers", out var custEl)) return;
 
         var currencies = await _db.Currencies.Where(x => x.TenantId == tenantId).ToDictionaryAsync(x => x.CurrencyCode, x => x.CurrencyId);
+
+        // Resolve default sales price card
+        Guid? defaultSalesCardId = (await _db.PriceCards
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.PriceCardType == PriceCardType.Sales && x.IsActive))?.PriceCardId;
+
+        // Resolve or create primary AddressType and ContactType
+        var primaryAddressType = await _db.AddressTypes
+            .FirstOrDefaultAsync(x => (x.TenantId == tenantId || x.TenantId == null) && x.Code == "PRIMARY")
+            ?? await _db.AddressTypes.FirstOrDefaultAsync(x => x.TenantId == tenantId || x.TenantId == null);
+
+        if (primaryAddressType == null)
+        {
+            primaryAddressType = AddressType.Create(tenantId, "PRIMARY", "Primary Address");
+            await _db.AddressTypes.AddAsync(primaryAddressType);
+            await _db.SaveChangesAsync();
+        }
+
+        var primaryContactType = await _db.ContactTypes
+            .FirstOrDefaultAsync(x => (x.TenantId == tenantId || x.TenantId == null) && x.Code == "PRIMARY")
+            ?? await _db.ContactTypes.FirstOrDefaultAsync(x => x.TenantId == tenantId || x.TenantId == null);
+
+        if (primaryContactType == null)
+        {
+            primaryContactType = ContactType.Create(tenantId, "PRIMARY", "Primary Contact");
+            await _db.ContactTypes.AddAsync(primaryContactType);
+            await _db.SaveChangesAsync();
+        }
 
         foreach (var c in custEl.EnumerateArray())
         {
@@ -657,10 +846,18 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
 
             Guid? currId = (currCode != null && currencies.TryGetValue(currCode, out var cid)) ? cid : null;
 
+            Guid? customerPriceCardId = defaultSalesCardId;
+            if (c.TryGetProperty("defaultPriceCard", out var dpc) && dpc.GetString() is { } pcCode)
+            {
+                var matchedCard = await _db.PriceCards.FirstOrDefaultAsync(x => x.TenantId == tenantId && x.PriceCardCode == pcCode.Trim().ToUpperInvariant());
+                if (matchedCard != null) customerPriceCardId = matchedCard.PriceCardId;
+            }
+
             var existing = await _db.Customers.FirstOrDefaultAsync(x => x.TenantId == tenantId && x.CustomerCode == code);
+            Customer customer;
             if (existing == null)
             {
-                var customer = Customer.Create(
+                customer = Customer.Create(
                     tenantId,
                     code,
                     name,
@@ -673,11 +870,80 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
                     country: country,
                     paymentTerms: terms,
                     creditLimit: 500000m,
-                    currencyId: currId);
+                    currencyId: currId,
+                    defaultSalesPriceCardId: customerPriceCardId);
 
                 await _db.Customers.AddAsync(customer);
+                await _db.SaveChangesAsync();
                 result.CustomersProcessed++;
                 result.Messages.Add($"Created customer '{code}' ({name}).");
+            }
+            else
+            {
+                customer = existing;
+                if (!customer.DefaultSalesPriceCardId.HasValue && customerPriceCardId.HasValue)
+                {
+                    customer.SetDefaultSalesPriceCard(customerPriceCardId);
+                }
+            }
+
+            // Normalized Address and CustomerAddress
+            if (!string.IsNullOrWhiteSpace(addr1) || !string.IsNullOrWhiteSpace(city))
+            {
+                var existingCustomerAddr = await _db.CustomerAddresses.FirstOrDefaultAsync(x =>
+                    x.TenantId == tenantId && x.CustomerId == customer.CustomerId);
+
+                if (existingCustomerAddr == null)
+                {
+                    var address = Address.Create(
+                        tenantId,
+                        $"{name} - Primary Address",
+                        addr1 ?? city ?? "Main Office",
+                        city ?? "Colombo",
+                        postalCode: postal,
+                        unmatchedCountryText: country);
+
+                    await _db.Addresses.AddAsync(address);
+                    await _db.SaveChangesAsync();
+
+                    var customerAddress = CustomerAddress.Create(
+                        tenantId,
+                        customer.CustomerId,
+                        address.AddressId,
+                        primaryAddressType.AddressTypeId,
+                        isDefault: true);
+
+                    await _db.CustomerAddresses.AddAsync(customerAddress);
+                }
+            }
+
+            // Normalized Contact and CustomerContact
+            if (!string.IsNullOrWhiteSpace(contact) || !string.IsNullOrWhiteSpace(email) || !string.IsNullOrWhiteSpace(phone))
+            {
+                var existingCustomerContact = await _db.CustomerContacts.FirstOrDefaultAsync(x =>
+                    x.TenantId == tenantId && x.CustomerId == customer.CustomerId);
+
+                if (existingCustomerContact == null)
+                {
+                    var contactPersonEntity = Contact.Create(
+                        tenantId,
+                        contact ?? name,
+                        email: email,
+                        phone: phone,
+                        mobileNumber: phone);
+
+                    await _db.Contacts.AddAsync(contactPersonEntity);
+                    await _db.SaveChangesAsync();
+
+                    var customerContact = CustomerContact.Create(
+                        tenantId,
+                        customer.CustomerId,
+                        contactPersonEntity.ContactId,
+                        primaryContactType.ContactTypeId,
+                        isPrimary: true);
+
+                    await _db.CustomerContacts.AddAsync(customerContact);
+                }
             }
         }
         await _db.SaveChangesAsync();

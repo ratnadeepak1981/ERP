@@ -59,14 +59,27 @@ public class RfqInvitationEmailContext
     public DateTime ResponseDeadline { get; set; }
     public string? CustomNote { get; set; }
 
-    // Option 1: Standard localhost
-    public string StandardLocalhostUrl { get; set; } = string.Empty;
+    // Primary dynamic unified invitation URL
+    public string InvitationUrl { get; set; } = string.Empty;
 
-    // Option 2: Localhost tenant subdomain
+    // Backward-compatibility properties
+    public string StandardLocalhostUrl
+    {
+        get => !string.IsNullOrEmpty(InvitationUrl) ? InvitationUrl : _standardLocalhostUrl;
+        set
+        {
+            _standardLocalhostUrl = value;
+            if (string.IsNullOrEmpty(InvitationUrl))
+            {
+                InvitationUrl = value;
+            }
+        }
+    }
+    private string _standardLocalhostUrl = string.Empty;
+
+    // Optional legacy access options
     public string? TenantLocalhostUrl { get; set; }
     public string? TenantLocalhostUnavailableReason { get; set; }
-
-    // Option 3: External tenant access
     public string? ExternalTenantUrl { get; set; }
     public string? ExternalTenantUnavailableReason { get; set; }
 }
@@ -328,6 +341,10 @@ public class RfqInvitationResultDto
     public int SentCount { get; set; }
     public int FailedCount { get; set; }
     public List<string> Messages { get; set; } = new();
+    public string? InvitationUrl { get; set; }
+    public string? StandardLocalhostUrl { get; set; }
+    public string? TenantLocalhostUrl { get; set; }
+    public string? ExternalTenantUrl { get; set; }
 }
 
 public class RfqComparisonMatrixDto
