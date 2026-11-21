@@ -553,6 +553,19 @@
   ],
   "customers": [
     {
+      "code": "CUST-WALKIN",
+      "name": "Walk-in Cash Patient / Customer",
+      "email": "walkin@pharmacy.local",
+      "phone": "+94 11 000 0000",
+      "addressLine1": "Pharmacy Counter / Dispensing Desk",
+      "city": "Colombo",
+      "postalCode": "00100",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "contactPerson": "Dispensing Counter"
+    },
+    {
       "code": "CUST-PHA-001",
       "name": "Northern Community Pharmacy",
       "email": "accounts@example.local",

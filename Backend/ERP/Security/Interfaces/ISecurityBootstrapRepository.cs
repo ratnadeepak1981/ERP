@@ -37,6 +37,10 @@ public interface ISecurityBootstrapRepository
     Task<User?> GetPlatformUserAsync(
         string username);
 
+    Task<User?> GetPlatformUserByUsernameOrEmailAsync(
+        string username,
+        string email);
+
     Task<User?> GetTenantAdminUserAsync(
         Guid tenantId,
         string username);

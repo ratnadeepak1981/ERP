@@ -48,6 +48,10 @@ public class RoleConfiguration
         })
         .IsUnique();
 
+        builder.HasIndex(x => x.Name)
+            .IsUnique()
+            .HasFilter("[TenantId] IS NULL");
+
         builder.HasMany(x => x.UserRoles)
             .WithOne(x => x.Role)
             .HasForeignKey(x => x.RoleId)

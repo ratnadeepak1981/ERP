@@ -7,6 +7,7 @@ using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.CRM.Deduplication;
 using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.EntityFrameworkCore;
+using Security.Bootstrap.Roles;
 using Security.Core.Models;
 using Security.Infrastructure.Persistence;
 using Security.Services;
@@ -160,22 +161,40 @@ public class CustomerRegistrationService : ICustomerRegistrationService
         _securityContext.Users.Add(user);
 
         var customerRole = await _securityContext.Roles
-            .FirstOrDefaultAsync(r => r.TenantId == request.TenantId && r.Name == "CUSTOMER_COMPANY_ADMIN", cancellationToken);
+            .FirstOrDefaultAsync(r => r.TenantId == request.TenantId && (r.TemplateKey == "CUSTOMER_COMPANY_ADMIN" || r.Name == "CUSTOMER_COMPANY_ADMIN"), cancellationToken);
 
         if (customerRole == null)
         {
+            var template = StandardRoleTemplates.Find("CUSTOMER_COMPANY_ADMIN");
             customerRole = new Role
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
-                Name = "CUSTOMER_COMPANY_ADMIN",
-                Description = "Customer Company Administrator (Portal)",
+                Name = template?.Name ?? "CUSTOMER_COMPANY_ADMIN",
+                Description = template?.Description ?? "Customer Company Administrator (Portal)",
                 IsSystemRole = false,
                 IsActive = true,
                 TemplateKey = "CUSTOMER_COMPANY_ADMIN",
-                TemplateVersion = 1
+                TemplateVersion = template?.Version ?? StandardRoleTemplates.CurrentVersion
             };
             _securityContext.Roles.Add(customerRole);
+
+            if (template != null)
+            {
+                var permissions = await _securityContext.Permissions
+                    .Where(p => template.PermissionCodes.Contains(p.Code))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var perm in permissions)
+                {
+                    _securityContext.RolePermissions.Add(new RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = customerRole.Id,
+                        PermissionId = perm.Id
+                    });
+                }
+            }
         }
 
         var userRole = new UserRole

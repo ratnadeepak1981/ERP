@@ -41,7 +41,6 @@ public class SecurityBootstrapRepository
         return _context.Roles
             .FirstOrDefaultAsync(x =>
                 x.TenantId == null &&
-                x.IsSystemRole &&
                 x.Name == name);
     }
 
@@ -86,7 +85,7 @@ public class SecurityBootstrapRepository
         return _context.Users
             .FirstOrDefaultAsync(x =>
                 x.TenantId == null &&
-                x.Username == "admin");
+                (x.Username == "admin" || x.Email == "admin@platform.local"));
     }
 
     public Task<User?> GetPlatformUserAsync(
@@ -95,7 +94,17 @@ public class SecurityBootstrapRepository
         return _context.Users
             .FirstOrDefaultAsync(x =>
                 x.TenantId == null &&
-                x.Username == username);
+                (x.Username == username || x.Email == username));
+    }
+
+    public Task<User?> GetPlatformUserByUsernameOrEmailAsync(
+        string username,
+        string email)
+    {
+        return _context.Users
+            .FirstOrDefaultAsync(x =>
+                x.TenantId == null &&
+                (x.Username == username || x.Email == email || x.Email == username || x.Username == email));
     }
 
     public Task<User?> GetTenantAdminUserAsync(
