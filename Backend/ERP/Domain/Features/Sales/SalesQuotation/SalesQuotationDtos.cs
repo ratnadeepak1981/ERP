@@ -281,3 +281,58 @@ public class SalesQuotationDecisionRequest
 {
     public string? Remarks { get; set; }
 }
+
+public class AcceptQuotationRequest
+{
+    public Guid? DeliveryAddressId { get; set; }
+    public string? CustomerRemarks { get; set; }
+    public string? IdempotencyKey { get; set; }
+}
+
+public class DeclineQuotationRequest
+{
+    public string Remarks { get; set; } = string.Empty;
+}
+
+public class CloneQuotationRequest
+{
+    public string? CustomerRemarks { get; set; }
+    public DateTime? RequiredDeliveryDate { get; set; }
+}
+
+/// <summary>
+/// Customer-facing safe DTO with internal reviewer/approver identities and internal notes scrubbed.
+/// </summary>
+public class CustomerSalesQuotationDto
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid BranchId { get; set; }
+    public Guid CustomerId { get; set; }
+    public string QuotationNumber { get; set; } = string.Empty;
+    public int RevisionNumber { get; set; }
+    public SalesQuotationType DocumentType { get; set; }
+    public DateTime QuotationDate { get; set; }
+    public DateTime ValidUntilDateUtc { get; set; }
+    public bool IsExpired { get; set; }
+    public int DaysUntilExpiry { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public string Currency { get; set; } = "USD";
+    public string? PaymentTerms { get; set; }
+    public string? DeliveryTerms { get; set; }
+    public SalesQuotationStatus Status { get; set; }
+    public decimal SubTotal { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string? Notes { get; set; }
+    public string? CustomerRemarks { get; set; }
+    public DateTime? SentAtUtc { get; set; }
+    public DateTime? AcceptedAtUtc { get; set; }
+    public DateTime? DeclinedAtUtc { get; set; }
+    public string? DeclinedRemarks { get; set; }
+    public Guid? ConvertedSalesOrderId { get; set; }
+    public DateTime? ConvertedAtUtc { get; set; }
+    public List<SalesQuotationItemDto> Items { get; set; } = new();
+}

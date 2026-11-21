@@ -29,7 +29,7 @@ public class SalesShipmentItem : Auditable
 
     public bool IsActive { get; set; } = true;
 
-    public byte[] RowVersion { get; set; } = null!;
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
     public static SalesShipmentItem Create(
         Guid salesShipmentId,

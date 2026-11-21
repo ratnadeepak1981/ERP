@@ -36,5 +36,5 @@ public class SalesOrderItem
 
     public bool IsActive { get; set; } = true;
 
-    public byte[] RowVersion { get; set; } = null!;
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }

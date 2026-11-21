@@ -382,6 +382,19 @@ public static class StandardRoleTemplates
                     "PORTAL.ORDER.VIEW",
                     "PORTAL.DELIVERY.VIEW",
                     "PORTAL.INVOICE.VIEW"
+                }),
+
+            new(
+                "CUSTOMER_INDIVIDUAL",
+                "Individual Retail Customer",
+                "Customer portal retail user with access to retail shopping, self-service orders, deliveries and personal profile.",
+                CurrentVersion,
+                new[]
+                {
+                    "PORTAL.PROFILE.VIEW",
+                    "PORTAL.ORDER.VIEW",
+                    "PORTAL.DELIVERY.VIEW",
+                    "PORTAL.INVOICE.VIEW"
                 })
         };
 
@@ -391,7 +404,7 @@ public static class StandardRoleTemplates
         return templates
             .Select(template => template with
             {
-                PermissionCodes = template.Key == "CUSTOMER_COMPANY_ADMIN"
+                PermissionCodes = (template.Key == "CUSTOMER_COMPANY_ADMIN" || template.Key == "CUSTOMER_INDIVIDUAL")
                     ? template.PermissionCodes
                     : Combine(
                         template.PermissionCodes.ToArray(),

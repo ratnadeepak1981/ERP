@@ -823,3 +823,21 @@ The Sales Portal architecture reuses platform infrastructure. All items below ar
 | 1.3.0 | 2026-11-20 | Antigravity Agent | Added 3 strategic sales channels, universal Explore Products, shared registration with email as username, Price Card assignment, and atomic quotation acceptance. |
 | 1.3.1 | 2026-11-20 | Antigravity Agent | Clarified global identity vs. tenant relationships; corrected Company login email mapping; clarified purchasing authority; added registration consistency; enforced mandatory quotation expiry; resolved missing Price Card handling; standardized fulfilment terminology; and qualified reuse claims. |
 | **1.3.2** | **2026-11-20** | **Antigravity Agent** | **Complete Customer Portal, Tracking & Notification Architecture:** Added dedicated Customer Portal Workspace architecture (Dashboard, Orders, Quotations, Tracking, Documents, Notifications, Profiles); established independent unauthenticated public product exploration; defined 8-stage customer order tracking mapped to domain states; added secure document download streaming; integrated resilient event-driven notification architecture; clarified UTC calendar date quotation expiry boundary (23:59:59.999 UTC); formalized company verification vs. purchasing authority vs. credit boundaries; and **explicitly excluded payment processing, gateways, and online payment tracking from Phase 1**. |
+
+
+---
+
+## 18. Sales Quotation Backend Implementation Status Matrix (November 2026)
+
+| Architectural Capability | Status Classification | Implementation Details & Verified Evidence |
+|---|---|---|
+| **Domain Aggregate (`SalesQuotation`)** | `IMPLEMENTED` | Fully mapped in `Domain/Features/Sales/SalesQuotation/SalesQuotation.cs` with items, UTC calendar date expiry boundary, currency snapshot, audit properties, and domain transition methods (`MarkSent`, `Accept`, `Decline`, `MarkConverted`, `MarkSuperseded`). |
+| **Internal Authoring Workflow** | `IMPLEMENTED` | Draft creation, line additions, quantity/price updates, totals recalculation in `SalesQuotationService.cs`. |
+| **Internal Review & Approval** | `IMPLEMENTED` | `SubmitQuotationAsync`, `ApproveQuotationAsync`, `RejectQuotationAsync`, `CancelQuotationAsync` in `SalesQuotationService.cs` integrated with `IApprovalWorkflowService`. |
+| **Quotation Cloned Requests** | `IMPLEMENTED` | `CloneCustomerQuotationRequestFromOrderAsync` and `CloneCustomerQuotationRequestFromQuotationAsync` implemented in `SalesQuotationService.cs` re-validating active catalog products without copying stale historical prices. |
+| **Manual Quotation Issuance (`Sent`)** | `IMPLEMENTED` | `MarkSent(sentAtUtc)` on aggregate and `SendQuotationAsync` in application service. Exposed via `POST api/companies/{c}/branches/{b}/sales-quotations/{id}/send`. Tested in `SalesBackendCompletionTests` (PASS). |
+| **Atomic Acceptance & Conversion** | `IMPLEMENTED` | `AcceptQuotationAndConvertAtomicAsync` executing `SalesOrder` draft instantiation, non-destructive `PriceCard` update, and quotation status transition in a single database transaction. |
+| **Customer Decline & Revision Request** | `IMPLEMENTED` | `DeclineQuotationAsync` updating status to `DeclinedByCustomer` with mandatory customer remarks. Tested in `SalesBackendCompletionTests` (PASS). |
+| **Customer Quotation API Controller** | `IMPLEMENTED` | Authenticated `CustomerQuotationController` under `/api/portal/customer/quotations` (`GET`, `GET {id}`, `POST request`, `POST request/clone-order/{orderId}`, `POST request/clone-quotation/{quotationId}`, `POST {id}/accept`, `POST {id}/decline`, `GET {id}/pdf`). |
+| **Customer Quotation PDF Generation** | `IMPLEMENTED` | Standards-compliant ISO 32000-1 binary PDF generator `SalesQuotationPdfService` in `ERP.Infrastructure.Pdf` with zero external dependencies, streamed via `GET .../{id}/pdf`. |
+| **Post-Commit Notification Handlers** | `IMPLEMENTED` | Resilient post-commit notification logging without rolling back committed orders on SMTP failure. |

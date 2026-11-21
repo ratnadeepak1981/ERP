@@ -427,5 +427,88 @@ public class SalesQuotation : Auditable, ITenantScopedEntity, ICompanyScopedEnti
         Status = SalesQuotationStatus.Cancelled;
     }
 
+    /// <summary>
+    /// Formally issues the confirmed quotation to the customer.
+    /// Transitions status from Confirmed -> Sent.
+    /// </summary>
+    public void MarkSent(DateTime? sentAtUtc = null)
+    {
+        if (Status != SalesQuotationStatus.Confirmed && Status != SalesQuotationStatus.Draft)
+            throw new InvalidOperationException($"Cannot issue quotation with status '{Status}'. Only Confirmed or Draft quotations can be sent to customers.");
+
+        if (IsExpired())
+            throw new InvalidOperationException("Cannot issue an expired quotation. Please update the ValidUntilDate before sending.");
+
+        Status = SalesQuotationStatus.Sent;
+        SentAtUtc = sentAtUtc ?? DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Customer acceptance of valid, formally issued proposal.
+    /// Transitions status from Sent -> Accepted.
+    /// </summary>
+    public void Accept(Guid contactId, DateTime? acceptedAtUtc = null)
+    {
+        if (Status != SalesQuotationStatus.Sent)
+            throw new InvalidOperationException($"Cannot accept quotation with status '{Status}'. Only formally issued (Sent) quotations can be accepted.");
+
+        if (IsExpired())
+            throw new InvalidOperationException("Cannot accept an expired quotation. The validity period has elapsed.");
+
+        if (ConvertedSalesOrderId.HasValue)
+            throw new InvalidOperationException("This quotation has already been converted into a Sales Order.");
+
+        Status = SalesQuotationStatus.Accepted;
+        CustomerContactId = contactId;
+        AcceptedAtUtc = acceptedAtUtc ?? DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Atomically links the converted official Sales Order.
+    /// Transitions status -> Converted.
+    /// </summary>
+    public void MarkConverted(Guid salesOrderId, DateTime? convertedAtUtc = null)
+    {
+        if (salesOrderId == Guid.Empty)
+            throw new ArgumentException("SalesOrderId is required.", nameof(salesOrderId));
+
+        if (Status != SalesQuotationStatus.Accepted && Status != SalesQuotationStatus.Sent)
+            throw new InvalidOperationException($"Cannot convert quotation with status '{Status}'. Quotation must be Accepted or Sent.");
+
+        Status = SalesQuotationStatus.Converted;
+        ConvertedSalesOrderId = salesOrderId;
+        ConvertedAtUtc = convertedAtUtc ?? DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Customer declines the formally issued proposal with mandatory remarks.
+    /// Transitions status from Sent -> DeclinedByCustomer.
+    /// </summary>
+    public void Decline(Guid contactId, string remarks, DateTime? declinedAtUtc = null)
+    {
+        if (Status != SalesQuotationStatus.Sent)
+            throw new InvalidOperationException($"Cannot decline quotation with status '{Status}'. Only formally issued (Sent) quotations can be declined.");
+
+        if (string.IsNullOrWhiteSpace(remarks))
+            throw new ArgumentException("Remarks are required when declining a quotation.", nameof(remarks));
+
+        Status = SalesQuotationStatus.DeclinedByCustomer;
+        CustomerContactId = contactId;
+        DeclinedRemarks = remarks.Trim();
+        DeclinedAtUtc = declinedAtUtc ?? DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Marks the issued quotation superseded by a newer formal revision.
+    /// </summary>
+    public void MarkSuperseded(Guid newRevisionQuotationId)
+    {
+        if (newRevisionQuotationId == Guid.Empty)
+            throw new ArgumentException("New revision quotation ID is required.", nameof(newRevisionQuotationId));
+
+        Status = SalesQuotationStatus.Superseded;
+        SupersededByQuotationId = newRevisionQuotationId;
+    }
+
     public bool IsExpired() => DateTime.UtcNow > ValidUntilDateUtc;
 }

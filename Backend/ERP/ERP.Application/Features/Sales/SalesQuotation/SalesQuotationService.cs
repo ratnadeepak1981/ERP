@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Currency;
+using Domain.Features.MasterData.PriceCard;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.TaxCode;
 using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.Procurement.Approval;
+using Domain.Features.Sales.SalesOrder;
 using Domain.Features.Sales.SalesQuotation;
+using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.MasterData.Customer;
+using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Features.Sales.SalesQuotation;
 
@@ -23,6 +27,10 @@ public class SalesQuotationService : ISalesQuotationService
     private readonly IExchangeRateService? _exchangeRateService;
     private readonly IApprovalWorkflowService _approvalService;
     private readonly ISalesPersistenceCoordinator? _persistenceCoordinator;
+    private readonly ISalesOrderRepository? _salesOrderRepository;
+    private readonly IPriceCardRepository? _priceCardRepository;
+    private readonly ISalesQuotationPdfService? _pdfService;
+    private readonly DomainDbContext? _dbContext;
 
     public SalesQuotationService(
         ISalesQuotationRepository repository,
@@ -33,7 +41,11 @@ public class SalesQuotationService : ISalesQuotationService
         ITaxCodeRepository? taxCodeRepository = null,
         ICurrencyRepository? currencyRepository = null,
         IExchangeRateService? exchangeRateService = null,
-        ISalesPersistenceCoordinator? persistenceCoordinator = null)
+        ISalesPersistenceCoordinator? persistenceCoordinator = null,
+        ISalesOrderRepository? salesOrderRepository = null,
+        IPriceCardRepository? priceCardRepository = null,
+        ISalesQuotationPdfService? pdfService = null,
+        DomainDbContext? dbContext = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _customerRepository = customerRepository ?? throw new ArgumentNullException(nameof(customerRepository));
@@ -44,6 +56,10 @@ public class SalesQuotationService : ISalesQuotationService
         _currencyRepository = currencyRepository;
         _exchangeRateService = exchangeRateService;
         _persistenceCoordinator = persistenceCoordinator;
+        _salesOrderRepository = salesOrderRepository;
+        _priceCardRepository = priceCardRepository;
+        _pdfService = pdfService;
+        _dbContext = dbContext;
     }
 
     public async Task<List<SalesQuotationDto>> GetQuotationsAsync(
@@ -507,6 +523,389 @@ public class SalesQuotationService : ISalesQuotationService
         Guid quotationId)
     {
         return await _approvalService.GetApprovalHistoryAsync(tenantId, "SalesQuotation", quotationId);
+    }
+
+    public async Task<SalesQuotationDto> SendQuotationAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid quotationId,
+        Guid actorUserId,
+        string actorUserName)
+    {
+        var quotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, quotationId)
+            ?? throw new KeyNotFoundException($"Sales quotation '{quotationId}' was not found in authorized scope.");
+
+        quotation.MarkSent(DateTime.UtcNow);
+        await _repository.SaveChangesAsync();
+        return MapToDto(quotation);
+    }
+
+    public async Task<SalesQuotationDto> AcceptQuotationAndConvertAtomicAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid quotationId,
+        AcceptQuotationRequest? request = null)
+    {
+        var customer = await _customerRepository.GetCustomerByIdAsync(tenantId, customerId)
+            ?? throw new InvalidOperationException("Customer account is inactive or not found.");
+
+        if (!customer.IsActive)
+            throw new InvalidOperationException($"Customer '{customer.CustomerCode}' is inactive.");
+
+        var quotation = await _repository.GetByIdUnscopedAsync(tenantId, quotationId)
+            ?? throw new KeyNotFoundException("Quotation not found in authorized customer account.");
+
+        if (quotation.CustomerId != customerId)
+            throw new UnauthorizedAccessException("You are not authorized to accept quotations belonging to another customer.");
+
+        if (quotation.Status != SalesQuotationStatus.Sent)
+            throw new InvalidOperationException($"Cannot accept quotation with status '{quotation.Status}'. Only formally issued (Sent) quotations can be accepted.");
+
+        if (quotation.IsExpired())
+            throw new InvalidOperationException("Quotation has expired and cannot be accepted. Please request a formal quotation revision.");
+
+        if (quotation.ConvertedSalesOrderId.HasValue || quotation.Status == SalesQuotationStatus.Converted)
+            throw new InvalidOperationException("This quotation has already been converted into a Sales Order.");
+
+        var now = DateTime.UtcNow;
+
+        var tx = _persistenceCoordinator != null 
+            ? await _persistenceCoordinator.BeginTransactionIfNeededAsync() 
+            : (_dbContext != null ? await _dbContext.Database.BeginTransactionAsync() : null);
+
+        try
+        {
+            // Step 1: Instantiate Official Sales Order Draft
+            string orderNum = $"SO-QT-{quotation.QuotationNumber.Replace("SQ-", "")}";
+            if (_salesOrderRepository != null && await _salesOrderRepository.ExistsOrderNumberAsync(tenantId, quotation.CompanyId, orderNum))
+            {
+                orderNum = $"SO-QT-{quotation.QuotationNumber.Replace("SQ-", "")}-{Guid.NewGuid():N[..4].ToUpperInvariant()}";
+            }
+
+            var salesOrder = global::Domain.Features.Sales.SalesOrder.SalesOrder.Create(
+                tenantId,
+                quotation.CompanyId,
+                quotation.BranchId,
+                customerId,
+                orderNum,
+                documentType: global::Domain.Features.Sales.SalesOrder.SalesOrderType.Standard,
+                orderDate: now,
+                deliveryDate: quotation.DeliveryDate,
+                currency: quotation.Currency,
+                paymentTerms: quotation.PaymentTerms ?? customer.PaymentTerms,
+                notes: $"Created via acceptance of Quotation '{quotation.QuotationNumber}'" + (string.IsNullOrWhiteSpace(request?.CustomerRemarks) ? "" : $" | {request.CustomerRemarks.Trim()}"),
+                createdByUserId: customerContactId,
+                deliveryAddressId: request?.DeliveryAddressId ?? quotation.DeliveryAddressId,
+                deliveryAddressSnapshot: quotation.DeliveryAddressSnapshot
+            );
+
+            foreach (var item in quotation.Items.Where(i => i.IsActive))
+            {
+                salesOrder.AddItem(
+                    item.ProductId,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.DiscountRate,
+                    item.TaxRate,
+                    item.UnitOfMeasureId,
+                    item.Notes,
+                    item.TaxCodeId,
+                    item.IsTaxInclusive);
+            }
+
+            if (quotation.TransactionCurrencyId.HasValue && quotation.BaseCurrencyId.HasValue && quotation.AppliedExchangeRate.HasValue && quotation.ExchangeRateSource.HasValue)
+            {
+                var exRate = new ResolvedExchangeRate(
+                    quotation.AppliedExchangeRate.Value,
+                    quotation.ExchangeRateSource.Value,
+                    quotation.ExchangeRateId,
+                    quotation.ExchangeRateEffectiveDate);
+
+                salesOrder.SetCurrencySnapshot(
+                    quotation.TransactionCurrencyId.Value,
+                    quotation.Currency,
+                    quotation.BaseCurrencyId.Value,
+                    quotation.BaseCurrencyCode ?? "USD",
+                    quotation.BaseCurrencyDecimalPlaces ?? 2,
+                    exRate);
+            }
+
+            if (_salesOrderRepository != null)
+            {
+                await _salesOrderRepository.AddAsync(salesOrder);
+            }
+            else if (_dbContext != null)
+            {
+                _dbContext.SalesOrders.Add(salesOrder);
+            }
+
+            // Step 2: Non-destructive Price Card update (where assigned)
+            if (customer.DefaultSalesPriceCardId.HasValue && (_priceCardRepository != null || _dbContext != null))
+            {
+                var cardId = customer.DefaultSalesPriceCardId.Value;
+                PriceCard? priceCard = null;
+                if (_priceCardRepository != null)
+                {
+                    priceCard = await _priceCardRepository.GetPriceCardByIdAsync(tenantId, cardId, includeLines: true);
+                }
+                else if (_dbContext != null)
+                {
+                    priceCard = await _dbContext.PriceCards.Include(pc => pc.Lines).FirstOrDefaultAsync(pc => pc.TenantId == tenantId && pc.PriceCardId == cardId);
+                }
+
+                if (priceCard != null && priceCard.IsActive && priceCard.PriceCardType == PriceCardType.Sales)
+                {
+                    foreach (var item in quotation.Items.Where(i => i.IsActive))
+                    {
+                        var activeLine = priceCard.Lines.FirstOrDefault(l =>
+                            l.ProductId == item.ProductId &&
+                            l.IsActive &&
+                            (!l.EffectiveFrom.HasValue || l.EffectiveFrom.Value <= now) &&
+                            (!l.EffectiveTo.HasValue || l.EffectiveTo.Value >= now));
+
+                        if (activeLine != null)
+                        {
+                            activeLine.Update(activeLine.UnitPrice, activeLine.UnitOfMeasureId, activeLine.MinimumQuantity, activeLine.EffectiveFrom, now);
+                        }
+
+                        var newLine = PriceCardLine.Create(
+                            tenantId,
+                            priceCard.PriceCardId,
+                            item.ProductId,
+                            item.UnitPrice,
+                            item.UnitOfMeasureId,
+                            minimumQuantity: item.Quantity,
+                            effectiveFrom: now,
+                            effectiveTo: null);
+
+                        if (_priceCardRepository != null)
+                        {
+                            await _priceCardRepository.AddLineAsync(newLine);
+                        }
+                        else if (_dbContext != null)
+                        {
+                            _dbContext.PriceCardLines.Add(newLine);
+                        }
+                    }
+                }
+            }
+
+            // Step 3: Quotation State Transitions
+            quotation.Accept(customerContactId, now);
+            quotation.MarkConverted(salesOrder.Id, now);
+
+            if (_persistenceCoordinator != null)
+            {
+                await _persistenceCoordinator.SaveChangesAsync();
+                await _persistenceCoordinator.CommitTransactionIfNeededAsync(tx);
+            }
+            else if (_dbContext != null)
+            {
+                await _dbContext.SaveChangesAsync();
+                if (tx is Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction efTx)
+                {
+                    await efTx.CommitAsync();
+                }
+            }
+            else
+            {
+                await _repository.SaveChangesAsync();
+            }
+
+            return MapToDto(quotation);
+        }
+        catch
+        {
+            if (_persistenceCoordinator != null)
+            {
+                await _persistenceCoordinator.RollbackTransactionIfNeededAsync(tx);
+            }
+            else if (tx is Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction efTx)
+            {
+                await efTx.RollbackAsync();
+            }
+            throw;
+        }
+    }
+
+    public async Task<SalesQuotationDto> DeclineQuotationAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid quotationId,
+        DeclineQuotationRequest request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.Remarks))
+            throw new ArgumentException("Remarks are required when declining a quotation.", nameof(request));
+
+        var quotation = await _repository.GetByIdUnscopedAsync(tenantId, quotationId)
+            ?? throw new KeyNotFoundException("Quotation not found in authorized customer account.");
+
+        if (quotation.CustomerId != customerId)
+            throw new UnauthorizedAccessException("You are not authorized to decline quotations belonging to another customer.");
+
+        quotation.Decline(customerContactId, request.Remarks, DateTime.UtcNow);
+        await _repository.SaveChangesAsync();
+        return MapToDto(quotation);
+    }
+
+    public async Task<SalesQuotationDto> CloneCustomerQuotationRequestFromOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid sourceSalesOrderId,
+        string? customerRemarks = null)
+    {
+        global::Domain.Features.Sales.SalesOrder.SalesOrder? order = null;
+        if (_salesOrderRepository != null)
+        {
+            order = await _salesOrderRepository.GetByIdAsync(tenantId, companyId, branchId, sourceSalesOrderId);
+        }
+        else if (_dbContext != null)
+        {
+            order = await _dbContext.SalesOrders.Include(so => so.Items).FirstOrDefaultAsync(so => so.TenantId == tenantId && so.Id == sourceSalesOrderId);
+        }
+
+        if (order == null || order.CustomerId != customerId)
+            throw new KeyNotFoundException("Source Sales Order was not found in authorized customer account.");
+
+        var items = new List<CreateSalesQuotationItemRequest>();
+        foreach (var item in order.Items.Where(i => i.IsActive))
+        {
+            var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId);
+            if (product != null && product.IsActive && product.IsSellable)
+            {
+                items.Add(new CreateSalesQuotationItemRequest
+                {
+                    ProductId = product.ProductId,
+                    Quantity = item.Quantity,
+                    UnitOfMeasureId = item.UnitOfMeasureId ?? product.UnitOfMeasureId,
+                    UnitPrice = product.SellingPrice, // Never blindly copy historical price!
+                    DiscountRate = 0m,
+                    Notes = item.Notes
+                });
+            }
+        }
+
+        if (items.Count == 0)
+            throw new InvalidOperationException("None of the products on the source order are currently active and sellable.");
+
+        var createReq = new CreateCustomerQuotationRequest
+        {
+            CustomerId = customerId,
+            CustomerContactId = customerContactId,
+            Currency = order.Currency,
+            CustomerRemarks = $"Cloned from Order '{order.OrderNumber}'" + (string.IsNullOrWhiteSpace(customerRemarks) ? "" : $" | {customerRemarks}"),
+            RequiredDeliveryDate = DateTime.UtcNow.AddDays(14),
+            Items = items
+        };
+
+        return await CreateCustomerQuotationRequestAsync(tenantId, companyId, branchId, createReq, customerContactId, "B2B Customer");
+    }
+
+    public async Task<SalesQuotationDto> CloneCustomerQuotationRequestFromQuotationAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid sourceSalesQuotationId,
+        string? customerRemarks = null)
+    {
+        var sourceQuotation = await _repository.GetByIdUnscopedAsync(tenantId, sourceSalesQuotationId);
+        if (sourceQuotation == null || sourceQuotation.CustomerId != customerId)
+            throw new KeyNotFoundException("Source Sales Quotation was not found in authorized customer account.");
+
+        var items = new List<CreateSalesQuotationItemRequest>();
+        foreach (var item in sourceQuotation.Items.Where(i => i.IsActive))
+        {
+            var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId);
+            if (product != null && product.IsActive && product.IsSellable)
+            {
+                items.Add(new CreateSalesQuotationItemRequest
+                {
+                    ProductId = product.ProductId,
+                    Quantity = item.Quantity,
+                    UnitOfMeasureId = item.UnitOfMeasureId ?? product.UnitOfMeasureId,
+                    UnitPrice = product.SellingPrice, // Never blindly copy historical price!
+                    DiscountRate = 0m,
+                    Notes = item.Notes
+                });
+            }
+        }
+
+        if (items.Count == 0)
+            throw new InvalidOperationException("None of the products on the source quotation are currently active and sellable.");
+
+        var createReq = new CreateCustomerQuotationRequest
+        {
+            CustomerId = customerId,
+            CustomerContactId = customerContactId,
+            Currency = sourceQuotation.Currency,
+            CustomerRemarks = $"Cloned from Quotation '{sourceQuotation.QuotationNumber}'" + (string.IsNullOrWhiteSpace(customerRemarks) ? "" : $" | {customerRemarks}"),
+            RequiredDeliveryDate = DateTime.UtcNow.AddDays(14),
+            Items = items
+        };
+
+        return await CreateCustomerQuotationRequestAsync(tenantId, companyId, branchId, createReq, customerContactId, "B2B Customer");
+    }
+
+    public async Task<CustomerSalesQuotationDto?> GetCustomerQuotationDetailsAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid quotationId)
+    {
+        var quotation = await _repository.GetByIdUnscopedAsync(tenantId, quotationId);
+        if (quotation == null || quotation.CustomerId != customerId)
+            return null;
+
+        int daysLeft = (int)Math.Max(0, (quotation.ValidUntilDateUtc - DateTime.UtcNow).TotalDays);
+
+        return new CustomerSalesQuotationDto
+        {
+            Id = quotation.Id,
+            TenantId = quotation.TenantId,
+            CompanyId = quotation.CompanyId,
+            BranchId = quotation.BranchId,
+            CustomerId = quotation.CustomerId,
+            QuotationNumber = quotation.QuotationNumber,
+            RevisionNumber = quotation.RevisionNumber,
+            DocumentType = quotation.DocumentType,
+            QuotationDate = quotation.QuotationDate,
+            ValidUntilDateUtc = quotation.ValidUntilDateUtc,
+            IsExpired = quotation.IsExpired(),
+            DaysUntilExpiry = daysLeft,
+            DeliveryDate = quotation.DeliveryDate,
+            Currency = quotation.Currency,
+            PaymentTerms = quotation.PaymentTerms,
+            DeliveryTerms = quotation.DeliveryTerms,
+            Status = quotation.Status,
+            SubTotal = quotation.SubTotal,
+            DiscountAmount = quotation.DiscountAmount,
+            TaxAmount = quotation.TaxAmount,
+            TotalAmount = quotation.TotalAmount,
+            Notes = quotation.Notes,
+            CustomerRemarks = quotation.CustomerRemarks,
+            SentAtUtc = quotation.SentAtUtc,
+            AcceptedAtUtc = quotation.AcceptedAtUtc,
+            DeclinedAtUtc = quotation.DeclinedAtUtc,
+            DeclinedRemarks = quotation.DeclinedRemarks,
+            ConvertedSalesOrderId = quotation.ConvertedSalesOrderId,
+            ConvertedAtUtc = quotation.ConvertedAtUtc,
+            Items = quotation.Items.Where(i => i.IsActive).Select(MapItemToDto).ToList()
+        };
+    }
+
+    public async Task<byte[]> GenerateQuotationPdfAsync(Guid tenantId, Guid quotationId)
+    {
+        if (_pdfService == null)
+            throw new InvalidOperationException("PDF generation service is unavailable.");
+
+        return await _pdfService.GeneratePdfForQuotationAsync(tenantId, quotationId);
     }
 
     private async Task<(Product product, Guid? uomId, decimal unitPrice)> ValidateAndResolveItemAsync(

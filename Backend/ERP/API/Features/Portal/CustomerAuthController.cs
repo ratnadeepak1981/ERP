@@ -52,6 +52,29 @@ public class CustomerAuthController : BaseApiController
         }
     }
 
+    [HttpPost("register-individual")]
+    public async Task<IActionResult> RegisterIndividualCustomer(
+        [FromBody] RegisterIndividualCustomerRequest request,
+        CancellationToken ct = default)
+    {
+        if (request == null)
+            return BadRequestResponse("Registration payload is required.");
+
+        try
+        {
+            var result = await _registrationService.RegisterIndividualCustomerAsync(request, ct);
+            return CreatedResponse(result, result.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequestResponse(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ConflictResponse(ex.Message);
+        }
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         [FromBody] CustomerLoginRequest request,

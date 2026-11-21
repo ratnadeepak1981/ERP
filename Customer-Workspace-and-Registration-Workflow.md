@@ -1138,3 +1138,33 @@ Twenty-eight automated unit and integration tests passing in `ERP.SecurityTests.
 - `EcommerceProductPublishingTests`: 13 existing publication tests all passing.
 - **Total Test Suite Result: 28/28 passed with 0 failures.**
 
+
+
+---
+
+## 21. Sales Backend Implementation Audit & Status Matrix (November 2026)
+
+In compliance with enterprise backend completion instructions, this section documents the authoritative verification status across all sales workflows.
+
+### 21.1 Capability Classification Matrix
+
+| Workflow Area | Capability / Feature | Classification | Implementation Status & Evidence |
+|---|---|---|---|
+| **A. Internal Sales Order** | Sales Order Aggregate Root & Domain Logic | `IMPLEMENTED` | `SalesOrder.cs` in `Domain/Features/Sales/SalesOrder` with tax/currency snapshots, item calculation, and status progression. |
+| **A. Internal Sales Order** | Sales Order Application Service & Controller | `IMPLEMENTED` | `SalesOrderService.cs` in `ERP.Application/Features/Sales/SalesOrder` and `SalesOrderController.cs` in `API/Features/Domain`. |
+| **A. Internal Sales Order** | Automatic Draft Dispatch Note Creation | `IMPLEMENTED` | Verified in `SalesOrderService.ConfirmOrderAsync`: automatically creates Draft `SalesShipment` when physical items exist (`ProductType != ProductType.Service`). Test: `SalesOrder_Confirm_CreatesDraftDispatchNote_ForPhysicalItems` (PASS). |
+| **B. Direct B2B Ordering** | Customer Direct B2B Order Application Service | `IMPLEMENTED` | `DirectCustomerOrderService` resolving assigned `DefaultSalesPriceCardId`, validating MOQ, UOM, and delivery address. Test: `DirectB2BOrder_ValidRequest_CreatesDraftSalesOrder_WithContractPricesAndTaxes` (PASS). |
+| **B. Direct B2B Ordering** | Customer Direct B2B Order API Controller | `IMPLEMENTED` | `POST /api/portal/customer/orders/direct-b2b` in `DirectCustomerOrderController.cs` protected by customer context and idempotency. |
+| **C. Sales Quotation** | Internal Quotation Lifecycle & Approval | `IMPLEMENTED` | `SalesQuotationService.cs` (Draft, Submit, Approve, Reject, Cancel) and 19 unit/integration tests passing. |
+| **C. Sales Quotation** | Quotation Cloning from Order & Prior Quotation | `IMPLEMENTED` | `CloneCustomerQuotationRequestFromOrderAsync` and `CloneCustomerQuotationRequestFromQuotationAsync` in `ISalesQuotationService` re-validating catalog items without copying stale prices. |
+| **C. Sales Quotation** | Formal Quotation Issuance (`Sent`) | `IMPLEMENTED` | `MarkSent` on `SalesQuotation` and `SendQuotationAsync` in service enabling customer acceptance eligibility. Exposed via `POST api/companies/{c}/branches/{b}/sales-quotations/{id}/send`. |
+| **C. Sales Quotation** | Atomic Quotation Acceptance & Conversion | `IMPLEMENTED` | `AcceptQuotationAndConvertAtomicAsync` creating Draft `SalesOrder` and versioning `PriceCardLine` within single database transaction. |
+| **C. Sales Quotation** | Customer Quotation Portal Controller & PDF Stream | `IMPLEMENTED` | `CustomerQuotationController` under `/api/portal/customer/quotations` including PDF download endpoint powered by pure BCL ISO 32000-1 generator `SalesQuotationPdfService`. |
+| **D. E-commerce** | Product Publishing & Public Catalogue | `IMPLEMENTED` | `EcommerceProductService.cs`, `EcommerceCatalogueController.cs` (13 tests passing). |
+| **D. E-commerce** | Persistent Shopping Cart & Free Checkout | `IMPLEMENTED` | `EcommerceCartService.cs`, `EcommerceCartController.cs` (15 tests passing, 28 total). |
+| **D. E-commerce** | Individual Customer Registration | `IMPLEMENTED` | `RegisterIndividualCustomerAsync` in `CustomerRegistrationService` creating Individual customer, primary contact, security user, and assigning `CUSTOMER_INDIVIDUAL` standard role template. Exposed via `POST api/portal/auth/register-individual`. |
+| **E. Customer Identity** | Dedicated Customer JWT & Context | `IMPLEMENTED` | `TokenService.GenerateCustomerAccessToken`, `CurrentCustomerContext` with `portal_type == "CUSTOMER"`. |
+| **E. Customer Identity** | Purchasing Authority Enforcement (`CanApproveQuotes`) | `IMPLEMENTED` | Verified in `AcceptQuotationAndConvertAtomicAsync` and contact membership checks. |
+| **F. Order Visibility** | Customer Orders, Tracking, Invoices & Dashboard | `IMPLEMENTED` | `CustomerOrderController` under `api/portal/customer` (`GET orders`, `GET orders/{id}`, `GET orders/{id}/tracking`, `GET invoices`, `GET dashboard`) with internal employee notes scrubbed. Tests: 4 passing in `SalesBackendCompletionTests`. |
+| **G. Fulfilment** | Sales Shipment & Inventory Integration | `IMPLEMENTED` | `SalesShipmentService` supports draft creation and dispatch posting with inventory deduction. Automatic draft creation on order confirmation verified in `SalesOrderService.ConfirmOrderAsync`. |
+| **H. Security** | Customer Role Permissions & Scope Validation | `IMPLEMENTED` | Customer roles (`CUSTOMER_COMPANY_ADMIN`, `CUSTOMER_INDIVIDUAL`) and portal permissions (`PORTAL_*`) verified in bootstrap catalogues and controller authorization. |

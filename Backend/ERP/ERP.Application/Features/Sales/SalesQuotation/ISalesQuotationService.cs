@@ -105,6 +105,55 @@ public interface ISalesQuotationService
         string actorUserName,
         string? remarks = null);
 
+    Task<SalesQuotationDto> SendQuotationAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid quotationId,
+        Guid actorUserId,
+        string actorUserName);
+
+    Task<SalesQuotationDto> AcceptQuotationAndConvertAtomicAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid quotationId,
+        AcceptQuotationRequest? request = null);
+
+    Task<SalesQuotationDto> DeclineQuotationAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid quotationId,
+        DeclineQuotationRequest request);
+
+    Task<SalesQuotationDto> CloneCustomerQuotationRequestFromOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid sourceSalesOrderId,
+        string? customerRemarks = null);
+
+    Task<SalesQuotationDto> CloneCustomerQuotationRequestFromQuotationAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid sourceSalesQuotationId,
+        string? customerRemarks = null);
+
+    Task<CustomerSalesQuotationDto?> GetCustomerQuotationDetailsAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid quotationId);
+
+    Task<byte[]> GenerateQuotationPdfAsync(
+        Guid tenantId,
+        Guid quotationId);
+
     Task<List<ApprovalAuditRecord>> GetApprovalHistoryAsync(
         Guid tenantId,
         Guid quotationId);
