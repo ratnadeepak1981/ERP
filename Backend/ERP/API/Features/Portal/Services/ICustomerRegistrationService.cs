@@ -12,4 +12,8 @@ public interface ICustomerRegistrationService
     Task<CustomerRegistrationResult> RegisterCompanyCustomerAsync(
         RegisterCompanyCustomerRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<CustomerRegistrationResult> RegisterIndividualCustomerAsync(
+        RegisterIndividualCustomerRequest request,
+        CancellationToken cancellationToken = default);
 }

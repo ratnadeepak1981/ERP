@@ -377,6 +377,34 @@ public class SalesQuotationController : BaseApiController
         }
     }
 
+    [HttpPost("{id:guid}/send")]
+    [RequirePermission("SALES_QUOTATION.EDIT")]
+    public async Task<IActionResult> SendQuotation(
+        Guid companyId,
+        Guid branchId,
+        Guid id)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var quotation = await _quotationService.SendQuotationAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString());
+
+            return SuccessResponse(quotation, "Sales quotation formally issued to customer successfully.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpGet("{id:guid}/approval-history")]
     public async Task<IActionResult> GetApprovalHistory(
         Guid companyId,

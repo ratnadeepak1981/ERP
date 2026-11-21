@@ -38,7 +38,30 @@ public sealed class RegisterCompanyCustomerRequest
 }
 
 /// <summary>
-/// Result returned upon successful customer company registration.
+/// Payload submitted for Individual Retail Customer self-service registration.
+/// Follows Sales-Quotation-Workflow.md Section 8.3.A.
+/// </summary>
+public sealed class RegisterIndividualCustomerRequest
+{
+    public Guid TenantId { get; set; }
+
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? MobileNumber { get; set; }
+
+    public string? AddressLine1 { get; set; }
+    public string? AddressLine2 { get; set; }
+    public string? City { get; set; }
+    public string? PostalCode { get; set; }
+    public string? Country { get; set; }
+
+    public string Password { get; set; } = string.Empty;
+    public string ConfirmPassword { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Result returned upon successful customer company or individual registration.
 /// </summary>
 public sealed class CustomerRegistrationResult
 {

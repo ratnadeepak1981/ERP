@@ -36,7 +36,7 @@ public class SalesQuotationItem
 
     public bool IsActive { get; set; } = true;
 
-    public byte[] RowVersion { get; set; } = null!;
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
     public void RecalculateLine()
     {
