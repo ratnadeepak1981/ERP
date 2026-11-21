@@ -97,6 +97,7 @@ public static class ServiceRegistration
         });
 
         services.AddScoped<ERP.Application.Features.Procurement.PurchaseOrderFeature.IPurchaseOrderPdfService, ERP.Infrastructure.Pdf.PurchaseOrderPdfService>();
+        services.AddScoped<ERP.Application.Features.Sales.SalesQuotation.ISalesQuotationPdfService, ERP.Infrastructure.Pdf.SalesQuotationPdfService>();
 
         services.AddScoped<Domain.Features.MasterData.Company.ICompanyService, ERP.Application.Features.MasterData.Company.CompanyService>();
         services.AddScoped<Domain.Features.Setup.ITenantOrganizationSetupService, ERP.Application.Features.Setup.TenantOrganizationSetupService>();
@@ -174,6 +175,8 @@ public static class ServiceRegistration
         services.AddScoped<API.Features.Portal.Services.ICustomerRegistrationService, API.Features.Portal.Services.CustomerRegistrationService>();
         services.AddScoped<API.Features.Portal.Services.ICustomerAuthService, API.Features.Portal.Services.CustomerAuthService>();
         services.AddScoped<API.Features.Portal.Context.ICurrentCustomerContext, API.Features.Portal.Context.CurrentCustomerContext>();
+        services.AddScoped<ERP.Application.Features.Sales.DirectOrder.IDirectCustomerOrderService, ERP.Application.Features.Sales.DirectOrder.DirectCustomerOrderService>();
+        services.AddScoped<ERP.Application.Features.Sales.CustomerPortal.ICustomerOrderPortalService, ERP.Application.Features.Sales.CustomerPortal.CustomerOrderPortalService>();
 
         // E-commerce Product Publishing & Shopping Cart
         services.AddScoped<ERP.Application.Features.Ecommerce.IEcommerceProductService, ERP.Application.Features.Ecommerce.EcommerceProductService>();

@@ -225,6 +225,177 @@ public class CustomerRegistrationService : ICustomerRegistrationService
         };
     }
 
+    public async Task<CustomerRegistrationResult> RegisterIndividualCustomerAsync(
+        RegisterIndividualCustomerRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
+        if (request.TenantId == Guid.Empty)
+            throw new ArgumentException("Tenant ID is required.", nameof(request.TenantId));
+
+        if (string.IsNullOrWhiteSpace(request.FirstName))
+            throw new ArgumentException("First name is required.", nameof(request.FirstName));
+
+        if (string.IsNullOrWhiteSpace(request.LastName))
+            throw new ArgumentException("Last name is required.", nameof(request.LastName));
+
+        if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
+            throw new ArgumentException("A valid personal email address is required.", nameof(request.Email));
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            throw new ArgumentException("Password is required.", nameof(request.Password));
+
+        if (request.Password != request.ConfirmPassword)
+            throw new ArgumentException("Password and confirmation password do not match.", nameof(request.ConfirmPassword));
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        // 1. Validate User Uniqueness
+        var existingUser = await _securityContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.TenantId == request.TenantId &&
+                                      (u.Email == normalizedEmail || u.Username == normalizedEmail),
+                                 cancellationToken);
+
+        if (existingUser != null)
+        {
+            throw new InvalidOperationException("A user with this email address is already registered in this tenant.");
+        }
+
+        // 2. Create Individual Customer Master Record (Zero Price Card Overhead)
+        var fullName = $"{request.FirstName.Trim()} {request.LastName.Trim()}";
+        var customerCode = $"CUST-IND-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var customer = Customer.Create(
+            request.TenantId,
+            customerCode,
+            fullName,
+            contactPerson: fullName,
+            email: normalizedEmail,
+            phone: request.MobileNumber?.Trim(),
+            addressLine1: request.AddressLine1?.Trim(),
+            addressLine2: request.AddressLine2?.Trim(),
+            city: string.IsNullOrWhiteSpace(request.City) ? string.Empty : request.City.Trim(),
+            postalCode: request.PostalCode?.Trim(),
+            country: request.Country?.Trim(),
+            taxNumber: null,
+            creditLimit: 0m,
+            paymentTerms: null,
+            defaultSalesPriceCardId: null);
+
+        _domainContext.Customers.Add(customer);
+
+        // 3. Resolve or create primary ContactType
+        var contactType = await _domainContext.ContactTypes
+            .FirstOrDefaultAsync(ct => (ct.TenantId == request.TenantId || ct.TenantId == null) && ct.Code == "PRIMARY", cancellationToken)
+            ?? await _domainContext.ContactTypes.FirstOrDefaultAsync(ct => ct.TenantId == request.TenantId || ct.TenantId == null, cancellationToken);
+
+        if (contactType == null)
+        {
+            contactType = ContactType.Create(request.TenantId, "PRIMARY", "Primary Contact");
+            _domainContext.ContactTypes.Add(contactType);
+        }
+
+        // 4. Create Personal Contact & CustomerContact Association
+        var userId = Guid.NewGuid();
+        var contact = Contact.Create(
+            request.TenantId,
+            fullName,
+            jobTitle: "Individual Customer",
+            email: normalizedEmail,
+            phone: request.MobileNumber?.Trim(),
+            mobileNumber: request.MobileNumber?.Trim(),
+            contactId: userId);
+
+        _domainContext.Contacts.Add(contact);
+
+        var customerContact = CustomerContact.Create(
+            request.TenantId,
+            customer.CustomerId,
+            contact.ContactId,
+            contactType.ContactTypeId,
+            isPrimary: true);
+
+        _domainContext.CustomerContacts.Add(customerContact);
+
+        await _domainContext.SaveChangesAsync(cancellationToken);
+
+        // 5. Create Security User & Assign CUSTOMER_INDIVIDUAL Role
+        var user = new User
+        {
+            Id = userId,
+            TenantId = request.TenantId,
+            Username = normalizedEmail,
+            Email = normalizedEmail,
+            PasswordHash = _passwordService.HashPassword(request.Password),
+            IsActive = true
+        };
+
+        _securityContext.Users.Add(user);
+
+        var customerRole = await _securityContext.Roles
+            .FirstOrDefaultAsync(r => r.TenantId == request.TenantId && (r.TemplateKey == "CUSTOMER_INDIVIDUAL" || r.Name == "CUSTOMER_INDIVIDUAL"), cancellationToken);
+
+        if (customerRole == null)
+        {
+            var template = StandardRoleTemplates.Find("CUSTOMER_INDIVIDUAL");
+            customerRole = new Role
+            {
+                Id = Guid.NewGuid(),
+                TenantId = request.TenantId,
+                Name = template?.Name ?? "CUSTOMER_INDIVIDUAL",
+                Description = template?.Description ?? "Individual Retail Customer (Portal)",
+                IsSystemRole = false,
+                IsActive = true,
+                TemplateKey = "CUSTOMER_INDIVIDUAL",
+                TemplateVersion = template?.Version ?? StandardRoleTemplates.CurrentVersion
+            };
+            _securityContext.Roles.Add(customerRole);
+
+            if (template != null)
+            {
+                var permissions = await _securityContext.Permissions
+                    .Where(p => template.PermissionCodes.Contains(p.Code))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var perm in permissions)
+                {
+                    _securityContext.RolePermissions.Add(new RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = customerRole.Id,
+                        PermissionId = perm.Id
+                    });
+                }
+            }
+        }
+
+        var userRole = new UserRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            RoleId = customerRole.Id
+        };
+        _securityContext.UserRoles.Add(userRole);
+
+        await _securityContext.SaveChangesAsync(cancellationToken);
+
+        return new CustomerRegistrationResult
+        {
+            CustomerId = customer.CustomerId,
+            CustomerCode = customer.CustomerCode,
+            CompanyName = customer.CustomerName,
+            ContactId = contact.ContactId,
+            UserId = user.Id,
+            Email = user.Email,
+            IsExistingCompanyMatched = false,
+            RequiresAuthorization = false,
+            CanLoginImmediately = true,
+            Message = "Individual customer account registered successfully. You may log in immediately."
+        };
+    }
+
     private static Customer CreateNewCustomer(RegisterCompanyCustomerRequest request, string normalizedEmail)
     {
         var customerCode = $"CUST-{Guid.NewGuid():N}"[..12].ToUpperInvariant();

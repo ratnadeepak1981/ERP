@@ -6,9 +6,11 @@ using Domain.Features.MasterData.Currency;
 using Domain.Features.MasterData.Product;
 using Domain.Features.MasterData.UnitOfMeasure;
 using Domain.Features.MasterData.TaxCode;
+using Domain.Features.Sales.Shipment;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Domain.Features.Sales.SalesOrder;
 
@@ -23,6 +25,9 @@ public class SalesOrderService : ISalesOrderService
     private readonly ICurrencyRepository? _currencyRepository;
     private readonly IExchangeRateService? _exchangeRateService;
     private readonly DomainDbContext? _context;
+    private readonly ISalesShipmentService? _shipmentService;
+    private readonly ISalesShipmentRepository? _shipmentRepository;
+    private readonly ILogger<SalesOrderService>? _logger;
 
     public SalesOrderService(
         ISalesOrderRepository repository,
@@ -33,7 +38,10 @@ public class SalesOrderService : ISalesOrderService
         ITaxCodeRepository? taxCodeRepository = null,
         ICurrencyRepository? currencyRepository = null,
         IExchangeRateService? exchangeRateService = null,
-        DomainDbContext? context = null)
+        DomainDbContext? context = null,
+        ISalesShipmentService? shipmentService = null,
+        ISalesShipmentRepository? shipmentRepository = null,
+        ILogger<SalesOrderService>? logger = null)
     {
         _repository = repository;
         _customerRepository = customerRepository;
@@ -44,6 +52,9 @@ public class SalesOrderService : ISalesOrderService
         _currencyRepository = currencyRepository;
         _exchangeRateService = exchangeRateService;
         _context = context;
+        _shipmentService = shipmentService;
+        _shipmentRepository = shipmentRepository;
+        _logger = logger;
     }
 
     public async Task<List<SalesOrderDto>> GetOrdersAsync(
@@ -277,6 +288,61 @@ public class SalesOrderService : ISalesOrderService
         }
 
         await _repository.SaveChangesAsync();
+
+        if (_shipmentService != null)
+        {
+            try
+            {
+                var activeOrderItems = order.Items.Where(i => i.IsActive).ToList();
+                bool hasPhysicalItems = false;
+                foreach (var item in activeOrderItems)
+                {
+                    var product = await _productRepository.GetByIdAsync(tenantId, item.ProductId);
+                    if (product != null && product.ProductType != ProductType.Service)
+                    {
+                        hasPhysicalItems = true;
+                        break;
+                    }
+                }
+
+                if (hasPhysicalItems)
+                {
+                    bool shipmentAlreadyExists = false;
+                    if (_shipmentRepository != null)
+                    {
+                        var existingShipments = await _shipmentRepository.GetBySalesOrderIdAsync(tenantId, order.Id);
+                        shipmentAlreadyExists = existingShipments != null && existingShipments.Any();
+                    }
+
+                    if (!shipmentAlreadyExists)
+                    {
+                        var shipmentNum = $"SHP-{order.OrderNumber}";
+                        if (_shipmentRepository != null && await _shipmentRepository.ExistsShipmentNumberAsync(tenantId, companyId, shipmentNum))
+                        {
+                            shipmentNum = $"SHP-{order.OrderNumber}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                        }
+
+                        var createReq = new CreateShipmentFromOrderRequest
+                        {
+                            ShipmentNumber = shipmentNum,
+                            DeliveryAddress = order.DeliveryAddressSnapshot,
+                            Notes = $"Auto-generated draft dispatch note for confirmed Sales Order {order.OrderNumber}"
+                        };
+
+                        await _shipmentService.CreateFromOrderAsync(
+                            tenantId,
+                            companyId,
+                            branchId,
+                            order.Id,
+                            createReq);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Automatic draft shipment generation for confirmed order {OrderId} failed.", order.Id);
+            }
+        }
 
         return MapToDto(order);
     }
