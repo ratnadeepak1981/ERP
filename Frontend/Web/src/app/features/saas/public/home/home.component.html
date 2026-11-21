@@ -31,6 +31,10 @@
             <div class="hero-cta-group">
               <a routerLink="/login" pButton label="Sign In to ERP Workspace" icon="pi pi-sign-in" class="p-button-primary"></a>
               @if (tenantContext.currentTenant()?.eCommerceEnabled) {
+                                <a routerLink="/storefront" pButton label="Explore Products" icon="pi pi-search" class="p-button-primary"></a>
+                <a routerLink="/storefront" pButton label="Browse Products" icon="pi pi-search" class="p-button-primary"></a>
+                <a routerLink="/storefront" pButton label="View Storefront" icon="pi pi-shopping-bag" [outlined]="true" class="p-button-secondary"></a>
+                <a routerLink="/storefront" pButton label="Browse Products" icon="pi pi-search" class="p-button-primary"></a>
                 <a routerLink="/storefront" pButton label="View Storefront" icon="pi pi-shopping-bag" [outlined]="true" class="p-button-secondary"></a>
               }
             </div>
