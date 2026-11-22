@@ -546,11 +546,12 @@ export class SalesQuotationPageComponent implements OnInit, OnDestroy {
     if (!q || !company || !branch) return;
 
     this.confirmDialogConfig.set({
+      action: 'submit',
       title: 'Submit Offer for Internal Approval',
       message: `Submit commercial offer ${q.quotationNumber} with total value of ${this.calculatedTotalAmount()} ${q.currency} for management approval? Authoring will be locked pending managerial review.`,
       confirmLabel: 'Submit for Approval',
-      severity: 'primary',
-      icon: 'pi pi-send'
+      confirmSeverity: 'primary',
+      confirmIcon: 'pi pi-send'
     });
     this.confirmCallback = () => {
       this.actionInProgress.set(true);
@@ -701,7 +702,7 @@ export class SalesQuotationPageComponent implements OnInit, OnDestroy {
 
   handleConfirmDialogResult(result: ConfirmationDialogResult): void {
     this.confirmDialogVisible.set(false);
-    if (result === 'confirm' && this.confirmCallback) {
+    if (result.action === 'submit' && this.confirmCallback) {
       this.confirmCallback();
     }
     this.confirmCallback = null;

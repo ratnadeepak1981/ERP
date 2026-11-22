@@ -34,7 +34,6 @@ export type SQStatusFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'sent
     CommonModule,
     FormsModule,
     AppPageHeaderComponent,
-    AppDataTableComponent,
     AppLoadingStateComponent,
     AppErrorStateComponent,
     AppEmptyStateComponent,
@@ -158,8 +157,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       field: 'quotationNumber',
       header: 'Quotation #',
       sortable: true,
-      width: '140px',
-      cellTemplate: 'link'
+      width: '140px'
     },
     {
       field: 'customerName',
@@ -236,14 +234,16 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    if (this.scopeService.canOperateTransactions()) {
+      this.loadQuotations();
+    }
     this.subs.add(
-      this.scopeService.selectedCompany$.subscribe(() => {
-        this.loadQuotations();
-      })
-    );
-    this.subs.add(
-      this.scopeService.selectedBranch$.subscribe(() => {
-        this.loadQuotations();
+      this.scopeService.scopeChange$.subscribe(() => {
+        if (this.scopeService.canOperateTransactions()) {
+          this.loadQuotations();
+        } else {
+          this.quotations.set([]);
+        }
       })
     );
   }
@@ -347,11 +347,12 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
     if (!company || !branch) return;
 
     this.confirmDialogConfig.set({
+      action: 'submit',
       title: 'Submit Quotation for Approval',
-      message: `Submit commercial quotation ${quotation.QuotationNumber || quotation.quotationNumber} for managerial review? Authoring will be locked pending approval.`,
+      message: `Submit commercial quotation ${quotation.quotationNumber} for managerial review? Authoring will be locked pending approval.`,
       confirmLabel: 'Submit for Approval',
-      severity: 'primary',
-      icon: 'pi pi-send'
+      confirmSeverity: 'primary',
+      confirmIcon: 'pi pi-send'
     });
     this.confirmCallback = () => {
       this.actionInProgress.set(true);
@@ -454,7 +455,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
 
   handleConfirmDialogResult(result: ConfirmationDialogResult): void {
     this.confirmDialogVisible.set(false);
-    if (result === 'confirm' && this.confirmCallback) {
+    if (result.action === 'submit' && this.confirmCallback) {
       this.confirmCallback();
     }
     this.confirmCallback = null;

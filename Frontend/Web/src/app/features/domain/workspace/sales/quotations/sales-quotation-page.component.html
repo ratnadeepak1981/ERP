@@ -970,7 +970,8 @@
       [visible]="confirmDialogVisible()"
       [config]="confirmDialogConfig()!"
       [loading]="actionInProgress()"
-      (result)="handleConfirmDialogResult($event)"
+      (confirmed)="handleConfirmDialogResult($event)"
+      (cancelled)="confirmDialogVisible.set(false)"
     ></app-confirmation-dialog>
   }
 </div>

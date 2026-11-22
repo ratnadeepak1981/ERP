@@ -176,7 +176,7 @@
         <app-empty-state
           icon="pi pi-file-edit"
           [title]="activeTab() === 'inbox' ? 'No Customer Requests' : 'No Quotations Found'"
-          [message]="searchTerm() ? 'No quotations matched your search criteria.' : (activeTab() === 'inbox' ? 'There are currently no incoming customer quotation requests pending review.' : 'No commercial quotations have been recorded yet.')"
+          [description]="searchTerm() ? 'No quotations matched your search criteria.' : (activeTab() === 'inbox' ? 'There are currently no incoming customer quotation requests pending review.' : 'No commercial quotations have been recorded yet.')"
           [actionLabel]="canCreate() ? 'Create Commercial Quotation' : undefined"
           (action)="navigateToCreate()"
         ></app-empty-state>
@@ -493,7 +493,8 @@
       [visible]="confirmDialogVisible()"
       [config]="confirmDialogConfig()!"
       [loading]="actionInProgress()"
-      (result)="handleConfirmDialogResult($event)"
+      (confirmed)="handleConfirmDialogResult($event)"
+      (cancelled)="confirmDialogVisible.set(false)"
     ></app-confirmation-dialog>
   }
 </div>
