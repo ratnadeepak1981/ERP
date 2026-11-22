@@ -301,8 +301,8 @@ public class SalesQuotationService : ISalesQuotationService
             ? snapshotMarker
             : $"{quotation.InternalNotes}\n{snapshotMarker}";
 
-        // If not requested as draft, submit quotation request for internal review
-        if (!request.IsDraft && quotation.Items.Any(i => i.IsActive))
+        // If submitted by customer via portal, submit quotation request for internal review
+        if (!request.IsDraft && actorUserName == "Customer Portal User" && quotation.Items.Any(i => i.IsActive))
         {
             quotation.SubmitForApproval(actorUserId ?? customer.CustomerId);
         }
