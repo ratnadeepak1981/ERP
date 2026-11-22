@@ -43,6 +43,7 @@ public class SalesQuotationController : BaseApiController
         Guid companyId,
         Guid branchId,
         [FromQuery] SalesQuotationStatus? status = null,
+        [FromQuery] SalesQuotationType? documentType = null,
         [FromQuery] int? page = null,
         [FromQuery] int? pageSize = null,
         [FromQuery] string? sortBy = null,
@@ -55,7 +56,8 @@ public class SalesQuotationController : BaseApiController
             authResult.TenantId,
             companyId,
             branchId,
-            status);
+            status,
+            documentType);
 
         return PaginateAndSort(quotations, page, pageSize, sortBy, sortDirection, _sortMapping);
     }
@@ -377,12 +379,43 @@ public class SalesQuotationController : BaseApiController
         }
     }
 
+    [HttpPost("{id:guid}/return-to-draft")]
+    [RequirePermission("SALES_QUOTATION.EDIT")]
+    public async Task<IActionResult> ReturnToDraft(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        [FromBody] ReturnToDraftRequest? request = null)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var quotation = await _quotationService.ReturnToDraftAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
+                request?.Remarks);
+
+            return SuccessResponse(quotation, "Sales quotation returned to Draft for offer preparation.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost("{id:guid}/send")]
     [RequirePermission("SALES_QUOTATION.EDIT")]
     public async Task<IActionResult> SendQuotation(
         Guid companyId,
         Guid branchId,
-        Guid id)
+        Guid id,
+        [FromQuery] bool retry = false)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
@@ -395,7 +428,8 @@ public class SalesQuotationController : BaseApiController
                 branchId,
                 id,
                 _currentUserContext.UserId,
-                User.Identity?.Name ?? _currentUserContext.UserId.ToString());
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString(),
+                retry);
 
             return SuccessResponse(quotation, "Sales quotation formally issued to customer successfully.");
         }

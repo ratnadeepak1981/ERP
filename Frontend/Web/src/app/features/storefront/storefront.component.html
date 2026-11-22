@@ -40,10 +40,30 @@
 
   <!-- Main Storefront Body -->
   <main class="storefront-main erp-container">
+    <!-- Industry Demo Switcher Bar -->
+    @if (isStandaloneDemo()) {
+      <div class="demo-industry-bar erp-card">
+        <span class="demo-industry-label"><i class="pi pi-compass"></i> Explore Storefront:</span>
+        <div class="demo-industry-pills">
+          @for (opt of availableStorefronts; track opt.slug) {
+            <button
+              type="button"
+              class="demo-pill"
+              [class.active]="activeOption().slug === opt.slug"
+              (click)="switchIndustry(opt)"
+            >
+              <i [class]="opt.icon"></i>
+              <span>{{ opt.name }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
+
     <div class="catalog-heading-row">
       <div>
         <h2 class="catalog-main-title">Product Catalogue &amp; Materials</h2>
-        <p class="catalog-main-sub">Explore certified manufacturing products, raw materials, and assemblies available for commercial supply.</p>
+        <p class="catalog-main-sub">Explore certified {{ tenantIndustry().toLowerCase() }} available for commercial supply.</p>
       </div>
       <div class="product-count-badge">
         <span>{{ filteredProducts().length }} of {{ rawProducts().length }} Products</span>

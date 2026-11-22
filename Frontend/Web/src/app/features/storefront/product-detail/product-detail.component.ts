@@ -8,6 +8,7 @@ import { ThemeService } from '../../../core/services/theme.service';
 import { PublicEcommerceProductDto } from '../../../core/models/ecommerce-catalogue.models';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { KNOWN_STOREFRONTS } from '../storefront.component';
 
 @Component({
   selector: 'app-product-detail',
@@ -34,12 +35,17 @@ export class ProductDetailComponent implements OnInit {
   readonly loading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
 
+  readonly activeFallback = computed(() => {
+    const querySlug = this.route.snapshot.queryParamMap.get('tenant')?.toLowerCase();
+    return KNOWN_STOREFRONTS.find(s => s.slug === querySlug) || KNOWN_STOREFRONTS[0];
+  });
+
   readonly tenantName = computed(() => {
-    return this.tenantContext.currentTenant()?.name || this.tenantContext.subdomain() || 'ApexERP';
+    return this.tenantContext.currentTenant()?.name || this.activeFallback().name;
   });
 
   readonly tenantIndustry = computed(() => {
-    return this.tenantContext.currentTenant()?.industryType || 'Precision Manufacturing';
+    return this.tenantContext.currentTenant()?.industryType || this.activeFallback().industry;
   });
 
   ngOnInit(): void {
@@ -58,7 +64,7 @@ export class ProductDetailComponent implements OnInit {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    const companyId = this.tenantContext.currentTenant()?.tenantId || '';
+    const companyId = this.tenantContext.currentTenant()?.tenantId || this.activeFallback().companyId;
 
     this.catalogueService.getPublicProductDetail(companyId, productId).subscribe({
       next: (prod) => {

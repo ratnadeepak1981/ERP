@@ -30,6 +30,7 @@ public class SalesQuotationService : ISalesQuotationService
     private readonly ISalesOrderRepository? _salesOrderRepository;
     private readonly IPriceCardRepository? _priceCardRepository;
     private readonly ISalesQuotationPdfService? _pdfService;
+    private readonly ISalesQuotationEmailService? _emailService;
     private readonly DomainDbContext? _dbContext;
 
     public SalesQuotationService(
@@ -45,6 +46,7 @@ public class SalesQuotationService : ISalesQuotationService
         ISalesOrderRepository? salesOrderRepository = null,
         IPriceCardRepository? priceCardRepository = null,
         ISalesQuotationPdfService? pdfService = null,
+        ISalesQuotationEmailService? emailService = null,
         DomainDbContext? dbContext = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -59,6 +61,7 @@ public class SalesQuotationService : ISalesQuotationService
         _salesOrderRepository = salesOrderRepository;
         _priceCardRepository = priceCardRepository;
         _pdfService = pdfService;
+        _emailService = emailService;
         _dbContext = dbContext;
     }
 
@@ -66,10 +69,16 @@ public class SalesQuotationService : ISalesQuotationService
         Guid tenantId,
         Guid companyId,
         Guid branchId,
-        SalesQuotationStatus? status = null)
+        SalesQuotationStatus? status = null,
+        SalesQuotationType? documentType = null)
     {
-        var quotations = await _repository.GetByBranchAsync(tenantId, companyId, branchId, status);
-        return quotations.Select(MapToDto).ToList();
+        var quotations = await _repository.GetByBranchAsync(tenantId, companyId, branchId, status, documentType);
+        var dtos = quotations.Select(MapToDto).ToList();
+        foreach (var dto in dtos)
+        {
+            await EnrichQuotationDtoAsync(dto, tenantId);
+        }
+        return dtos;
     }
 
     public async Task<SalesQuotationDto?> GetQuotationAsync(
@@ -79,7 +88,10 @@ public class SalesQuotationService : ISalesQuotationService
         Guid quotationId)
     {
         var quotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, quotationId);
-        return quotation == null ? null : MapToDto(quotation);
+        if (quotation == null) return null;
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
     }
 
     public async Task<List<SalesQuotationDto>> GetCustomerQuotationsAsync(
@@ -228,6 +240,25 @@ public class SalesQuotationService : ISalesQuotationService
         quotation.DeliveryDate = request.RequiredDeliveryDate;
         quotation.PaymentTerms = customer.PaymentTerms;
         quotation.PriceCardId = customer.DefaultSalesPriceCardId;
+        quotation.DeliveryAddressId = request.DeliveryAddressId;
+        quotation.DeliveryAddressSnapshot = request.DeliveryAddressSnapshot;
+
+        var remarksParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(request.CustomerRemarks))
+            remarksParts.Add(request.CustomerRemarks.Trim());
+        if (!string.IsNullOrWhiteSpace(request.CustomerReference))
+            remarksParts.Add($"Customer Ref: {request.CustomerReference.Trim()}");
+        if (!string.IsNullOrWhiteSpace(request.ProjectReference))
+            remarksParts.Add($"Project: {request.ProjectReference.Trim()}");
+        if (!string.IsNullOrWhiteSpace(request.DeliveryInstructions))
+            remarksParts.Add($"Delivery Instructions: {request.DeliveryInstructions.Trim()}");
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+            remarksParts.Add($"[IdempotencyKey:{request.IdempotencyKey.Trim()}]");
+
+        if (remarksParts.Count > 0)
+        {
+            quotation.CustomerRemarks = string.Join(" | ", remarksParts);
+        }
 
         if (request.Items != null && request.Items.Count > 0)
         {
@@ -251,10 +282,37 @@ public class SalesQuotationService : ISalesQuotationService
 
         await ApplyCurrencySnapshotAsync(quotation, currencyCode);
 
+        // Preserve original customer request snapshot immutably in internal notes
+        var originalSnapshot = new OriginalCustomerRequestDto
+        {
+            CustomerRemarks = request.CustomerRemarks,
+            DeliveryAddressSnapshot = request.DeliveryAddressSnapshot,
+            RequiredDeliveryDate = request.RequiredDeliveryDate,
+            Items = request.Items?.Select(i => new OriginalCustomerRequestItemDto
+            {
+                ProductId = i.ProductId,
+                RequestedQuantity = i.Quantity,
+                TargetUnitPrice = i.UnitPrice,
+                Notes = i.Notes
+            }).ToList() ?? new()
+        };
+        string snapshotMarker = $"[ORIGINAL_REQUEST_SNAPSHOT:{System.Text.Json.JsonSerializer.Serialize(originalSnapshot)}]";
+        quotation.InternalNotes = string.IsNullOrWhiteSpace(quotation.InternalNotes)
+            ? snapshotMarker
+            : $"{quotation.InternalNotes}\n{snapshotMarker}";
+
+        // If not requested as draft, submit quotation request for internal review
+        if (!request.IsDraft && quotation.Items.Any(i => i.IsActive))
+        {
+            quotation.SubmitForApproval(actorUserId ?? customer.CustomerId);
+        }
+
         await _repository.AddAsync(quotation);
         await _repository.SaveChangesAsync();
 
-        return MapToDto(quotation);
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
     }
 
     public async Task<SalesQuotationDto> UpdateQuotationDraftAsync(
@@ -283,7 +341,28 @@ public class SalesQuotationService : ISalesQuotationService
         if (!string.IsNullOrWhiteSpace(request.PaymentTerms)) quotation.PaymentTerms = request.PaymentTerms.Trim();
         if (!string.IsNullOrWhiteSpace(request.DeliveryTerms)) quotation.DeliveryTerms = request.DeliveryTerms.Trim();
         if (request.Notes != null) quotation.Notes = request.Notes;
-        if (request.InternalNotes != null) quotation.InternalNotes = request.InternalNotes;
+        if (request.InternalNotes != null)
+        {
+            string? existingSnapshot = null;
+            if (!string.IsNullOrWhiteSpace(quotation.InternalNotes) && quotation.InternalNotes.Contains("[ORIGINAL_REQUEST_SNAPSHOT:"))
+            {
+                int snapIdx = quotation.InternalNotes.IndexOf("[ORIGINAL_REQUEST_SNAPSHOT:", StringComparison.Ordinal);
+                int endSnap = quotation.InternalNotes.IndexOf("]", snapIdx, StringComparison.Ordinal);
+                if (endSnap > snapIdx)
+                {
+                    existingSnapshot = quotation.InternalNotes.Substring(snapIdx, endSnap - snapIdx + 1);
+                }
+            }
+
+            if (existingSnapshot != null && !request.InternalNotes.Contains("[ORIGINAL_REQUEST_SNAPSHOT:"))
+            {
+                quotation.InternalNotes = $"{request.InternalNotes}\n{existingSnapshot}";
+            }
+            else
+            {
+                quotation.InternalNotes = request.InternalNotes;
+            }
+        }
         if (request.DeliveryAddressId.HasValue) quotation.DeliveryAddressId = request.DeliveryAddressId.Value;
         if (request.DeliveryAddressSnapshot != null) quotation.DeliveryAddressSnapshot = request.DeliveryAddressSnapshot;
 
@@ -293,10 +372,37 @@ public class SalesQuotationService : ISalesQuotationService
             await ApplyCurrencySnapshotAsync(quotation, quotation.Currency);
         }
 
+        if (request.Items != null)
+        {
+            foreach (var existing in quotation.Items.Where(i => i.IsActive).ToList())
+            {
+                existing.IsActive = false;
+            }
+
+            foreach (var itemReq in request.Items)
+            {
+                var (product, uomId, unitPrice) = await ValidateAndResolveItemAsync(tenantId, itemReq);
+                decimal taxRate = await ResolveTaxRateAsync(tenantId, itemReq.TaxCodeId, itemReq.TaxRate, quotation.QuotationDate);
+
+                quotation.AddItem(
+                    product.ProductId,
+                    itemReq.Quantity,
+                    unitPrice,
+                    itemReq.DiscountRate,
+                    itemReq.TaxCodeId,
+                    taxRate,
+                    uomId,
+                    itemReq.IsTaxInclusive,
+                    itemReq.Notes);
+            }
+        }
+
         quotation.RecalculateTotals();
         await _repository.SaveChangesAsync();
 
-        return MapToDto(quotation);
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
     }
 
     public async Task<SalesQuotationItemDto> AddItemAsync(
@@ -525,20 +631,82 @@ public class SalesQuotationService : ISalesQuotationService
         return await _approvalService.GetApprovalHistoryAsync(tenantId, "SalesQuotation", quotationId);
     }
 
+    public async Task<SalesQuotationDto> ReturnToDraftAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid quotationId,
+        Guid actorUserId,
+        string actorUserName,
+        string? remarks = null)
+    {
+        var quotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, quotationId)
+            ?? throw new KeyNotFoundException($"Sales quotation '{quotationId}' was not found.");
+
+        quotation.ReturnToDraft(actorUserId, remarks);
+
+        await _repository.SaveChangesAsync();
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
+    }
+
     public async Task<SalesQuotationDto> SendQuotationAsync(
         Guid tenantId,
         Guid companyId,
         Guid branchId,
         Guid quotationId,
         Guid actorUserId,
-        string actorUserName)
+        string actorUserName,
+        bool isRetry = false)
     {
         var quotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, quotationId)
             ?? throw new KeyNotFoundException($"Sales quotation '{quotationId}' was not found in authorized scope.");
 
-        quotation.MarkSent(DateTime.UtcNow);
+        // Rule 1: Only approved (Confirmed) offers can be sent to customers (or Sent if retrying)
+        if (quotation.Status != SalesQuotationStatus.Confirmed && !(isRetry && quotation.Status == SalesQuotationStatus.Sent))
+        {
+            throw new InvalidOperationException($"Cannot send quotation in status '{quotation.Status}'. Only approved (Confirmed) quotations can be sent to customers.");
+        }
+
+        // Rule 2: Prevent accidental duplicate notifications
+        if (quotation.SentAtUtc.HasValue && !isRetry)
+        {
+            throw new InvalidOperationException($"Quotation {quotation.QuotationNumber} was already sent on {quotation.SentAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC. Enable retry if resending is required.");
+        }
+
+        // Rule 3: Dispatch email notification
+        if (_emailService != null)
+        {
+            var dispatchResult = await _emailService.SendQuotationNotificationAsync(quotation);
+            if (dispatchResult.IsSuccess)
+            {
+                quotation.MarkSent(DateTime.UtcNow);
+                string sentMarker = $"[EmailStatus:Sent|Recipient:{dispatchResult.RecipientEmail}|SentAt:{DateTime.UtcNow:O}]";
+                quotation.InternalNotes = string.IsNullOrWhiteSpace(quotation.InternalNotes)
+                    ? sentMarker
+                    : $"{quotation.InternalNotes}\n{sentMarker}";
+            }
+            else
+            {
+                string failedMarker = $"[EmailStatus:Failed|Recipient:{dispatchResult.RecipientEmail ?? "Unknown"}|Error:{dispatchResult.ErrorMessage ?? "Dispatch failed"}]";
+                quotation.InternalNotes = string.IsNullOrWhiteSpace(quotation.InternalNotes)
+                    ? failedMarker
+                    : $"{quotation.InternalNotes}\n{failedMarker}";
+
+                await _repository.SaveChangesAsync();
+                throw new InvalidOperationException($"Failed to send quotation email: {dispatchResult.ErrorMessage}");
+            }
+        }
+        else
+        {
+            quotation.MarkSent(DateTime.UtcNow);
+        }
+
         await _repository.SaveChangesAsync();
-        return MapToDto(quotation);
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
     }
 
     public async Task<SalesQuotationDto> AcceptQuotationAndConvertAtomicAsync(
@@ -1039,8 +1207,191 @@ public class SalesQuotationService : ISalesQuotationService
         }
     }
 
+    private async Task EnrichQuotationDtoAsync(SalesQuotationDto dto, Guid tenantId)
+    {
+        if (dto == null) return;
+
+        if (dto.CustomerId != Guid.Empty && string.IsNullOrEmpty(dto.CustomerCode) && _customerRepository != null)
+        {
+            try
+            {
+                var customer = await _customerRepository.GetCustomerByIdAsync(tenantId, dto.CustomerId);
+                if (customer != null)
+                {
+                    dto.CustomerCode = customer.CustomerCode;
+                    dto.CustomerName = customer.CustomerName;
+                }
+            }
+            catch { }
+        }
+
+        if (dto.CustomerContactId.HasValue && dto.CustomerContactId.Value != Guid.Empty && _dbContext != null)
+        {
+            try
+            {
+                var contact = await _dbContext.Contacts
+                    .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.ContactId == dto.CustomerContactId.Value);
+
+                if (contact == null)
+                {
+                    var custContact = await _dbContext.CustomerContacts
+                        .FirstOrDefaultAsync(cc => cc.TenantId == tenantId && cc.CustomerContactId == dto.CustomerContactId.Value);
+                    if (custContact != null)
+                    {
+                        contact = await _dbContext.Contacts
+                            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.ContactId == custContact.ContactId);
+                    }
+                }
+
+                if (contact != null)
+                {
+                    dto.ContactPersonName = contact.ContactName;
+                    dto.ContactEmail = contact.Email;
+                }
+            }
+            catch { }
+        }
+
+        if (_dbContext != null)
+        {
+            var itemProductIds = dto.Items.Select(i => i.ProductId).ToList();
+            if (dto.OriginalRequest?.Items != null)
+            {
+                itemProductIds.AddRange(dto.OriginalRequest.Items.Select(oi => oi.ProductId));
+            }
+            var distinctProductIds = itemProductIds.Distinct().ToList();
+
+            var uomIds = dto.Items.Where(i => i.UnitOfMeasureId.HasValue).Select(i => i.UnitOfMeasureId!.Value).Distinct().ToList();
+
+            var products = await _dbContext.Products
+                .Where(p => p.TenantId == tenantId && distinctProductIds.Contains(p.ProductId))
+                .ToDictionaryAsync(p => p.ProductId);
+
+            var uoms = await _dbContext.UnitsOfMeasure
+                .Where(u => u.TenantId == tenantId && uomIds.Contains(u.UnitOfMeasureId))
+                .ToDictionaryAsync(u => u.UnitOfMeasureId);
+
+            decimal totalCost = 0;
+            bool hasAnyCost = false;
+
+            foreach (var item in dto.Items)
+            {
+                if (products.TryGetValue(item.ProductId, out var product))
+                {
+                    item.ProductCode = product.ProductCode;
+                    item.ProductName = product.ProductName;
+                    item.UnitCost = product.StandardCost;
+
+                    if (product.StandardCost > 0)
+                    {
+                        hasAnyCost = true;
+                        if (item.UnitPrice > 0)
+                        {
+                            item.GrossMarginPercentage = Math.Round(((item.UnitPrice - product.StandardCost) / item.UnitPrice) * 100m, 2);
+                        }
+                        totalCost += product.StandardCost * item.Quantity;
+                    }
+                }
+
+                if (item.UnitOfMeasureId.HasValue && uoms.TryGetValue(item.UnitOfMeasureId.Value, out var uom))
+                {
+                    item.UnitOfMeasureCode = uom.Code;
+                }
+            }
+
+            if (dto.OriginalRequest?.Items != null)
+            {
+                foreach (var origItem in dto.OriginalRequest.Items)
+                {
+                    if (products.TryGetValue(origItem.ProductId, out var p))
+                    {
+                        origItem.ProductCode = p.ProductCode;
+                        origItem.ProductName = p.ProductName;
+                    }
+                }
+            }
+
+            if (hasAnyCost)
+            {
+                dto.TotalCost = Math.Round(totalCost, 2);
+                if (dto.SubTotal > 0)
+                {
+                    dto.GrossMarginPercentage = Math.Round(((dto.SubTotal - totalCost) / dto.SubTotal) * 100m, 2);
+                }
+            }
+        }
+    }
+
     private static SalesQuotationDto MapToDto(global::Domain.Features.Sales.SalesQuotation.SalesQuotation quotation)
     {
+        OriginalCustomerRequestDto? originalRequest = null;
+        if (!string.IsNullOrWhiteSpace(quotation.InternalNotes) && quotation.InternalNotes.Contains("[ORIGINAL_REQUEST_SNAPSHOT:"))
+        {
+            try
+            {
+                int startIdx = quotation.InternalNotes.IndexOf("[ORIGINAL_REQUEST_SNAPSHOT:", StringComparison.Ordinal);
+                if (startIdx >= 0)
+                {
+                    int jsonStart = startIdx + "[ORIGINAL_REQUEST_SNAPSHOT:".Length;
+                    int endIdx = quotation.InternalNotes.IndexOf("]", jsonStart, StringComparison.Ordinal);
+                    if (endIdx > jsonStart)
+                    {
+                        var json = quotation.InternalNotes.Substring(jsonStart, endIdx - jsonStart);
+                        originalRequest = System.Text.Json.JsonSerializer.Deserialize<OriginalCustomerRequestDto>(json);
+                    }
+                }
+            }
+            catch
+            {
+                // Graceful fallback
+            }
+        }
+
+        if (originalRequest == null && quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            originalRequest = new OriginalCustomerRequestDto
+            {
+                CustomerRemarks = quotation.CustomerRemarks,
+                DeliveryAddressSnapshot = quotation.DeliveryAddressSnapshot,
+                RequiredDeliveryDate = quotation.DeliveryDate,
+                Items = quotation.Items.Where(i => i.IsActive).Select(i => new OriginalCustomerRequestItemDto
+                {
+                    ProductId = i.ProductId,
+                    RequestedQuantity = i.Quantity,
+                    TargetUnitPrice = i.UnitPrice,
+                    Notes = i.Notes
+                }).ToList()
+            };
+        }
+
+        string? emailStatus = null;
+        string? emailRecipient = null;
+        string? emailFailureReason = null;
+        DateTime? emailSentAtUtc = quotation.SentAtUtc;
+
+        if (!string.IsNullOrWhiteSpace(quotation.InternalNotes))
+        {
+            if (quotation.InternalNotes.Contains("[EmailStatus:Sent"))
+            {
+                emailStatus = "Sent";
+                var match = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[EmailStatus:Sent\|Recipient:([^\|\]]+)");
+                if (match.Success) emailRecipient = match.Groups[1].Value.Trim();
+            }
+            else if (quotation.InternalNotes.Contains("[EmailStatus:Failed"))
+            {
+                emailStatus = "Failed";
+                var matchRecipient = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[EmailStatus:Failed\|Recipient:([^\|\]]+)");
+                if (matchRecipient.Success) emailRecipient = matchRecipient.Groups[1].Value.Trim();
+                var matchError = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\|Error:([^\]]+)\]");
+                if (matchError.Success) emailFailureReason = matchError.Groups[1].Value.Trim();
+            }
+        }
+
+        if (string.IsNullOrEmpty(emailStatus))
+        {
+            emailStatus = quotation.SentAtUtc.HasValue ? "Sent" : (quotation.Status == SalesQuotationStatus.Confirmed ? "Pending" : "NotSent");
+        }
+
         return new SalesQuotationDto
         {
             Id = quotation.Id,
@@ -1093,6 +1444,11 @@ public class SalesQuotationService : ISalesQuotationService
             ConvertedSalesOrderId = quotation.ConvertedSalesOrderId,
             ConvertedAtUtc = quotation.ConvertedAtUtc,
             SupersededByQuotationId = quotation.SupersededByQuotationId,
+            OriginalRequest = originalRequest,
+            EmailStatus = emailStatus,
+            EmailSentAtUtc = emailSentAtUtc,
+            EmailRecipient = emailRecipient,
+            EmailFailureReason = emailFailureReason,
             Items = quotation.Items.Where(i => i.IsActive).Select(MapItemToDto).ToList()
         };
     }

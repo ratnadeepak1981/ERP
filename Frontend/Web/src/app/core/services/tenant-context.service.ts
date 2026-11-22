@@ -52,6 +52,19 @@ export class TenantContextService {
       return null;
     }
 
+    // Support query parameter override for development & LAN IP testing (e.g. ?tenant=apxman)
+    if (window.location.search) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryTenant = urlParams.get('tenant');
+        if (queryTenant && queryTenant.trim().length > 0) {
+          return queryTenant.trim().toLowerCase();
+        }
+      } catch {
+        // Fall back to hostname extraction if URLSearchParams fails
+      }
+    }
+
     return this.parseSubdomain(window.location.hostname, (environment as any).tenantBaseDomain || 'localhost');
   }
 

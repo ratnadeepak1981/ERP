@@ -284,6 +284,7 @@ export class TenantLayoutComponent implements OnInit {
         route: '/app/sales',
         children: [
           { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/sales' },
+          { label: 'Quotations', icon: 'pi pi-file-edit', route: '/app/sales/quotations' },
           { label: 'Sales Orders', icon: 'pi pi-shopping-bag', route: '/app/sales/orders' },
           { label: 'Dispatch Notes', icon: 'pi pi-send', route: '/app/sales/dispatches' },
           { label: 'Sales Invoices', icon: 'pi pi-file-invoice', route: '/app/sales/invoices' }

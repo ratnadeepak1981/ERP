@@ -58,6 +58,22 @@ export const customerPortalRoutes: Routes = [
           )
       },
       {
+        path: 'quotations/new',
+        canActivate: [customerTypeGuard('company')],
+        loadComponent: () =>
+          import('./quotations/new-quotation-request/customer-quotation-request.component').then(
+            m => m.CustomerQuotationRequestComponent
+          )
+      },
+      {
+        path: 'quotations/:id',
+        canActivate: [customerTypeGuard('company')],
+        loadComponent: () =>
+          import('./quotations/quotation-detail/customer-quotation-detail.component').then(
+            m => m.CustomerQuotationDetailComponent
+          )
+      },
+      {
         path: 'direct-orders',
         canActivate: [customerTypeGuard('company')],
         loadComponent: () =>

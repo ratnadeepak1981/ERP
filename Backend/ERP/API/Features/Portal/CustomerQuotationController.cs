@@ -1,12 +1,17 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using API.Common;
 using API.Features.Portal.Context;
+using Domain.Features.MasterData.Address;
 using Domain.Features.Sales.SalesQuotation;
+using Domain.Infrastructure.Persistence;
 using ERP.Application.Features.Sales.SalesQuotation;
+using ERP.Domain.Features.MasterData.Customer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Features.Portal;
 
@@ -23,13 +28,16 @@ public class CustomerQuotationController : BaseApiController
 {
     private readonly ISalesQuotationService _quotationService;
     private readonly ICurrentCustomerContext _customerContext;
+    private readonly DomainDbContext _domainContext;
 
     public CustomerQuotationController(
         ISalesQuotationService quotationService,
-        ICurrentCustomerContext customerContext)
+        ICurrentCustomerContext customerContext,
+        DomainDbContext domainContext)
     {
         _quotationService = quotationService ?? throw new ArgumentNullException(nameof(quotationService));
         _customerContext = customerContext ?? throw new ArgumentNullException(nameof(customerContext));
+        _domainContext = domainContext ?? throw new ArgumentNullException(nameof(domainContext));
     }
 
     [HttpGet]
@@ -103,14 +111,108 @@ public class CustomerQuotationController : BaseApiController
         if (!_customerContext.IsCustomer)
             return Forbid();
 
-        if (companyId == Guid.Empty || branchId == Guid.Empty)
-            return BadRequestResponse("Selling company ID and branch ID are required.");
+        // Corporate/Company customer authorization check: Individual/Retail customers cannot submit Company Quotation Requests
+        bool isIndividualRetail = _customerContext.Roles.Any(r =>
+            string.Equals(r, "CUSTOMER_INDIVIDUAL", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(r, "Customer Individual", StringComparison.OrdinalIgnoreCase));
+
+        bool isCompanyCustomer = _customerContext.Roles.Any(r =>
+            r.Contains("CUSTOMER_COMPANY", StringComparison.OrdinalIgnoreCase) ||
+            r.Contains("Customer Company", StringComparison.OrdinalIgnoreCase));
+
+        if (isIndividualRetail || !isCompanyCustomer)
+            return ForbiddenResponse("Individual/Retail customers cannot submit Company Sales Quotation requests.");
+
+        // Purchasing permission check
+        if (!_customerContext.Permissions.Contains("PORTAL_QUOTATION.REQUEST"))
+            return ForbiddenResponse("Purchasing authority required to submit Sales Quotation requests.");
 
         if (request == null)
             return BadRequestResponse("Quotation request payload is required.");
 
+        if (request.Items == null || request.Items.Count == 0)
+            return BadRequestResponse("At least one product line item is required.");
+
+        // 1. Enforce authenticated Customer Master identity (never trust frontend-supplied IDs)
         request.CustomerId = _customerContext.CustomerId;
         request.CustomerContactId = _customerContext.ContactId;
+
+        // 2. Validate Customer Master is active and approved in current tenant
+        var customer = await _domainContext.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == _customerContext.TenantId && c.CustomerId == _customerContext.CustomerId && c.IsActive, ct);
+
+        if (customer == null)
+            return UnauthorizedResponse("Customer company is inactive or not found.");
+
+        // 3. Resolve Selling Company if not provided
+        if (companyId == Guid.Empty)
+        {
+            var defaultCompany = await _domainContext.Companies
+                .AsNoTracking()
+                .Where(c => c.TenantId == _customerContext.TenantId && c.IsActive)
+                .OrderBy(c => c.Name)
+                .FirstOrDefaultAsync(ct);
+
+            if (defaultCompany == null)
+                return BadRequestResponse("No active selling company found for this tenant.");
+
+            companyId = defaultCompany.Id;
+        }
+
+        // 4. Resolve Selling Branch if not provided
+        if (branchId == Guid.Empty)
+        {
+            var defaultBranch = await _domainContext.Branches
+                .AsNoTracking()
+                .Where(b => b.CompanyId == companyId && b.IsActive)
+                .OrderBy(b => b.Name)
+                .FirstOrDefaultAsync(ct);
+
+            if (defaultBranch == null)
+                return BadRequestResponse("Selling company has no active branches available to receive quotation requests.");
+
+            branchId = defaultBranch.Id;
+        }
+
+        // 5. Validate Delivery Address Ownership if provided
+        if (request.DeliveryAddressId.HasValue && request.DeliveryAddressId.Value != Guid.Empty)
+        {
+            var addressQuery = from ca in _domainContext.CustomerAddresses
+                               join a in _domainContext.Addresses on new { ca.TenantId, ca.AddressId } equals new { a.TenantId, a.AddressId }
+                               where ca.TenantId == _customerContext.TenantId
+                                  && ca.CustomerId == _customerContext.CustomerId
+                                  && (ca.AddressId == request.DeliveryAddressId.Value || ca.CustomerAddressId == request.DeliveryAddressId.Value)
+                                  && ca.IsActive && a.IsActive
+                               select a;
+
+            var matchedAddress = await addressQuery.AsNoTracking().FirstOrDefaultAsync(ct);
+
+            if (matchedAddress == null)
+                return BadRequestResponse("Selected delivery address does not belong to your company account.");
+
+            if (string.IsNullOrWhiteSpace(request.DeliveryAddressSnapshot))
+            {
+                request.DeliveryAddressSnapshot = $"{matchedAddress.AddressLine1}, {matchedAddress.City}, {matchedAddress.PostalCode}".Trim().TrimEnd(',');
+            }
+        }
+
+        // 6. Duplicate Submission Protection (via Idempotency Key)
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            var existing = await _domainContext.SalesQuotations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(sq => sq.TenantId == _customerContext.TenantId
+                    && sq.CustomerId == _customerContext.CustomerId
+                    && sq.CustomerRemarks != null
+                    && sq.CustomerRemarks.Contains($"[IdempotencyKey:{request.IdempotencyKey.Trim()}]"), ct);
+
+            if (existing != null)
+            {
+                var existingDto = await _quotationService.GetCustomerQuotationDetailsAsync(_customerContext.TenantId, _customerContext.CustomerId, existing.Id);
+                return SuccessResponse(existingDto, "Quotation request was already processed.");
+            }
+        }
 
         try
         {

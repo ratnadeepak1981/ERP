@@ -1,6 +1,6 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, Router } from '@angular/router';
+import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -14,6 +14,52 @@ export interface CategoryFilterOption {
   name: string;
   count: number;
 }
+
+export interface StorefrontOption {
+  slug: string;
+  name: string;
+  industry: string;
+  companyId: string;
+  icon: string;
+}
+
+export const KNOWN_STOREFRONTS: StorefrontOption[] = [
+  {
+    slug: 'apxman',
+    name: 'Alpha Manufacturing',
+    industry: 'Precision Components & Industrial Assembly Parts',
+    companyId: '6AD8FE26-04B3-4FE2-917B-C9E03F5B7AC6',
+    icon: 'pi pi-cog'
+  },
+  {
+    slug: 'retail',
+    name: 'Lanka Retail Mart',
+    industry: 'Retail FMCG & Groceries',
+    companyId: 'FFF3A70A-197F-48C6-834B-B8AE891AE3B2',
+    icon: 'pi pi-shopping-cart'
+  },
+  {
+    slug: 'apxwhole',
+    name: 'Apex Wholesale',
+    industry: 'Wholesale & Bulk Distribution',
+    companyId: 'BC936CFE-3441-47AC-BED8-A3870D763B9D',
+    icon: 'pi pi-box'
+  },
+  {
+    slug: 'pwtest',
+    name: 'PW Pharmacy',
+    industry: 'Pharmaceuticals & Health Supplies',
+    companyId: 'ABCABA45-1F57-43C1-9B83-DD8ECEB5DBC1',
+    icon: 'pi pi-heart'
+  },
+  {
+    slug: 'apex-qa',
+    name: 'Apex QA Services',
+    industry: 'Facility Maintenance & Technical Services',
+    companyId: '4CE8CB3C-61E1-4095-864B-6F7618DCA78E',
+    icon: 'pi pi-wrench'
+  }
+];
 
 @Component({
   selector: 'app-storefront',
@@ -32,8 +78,12 @@ export interface CategoryFilterOption {
 export class StorefrontComponent implements OnInit {
   private readonly catalogueService = inject(EcommerceCatalogueService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly tenantContext = inject(TenantContextService);
   readonly themeService = inject(ThemeService);
+
+  readonly availableStorefronts = KNOWN_STOREFRONTS;
+  readonly activeOption = signal<StorefrontOption>(KNOWN_STOREFRONTS[0]);
 
   readonly rawProducts = signal<PublicEcommerceProductDto[]>([]);
   readonly searchQuery = signal<string>('');
@@ -42,12 +92,16 @@ export class StorefrontComponent implements OnInit {
   readonly loading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
 
+  readonly isStandaloneDemo = computed(() => {
+    return !this.tenantContext.isTenantDomain();
+  });
+
   readonly tenantName = computed(() => {
-    return this.tenantContext.currentTenant()?.name || this.tenantContext.subdomain() || 'ApexERP';
+    return this.tenantContext.currentTenant()?.name || this.activeOption().name;
   });
 
   readonly tenantIndustry = computed(() => {
-    return this.tenantContext.currentTenant()?.industryType || 'Precision Components & Materials';
+    return this.tenantContext.currentTenant()?.industryType || this.activeOption().industry;
   });
 
   readonly categories = computed<CategoryFilterOption[]>(() => {
@@ -100,16 +154,25 @@ export class StorefrontComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadCatalogue();
+    this.route.queryParamMap.subscribe(params => {
+      const tenantSlug = params.get('tenant')?.toLowerCase();
+      if (tenantSlug) {
+        const found = KNOWN_STOREFRONTS.find(s => s.slug === tenantSlug);
+        if (found) {
+          this.activeOption.set(found);
+        }
+      }
+      this.loadCatalogue();
+    });
   }
 
   loadCatalogue(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    const companyId = this.tenantContext.currentTenant()?.tenantId || '';
+    const resolvedCompanyId = this.tenantContext.currentTenant()?.tenantId || this.activeOption().companyId;
 
-    this.catalogueService.getPublicCatalogue(companyId).subscribe({
+    this.catalogueService.getPublicCatalogue(resolvedCompanyId).subscribe({
       next: (items) => {
         this.loading.set(false);
         this.rawProducts.set(items || []);
@@ -118,6 +181,17 @@ export class StorefrontComponent implements OnInit {
         this.loading.set(false);
         this.errorMessage.set('Unable to load catalogue items at this time.');
       }
+    });
+  }
+
+  switchIndustry(option: StorefrontOption): void {
+    this.activeOption.set(option);
+    this.selectedCategory.set('ALL');
+    this.searchQuery.set('');
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tenant: option.slug },
+      queryParamsHandling: 'merge'
     });
   }
 

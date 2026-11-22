@@ -98,6 +98,7 @@ public static class ServiceRegistration
 
         services.AddScoped<ERP.Application.Features.Procurement.PurchaseOrderFeature.IPurchaseOrderPdfService, ERP.Infrastructure.Pdf.PurchaseOrderPdfService>();
         services.AddScoped<ERP.Application.Features.Sales.SalesQuotation.ISalesQuotationPdfService, ERP.Infrastructure.Pdf.SalesQuotationPdfService>();
+        services.AddScoped<ERP.Application.Features.Sales.SalesQuotation.ISalesQuotationEmailService, ERP.Application.Features.Sales.SalesQuotation.SalesQuotationEmailService>();
 
         services.AddScoped<Domain.Features.MasterData.Company.ICompanyService, ERP.Application.Features.MasterData.Company.CompanyService>();
         services.AddScoped<Domain.Features.Setup.ITenantOrganizationSetupService, ERP.Application.Features.Setup.TenantOrganizationSetupService>();

@@ -10,7 +10,8 @@ public interface ISalesQuotationRepository
         Guid tenantId,
         Guid companyId,
         Guid branchId,
-        SalesQuotationStatus? status = null);
+        SalesQuotationStatus? status = null,
+        SalesQuotationType? documentType = null);
 
     Task<SalesQuotation?> GetByIdAsync(
         Guid tenantId,
