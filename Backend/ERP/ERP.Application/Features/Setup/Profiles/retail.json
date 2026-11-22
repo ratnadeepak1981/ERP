@@ -602,8 +602,52 @@
       "contactPerson": "Cashier Desk"
     },
     {
+      "code": "CUST-RET-IND01",
+      "name": "Nuwan Bandara",
+      "email": "nuwan.retail@apexerp.local",
+      "phone": "+94 77 234 5601",
+      "addressLine1": "No. 12, Galle Road",
+      "city": "Colombo",
+      "postalCode": "00300",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Nuwan Bandara",
+      "loginUser": {
+        "username": "nuwan.retail@apexerp.local",
+        "email": "nuwan.retail@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
+      "code": "CUST-RET-IND02",
+      "name": "Anoma Jayasinghe",
+      "email": "anoma.retail@apexerp.local",
+      "phone": "+94 77 234 5602",
+      "addressLine1": "No. 45, Station Road",
+      "city": "Dehiwala",
+      "postalCode": "10350",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Anoma Jayasinghe",
+      "loginUser": {
+        "username": "anoma.retail@apexerp.local",
+        "email": "anoma.retail@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
       "code": "CUST-RET-001",
       "name": "Cargills Supermarkets PLC",
+      "tradingName": "Cargills Food City",
+      "taxNumber": "V102938475",
       "email": "procurement@cargillsretail.lk",
       "phone": "+94 11 456 7890",
       "addressLine1": "No. 40, York Street, Colombo 01",
@@ -612,7 +656,61 @@
       "country": "Sri Lanka",
       "currencyCode": "LKR",
       "paymentTerms": "NET30",
-      "contactPerson": "Nimal Fernando"
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Nimal Fernando",
+      "loginUser": {
+        "username": "procurement@cargillsretail.lk",
+        "email": "procurement@cargillsretail.lk",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-RET-002",
+      "name": "Metro Supermarket Chain Ltd",
+      "tradingName": "Metro Mart",
+      "taxNumber": "V582910472",
+      "email": "orders@metromart.local",
+      "phone": "+94 11 456 7892",
+      "addressLine1": "No. 88, Kandy Road",
+      "city": "Kadawatha",
+      "postalCode": "11850",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Pradeep Samarasinghe",
+      "loginUser": {
+        "username": "orders@metromart.local",
+        "email": "orders@metromart.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-RET-003",
+      "name": "Green Garden Cafes (Pvt) Ltd",
+      "tradingName": "Green Garden Cafe",
+      "taxNumber": "V918273645",
+      "email": "purchasing@greengarden.local",
+      "phone": "+94 11 456 7893",
+      "addressLine1": "No. 15, Park Street",
+      "city": "Colombo",
+      "postalCode": "00200",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Pending",
+      "contactPerson": "Malini Senanayake",
+      "loginUser": {
+        "username": "purchasing@greengarden.local",
+        "email": "purchasing@greengarden.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
     }
   ],
   "priceCards": [

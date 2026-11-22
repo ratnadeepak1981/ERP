@@ -108,6 +108,26 @@
   ],
   "categories": [
     {
+      "code": "MACHINERY-COMPONENTS",
+      "name": "Machinery Components",
+      "description": "Precision engineered machinery components and spindles"
+    },
+    {
+      "code": "RAW-HARDWARE",
+      "name": "Raw Hardware",
+      "description": "Industrial fasteners, fixtures, and raw hardware"
+    },
+    {
+      "code": "HYDRAULICS",
+      "name": "Hydraulics",
+      "description": "Hydraulic pressure regulators, pumps, and valves"
+    },
+    {
+      "code": "ASSEMBLY-SYSTEMS",
+      "name": "Assembly Systems",
+      "description": "Automated conveyor rollers, drives, and assembly lines"
+    },
+    {
       "code": "RAW-MATERIALS",
       "name": "Raw Materials",
       "description": "Materials consumed in production"
@@ -240,6 +260,70 @@
     }
   ],
   "products": [
+    {
+      "code": "PROD-AL-001",
+      "name": "High Precision CNC Milling Spindle",
+      "categoryCode": "MACHINERY-COMPONENTS",
+      "brandCode": "BRAND-DRIVE",
+      "baseUom": "EA",
+      "trackingMode": "Serial",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 980.00,
+      "sellingPrice": 1250.00,
+      "taxCode": "VAT-18",
+      "leadTimeDays": 5,
+      "description": "High Precision CNC Milling Spindle - Lead Time: 3-5 Business Days"
+    },
+    {
+      "code": "PROD-AL-002",
+      "name": "Titanium Grade 5 Hex Fasteners (Pack of 100)",
+      "categoryCode": "RAW-HARDWARE",
+      "brandCode": "BRAND-TOOLS",
+      "baseUom": "BOX",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 140.00,
+      "sellingPrice": 185.50,
+      "taxCode": "VAT-18",
+      "leadTimeDays": 1,
+      "description": "Titanium Grade 5 Hex Fasteners (Pack of 100) - Lead Time: Immediate Dispatch"
+    },
+    {
+      "code": "PROD-AL-003",
+      "name": "Hydraulic Pressure Regulator Valve 350 Bar",
+      "categoryCode": "HYDRAULICS",
+      "brandCode": "BRAND-DRIVE",
+      "baseUom": "EA",
+      "trackingMode": "Serial",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 480.00,
+      "sellingPrice": 620.00,
+      "taxCode": "VAT-18",
+      "leadTimeDays": 14,
+      "description": "Hydraulic Pressure Regulator Valve 350 Bar - Lead Time: 10-14 Business Days"
+    },
+    {
+      "code": "PROD-AL-004",
+      "name": "Automated Conveyor Roller Assembly 2m",
+      "categoryCode": "ASSEMBLY-SYSTEMS",
+      "brandCode": "BRAND-DRIVE",
+      "baseUom": "EA",
+      "trackingMode": "Batch",
+      "valuationMethod": "FIFO",
+      "purchasable": true,
+      "sellable": true,
+      "purchasePrice": 360.00,
+      "sellingPrice": 480.00,
+      "taxCode": "VAT-18",
+      "leadTimeDays": 7,
+      "description": "Automated Conveyor Roller Assembly 2m - Lead Time: 5-7 Business Days"
+    },
     {
       "code": "MFG-001",
       "name": "Steel Sheet 2mm",
@@ -561,9 +645,53 @@
       "contactPerson": "Direct Sales Desk"
     },
     {
+      "code": "CUST-MFG-RET01",
+      "name": "Kasun Perera",
+      "email": "kasun.mfg@apexerp.local",
+      "phone": "+94 77 123 4501",
+      "addressLine1": "No. 18, Industrial Estate Road",
+      "city": "Moratuwa",
+      "postalCode": "10400",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Kasun Perera",
+      "loginUser": {
+        "username": "kasun.mfg@apexerp.local",
+        "email": "kasun.mfg@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
+      "code": "CUST-MFG-RET02",
+      "name": "Dilani Fernando",
+      "email": "dilani.mfg@apexerp.local",
+      "phone": "+94 77 123 4502",
+      "addressLine1": "No. 32, Factory Lane",
+      "city": "Panadura",
+      "postalCode": "12500",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Dilani Fernando",
+      "loginUser": {
+        "username": "dilani.mfg@apexerp.local",
+        "email": "dilani.mfg@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
       "code": "CUST-MFG-001",
       "name": "Lanka Engineering Projects (Pvt) Ltd",
-      "email": "accounts@example.local",
+      "tradingName": "Lanka Engineering",
+      "taxNumber": "V847291038",
+      "email": "engineering@mfgcorp.local",
       "phone": "+94 11 300 0000",
       "addressLine1": "No. 25, Main Street",
       "city": "Colombo",
@@ -571,7 +699,61 @@
       "country": "Sri Lanka",
       "currencyCode": "LKR",
       "paymentTerms": "NET30",
-      "contactPerson": "Customer Contact"
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Sunil Jayawardena",
+      "loginUser": {
+        "username": "engineering@mfgcorp.local",
+        "email": "engineering@mfgcorp.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-MFG-002",
+      "name": "Apex Precision Dynamics (Pvt) Ltd",
+      "tradingName": "Apex Precision",
+      "taxNumber": "V192837465",
+      "email": "procurement@apexprecision.local",
+      "phone": "+94 11 300 0002",
+      "addressLine1": "No. 70, Industrial Zone",
+      "city": "Biyagama",
+      "postalCode": "11672",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Nimal Wickramasinghe",
+      "loginUser": {
+        "username": "procurement@apexprecision.local",
+        "email": "procurement@apexprecision.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-MFG-003",
+      "name": "Southern Fabrications & Tooling Ltd",
+      "tradingName": "Southern Tooling",
+      "taxNumber": "V675849302",
+      "email": "admin@southernfab.local",
+      "phone": "+94 11 300 0003",
+      "addressLine1": "No. 12, Heavy Industry Park",
+      "city": "Sapugaskanda",
+      "postalCode": "11654",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Pending",
+      "contactPerson": "Roshan Silva",
+      "loginUser": {
+        "username": "admin@southernfab.local",
+        "email": "admin@southernfab.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
     }
   ],
   "priceCards": [
