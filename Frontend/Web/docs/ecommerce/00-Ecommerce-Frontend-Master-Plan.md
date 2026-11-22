@@ -1,8 +1,8 @@
 # ApexERP — E-commerce Frontend Master Plan
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`, `Backend/ERP`)  
 **Related Documents:**
 - [README.md](README.md) — Documentation index and reading paths
@@ -218,5 +218,15 @@ src/app/
 **Invariant 10: Current Pricing & Price Card Validation** – All order creation paths validate pricing server‑side using `PricingResolutionService`. Retail uses `Product.SellingPrice`; Company customers resolve prices from the active `CustomerSellingCompany.SalesPriceCardId`, falling back only to `Customer.DefaultSalesPriceCardId` in single‑company scenarios. Historical prices are never reused.
 
 **Invariant 11: Notification Integration** – Order‑related events trigger the existing `NotificationService` to push workspace notifications and email alerts (Quotation Request Submitted, Quotation Issued, Quotation Accepted, SalesOrder Created, Dispatch Prepared, Dispatch Completed, Invoice Issued, Payment Received). No new notification infrastructure is introduced.
+
+**Invariant 12: Explicit Customer Master Classification (`CustomerType`)** – The Customer Master (`Customer`) must explicitly own the classification of customer records (`CustomerType`: `RetailIndividual` vs `CorporateOrganisation`). Customer classification is a domain master-data invariant and must never be inferred solely from transient security roles (`CUSTOMER_INDIVIDUAL` vs `CUSTOMER_COMPANY_ADMIN`) or customer code string prefixes (`CUST-IND-*` vs `CUST-*`). Business rules governing commercial capabilities, credit limits, Price Card relationships, and delivery addresses must anchor directly to `Customer.CustomerType`.
+
+**Invariant 13: Identity Layering & Decoupled Context Resolution** – The system enforces strict architectural separation between the **Security User** (`SecurityDbContext.Users`), the **Domain Contact** (`DomainDbContext.Contacts`), and the **Domain Customer** (`DomainDbContext.Customers`). Customer context resolution (`CurrentCustomerContext`) must never rely on the fragile assumption that `ContactId == UserId`. While portal self-registration may generate matching identifiers for initial registration, internal ERP contact creation generates independent GUIDs. Context resolution must traverse `CustomerContact` relationships through explicit contact-to-user mappings or authorized security claims.
+
+**Invariant 14: Registration Activation & B2B Corporate Governance Gate** – Customer self-registration follows a dual-policy activation model:
+- **Retail Individual Accounts:** Activate immediately upon registration (`user.IsActive = true`), permitting immediate cart staging and Retail Checkout.
+- **Corporate Organisation Accounts:** Undergo automated entity deduplication (`ICustomerDeduplicationService`). If an existing corporate buyer is matched, the new user contact must enter a `Pending Corporate Approval` state (`RequiresAuthorization = true`) before access to confidential corporate orders, Price Cards, or invoices is unlocked. Immediate full administrative access to matched company data without tenant or company admin verification is strictly prohibited.
+
+**Invariant 15: Separation of Login Credentials from Commercial Profile Emails** – The user's login identifier (`User.Email` / `User.Username` in `SecurityDbContext`) is an immutable authentication credential. The corporate commercial email (`Customer.Email` in `DomainDbContext`) is an official billing/tax address. The human contact email (`Contact.Email` in `DomainDbContext`) is a communication and dispatch notification address. Updating a customer's billing email or a contact's notification email must not alter security login credentials, and changing security credentials must not silently mutate master-data business records.
 
 ---

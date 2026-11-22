@@ -1,9 +1,13 @@
 # ApexERP — Customer Journey, Workspaces & Route Architecture
 
-**Document Version:** 1.1.0  
-**Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Document Version:** 1.4.0  
+**Status:** Architecture & Requirements Specification — Tenant Landing Page & Dynamic Storefront Completed, Customer Registration & Workspaces Milestone Active  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`, `Backend/ERP`)  
+**Preceding Milestones:**  
+- Milestone 1 — Tenant Subdomain Public Landing Page (Completed & Verified)  
+- Milestone 2 — Dynamic E-commerce Storefront & Product Catalogue (Completed & Verified)  
+**Active Milestone:** Milestone 3 — Customer Registration & Retail/Organisation Workspaces (Phase E4)  
 **Related Documents:**
 - [README.md](README.md) — Documentation index and reading paths
 - [00-Ecommerce-Frontend-Master-Plan.md](00-Ecommerce-Frontend-Master-Plan.md) — Master architectural charter and invariants
@@ -13,6 +17,18 @@
 - [05-API-and-Backend-Integration.md](05-API-and-Backend-Integration.md) — Complete endpoint, DTO, address linking, and permission audit
 - [06-Customer-Workspace-Specification.md](06-Customer-Workspace-Specification.md) — Workspace component architectures
 - [07-Implementation-and-Testing-Plan.md](07-Implementation-and-Testing-Plan.md) — Standardized E1–E10 implementation phases & QA tests
+
+---
+
+## 0. Milestone Progression & Current Status
+
+| Milestone | Scope & Deliverables | Status | Version |
+|---|---|:---:|---|
+| **Milestone 1** | **Tenant Subdomain Public Landing Page:** Layout header with middle navigation, 7 standard corporate sections, macOS 3-dot visual card, and tenant corporate footer. | **COMPLETED** | v1.2.0 |
+| **Milestone 2** | **Dynamic E-commerce Storefront & Product Catalogue:** Dynamic product listing, category filtering, search, product detail navigation (`/storefront/products/:productId`), safe idempotent product publication backfill, and shared common login with account-type routing. | **COMPLETED** | v1.3.0 |
+| **Milestone 3 (Active)** | **Customer Registration & Retail/Organisation Workspaces:** Customer Registration for Individual and Organisation accounts, common authentication reuse, shared Customer Workspace shell, separate Retail and Organisation navigation, and workspace permission isolation. | **ACTIVE** | v1.3.0 |
+| **Milestone 4 (Future)** | **Authenticated Shopping Cart & Retail Checkout:** Persistent cart session, item mutations, server-side pricing, Address Master selection, order submission. | PLANNED | Phase E5–E6 |
+| **Milestone 5 (Future)** | **Company Customer Quotations & Direct B2B Purchasing:** 5 navigation groups, RFQ quotations, Price Card agreements, direct orders. | PLANNED | Phase E7–E9 |
 
 ---
 
@@ -54,12 +70,19 @@ flowchart TD
 
 Every step in the customer lifecycle has a clearly defined trigger, UI component, route, backend API endpoint, DTO contract, and permission scope:
 
-### Transition T1: Tenant Landing Page &rarr; Public Storefront
-- **Trigger:** Visitor clicks the "Explore Products" or "Browse Catalogue" CTA button on the Tenant Landing Page.
-- **Source Component:** `TenantLandingComponent` (route: `/storefront` or tenant subdomain root `/`).
-- **Target Component:** `ProductCatalogComponent` (route: `/storefront/catalog`).
-- **Backend API:** `GET /api/ecommerce/catalogue/{companyId}/products` (via `EcommerceCatalogueController`).
-- **DTOs:** `PublicCatalogueFilter` (query params), returns `List<PublicEcommerceProductDto>`.
+### Transition T1: Tenant Subdomain Landing Page &rarr; Navigation Destinations & Public Storefront
+- **Trigger:** Visitor navigates to the tenant subdomain root (`/` on `abc.apexerp.com`, `nova.192.168.1.65.nip.io:4200`, `retail.localhost:4200`) or clicks header navigation links (`Home`, `Products`, `About Us`, `Services`, `Suppliers`, `Contact Us`).
+- **Source Component:** `HomeComponent` (Tenant Corporate View via `PublicLayoutComponent`, route: `/`).
+- **Target Destinations:**
+  - `Products` / "Explore Products" CTA &rarr; `ProductCatalogComponent` (route: `/storefront/catalog` or anchor `#products`).
+  - `Suppliers` / "Become a Supplier" CTA &rarr; `PublicRfqSubmitComponent` (route: `/public/rfq-submit` or anchor `#suppliers`).
+  - `Sign In` &rarr; `LoginComponent` (route: `/login`).
+  - `Register` &rarr; `RegisterComponent` (route: `/register` with Customer tabs).
+- **Backend API:**
+  - `GET /Tenant/context` (via `TenantContextService`) for dynamic branding, structure, and e-commerce flags.
+  - `GET /api/ecommerce/catalogue/{companyId}/products` (via `EcommerceCatalogueController`) for curated featured products and categories.
+  - `GET /api/company` / Address Master for corporate physical address, phone, and inquiry channels.
+- **DTOs:** `TenantContextDto`, `PublicEcommerceProductDto`.
 - **Permission:** Anonymous public access (`[AllowAnonymous]`).
 - **Context Preserved:** Resolved `TenantId` from hostname and default active Selling `CompanyId`.
 
@@ -79,18 +102,68 @@ Every step in the customer lifecycle has a clearly defined trigger, UI component
   1. Capture intended action payload: `{ productId, quantity, unitOfMeasureId, productPackagingId, action: 'add-to-cart' }`.
   2. Encode state into URL query parameter or temporary browser session storage (`apex_pending_cart_action`).
   3. Redirect user to `/login` with `returnUrl=/storefront/products/{productId}?resumeAction=true`.
-- **Target Component:** `LoginComponent` (route: `/login`) or `CustomerRegisterComponent` (route: `/register`).
+- **Target Component:** `LoginComponent` (route: `/login`) or `CustomerRegisterComponent` (route: `/register` or `/customer-register`).
 - **Permission:** Anonymous access.
 
-### Transition T4: Authentication &rarr; Account Type Identification & Routing
-- **Trigger:** User submits credentials (or completes self-registration).
-- **Backend API:** `POST /api/portal/auth/login` (via `CustomerAuthController`).
-- **DTOs:** `CustomerLoginRequest` &rarr; returns `CustomerLoginResponse` with `roles`, `permissions`, `portalType == "CUSTOMER"`, `customerId`, `contactId`.
+### Transition T3B: Customer Registration (Individual Retail vs Organisation B2B)
+- **Trigger:** Visitor clicks "Register" or "Create Customer Account" from the tenant header, storefront, product detail page, or login page.
+- **Source Component:** `PublicLayoutComponent`, `StorefrontComponent`, `ProductDetailComponent`, or `LoginComponent`.
+- **Target Component:** `CustomerRegisterComponent` (route: `/register` on tenant domain or `/customer-register`).
+- **Account Types & Data Specifications:**
+  1. **Individual / Retail Customer (`CUSTOMER_INDIVIDUAL`):**
+     - **Target Entities Created:**
+       - `Customer` Master (`CustomerCode: CUST-IND-*`, `CustomerName: First Last`, `DefaultSalesPriceCardId = null`).
+       - `Contact` in `DomainDbContext` (`ContactId = userId`, `FirstName`, `LastName`, `Email`, `Mobile`, `JobTitle = "Individual Customer"`).
+       - `CustomerContact` linking `CustomerId` and `ContactId` (`IsPrimary = true`, `IsActive = true`).
+       - `User` in `SecurityDbContext` (`Id = userId`, `Username = normalizedEmail`, `Email = normalizedEmail`, `TenantId = tenantId`, `IsActive = true`).
+       - `UserRole` assigning role `CUSTOMER_INDIVIDUAL`.
+     - **Fields:** First Name, Last Name, Email Address (unique login username), Mobile Number, Delivery Address (Line 1, Line 2, City, Postal Code, Country), Password and Confirm Password.
+     - **Submission API:** `POST /api/portal/auth/register-individual` (`RegisterIndividualCustomerRequest`).
+     - **Validation:** Server-side unique email check per tenant, password confirmation match, mandatory names and address.
+     - **Activation Policy:** Immediate login permitted (`user.IsActive = true`, Phase 1 email verification deferred). Zero tenant or selling company records created.
+     - **Customer Classification:** Customer Master currently lacks an explicit `CustomerType` column; distinction relies on the `CUST-IND-*` code prefix and assigned `CUSTOMER_INDIVIDUAL` security role. Invariant 12 prescribes adding `CustomerType.RetailIndividual` to `Customer` master.
+  2. **Organisation / Company Customer (`CUSTOMER_COMPANY_ADMIN`):**
+     - **Target Entities Created:**
+       - `Customer` Master (Company record with deduplication check; `CustomerCode: CUST-*`, `CustomerName = CompanyName`).
+       - `Contact` in `DomainDbContext` (`ContactId = userId`, `FirstName = ContactPersonName`, `Email = BusinessEmail`, `JobTitle = JobTitle`).
+       - `CustomerContact` linking `CustomerId` and `ContactId` (`IsPrimary = true`, `IsActive = true`).
+       - `User` in `SecurityDbContext` (`Id = userId`, `Username = normalizedBusinessEmail`, `Email = normalizedBusinessEmail`, `TenantId = tenantId`, `IsActive = true`).
+       - `UserRole` assigning role `CUSTOMER_COMPANY_ADMIN`.
+     - **Fields:** Organisation Legal Name, Trading Name, Company Reg / Tax Number, Company Email & Phone, Business Address (Line 1, Line 2, City, Postal Code, Country), Contact Person Full Name, Job Title, Business Email (unique login username), Mobile Number, Password and Confirm Password.
+     - **Submission API:** `POST /api/portal/auth/register` / `register-company` (`RegisterCompanyCustomerRequest`).
+     - **Deduplication Engine:** Evaluates existing customer entities via `ICustomerDeduplicationService` (matching Company Name, Tax Number, or Corporate Email).
+       - *New Company Path:* If no match, provisions a new `Customer` master record with the requested business address.
+       - *Existing Company Path:* If matched, links the new user's contact record to the existing `Customer` via `CustomerContact` and returns `RequiresAuthorization = true`.
+     - **Governance & Security Discrepancy Note:** In the current backend implementation, both paths set `user.IsActive = true` immediately and assign role `CUSTOMER_COMPANY_ADMIN`. If a registrant matches an existing corporate customer, granting immediate active administrative access without prior verification presents a significant corporate data isolation risk. The approved enterprise invariant requires that matched corporate accounts enter a **Pending Verification / Approval** status (`RequiresAuthorization = true`), blocking quotation acceptance, credit terms, and order placement until confirmed by an existing authorized company admin or tenant administrator.
+     - **Login Email vs Corporate Email Separation:**
+       - `User.Email` / `User.Username`: The registrant's personal business email, serving strictly as the login credential in `SecurityDbContext`.
+       - `Customer.Email`: The corporate enterprise email (e.g. `billing@company.com`) stored on `Customer` master in `DomainDbContext`.
+       - `Contact.Email`: The personal contact notification email stored on `Contact` in `DomainDbContext`.
+- **Post-Registration Journey:**
+  - Displays registration success card. If `RequiresAuthorization` is true, displays a prominent notice: *"Your registration has been linked to an existing corporate account and is awaiting administrative verification before full purchasing features are enabled."*
+  - Automatically redirects to `/login` or designated Customer Workspace (`/customer-portal/retail` or `/customer-portal/company`) preserving any pending `returnUrl` or cart actions.
+
+### Transition T4: Common Shared Authentication &rarr; Account Type Resolution & Authorized Routing
+- **Trigger:** User submits credentials at the shared common `/login` entry point (or completes self-registration).
+- **Architecture Invariant:** The public tenant website, storefront, and authenticated workspaces share a single common login entry point. No separate or redundant login systems are maintained for different account types.
+- **Backend API:** `POST /Security/login` (or `POST /api/portal/auth/login`).
+- **DTOs:** `LoginRequest` &rarr; returns `LoginResponse` / `UserSession` with `roles`, `permissions`, `tenantId`, `userId`, `email`.
 - **Frontend Evaluation (`AuthService` / `LoginComponent`):**
-  - If `roles.includes('CUSTOMER_INDIVIDUAL')`: Customer is an Individual/Retail buyer &rarr; route to `/customer-portal/retail/dashboard`.
-  - If `roles.includes('CUSTOMER_COMPANY_ADMIN')` or other B2B roles: Customer is a Corporate buyer &rarr; route to `/customer-portal/company/dashboard`.
+  - **Account Type Resolution:**
+    - If user holds `CUSTOMER_INDIVIDUAL`: User is resolved as an Individual/Retail buyer &rarr; routed to Retail Customer Workspace (`/customer-portal/retail/dashboard`).
+    - If user holds `CUSTOMER_COMPANY_ADMIN` (or corporate portal roles): User is resolved as a Corporate B2B buyer &rarr; routed to Company Customer Workspace (`/customer-portal/company/dashboard`).
+    - If user holds `Tenant Admin`: User is an authorized tenant administrator &rarr; routed to internal ERP `/app/dashboard`.
+    - If user holds `Tenant User`, `Branch User`, or operational employee roles: User is an internal ERP operational staff member &rarr; routed to `/app/dashboard`.
+    - If user holds `Platform Admin` or `Platform Staff`: Routed to `/platform-admin` or `/platform-staff` respectively.
+  - **Enforcement & Guard Invariant:** Workspace isolation is strictly enforced via `workspaceGuard` and `roleGuard`. External customer accounts are strictly blocked from internal `/app/*` operational workspaces, while operational employees cannot access customer portal workspaces unless assigned the corresponding customer role.
+  - **Context Resolution & Identity Decoupling (`CurrentCustomerContext`):**
+    - The backend `CurrentCustomerContext` evaluates the authenticated caller's identity:
+      1. Resolves `TenantId` from the caller's JWT claim.
+      2. Resolves `UserId` from caller claims.
+      3. Queries `CustomerContact` where `TenantId == callerTenantId && ContactId == callerUserId && IsActive`.
+    - *Identified Architecture Gap:* The existing query assumes `ContactId == UserId`. While `CustomerRegistrationService` creates both with identical GUIDs, contacts created via internal ERP master data (`CustomerService`) have independent `ContactId` values. The context resolution service must fall back to matching `Contact.Email == User.Email` to ensure internal-created customer contacts can log in and access their customer workspace reliably.
 - **Resume Action Handling:**
-  - If `resumeAction` exists: Post the preserved payload to `POST /api/ecommerce/cart/items?companyId={companyId}` using `AddToCartRequest`.
+  - If `resumeAction` exists and `returnUrl` is preserved: Post the preserved payload to `POST /api/ecommerce/cart/items?companyId={companyId}` using `AddToCartRequest`.
   - Backend re-validates current price and stock availability server-side.
   - Navigate directly to `/storefront/cart`.
 

@@ -1,0 +1,352 @@
+.customer-workspace-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--erp-bg-app);
+  color: var(--erp-text-main);
+  font-family: var(--erp-font-sans);
+}
+
+.workspace-topbar {
+  height: 60px;
+  background-color: var(--erp-bg-surface);
+  border-bottom: 1px solid var(--erp-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--erp-space-4);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--erp-shadow-sm);
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--erp-space-3);
+
+    .brand-container {
+      display: flex;
+      align-items: center;
+
+      .brand-link {
+        display: flex;
+        align-items: center;
+        gap: var(--erp-space-3);
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .logo-box {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, var(--erp-primary) 0%, #106ebe 100%);
+        color: #ffffff;
+        border-radius: var(--erp-radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        box-shadow: 0 2px 6px rgba(0, 120, 212, 0.25);
+      }
+
+      .brand-details {
+        display: flex;
+        flex-direction: column;
+
+        .tenant-name {
+          font-weight: 700;
+          font-size: 0.95rem;
+          line-height: 1.2;
+          color: var(--erp-text-main);
+        }
+
+        .portal-badge {
+          font-size: 0.7rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--erp-primary);
+
+          &.b2b {
+            color: #8b5cf6;
+          }
+        }
+      }
+    }
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--erp-space-3);
+
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2);
+      padding: var(--erp-space-1) var(--erp-space-3);
+      background-color: var(--erp-bg-subtle);
+      border: 1px solid var(--erp-border);
+      border-radius: 20px;
+
+      @media (max-width: 640px) {
+        display: none;
+      }
+
+      .user-avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background-color: var(--erp-primary-light);
+        color: var(--erp-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+
+      .user-meta {
+        display: flex;
+        flex-direction: column;
+
+        .user-email {
+          font-size: 0.8rem;
+          font-weight: 600;
+          line-height: 1.2;
+          max-width: 180px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .user-role-label {
+          font-size: 0.68rem;
+          color: var(--erp-text-secondary);
+        }
+      }
+    }
+
+    .sign-out-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-1);
+
+      @media (max-width: 520px) {
+        span {
+          display: none;
+        }
+      }
+    }
+  }
+
+  .icon-btn {
+    background: none;
+    border: 1px solid var(--erp-border);
+    border-radius: var(--erp-radius-sm);
+    color: var(--erp-text-secondary);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background-color: var(--erp-bg-subtle);
+      color: var(--erp-text-main);
+    }
+  }
+
+  .mobile-menu-btn {
+    display: none;
+
+    @media (max-width: 768px) {
+      display: flex;
+    }
+  }
+
+  .sidebar-toggle-btn {
+    display: flex;
+
+    @media (max-width: 768px) {
+      display: none;
+    }
+  }
+}
+
+.workspace-body {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
+.workspace-sidebar {
+  width: 250px;
+  background-color: var(--erp-bg-surface);
+  border-right: 1px solid var(--erp-border-subtle);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s ease;
+  position: relative;
+
+  .sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--erp-space-3) var(--erp-space-2);
+  }
+
+  .nav-group {
+    margin-bottom: var(--erp-space-4);
+
+    .group-title {
+      display: block;
+      padding: var(--erp-space-1) var(--erp-space-3);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--erp-text-muted);
+    }
+
+    .group-items {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 4px;
+    }
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--erp-space-3);
+    padding: var(--erp-space-2) var(--erp-space-3);
+    border-radius: var(--erp-radius-sm);
+    color: var(--erp-text-main);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+
+    i {
+      font-size: 1.05rem;
+      color: var(--erp-text-secondary);
+      width: 20px;
+      text-align: center;
+    }
+
+    &:hover {
+      background-color: var(--erp-bg-subtle);
+      color: var(--erp-primary);
+
+      i {
+        color: var(--erp-primary);
+      }
+    }
+
+    &.active {
+      background-color: var(--erp-primary-light);
+      color: var(--erp-primary);
+      font-weight: 600;
+
+      i {
+        color: var(--erp-primary);
+      }
+    }
+  }
+
+  .sidebar-footer {
+    padding: var(--erp-space-3);
+    border-top: 1px solid var(--erp-border-subtle);
+
+    .public-store-link {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2);
+      padding: var(--erp-space-2) var(--erp-space-3);
+      border-radius: var(--erp-radius-sm);
+      color: var(--erp-text-secondary);
+      text-decoration: none;
+      font-size: 0.82rem;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background-color: var(--erp-bg-subtle);
+        color: var(--erp-primary);
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    position: fixed;
+    top: 60px;
+    bottom: 0;
+    left: 0;
+    z-index: 150;
+    transform: translateX(-100%);
+    box-shadow: var(--erp-shadow-lg);
+
+    &.mobile-open {
+      transform: translateX(0);
+    }
+  }
+}
+
+/* Collapsed Sidebar Mode */
+.customer-workspace-shell.sidebar-collapsed {
+  .workspace-sidebar {
+    width: 64px;
+
+    .group-title {
+      display: none;
+    }
+
+    .nav-label {
+      display: none;
+    }
+
+    .nav-item {
+      justify-content: center;
+      padding: var(--erp-space-3) 0;
+
+      i {
+        font-size: 1.2rem;
+      }
+    }
+
+    .public-store-link span {
+      display: none;
+    }
+  }
+}
+
+.mobile-backdrop {
+  display: none;
+
+  @media (max-width: 768px) {
+    display: block;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 140;
+  }
+}
+
+.workspace-content {
+  flex: 1;
+  padding: var(--erp-space-5);
+  overflow-y: auto;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+
+  @media (max-width: 640px) {
+    padding: var(--erp-space-3);
+  }
+}

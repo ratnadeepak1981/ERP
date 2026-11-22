@@ -1,8 +1,8 @@
 # ApexERP — Retail Customer Workflow (Path 1) & Reordering
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`, `Backend/ERP`)  
 **Target Channel:** Channel A — E-commerce Sales (Retail Channel)  
 **Related Documents:**
@@ -78,10 +78,17 @@ flowchart TD
   - A friendly notification informs the user: *"Please sign in or register an individual customer account to begin adding items to your cart."*
   - The user is seamlessly routed to `/login?returnUrl=/storefront/products/XYZ?resumeAction=true`.
   - If the user does not have an account, they click "Create New Customer Account" (`/register`), selecting the **Individual Retail Customer** tab.
-- **Registration Pipeline:**
+- **Registration Pipeline (`CustomerRegistrationService.RegisterIndividualCustomerAsync`):**
   - Submits `RegisterIndividualCustomerRequest` to `POST /api/portal/auth/register-individual`.
-  - Backend creates a `Customer` record (marked individual, `DefaultSalesPriceCardId = null`), a personal `Contact` record, a `CustomerContact` link, a `User` identity, and assigns role `CUSTOMER_INDIVIDUAL`.
-  - Registration activates immediately (Phase 1 email verification is deferred).
+  - Generates a unique GUID (`userId`) utilized for both the Security User and the Domain Contact.
+  - **Entity Creations in Domain & Security:**
+    1. `Customer` Master in `DomainDbContext`: Sets `CustomerCode` (`CUST-IND-*`), `CustomerName` (`{FirstName} {LastName}`), `IsActive = true`, `DefaultSalesPriceCardId = null`. (Note: Customer Master currently lacks an explicit `CustomerType` column; distinction relies on the code prefix and assigned role).
+    2. `Contact` in `DomainDbContext`: Sets `ContactId = userId`, names, email, mobile, and `JobTitle = "Individual Customer"`.
+    3. `CustomerContact` in `DomainDbContext`: Links `CustomerId` and `ContactId` with `IsPrimary = true` and `IsActive = true`.
+    4. `User` in `SecurityDbContext`: Creates identity record with `Id = userId`, `Username = normalizedEmail`, `Email = normalizedEmail`, `IsActive = true`.
+    5. `UserRole` in `SecurityDbContext`: Assigns role `CUSTOMER_INDIVIDUAL`.
+  - **Email Lifecycle Separation:** `User.Email` acts as login identity; `Contact.Email` acts as personal delivery/notification email; `Customer.Email` acts as commercial record email. They are stored in separate database tables.
+  - **Activation Policy:** Immediate login is permitted (`user.IsActive = true`, Phase 1 email verification deferred). Zero tenant or selling company records are created.
 - **Authentication & Action Restoration:**
   - User submits credentials to `POST /api/portal/auth/login`.
   - Upon receiving `CustomerLoginResponse`, `AuthService` stores the session and detects the `resumeAction` query parameter.

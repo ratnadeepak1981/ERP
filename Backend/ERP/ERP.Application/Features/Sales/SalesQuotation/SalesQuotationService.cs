@@ -584,6 +584,35 @@ public class SalesQuotationService : ISalesQuotationService
                 orderNum = $"SO-QT-{quotation.QuotationNumber.Replace("SQ-", "")}-{Guid.NewGuid():N[..4].ToUpperInvariant()}";
             }
 
+            // Validate Delivery Address Ownership if a specific delivery address is requested during acceptance
+            Guid? effectiveDeliveryAddressId = quotation.DeliveryAddressId;
+            string? effectiveDeliveryAddressSnapshot = quotation.DeliveryAddressSnapshot;
+
+            if (request?.DeliveryAddressId.HasValue == true && request.DeliveryAddressId.Value != Guid.Empty)
+            {
+                if (_dbContext != null)
+                {
+                    var isLinked = await _dbContext.CustomerAddresses
+                        .AnyAsync(ca => ca.TenantId == tenantId && ca.CustomerId == customerId && ca.AddressId == request.DeliveryAddressId.Value && ca.IsActive);
+
+                    if (!isLinked)
+                    {
+                        throw new InvalidOperationException($"The specified delivery address '{request.DeliveryAddressId.Value}' does not belong to this customer account or is inactive.");
+                    }
+
+                    var addr = await _dbContext.Addresses
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(a => a.TenantId == tenantId && a.AddressId == request.DeliveryAddressId.Value && a.IsActive);
+
+                    if (addr != null)
+                    {
+                        effectiveDeliveryAddressSnapshot = $"{addr.AddressLine1}, {addr.City}".Trim(',', ' ');
+                    }
+                }
+
+                effectiveDeliveryAddressId = request.DeliveryAddressId.Value;
+            }
+
             var salesOrder = global::Domain.Features.Sales.SalesOrder.SalesOrder.Create(
                 tenantId,
                 quotation.CompanyId,
@@ -597,8 +626,8 @@ public class SalesQuotationService : ISalesQuotationService
                 paymentTerms: quotation.PaymentTerms ?? customer.PaymentTerms,
                 notes: $"Created via acceptance of Quotation '{quotation.QuotationNumber}'" + (string.IsNullOrWhiteSpace(request?.CustomerRemarks) ? "" : $" | {request.CustomerRemarks.Trim()}"),
                 createdByUserId: customerContactId,
-                deliveryAddressId: request?.DeliveryAddressId ?? quotation.DeliveryAddressId,
-                deliveryAddressSnapshot: quotation.DeliveryAddressSnapshot
+                deliveryAddressId: effectiveDeliveryAddressId,
+                deliveryAddressSnapshot: effectiveDeliveryAddressSnapshot
             );
 
             foreach (var item in quotation.Items.Where(i => i.IsActive))

@@ -1,0 +1,213 @@
+<div class="storefront-page">
+  <!-- Dynamic Storefront Header -->
+  <header class="storefront-header">
+    <div class="header-inner erp-container">
+      <div class="brand">
+        <a routerLink="/" class="brand-link" title="Return to Platform Overview">
+          <i class="pi pi-box brand-icon"></i>
+          <div>
+            <h1 class="brand-title">{{ tenantName() }} Storefront</h1>
+            <span class="brand-sub">{{ tenantIndustry() }}</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="store-actions">
+        <button
+          type="button"
+          class="theme-toggle-btn"
+          (click)="themeService.toggleTheme()"
+          [title]="themeService.currentTheme() === 'fluent-dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+          [attr.aria-label]="themeService.currentTheme() === 'fluent-dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        >
+          <i [class]="themeService.currentTheme() === 'fluent-dark' ? 'pi pi-sun' : 'pi pi-moon'"></i>
+        </button>
+
+        <a routerLink="/" class="erp-button erp-button-secondary erp-button-sm">
+          <i class="pi pi-home"></i> Portal Home
+        </a>
+
+        <a routerLink="/login" class="erp-button erp-button-secondary erp-button-sm">
+          <i class="pi pi-user"></i> Customer Sign In
+        </a>
+
+        <a routerLink="/register" class="erp-button erp-button-primary erp-button-sm">
+          Request B2B Account
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Storefront Body -->
+  <main class="storefront-main erp-container">
+    <div class="catalog-heading-row">
+      <div>
+        <h2 class="catalog-main-title">Product Catalogue &amp; Materials</h2>
+        <p class="catalog-main-sub">Explore certified manufacturing products, raw materials, and assemblies available for commercial supply.</p>
+      </div>
+      <div class="product-count-badge">
+        <span>{{ filteredProducts().length }} of {{ rawProducts().length }} Products</span>
+      </div>
+    </div>
+
+    <!-- Search & Filter Controls Bar -->
+    <div class="controls-bar erp-card">
+      <div class="search-box">
+        <i class="pi pi-search search-icon"></i>
+        <input
+          type="text"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="onSearchChange($event)"
+          placeholder="Search products by SKU, name or description..."
+          class="search-input"
+          aria-label="Search products"
+        />
+        @if (searchQuery()) {
+          <button type="button" class="clear-search-btn" (click)="searchQuery.set('')" title="Clear search">
+            <i class="pi pi-times"></i>
+          </button>
+        }
+      </div>
+
+      <div class="sort-box">
+        <label for="sortSelect" class="sort-label">Sort by:</label>
+        <select
+          id="sortSelect"
+          [ngModel]="sortBy()"
+          (ngModelChange)="onSortChange($event)"
+          class="sort-select"
+        >
+          <option value="name">Product Name (A-Z)</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Category Filter Pills Bar -->
+    @if (categories().length > 1) {
+      <div class="category-pills-bar" role="tablist" aria-label="Category Filters">
+        @for (cat of categories(); track cat.name) {
+          <button
+            type="button"
+            class="category-pill"
+            [class.active]="selectedCategory() === cat.name"
+            (click)="selectCategory(cat.name)"
+            role="tab"
+            [attr.aria-selected]="selectedCategory() === cat.name"
+          >
+            <span>{{ cat.name === 'ALL' ? 'All Products' : cat.name }}</span>
+            <span class="pill-count">{{ cat.count }}</span>
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Product Grid or States -->
+    @if (loading()) {
+      <div class="loading-container erp-card">
+        <i class="pi pi-spin pi-spinner loading-spinner"></i>
+        <p>Loading active product catalogue...</p>
+      </div>
+    } @else if (errorMessage()) {
+      <div class="error-container">
+        <app-empty-state
+          title="Catalogue Offline"
+          [description]="errorMessage() || 'Unable to connect to catalogue service.'"
+          icon="pi-exclamation-triangle"
+          actionLabel="Retry Loading"
+          (action)="loadCatalogue()"
+        ></app-empty-state>
+      </div>
+    } @else if (filteredProducts().length === 0) {
+      <div class="empty-container">
+        <app-empty-state
+          title="No Products Match Your Filter"
+          description="Try adjusting your search keywords or switching to 'All Products'."
+          icon="pi-filter-slash"
+          actionLabel="Clear Search &amp; Filters"
+          (action)="clearFilters()"
+        ></app-empty-state>
+      </div>
+    } @else {
+      <!-- Dynamic Product Cards Grid -->
+      <div class="catalog-grid">
+        @for (prod of filteredProducts(); track prod.productId) {
+          <article class="product-card erp-card">
+            <!-- Visual Thumbnail -->
+            <div class="product-thumb-box" (click)="viewProductDetail(prod.productId)">
+              @if (prod.imageUrl) {
+                <img [src]="prod.imageUrl" [alt]="prod.productName" class="product-img" />
+              } @else {
+                <div class="product-icon-wrap">
+                  <i [class]="getCategoryIcon(prod.categoryName)"></i>
+                </div>
+              }
+            </div>
+
+            <!-- Category & Availability Badges -->
+            <div class="product-badge-row">
+              <span class="category-tag">{{ prod.categoryName || 'General' }}</span>
+              <app-status-badge
+                [status]="prod.inStock === false ? 'warning' : 'active'"
+                [label]="prod.inStock === false ? 'Made to Order' : 'Available'"
+              ></app-status-badge>
+            </div>
+
+            <!-- Product Information -->
+            <div class="product-info">
+              <span class="sku-tag">{{ prod.productCode }}</span>
+              <h3 class="product-name" (click)="viewProductDetail(prod.productId)">
+                {{ prod.productName }}
+              </h3>
+              @if (prod.onlineDescription) {
+                <p class="product-desc">{{ prod.onlineDescription }}</p>
+              }
+              <div class="product-lead">
+                <i class="pi pi-clock"></i>
+                <span>Lead Time: <strong>{{ prod.leadTime || 'Standard Commercial Dispatch' }}</strong></span>
+              </div>
+            </div>
+
+            <!-- Price & Action Footer -->
+            <div class="product-footer">
+              <div class="price-box">
+                <span class="price-val">{{ prod.currency }} ${{ prod.sellingPrice.toFixed(2) }}</span>
+                <span class="price-unit">/ {{ prod.unitOfMeasure }}</span>
+              </div>
+              <div class="card-actions">
+                <a
+                  [routerLink]="['/storefront/products', prod.productId]"
+                  class="erp-button erp-button-secondary erp-button-sm"
+                  title="View complete specifications"
+                >
+                  Details
+                </a>
+                <a
+                  routerLink="/login"
+                  [queryParams]="{ returnUrl: '/storefront/products/' + prod.productId }"
+                  class="erp-button erp-button-primary erp-button-sm"
+                  title="Sign in to place order"
+                >
+                  <i class="pi pi-shopping-cart"></i> Order
+                </a>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </main>
+
+  <!-- Storefront Footer -->
+  <footer class="storefront-footer">
+    <div class="erp-container footer-inner">
+      <div class="footer-left">
+        <strong>{{ tenantName() }}</strong> &bull; Commercial E-Commerce Storefront
+      </div>
+      <div class="footer-right">
+        Powered by ApexERP Enterprise Cloud
+      </div>
+    </div>
+  </footer>
+</div>

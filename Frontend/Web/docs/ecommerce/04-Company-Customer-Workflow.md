@@ -1,8 +1,8 @@
 # ApexERP — Company Customer Workflow (Paths 2 & 3) & Price Card Maintenance
 
-**Document Version:** 1.2.0  
+**Document Version:** 1.3.0  
 **Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`, `Backend/ERP`)  
 **Target Channels:** Channel B (Direct Company Sales) & Channel C (Sales Quotations)  
 **Related Documents:**
@@ -84,6 +84,45 @@ flowchart LR
   - **Selling Company Dropdown Selector:** Available to authorized contacts.
 - **Backend Validation Rule:** When a user selects another Selling Company, the frontend issues `POST /api/portal/profile/select-company` (`SelectSellingCompanyRequest`). The backend verifies that the customer company holds an active, authorized commercial relationship with that Selling Company within the tenant.
 - **Scoping Enforcement:** All product catalogue queries, cart staging, quotation submissions, relationship-specific price cards, and direct orders are bound to the validated `SellingCompanyId`. Client-supplied company IDs are never trusted without backend validation.
+
+---
+
+## 2.5 B2B Organisation Customer Registration, Deduplication & Governance Gate
+
+Corporate purchasing requires stringent commercial onboarding to safeguard enterprise contracts, custom pricing schedules, and credit lines.
+
+### Registration Data Entities & Separation:
+- **Corporate Entity (`Customer` in `DomainDbContext`):**
+  - Holds `CompanyName`, `TradingName`, `TaxNumber`, `CompanyPhone`, corporate `Address`, and commercial terms.
+  - Classification: Should explicitly be tagged as `CustomerType.CorporateOrganisation`.
+- **Human Contact Person (`Contact` in `DomainDbContext`):**
+  - Holds personal `FirstName`, `LastName`, `JobTitle`, `Mobile`, and `Email` (personal business email).
+  - Linked to `Customer` via `CustomerContact` (`IsPrimary = true`, `IsActive = true`).
+- **Security Login Identity (`User` in `SecurityDbContext`):**
+  - Holds `Username` (normalized business email), `Email`, `PasswordHash`, `TenantId`, `IsActive = true`.
+  - Assigned security role `CUSTOMER_COMPANY_ADMIN`.
+
+### Deduplication Engine & Matching Logic:
+Registration requests to `POST /api/portal/auth/register` execute through `ICustomerDeduplicationService.FindExistingCompanyAsync`:
+1. **Tax / VAT Number Match:** Matches against existing `Customer.TaxNumber` within the tenant.
+2. **Company Name Match:** Matches normalized string against `Customer.CustomerName`.
+3. **Corporate Email Match:** Matches company email domain against existing customer records.
+
+### Registration Branches & Security Governance Discrepancy:
+- **Branch A: Brand New Corporate Customer:**
+  - A new `Customer` record is provisioned under the current tenant with code `CUST-*`.
+  - The registrant is established as the primary administrator contact.
+- **Branch B: Matched Existing Corporate Customer:**
+  - The service links the new user contact to the existing `Customer` via `CustomerContact.Create(...)`.
+  - The service sets `RequiresAuthorization = true` in the returned response DTO.
+  - **Identified Security Gap in Implementation:** In the current backend codebase, `User.IsActive = true` is set immediately and the user is granted role `CUSTOMER_COMPANY_ADMIN`. If an unauthorized registrant enters a legitimate company's name or tax number, they are currently granted immediate administrative access to that existing company's confidential transactions, active Price Cards, and past invoices!
+  - **Mandatory Target Security Policy:** When `RequiresAuthorization == true`, the user must be placed in a restricted **Pending Corporate Verification** state. The user can log in to view public catalogue items, but commercial ordering, Price Card viewing, and quotation acceptance are locked until an existing authorized company admin or the tenant administrator approves the user's affiliation.
+
+### Email Architecture Invariant:
+- `User.Email`: Login credential used exclusively by `SecurityDbContext`.
+- `Contact.Email`: Human notification and order dispatch communication address.
+- `Customer.Email`: Corporate tax and legal billing address.
+These emails are stored in distinct database tables. Updating one never silently alters the others.
 
 ---
 

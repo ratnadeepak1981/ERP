@@ -1,9 +1,13 @@
 # ApexERP — E-commerce UI/UX Design Specification & Wireframes
 
-**Document Version:** 1.1.0  
-**Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Document Version:** 1.4.0  
+**Status:** Architecture & Requirements Specification — Tenant Landing Page & Dynamic Storefront Completed (M1, M2), Customer Registration & Workspaces Active (M3)  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`)  
+**Preceding Milestones:**  
+- Milestone 1 — Tenant Subdomain Public Landing Page (Completed & Verified)  
+- Milestone 2 — Dynamic E-commerce Storefront & Product Catalogue (Completed & Verified)  
+**Active Milestone:** Milestone 3 — Customer Registration & Retail/Organisation Workspaces (Phase E4)  
 **Design Reference:** Clean Enterprise Fluent-Inspired UI ([ApexERP-Frontend-UI-Standards.md](file:///z:/ERP/ApexERP-Frontend-UI-Standards.md))  
 **Related Documents:**
 - [README.md](README.md) — Documentation index and reading paths
@@ -34,6 +38,31 @@ The ApexERP E-commerce frontend complies with the approved enterprise Fluent des
   - `EmptyStateComponent` (`Frontend/Web/src/app/shared/components/empty-state/`)
   - `LoadingStateComponent` (`Frontend/Web/src/app/shared/components/loading-state/`)
   - `ErrorStateComponent` (`Frontend/Web/src/app/shared/components/error-state/`)
+
+### 1.2 Design Principle: One Consistent ApexERP Platform Design with Individual Tenant Branding `[Agreed Business Rule]`
+
+The public landing page for each tenant subdomain (e.g. `abc.apexerp.com`, `nova.192.168.1.65.nip.io:4200`, `retail.localhost:4200`) must strictly adhere to the visual design system, layout hierarchy, and ergonomic conventions of the main ApexERP platform landing page.
+
+#### Comparative Inspection & Defect Audit (Platform vs. Current Tenant Landing)
+
+The design specification is benchmarked directly against active live screens:
+
+1. **ApexERP Platform Landing Page (Image 1 / Benchmark Reference):**
+   - **Header Layout:** Sticky surface header with company logo and SaaS brand title on the left, pill navigation in the available middle area (`Platform`, `Business Directory`), and action utilities on the right (Theme toggle, `Sign In` outlined, `View Plans` filled blue button).
+   - **Hero Styling:** Luminous bottom-up radial blue gradient transition with a subtle fading geometric grid overlay; pill badge with sparkle icon; high-contrast headline with `--erp-primary` accent highlight; dual CTA buttons; right visual preview card simulating a macOS 3-dot window frame with live operational metrics.
+   - **Capability Grid:** Clean, high-density white surface `.erp-card` grid with tinted rounded icon containers, bold titles, and structured descriptions ("Everything Your Business Needs").
+   - **Footer:** Structured corporate footer with brand column, grouped navigation links, and legal notice.
+
+2. **Current Tenant Subdomain Landing Page (Image 2 / Defect Analysis):**
+   - **Header Space Waste:** In tenant mode, the middle navigation space is occupied by a static, non-interactive badge (`Dedicated Tenant Portal`), leaving the majority of the header completely blank and unused.
+   - **Irrelevant Action Buttons:** The header right displays `View Plans`, which directs visitors to SaaS subscription plans—wholly irrelevant for a tenant's customer or supplier.
+   - **Sparse & Incomplete Hero:** Displays a minimal `ENTERPRISE WORKSPACE` badge, tenant name, an unstyled or unlabelled button, and a basic tenant metadata card (`nova`, `Single Company`, `Disabled`).
+   - **Missing Page Content:** Below the hero, the body is completely blank white space. There are no featured products, no categories, no company description, no services, and no supplier onboarding.
+   - **Mismatched Footer:** Displays the SaaS platform footer (`ApexERP Manufacturing Cloud`, `Subscription Plans`, `Platform Admin Console`, `© ApexERP Inc.`) rather than the tenant's own corporate profile, contact details, and address.
+
+#### Prescribed Architectural Rule
+**One consistent ApexERP platform design, with individual tenant branding and business content.**
+The tenant subdomain landing page preserves the exact visual style, typography, colours, spacing, buttons, and navigation conventions of the platform, while substituting SaaS platform marketing with authoritative tenant corporate data, product catalogues, business services, supplier registration, and contact information.
 
 ---
 
@@ -99,42 +128,260 @@ All visual elements, spacing, borders, shadows, and color states are strictly bo
 
 ## 4. Page-Level Wireframe Specifications
 
-### View 1: Tenant Landing Page (`/` or `/storefront/landing`)
+### View 1: Tenant Subdomain Public Landing Page (`/` on Tenant Subdomains) `[Agreed Business Rule]`
+
+This view governs the public front door for every tenant subdomain on the ApexERP platform (e.g. `abc.apexerp.com`, `xyz.apexerp.com`, `nova.192.168.1.65.nip.io:4200`, `retail.localhost:4200`). It strictly implements the core principle: **One consistent ApexERP platform design, with individual tenant branding and business content.**
 
 ```
-+---------------------------------------------------------------------------------------------------------+
-| [LOGO] Alpha Industrial Parts       Selling Company: [ Alpha Tools Ltd v ]    [Search Parts...]  [Sign In] [Register] |
-| Navigation:  Home  |  Product Catalogue  |  About Us  |  Capabilities  |  Contact  |  Customer Portal       |
-+---------------------------------------------------------------------------------------------------------+
-|                                                                                                         |
-|  [ HERO BANNER ]                                                                                        |
-|  High-Precision Manufactured Components & Assemblies                                                    |
-|  Direct from ISO 9001 certified production lines with guaranteed batch traceability.                    |
-|                                                                                                         |
-|  [ Explore Products & Materials CTA ]      [ Request Commercial B2B Account CTA ]                       |
-|                                                                                                         |
-+---------------------------------------------------------------------------------------------------------+
-|  FEATURED CATEGORIES                                                                                    |
-|  +--------------------+ +--------------------+ +--------------------+ +--------------------+            |
-|  | [Icon] CNC Parts   | | [Icon] Raw Hardware| | [Icon] Hydraulics  | | [Icon] Assemblies  |            |
-|  | 420+ Items         | | 1,200+ Fasteners   | | Valves & Manifolds | | Sub-assemblies     |            |
-|  +--------------------+ +--------------------+ +--------------------+ +--------------------+            |
-+---------------------------------------------------------------------------------------------------------+
-|  CURATED FEATURED PRODUCTS                                                                               |
-|  +----------------------+ +----------------------+ +----------------------+ +----------------------+    |
-|  | [IMG]                | | [IMG]                | | [IMG]                | | [IMG]                |    |
-|  | SKU: CNC-SP-001      | | SKU: FAST-TI-100     | | SKU: HYD-VAL-350     | | SKU: CONV-ROL-2M     |    |
-|  | Milling Spindle      | | Titanium Hex Pack    | | Pressure Regulator   | | Conveyor Assembly    |    |
-|  | $1,250.00 / unit     | | $185.50 / pack       | | $620.00 / unit       | | $480.00 / unit       |    |
-|  | [In Stock]           | | [In Stock]           | | [Made to Order]      | | [In Stock]           |    |
-|  | [ View Details ]     | | [ View Details ]     | | [ View Details ]     | | [ View Details ]     |    |
-|  +----------------------+ +----------------------+ +----------------------+ +----------------------+    |
-+---------------------------------------------------------------------------------------------------------+
-|  SERVICES & ASSURANCES: [ Batch Traceability ]  [ Material Mill Certs ]  [ Contract Volume Pricing ]     |
-+---------------------------------------------------------------------------------------------------------+
-|  FOOTER: Corporate details, legal address, contact numbers, inquiries@alpha.com, © 2026 Alpha Holdings  |
-+---------------------------------------------------------------------------------------------------------+
++==================================================================================================================================================+
+|  HEADER (Sticky 64px, Surface Background, 1px Border Bottom)                                                                                     |
+|  +------------------------------+  +-------------------------------------------------------------------------+  +------------------------------+  |
+|  | [LOGO] Nova Manufacturing    |  |  ( ) Home   ( ) Products   ( ) About Us   ( ) Services   ( ) Suppliers  |  | [Theme] [ Sign In ] [Register] |  |
+|  |        Discrete Manufacturing|  |  ( ) Contact Us                                                         |  |                              |  |
+|  +------------------------------+  +-------------------------------------------------------------------------+  +------------------------------+  |
++==================================================================================================================================================+
+|                                                                                                                                                  |
+|  SECTION 1: HERO & PROMOTIONAL BANNER                                                                                                            |
+|  Background: Luminous bottom-up radial blue gradient + subtle geometric 36px fading grid overlay                                                |
+|  +------------------------------------------------------------------------------------+  +----------------------------------------------------+  |
+|  | [pi-building] VERIFIED ENTERPRISE • DISCRETE MANUFACTURING                         |  | [o][o][o]  Nova Operations Hub                     |  |
+|  |                                                                                    |  | -------------------------------------------------- |  |
+|  | Precision Engineered Components.                                                   |  | MULTI-FACILITY CAPACITY                            |  |
+|  | Delivered with Guaranteed Quality.                                                 |  | 2 Manufacturing Plants • Active Live               |  |
+|  |                                                                                    |  |                                                    |  |
+|  | Delivering high-tolerance CNC parts, hydraulic assemblies, and industrial raw      |  | QUALITY ASSURANCE                                  |  |
+|  | materials with full batch traceability and ISO 9001:2015 certification.            |  | ISO 9001:2015 & Batch Traceable                     |  |
+|  |                                                                                    |  |                                                    |  |
+|  | [ Explore Products (pi-compass) ]    [ Become a Supplier (pi-truck) ]              |  | SUPPLY CHAIN FULFILLMENT                           |  |
+|  |                                                                                    |  | Direct B2B & On-Account Supply                     |  |
+|  +------------------------------------------------------------------------------------+  +----------------------------------------------------+  |
+|                                                                                                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                                                  |
+|  SECTION 2: COMPANY INTRODUCTION ("ABOUT US")                                                                                                    |
+|  +--------------------------------------------------------------------+  +--------------------------------------------------------------------+  |
+|  | Who We Are: Engineering Excellence Since 1998                      |  | Corporate Milestones & Capability Metrics                          |  |
+|  | Nova Manufacturing is an advanced engineering and industrial parts |  | +--------------------+ +--------------------+                      |  |
+|  | producer operating multi-site facilities. We specialize in         |  | | 25+ Years          | | 1,400+ Active      |                      |  |
+|  | rapid prototyping, high-volume production, and reliable supply     |  | | Engineering Exp    | | Product SKUs       |                      |  |
+|  | chain distribution across retail and enterprise commercial clients.|  | +--------------------+ +--------------------+                      |  |
+|  |                                                                    |  | +--------------------+ +--------------------+                      |  |
+|  | Our integrated production management and inventory infrastructure  |  | | 99.4% On-Time      | | 100% Certified     |                      |  |
+|  | ensures full batch traceability from raw material intake to final  |  | | Dispatch Rate      | | Material Quality   |                      |  |
+|  | customer delivery.                                                 |  | +--------------------+ +--------------------+                      |  |
+|  +--------------------------------------------------------------------+  +--------------------------------------------------------------------+  |
+|                                                                                                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                                                  |
+|  SECTION 3: FEATURED PRODUCTS & PRODUCT CATEGORIES                                                                                               |
+|  Title: "Our Product Categories" • Subtitle: "Browse certified components and materials manufactured to rigid standards."                       |
+|  +--------------------------+  +--------------------------+  +--------------------------+  +--------------------------+                          |
+|  | [pi-cog]                 |  | [pi-wrench]              |  | [pi-box]                 |  | [pi-sliders-h]           |                          |
+|  | CNC Precision Components |  | Hydraulic Valves & Flow  |  | Fasteners & Hardware     |  | Electrical & Control     |                          |
+|  | 420+ Items Available     |  | 180+ Items Available     |  | 1,200+ Items Available   |  | 95+ Items Available      |                          |
+|  +--------------------------+  +--------------------------+  +--------------------------+  +--------------------------+                          |
+|                                                                                                                                                  |
+|  Title: "Featured Products" • Subtitle: "Popular items available for immediate order or contract quotation."                                    |
+|  +--------------------------+  +--------------------------+  +--------------------------+  +--------------------------+                          |
+|  | [Product Image]          |  | [Product Image]          |  | [Product Image]          |  | [Product Image]          |                          |
+|  | SKU: CNC-SP-001          |  | SKU: HYD-VAL-350         |  | SKU: FAST-TI-100         |  | SKU: ELEC-CTRL-12        |                          |
+|  | High-Speed Spindle 24k   |  | Pressure Regulator Valve |  | Titanium Hex Bolts (Pack)|  | Digital Flow Sensor      |                          |
+|  | $1,250.00 / EA           |  | $620.00 / EA             |  | $185.50 / PK             |  | $440.00 / EA             |                          |
+|  | [ IN STOCK ]             |  | [ MADE TO ORDER ]        |  | [ IN STOCK ]             |  | [ IN STOCK ]             |                          |
+|  | [ View Details ]         |  | [ View Details ]         |  | [ View Details ]         |  | [ View Details ]         |                          |
+|  +--------------------------+  +--------------------------+  +--------------------------+  +--------------------------+                          |
+|  [ View Entire Product Catalogue -> ]                                                                                                            |
+|                                                                                                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                                                  |
+|  SECTION 4: BUSINESS SERVICES & CORPORATE CAPABILITIES                                                                                           |
+|  Title: "Comprehensive Business Capabilities" • Subtitle: "Supporting your business with full-lifecycle manufacturing and supply services."     |
+|  +------------------------------------+  +------------------------------------+  +------------------------------------+                          |
+|  | [pi-sliders-v] Custom Fabrication  |  | [pi-truck] Logistics & Fulfillment |  | [pi-verified] Quality Assurance    |                          |
+|  | Build-to-print discrete components |  | Multi-warehouse inventory with     |  | Mill certs, CMM dimensional reports|                          |
+|  | and assemblies with CNC precision. |  | scheduled batch delivery options.  |  | and full lot traceability.         |                          |
+|  +------------------------------------+  +------------------------------------+  +------------------------------------+                          |
+|  +------------------------------------+  +------------------------------------+  +------------------------------------+                          |
+|  | [pi-credit-card] Trade Accounts    |  | [pi-sync] Contract Volume Pricing  |  | [pi-shield] Dedicated Support      |                          |
+|  | Approved 30-day commercial terms   |  | Tiered price agreements bound to   |  | Direct technical sales and customer|                          |
+|  | for corporate purchasing partners. |  | your assigned Sales Price Cards.   |  | account management teams.          |                          |
+|  +------------------------------------+  +------------------------------------+  +------------------------------------+                          |
+|                                                                                                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                                                  |
+|  SECTION 5: SUPPLIER REGISTRATION & ONBOARDING PORTAL                                                                                            |
+|  +--------------------------------------------------------------------------------------------------------------------------------------------+  |
+|  | Partner with Us — Trade Vendor & Supplier Network                                                                                          |  |
+|  | We actively partner with certified raw material producers, specialized finishing processors, and logistics carriers.                      |  |
+|  |                                                                                                                                            |  |
+|  | [ Submit Active RFQ Quotation (/public/rfq-submit) ]        [ Register as an Approved Supplier (Vendor Form) ]                             |  |
+|  +--------------------------------------------------------------------------------------------------------------------------------------------+  |
+|                                                                                                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                                                                                                  |
+|  SECTION 6: CONTACT INFORMATION & CORPORATE HEAD OFFICE                                                                                          |
+|  +------------------------------------+  +------------------------------------+  +------------------------------------+                          |
+|  | [pi-map-marker] Registered Office  |  | [pi-phone] Inquiries & Sales Desk  |  | [pi-clock] Operating Hours         |                          |
+|  | 100 Industrial Parkway, Dock 4     |  | Phone: +44 (0) 161 946 0912        |  | Monday - Friday: 08:00 - 17:30 GMT |                          |
+|  | Trafford Park, Manchester M17 1TN  |  | Email: sales@novamfg.co.uk         |  | Warehouse Receiving: 07:00 - 16:00 |                          |
+|  | United Kingdom                     |  | Orders: desk@novamfg.co.uk         |  | Weekend: Closed (Emergency on-call)|                          |
+|  +------------------------------------+  +------------------------------------+  +------------------------------------+                          |
+|                                                                                                                                                  |
++==================================================================================================================================================+
+|  FOOTER: TENANT-SPECIFIC CORPORATE FOOTER (Replaces Platform SaaS Footer)                                                                        |
+|  +---------------------------------------+  +-------------------------------+  +-------------------------------+  +---------------------------+  |
+|  | [LOGO] Nova Manufacturing             |  | Quick Navigation              |  | Commercial Portals            |  | Corporate & Compliance    |  |
+|  | Precision Engineering & Distribution. |  | • Home                        |  | • Customer Sign In            |  | • Terms & Conditions      |  |
+|  | Dedicated commercial portal.          |  | • Products Catalogue          |  | • Request B2B Account         |  | • Privacy Policy          |  |
+|  |                                       |  | • About Us                    |  | • Supplier RFQ Portal         |  | • ISO 9001 Certifications |  |
+|  |                                       |  | • Services & Capabilities     |  | • Employee ERP Login          |  | • Company Reg: CRN-984421 |  |
+|  |                                       |  | • Contact Information         |  | • Customer Portal             |  | • VAT: GB-123456789       |  |
+|  +---------------------------------------+  +-------------------------------+  +-------------------------------+  +---------------------------+  |
+|  ----------------------------------------------------------------------------------------------------------------------------------------------- |
+|  (c) 2026 Nova Manufacturing Ltd. All rights reserved. Powered by ApexERP Enterprise Cloud.                                                      |
++==================================================================================================================================================+
 ```
+
+---
+
+#### 4.1 Detailed Header Architecture & Unused Middle Space Utilization
+
+##### 1. Left Brand Area
+- **Logo Mark:** Tenant company logo mark (or SVG/PNG uploaded via Company master; fallback to themed `.logo-mark` with `pi-building` or `pi-box`).
+- **Brand Title:** Primary corporate legal or trading name (`tenantContext.currentTenant()?.name || tenantContext.subdomain()`).
+- **Brand Subtitle/Tag:** Industry sector tag (`tenantContext.currentTenant()?.industryType || 'Corporate Portal'`).
+
+##### 2. Middle Navigation Area (Eliminating Unused Space)
+In the existing implementation, the middle area rendered only a static badge (`<div class="tenant-nav-badge"><span class="badge-text"><i class="pi pi-verified"></i> Dedicated Tenant Portal</span></div>`), wasting critical horizontal navigation space. In the approved design, the middle area features a modern, accessible pill navigation bar styled identically to the platform's `.public-nav` (`background: var(--erp-bg-secondary)`, `border-radius: var(--erp-radius-pill)`):
+- **Home:** Smooth-scroll to `#home` (or root `/`).
+- **Products:** Routes to `/storefront/catalog` or smooth-scrolls to `#products`.
+- **About Us:** Smooth-scrolls to `#about`.
+- **Services:** Smooth-scrolls to `#services`.
+- **Suppliers:** Smooth-scrolls to `#suppliers` (or routes to `/public/rfq-submit`).
+- **Contact Us:** Smooth-scrolls to `#contact`.
+
+##### 3. Right Action Area
+- **Theme Switcher:** Moon/Sun icon button (`themeService.toggleTheme()`) preserving full light and dark mode compatibility.
+- **Sign In Button:** `.nav-btn-link.outlined` linking to `/login`. Serves internal employees, B2B company buyers, and retail customers with unified credentials.
+- **Register Button:** `.nav-btn-link.filled` linking to `/register` (customer account self-registration with Retail and Company B2B tabs).
+- **Removal of Platform SaaS Buttons:** The `View Plans` button is strictly hidden or replaced on tenant subdomains, as pricing and subscription plans belong exclusively to the ApexERP SaaS platform host.
+
+---
+
+#### 4.2 Page Sections Detailed Specification
+
+##### Section 1: Hero & Promotional Banner
+- **Visual Staging:** Sits upon the exact luminous radial gradient (`ellipse 90% 75% at 50% 100%`) with the 36px fading geometric grid overlay defined in `home.component.scss`.
+- **Top Badge:** Pill badge with verified enterprise icon (`<i class="pi pi-building"></i>`) displaying the industry type (e.g. `Discrete & Process Manufacturing`).
+- **Headline:** High-contrast corporate headline with the tenant's primary brand highlight (`highlight-blue` token class).
+- **Subheading:** Multi-line value proposition detailing products, certifications, and operational scope.
+- **CTA Actions:**
+  - Primary filled button: `Explore Products` (icon: `pi pi-compass`, links to `#products` or `/storefront/catalog`).
+  - Secondary outlined button: `Become a Supplier` (icon: `pi pi-truck`, links to `#suppliers` / `/public/rfq-submit`).
+- **Right Visual Preview Card:** Reuses the macOS 3-dot window frame (red, yellow, green window controls) styled identically to the platform's "Connected Operations Hub":
+  - Title: `[Tenant Name] Operations Hub`
+  - Stat 1: Primary production/distribution capacity with live indicator (`green dot`).
+  - Stat 2: Quality standard & traceability status (`ISO 9001 & Batch Traceable`).
+  - Stat 3: Commercial fulfillment channels (`Direct B2B & On-Account Supply`).
+
+##### Section 2: Company Introduction ("About Us")
+- **Container:** `.erp-container` with smooth-scroll ID `#about`.
+- **Layout:** 2-column balanced grid (1.2fr / 0.8fr on desktop, stacked on mobile).
+- **Left Column:** Corporate narrative detailing history, production capacity, specialized equipment, engineering personnel, and customer service commitments.
+- **Right Column:** 4-card metric grid showcasing key operational milestones:
+  - Years of Experience / Industry Heritage
+  - Active Product SKUs / Materials Available
+  - On-Time Dispatch & Fulfillment Metric
+  - Certified Quality & Batch Traceability Standard
+
+##### Section 3: Featured Products & Product Categories
+- **Container:** `.erp-container` with smooth-scroll ID `#products`.
+- **Category Grid:** Reuses the exact visual card layout of the platform's "Everything Your Business Needs" section (`.capability-card.erp-card`):
+  - White surface background, 1px subtle border, rounded icon badge, bold category title, item count badge.
+  - Clicking any category navigates to `/storefront/catalog?categoryId={id}` with pre-filtered products.
+- **Curated Featured Products:** 4-column responsive grid displaying active products retrieved via `GET /api/ecommerce/catalogue/{companyId}/products`:
+  - Product thumbnail with fallback placeholder.
+  - SKU code and product title.
+  - Formatted unit price and currency.
+  - Stock availability status badge (`StatusBadgeComponent` with `In Stock` / `Made to Order`).
+  - "View Details" button linking to `/storefront/products/:productId`.
+- **Catalogue CTA:** "View Entire Product Catalogue" link navigating directly to the full searchable storefront.
+
+##### Section 4: Business Services & Corporate Capabilities
+- **Container:** `.erp-container` with smooth-scroll ID `#services`.
+- **Layout:** 3-column / 2-row card grid showcasing core B2B services:
+  1. *Custom Manufacturing & Fabrication:* CNC milling, lathe turning, tolerances down to $\pm 0.005\text{ mm}$.
+  2. *Logistics & Warehousing:* Multi-warehouse holding, scheduled JIT delivery, regional distribution.
+  3. *Quality Assurance & Traceability:* Material test reports (MTR), CMM inspection reports, batch tracking.
+  4. *Commercial Trade Accounts:* 30-day payment terms and direct credit facilities for approved corporate buyers.
+  5. *Contract Volume Pricing:* Customer-specific pricing structures managed via assigned Sales Price Cards.
+  6. *Dedicated Technical Support:* In-house engineering consultation and application support.
+
+##### Section 5: Supplier Registration & Onboarding Portal
+- **Container:** `.erp-container` with smooth-scroll ID `#suppliers`.
+- **Purpose:** Direct engagement channel for trade vendors, material suppliers, packaging partners, and transport carriers.
+- **Layout:** High-impact callout card (`.growth-card.erp-card`) featuring:
+  - Clear narrative inviting suppliers to join the authorized vendor network.
+  - Direct CTA button: `Submit Active RFQ Quotation` linking to `/public/rfq-submit` (preserving tenant context).
+  - Direct CTA button: `Register as a Supplier` (initiating vendor qualification / procurement contact).
+
+##### Section 6: Contact Information & Corporate Head Office
+- **Container:** `.erp-container` with smooth-scroll ID `#contact`.
+- **Layout:** 3-column structured grid consuming authoritative data from Company Master & Address Master:
+  - *Card 1 (Registered Office & Address):* Street address, suite/dock number, city, postal code, country.
+  - *Card 2 (Direct Inquiries):* General office phone, sales desk email, order fulfillment desk.
+  - *Card 3 (Operating Hours):* Business hours, warehouse receiving windows, emergency support lines.
+
+##### Section 7: Tenant-Specific Corporate Footer
+- **Layout:** Distinct multi-column corporate footer replacing the SaaS platform footer:
+  - *Column 1 (Brand & Mission):* Tenant logo, legal company name, concise capability statement.
+  - *Column 2 (Quick Links):* Home, Products, About Us, Services, Suppliers, Contact Us.
+  - *Column 3 (Commercial Portals):* Customer Sign In, Request B2B Account, Supplier RFQ Portal, Employee ERP Login.
+  - *Column 4 (Corporate Governance):* Legal registrations (CRN, VAT/Tax ID), terms of supply, privacy policy, quality certifications.
+  - *Bottom Bar:* `© {currentYear} {Tenant Name}. All rights reserved. Powered by ApexERP Enterprise Cloud.`
+
+---
+
+#### 4.3 Route Mapping & Domain Resolution Matrix
+
+| URL / Host Pattern | Environment | Resolved Mode | Loaded Layout & Component | Navigation Header Links | Primary Action Buttons |
+|---|---|---|---|---|---|
+| `apexerp.com`, `localhost:4200`, `192.168.1.65:4200` | SaaS Platform Root | Platform Mode (`isTenantDomain() == false`) | `PublicLayoutComponent` &rarr; `HomeComponent` (Platform Marketing View) | `Platform`, `Business Directory` | `Sign In`, `View Plans` |
+| `abc.apexerp.com`, `nova.192.168.1.65.nip.io:4200`, `retail.localhost:4200` | Tenant Subdomain | Tenant Mode (`isTenantDomain() == true`) | `PublicLayoutComponent` &rarr; `HomeComponent` (Tenant Corporate View) | `Home`, `Products`, `About Us`, `Services`, `Suppliers`, `Contact Us` | `Sign In`, `Register` |
+| `[tenant]/storefront/catalog` | Tenant Subdomain | Public Catalogue | `StorefrontLayout` &rarr; `ProductCatalogComponent` | Full catalogue search, categories, filter pills | `Cart (n)`, `Sign In`, `Register` |
+| `[tenant]/public/rfq-submit` | Tenant Subdomain | Supplier RFQ Portal | `PublicRfqSubmitComponent` | Minimal portal header | `Submit Quotation` |
+| `[tenant]/login` | Tenant Subdomain | Unified Authentication | `LoginComponent` | Storefront Return link | `Sign In` |
+| `[tenant]/register` | Tenant Subdomain | Customer Self-Registration | `RegisterComponent` (with Retail & Company tabs) | Storefront Return link | `Create Account` |
+
+---
+
+#### 4.4 Tenant-Specific Customisation & Isolation Rules
+
+1. **Branding Isolation:** Each tenant displays its own company name, logo mark, industry category, and slogan. Data is loaded dynamically via `TenantContextService` from `GET /Tenant/context` and Company Master (`GET /api/company`).
+2. **Approved Brand Theme Tokens:** Tenants may customize primary brand accent tokens within the approved design system palette (`--erp-primary`, `--erp-primary-hover`, `--erp-primary-light`) without breaking Fluent design consistency or readability in dark mode.
+3. **No Cross-Tenant Data Leakage:** Product catalogues, categories, company addresses, and supplier links strictly filter by the resolved `TenantId` and active Selling `CompanyId`.
+4. **Distinct Public vs. Internal Boundaries:** The public tenant landing page is accessible anonymously (`[AllowAnonymous]`). It does not expose internal ERP menus, employee workflows, financial accounts, or warehouse bins. Employee access requires authentication and navigation to `/app/*` guarded by `workspaceGuard`.
+
+---
+
+#### 4.5 Responsive Layout Specification
+
+| Breakpoint | Header Navigation | Hero Section | Capability & Product Grids | Corporate Footer |
+|---|---|---|---|---|
+| **Desktop** ($\ge 1024\text{ px}$) | Full horizontal pill bar (`Home`, `Products`, `About Us`, `Services`, `Suppliers`, `Contact Us`). Sign In and Register buttons visible side-by-side. | 2-column grid (1.25fr / 0.75fr); macOS 3-dot visual card positioned adjacent to hero text. | 4-column categories; 4-column featured products; 3-column services. | 4-column link layout with separate brand summary and bottom legal bar. |
+| **Tablet** ($768\text{ px} - 1023\text{ px}$) | Header collapses into compact pill tabs or horizontal scroll bar. Buttons remain accessible. | Stacked or compact 2-column; visual card adapts to 100% width below text. | 2-column categories; 2-column products; 2-column services. | 2-column link layout with full-width brand summary. |
+| **Mobile** ($< 768\text{ px}$) | Header transforms into a mobile hamburger menu. Logo and Sign In remain in top bar. | Single-column stacked layout; action buttons expand to 100% width with touch-friendly tap targets ($44\text{ px}$). | Single-column swipeable cards or vertical list stack. | Single-column stacked footer with expandable link sections. |
+
+---
+
+#### 4.6 Implementation Plan for Frontend Engineers
+
+| Step | Target File | Specific Implementation Responsibility |
+|---|---|---|
+| **1. Header Refactor** | `Frontend/Web/src/app/layout/public-layout/public-layout.component.html`<br>`public-layout.component.ts`<br>`public-layout.component.scss` | - Replace static `.tenant-nav-badge` with responsive navigation links (`Home`, `Products`, `About Us`, `Services`, `Suppliers`, `Contact Us`).<br>- Replace `View Plans` button on tenant subdomains with primary `Register` button.<br>- Implement smooth-scroll anchor navigation and route coordination. |
+| **2. Landing Page Component** | `Frontend/Web/src/app/features/saas/public/home/home.component.html`<br>`home.component.ts`<br>`home.component.scss` | - Expand `@if (tenantContext.isTenantDomain())` from bare placeholder into the 7 standard corporate sections.<br>- Implement Section 1 (Hero with 3-dot window operational card).<br>- Implement Section 2 (About Us with milestone stat cards).<br>- Implement Section 3 (Category cards & featured products connected to catalogue service).<br>- Implement Section 4 (Business services grid).<br>- Implement Section 5 (Supplier registration callout with `/public/rfq-submit` link).<br>- Implement Section 6 (Contact details consuming Address Master). |
+| **3. Footer Specialization** | `Frontend/Web/src/app/layout/public-layout/public-layout.component.html`<br>`public-layout.component.scss` | - Conditionally render Tenant-Specific Corporate Footer when `tenantContext.isTenantDomain() == true`, reserving the SaaS platform footer for platform root domains.<br>- Populate dynamic company name, contact info, and commercial portal links. |
+| **4. Integration & Testing** | Unit & E2E Test Suite | - Verify subdomain resolution (`abc.apexerp.com`, `nova.192.168.1.65.nip.io:4200`, `localhost:4200`).<br>- Verify theme toggling (Light/Dark mode) across all 7 sections.<br>- Verify responsive viewport behavior across Desktop, Tablet, and Mobile. |
 
 ---
 
@@ -532,4 +779,103 @@ All visual elements, spacing, borders, shadows, and color states are strictly bo
 | POST-ORDER ACTIONS:                                                                                     |
 | [ Download Order Acknowledgment PDF ]  [ Track Dispatch Live ]  [ REORDER / BUY AGAIN ]                 |
 +---------------------------------------------------------------------------------------------------------+
+```
+
+---
+
+### View 14: Customer Self-Registration View (`/register` on Tenant Domain or `/customer-register`)
+
+```
++---------------------------------------------------------------------------------------------------------+
+| [Header] Logo: Nova Dynamics Ltd • Tenant Portal                [ Theme Toggle ]  [ Sign In ]           |
++---------------------------------------------------------------------------------------------------------+
+|                                                                                                         |
+|                                CREATE YOUR CUSTOMER ACCOUNT                                             |
+|              Join Nova Dynamics Ltd's commercial purchasing and supply chain portal                     |
+|                                                                                                         |
+|       +---------------------------------------------+---------------------------------------------+     |
+|       |  [O] Individual / Retail Customer           |  [ ] Organisation / Company (B2B) Customer  |     |
+|       +---------------------------------------------+---------------------------------------------+     |
+|                                                                                                         |
+|       ACCOUNT INFORMATION:                                                                              |
+|       First Name: * [ Jane                ]     Last Name: * [ Doe                 ]                    |
+|       Email (Login Username): * [ jane.doe@example.com                                  ]               |
+|       Mobile Number: * [ +94 77 123 4567       ]                                                        |
+|                                                                                                         |
+|       PRIMARY BILLING & DELIVERY ADDRESS:                                                               |
+|       Address Line 1: * [ 123 Commercial Road                                           ]               |
+|       Address Line 2:   [ Suite 400                                                     ]               |
+|       City: *           [ Colombo                 ]     Postal Code: * [ 00300          ]               |
+|       Country: *        [ Sri Lanka               ]                                                     |
+|                                                                                                         |
+|       SECURITY & CREDENTIALS:                                                                           |
+|       Password: * [ ****************            ]     Confirm: * [ ****************             ]       |
+|                                                                                                         |
+|       [ CANCEL ]                                                  [ CREATE INDIVIDUAL ACCOUNT ]         |
+|                                                                                                         |
+|       Already have an account? [ Sign In to Customer Portal ]                                           |
+|                                                                                                         |
++---------------------------------------------------------------------------------------------------------+
+```
+
+---
+
+### View 15: Shared Customer Workspace Foundation (`/customer-portal/*`)
+
+```
++---------------------------------------------------------------------------------------------------------+
+| [=] Logo: Nova Dynamics Ltd • Customer Portal       [ Theme ]  [ Cart (0) ]  Signed in: user@corp.com [Out] |
++-----------------------+---------------------------------------------------------------------------------+
+| SIDEBAR               | WORKSPACE CONTENT AREA                                                          |
+|                       |                                                                                 |
+| [Retail Customer]     | Breadcrumb: Customer Portal > Dashboard                                         |
+| • Dashboard           |                                                                                 |
+| • Product Catalogue   | WELCOME BACK, JANE DOE                                                          |
+| • Shopping Cart       | Account Type: Individual Retail Customer • Customer Code: CUST-IND-8812         |
+| • My Orders           |                                                                                 |
+| • My Addresses        | +-----------------------------------+-----------------------------------+       |
+| • My Profile          | | Active Orders: 2 In Progress      | Saved Addresses: 1 Default        |       |
+|                       | +-----------------------------------+-----------------------------------+       |
+|                       |                                                                                 |
+| [Organisation B2B]    | RECENT REQUISITIONS & ORDERS                                                    |
+| • Dashboard           | +--------------------+-------------+------------+--------------------+          |
+| • Product Catalogue   | | Reference Number   | Date        | Total ($)  | Fulfillment Status |          |
+| • Shopping Cart       | +--------------------+-------------+------------+--------------------+          |
+| • Quotations          | | SO-2026-0891       | 12-Oct-2026 | $6,420.00  | [ In Production ]  |          |
+| • Direct Orders       | | SO-2026-0744       | 28-Sep-2026 | $18,900.00 | [ Shipped ]        |          |
+| • Order History       | +--------------------+-------------+------------+--------------------+          |
+| • Company Profile     |                                                                                 |
+| • Delivery Addresses  | QUICK ACTIONS                                                                   |
+|                       | [ Browse Catalogue ]  [ View Cart ]  [ Update Profile ]                         |
++-----------------------+---------------------------------------------------------------------------------+
+```
+
+---
+
+### View 16: Corporate Organisation Pending Approval State (`/customer-portal/company/dashboard`)
+
+```
++---------------------------------------------------------------------------------------------------------+
+| [=] Logo: Nova Dynamics Ltd • Customer Portal       [ Theme ]  [ Cart (0) ]  Signed in: buyer@corp.com [Out] |
++-----------------------+---------------------------------------------------------------------------------+
+| SIDEBAR               | WORKSPACE CONTENT AREA                                                          |
+|                       |                                                                                 |
+| [Organisation B2B]    | Breadcrumb: Customer Portal > Corporate Dashboard                               |
+| • Dashboard (Active)  |                                                                                 |
+| • Product Catalogue   | +-----------------------------------------------------------------------------+ |
+| • Shopping Cart       | | [!] CORPORATE ACCOUNT PENDING VERIFICATION                                  | |
+| • Quotations (Locked) | | Your registration has been matched to Acme Manufacturing Ltd and is currently | |
+| • Direct Orders (Lock)| | awaiting confirmation from the tenant administrator or corporate manager.   | |
+| • Order History (Lock)| | Features such as Price Card schedules, quotation approvals, and direct      | |
+| • Company Profile     | | orders will remain locked until your contact verification is approved.      | |
+| • Delivery Addresses  | +-----------------------------------------------------------------------------+ |
+|                       |                                                                                 |
+|                       | ORGANISATION DETAILS:                                                           |
+|                       | Corporate Legal Name: Acme Manufacturing Ltd • Code: CUST-0104                  |
+|                       | Tax / VAT Registration: GB-123456789 • Verification Status: [ PENDING APPROVAL ]|
+|                       | Contact Representative: Sarah Jenkins (Procurement Director)                    |
+|                       |                                                                                 |
+|                       | AVAILABLE SELF-SERVICE ACTIONS:                                                 |
+|                       | [ Browse Public Catalogue ]  [ Review Company Profile ]  [ Contact Support ]    |
++-----------------------+---------------------------------------------------------------------------------+
 ```

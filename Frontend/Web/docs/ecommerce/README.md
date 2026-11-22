@@ -1,8 +1,8 @@
 # ApexERP — E-commerce Frontend Planning & Architecture Documentation
 
-**Document Suite Version:** 1.1.0  
-**Status:** Architecture Specification & Engineering Plan (Investigation & Alignment Only)  
-**Date:** 2026-11-21  
+**Document Suite Version:** 1.2.0  
+**Status:** Architecture Specification & Engineering Plan — Customer Registration & Workspaces Milestone Active  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`, `Backend/ERP`)  
 **Scope:** Frontend Architecture, Route Models, UI/UX Design System, Customer Workspaces, Purchasing Workflows & Backend API Integration  
 

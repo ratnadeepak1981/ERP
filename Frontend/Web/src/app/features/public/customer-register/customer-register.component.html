@@ -1,0 +1,526 @@
+<div class="customer-register-page">
+  <!-- Minimalist Brand Header -->
+  <header class="register-header">
+    <div class="erp-container header-inner">
+      <div class="brand-cluster">
+        <a routerLink="/" class="brand-link">
+          <div class="logo-box">
+            <i class="pi pi-box"></i>
+          </div>
+          <div class="brand-text">
+            <span class="tenant-name">{{ tenantName() }}</span>
+            <span class="portal-badge">Commercial Portal</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="header-actions">
+        <button
+          type="button"
+          class="theme-toggle-btn"
+          (click)="toggleTheme()"
+          [title]="themeService.currentTheme() === 'fluent-dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+          aria-label="Toggle theme"
+        >
+          <i [class]="themeService.currentTheme() === 'fluent-dark' ? 'pi pi-sun' : 'pi pi-moon'"></i>
+        </button>
+
+        <a routerLink="/login" class="erp-button erp-button-secondary erp-button-sm">
+          Sign In
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="erp-container register-main">
+    @if (successResult()) {
+      <!-- Success Confirmation State -->
+      <div class="success-card erp-card erp-card-elevated">
+        <div class="success-icon-wrap">
+          <i class="pi pi-check-circle"></i>
+        </div>
+        <h2>Registration Successful!</h2>
+        <p class="success-lead">
+          Your customer account has been created and registered under <strong>{{ tenantName() }}</strong>.
+        </p>
+
+        <div class="confirmation-details">
+          <div class="detail-row">
+            <span class="label">Customer Code:</span>
+            <span class="val mono">{{ successResult()?.customerCode }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Account Name:</span>
+            <span class="val">{{ successResult()?.companyName }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Login Email:</span>
+            <span class="val">{{ successResult()?.email }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Status:</span>
+            <span class="val status-active">Active &bull; Ready to Sign In</span>
+          </div>
+        </div>
+
+        <div class="success-notice">
+          <i class="pi pi-info-circle"></i>
+          <span>No email verification wait time required. Your unique email is your login username.</span>
+        </div>
+
+        <div class="card-actions">
+          <button type="button" class="erp-button erp-button-primary" (click)="navigateToLogin()">
+            Sign In to Customer Workspace
+          </button>
+          <a routerLink="/storefront" class="erp-button erp-button-secondary">
+            Browse Storefront Catalogue
+          </a>
+        </div>
+      </div>
+    } @else {
+      <!-- Registration Form -->
+      <div class="register-card erp-card erp-card-elevated">
+        <div class="form-intro">
+          <h1>Create Your Customer Account</h1>
+          <p>Join {{ tenantName() }}'s commercial portal to view product catalogs, order stock, and manage requisitions.</p>
+        </div>
+
+        <!-- Account Type Switcher Tabs -->
+        <div class="account-type-tabs" role="tablist">
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="accountType() === 'individual'"
+            (click)="setAccountType('individual')"
+            role="tab"
+            [attr.aria-selected]="accountType() === 'individual'"
+          >
+            <i class="pi pi-user"></i>
+            <div>
+              <strong>Individual / Retail Customer</strong>
+              <span>Personal purchasing, delivery address, instant orders</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="accountType() === 'organisation'"
+            (click)="setAccountType('organisation')"
+            role="tab"
+            [attr.aria-selected]="accountType() === 'organisation'"
+          >
+            <i class="pi pi-building"></i>
+            <div>
+              <strong>Organisation / Company (B2B)</strong>
+              <span>Corporate accounts, quotations, direct orders, trade pricing</span>
+            </div>
+          </button>
+        </div>
+
+        @if (errorMessage()) {
+          <div class="error-banner" role="alert">
+            <i class="pi pi-exclamation-triangle"></i>
+            <span>{{ errorMessage() }}</span>
+          </div>
+        }
+
+        <form (ngSubmit)="onSubmit()" class="register-form">
+          @if (accountType() === 'individual') {
+            <!-- INDIVIDUAL / RETAIL FORM -->
+            <div class="form-section">
+              <h3 class="section-title"><i class="pi pi-id-card"></i> Personal Information</h3>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="indFirstName">First Name *</label>
+                  <input
+                    type="text"
+                    id="indFirstName"
+                    class="p-inputtext"
+                    [(ngModel)]="indFirstName"
+                    name="indFirstName"
+                    placeholder="e.g. Jane"
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="indLastName">Last Name *</label>
+                  <input
+                    type="text"
+                    id="indLastName"
+                    class="p-inputtext"
+                    [(ngModel)]="indLastName"
+                    name="indLastName"
+                    placeholder="e.g. Doe"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="indEmail">Email Address (Login Username) *</label>
+                  <input
+                    type="email"
+                    id="indEmail"
+                    class="p-inputtext"
+                    [(ngModel)]="indEmail"
+                    name="indEmail"
+                    placeholder="jane.doe@example.com"
+                    required
+                  />
+                  <small class="field-hint">Your unique email will be your sign-in identifier.</small>
+                </div>
+                <div class="form-field">
+                  <label for="indMobile">Mobile Number</label>
+                  <input
+                    type="tel"
+                    id="indMobile"
+                    class="p-inputtext"
+                    [(ngModel)]="indMobileNumber"
+                    name="indMobile"
+                    placeholder="+94 77 123 4567"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3 class="section-title"><i class="pi pi-map-marker"></i> Delivery &amp; Contact Address</h3>
+              <div class="form-field">
+                <label for="indAddress1">Address Line 1</label>
+                <input
+                  type="text"
+                  id="indAddress1"
+                  class="p-inputtext"
+                  [(ngModel)]="indAddressLine1"
+                  name="indAddress1"
+                  placeholder="Street address or P.O. Box"
+                />
+              </div>
+              <div class="form-field">
+                <label for="indAddress2">Address Line 2 (Optional)</label>
+                <input
+                  type="text"
+                  id="indAddress2"
+                  class="p-inputtext"
+                  [(ngModel)]="indAddressLine2"
+                  name="indAddress2"
+                  placeholder="Apartment, suite, unit, building, floor"
+                />
+              </div>
+              <div class="form-grid-3">
+                <div class="form-field">
+                  <label for="indCity">City</label>
+                  <input
+                    type="text"
+                    id="indCity"
+                    class="p-inputtext"
+                    [(ngModel)]="indCity"
+                    name="indCity"
+                    placeholder="e.g. Colombo"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="indPostal">Postal Code</label>
+                  <input
+                    type="text"
+                    id="indPostal"
+                    class="p-inputtext"
+                    [(ngModel)]="indPostalCode"
+                    name="indPostal"
+                    placeholder="e.g. 00100"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="indCountry">Country</label>
+                  <input
+                    type="text"
+                    id="indCountry"
+                    class="p-inputtext"
+                    [(ngModel)]="indCountry"
+                    name="indCountry"
+                    placeholder="e.g. Sri Lanka"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3 class="section-title"><i class="pi pi-lock"></i> Account Credentials</h3>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="indPassword">Password *</label>
+                  <input
+                    type="password"
+                    id="indPassword"
+                    class="p-inputtext"
+                    [(ngModel)]="indPassword"
+                    name="indPassword"
+                    placeholder="Minimum 6 characters"
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="indConfirmPassword">Confirm Password *</label>
+                  <input
+                    type="password"
+                    id="indConfirmPassword"
+                    class="p-inputtext"
+                    [(ngModel)]="indConfirmPassword"
+                    name="indConfirmPassword"
+                    placeholder="Re-enter password"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          } @else {
+            <!-- ORGANISATION / B2B FORM -->
+            <div class="form-section">
+              <h3 class="section-title"><i class="pi pi-building"></i> Company Master Details</h3>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="orgCompanyName">Organisation Legal Name *</label>
+                  <input
+                    type="text"
+                    id="orgCompanyName"
+                    class="p-inputtext"
+                    [(ngModel)]="orgCompanyName"
+                    name="orgCompanyName"
+                    placeholder="e.g. Acme Industrial Technologies Ltd"
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="orgTradingName">Trading Name (Optional)</label>
+                  <input
+                    type="text"
+                    id="orgTradingName"
+                    class="p-inputtext"
+                    [(ngModel)]="orgTradingName"
+                    name="orgTradingName"
+                    placeholder="e.g. Acme Tech"
+                  />
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="orgRegNo">Company Registration Number</label>
+                  <input
+                    type="text"
+                    id="orgRegNo"
+                    class="p-inputtext"
+                    [(ngModel)]="orgRegistrationNumber"
+                    name="orgRegNo"
+                    placeholder="e.g. PV-88912"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="orgTaxNo">Tax / VAT Number</label>
+                  <input
+                    type="text"
+                    id="orgTaxNo"
+                    class="p-inputtext"
+                    [(ngModel)]="orgTaxNumber"
+                    name="orgTaxNo"
+                    placeholder="e.g. TAX-12345678"
+                  />
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="orgCompEmail">Corporate Email</label>
+                  <input
+                    type="email"
+                    id="orgCompEmail"
+                    class="p-inputtext"
+                    [(ngModel)]="orgCompanyEmail"
+                    name="orgCompEmail"
+                    placeholder="contact@acmetech.com"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="orgCompPhone">Company Telephone</label>
+                  <input
+                    type="tel"
+                    id="orgCompPhone"
+                    class="p-inputtext"
+                    [(ngModel)]="orgCompanyPhone"
+                    name="orgCompPhone"
+                    placeholder="+94 11 234 5678"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3 class="section-title"><i class="pi pi-map-marker"></i> Registered Business Address</h3>
+              <div class="form-field">
+                <label for="orgAddress1">Address Line 1</label>
+                <input
+                  type="text"
+                  id="orgAddress1"
+                  class="p-inputtext"
+                  [(ngModel)]="orgAddressLine1"
+                  name="orgAddress1"
+                  placeholder="e.g. 45 Industrial Zone"
+                />
+              </div>
+              <div class="form-grid-3">
+                <div class="form-field">
+                  <label for="orgCity">City</label>
+                  <input
+                    type="text"
+                    id="orgCity"
+                    class="p-inputtext"
+                    [(ngModel)]="orgCity"
+                    name="orgCity"
+                    placeholder="e.g. Colombo"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="orgPostal">Postal Code</label>
+                  <input
+                    type="text"
+                    id="orgPostal"
+                    class="p-inputtext"
+                    [(ngModel)]="orgPostalCode"
+                    name="orgPostal"
+                    placeholder="e.g. 00200"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="orgCountry">Country</label>
+                  <input
+                    type="text"
+                    id="orgCountry"
+                    class="p-inputtext"
+                    [(ngModel)]="orgCountry"
+                    name="orgCountry"
+                    placeholder="e.g. Sri Lanka"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3 class="section-title"><i class="pi pi-user-check"></i> Authorized Purchasing Contact</h3>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="orgContactName">Contact Person Full Name *</label>
+                  <input
+                    type="text"
+                    id="orgContactName"
+                    class="p-inputtext"
+                    [(ngModel)]="orgContactPersonName"
+                    name="orgContactName"
+                    placeholder="e.g. Robert Smith"
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="orgJobTitle">Job Title / Designation</label>
+                  <input
+                    type="text"
+                    id="orgJobTitle"
+                    class="p-inputtext"
+                    [(ngModel)]="orgJobTitle"
+                    name="orgJobTitle"
+                    placeholder="e.g. Procurement Director"
+                  />
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="orgEmail">Personal Business Email (Login Username) *</label>
+                  <input
+                    type="email"
+                    id="orgEmail"
+                    class="p-inputtext"
+                    [(ngModel)]="orgEmail"
+                    name="orgEmail"
+                    placeholder="robert.smith@acmetech.com"
+                    required
+                  />
+                  <small class="field-hint">Your unique business email will be your portal sign-in identifier.</small>
+                </div>
+                <div class="form-field">
+                  <label for="orgMobile">Direct Mobile / Telephone</label>
+                  <input
+                    type="tel"
+                    id="orgMobile"
+                    class="p-inputtext"
+                    [(ngModel)]="orgMobileNumber"
+                    name="orgMobile"
+                    placeholder="+94 77 987 6543"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3 class="section-title"><i class="pi pi-lock"></i> Account Credentials</h3>
+              <div class="form-grid-2">
+                <div class="form-field">
+                  <label for="orgPassword">Password *</label>
+                  <input
+                    type="password"
+                    id="orgPassword"
+                    class="p-inputtext"
+                    [(ngModel)]="orgPassword"
+                    name="orgPassword"
+                    placeholder="Minimum 6 characters"
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="orgConfirmPassword">Confirm Password *</label>
+                  <input
+                    type="password"
+                    id="orgConfirmPassword"
+                    class="p-inputtext"
+                    [(ngModel)]="orgConfirmPassword"
+                    name="orgConfirmPassword"
+                    placeholder="Re-enter password"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          }
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="erp-button erp-button-primary erp-button-lg"
+              [disabled]="loading()"
+            >
+              @if (loading()) {
+                <i class="pi pi-spin pi-spinner"></i> Creating Account...
+              } @else {
+                <i class="pi pi-user-plus"></i>
+                {{ accountType() === 'individual' ? 'Create Individual Account' : 'Register Organisation Account' }}
+              }
+            </button>
+          </div>
+        </form>
+
+        <div class="form-footer">
+          <span>Already registered?</span>
+          <a routerLink="/login" class="login-link">Sign In to Customer Portal</a>
+        </div>
+      </div>
+    }
+  </main>
+
+  <footer class="register-page-footer">
+    <div class="erp-container footer-inner">
+      <span>{{ tenantName() }} &bull; {{ tenantIndustry() }}</span>
+      <span>Powered by ApexERP Enterprise Cloud</span>
+    </div>
+  </footer>
+</div>

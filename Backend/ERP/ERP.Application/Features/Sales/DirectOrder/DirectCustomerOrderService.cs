@@ -134,6 +134,14 @@ public class DirectCustomerOrderService : IDirectCustomerOrderService
         string? addressSnapshot = request.DeliveryAddress;
         if (request.DeliveryAddressId.HasValue && request.DeliveryAddressId.Value != Guid.Empty)
         {
+            var isLinked = await _dbContext.CustomerAddresses
+                .AnyAsync(ca => ca.TenantId == tenantId && ca.CustomerId == customerId && ca.AddressId == request.DeliveryAddressId.Value && ca.IsActive, ct);
+
+            if (!isLinked)
+            {
+                throw new InvalidOperationException($"The specified delivery address '{request.DeliveryAddressId.Value}' does not belong to this customer account or is inactive.");
+            }
+
             var address = await _dbContext.Addresses
                 .AsNoTracking()
                 .FirstOrDefaultAsync(a => a.TenantId == tenantId && a.AddressId == request.DeliveryAddressId.Value && a.IsActive, ct);
@@ -141,6 +149,26 @@ public class DirectCustomerOrderService : IDirectCustomerOrderService
             if (address != null)
             {
                 addressSnapshot = $"{address.AddressLine1}, {address.City}".Trim(',', ' ');
+            }
+        }
+        else
+        {
+            var defaultAddressId = await _dbContext.CustomerAddresses
+                .Where(ca => ca.TenantId == tenantId && ca.CustomerId == customerId && ca.IsDefault && ca.IsActive)
+                .Select(ca => (Guid?)ca.AddressId)
+                .FirstOrDefaultAsync(ct);
+
+            if (defaultAddressId.HasValue)
+            {
+                request.DeliveryAddressId = defaultAddressId;
+                var address = await _dbContext.Addresses
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.TenantId == tenantId && a.AddressId == defaultAddressId.Value && a.IsActive, ct);
+
+                if (address != null)
+                {
+                    addressSnapshot = $"{address.AddressLine1}, {address.City}".Trim(',', ' ');
+                }
             }
         }
 

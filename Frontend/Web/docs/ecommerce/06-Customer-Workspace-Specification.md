@@ -1,8 +1,8 @@
 # ApexERP — Customer Workspaces Specification (Retail & Company 5-Group)
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`)  
 **Related Documents:**
 - [README.md](README.md) — Documentation index and reading paths
@@ -26,6 +26,43 @@ The **ApexERP Customer Workspace** delivers a dedicated, authenticated self-serv
    - **Retail Customer Workspace (`/customer-portal/retail/*`):** Designed for individual consumer buyers purchasing at standard retail prices. Features an uncluttered layout focused on personal orders, deliveries, saved addresses, and historical reordering (`Buy Again`).
    - **Company Customer Workspace (`/customer-portal/company/*`):** A professional, 5-group B2B enterprise workspace supporting multiple authorized contacts, Selling Company header switching, formal quotation negotiations, contract Price Card direct orders, and invoice reconciliation.
 3. **Reactive Signal Architecture:** In compliance with modern Angular standards, all workspace components utilize Angular 18 reactive primitives (`signal`, `computed`, `inject`) with `ChangeDetectionStrategy.OnPush`.
+
+### 1.2 Shared Customer Workspace Foundation (`CustomerWorkspaceLayoutComponent`)
+
+Both customer account types share a unified foundational layout shell (`CustomerWorkspaceLayoutComponent`):
+
+#### 1. Universal Command Header:
+- **Tenant Corporate Identity:** Company Logo, Corporate Name, and "Customer Portal" badge.
+- **Customer Context & Badges:**
+  - Authenticated user name and job title / contact role.
+  - Customer Master Code (`CustomerCode`: e.g. `CUST-IND-1002` or `CUST-0104`).
+  - Account Type Badge: `[ Retail Customer ]` or `[ Corporate B2B Customer ]`.
+- **B2B Selling Company Switcher:** When logged in as an Organisation buyer, renders an active dropdown selector allowing authorized contacts to switch their operational selling company context without re-authenticating.
+- **Action Utilities:** Cart icon trigger with active line count badge, Fluent theme switcher (light/dark), and Sign Out button.
+
+#### 2. Dynamic Sidebar Navigation:
+- **Retail Navigation Menu (`CUSTOMER_INDIVIDUAL`):**
+  1. `Dashboard` (`/customer-portal/retail/dashboard`)
+  2. `Product Catalogue` (`/storefront/catalog`)
+  3. `Shopping Cart` (`/storefront/cart`)
+  4. `My Orders` (`/customer-portal/retail/orders`)
+  5. `My Addresses` (`/customer-portal/retail/profile#addresses`)
+  6. `My Profile` (`/customer-portal/retail/profile`)
+- **Organisation 5-Group Menu (`CUSTOMER_COMPANY_ADMIN`):**
+  1. `1. Dashboard` (`/customer-portal/company/dashboard`)
+  2. `2. Purchasing` (`/purchasing/catalog`, `/purchasing/cart`, `/purchasing/quotations/request`, `/purchasing/quotations`, `/purchasing/direct-orders`)
+  3. `3. Orders & Fulfilment` (`/orders`, `/orders/tracking`)
+  4. `4. Finance` (`/finance/invoices`)
+  5. `5. Company Administration` (`/management/profile`, `/management/users`, `/management/permissions`, `/management/locations`, `/management/sellers`)
+
+#### 3. Corporate Verification Alert Banner:
+If a corporate organisation customer account has `RequiresAuthorization == true` (awaiting administrative verification after matching an existing company), a high-visibility warning banner is rendered at the top of the workspace content area:
+> **Account Pending Corporate Verification:** Your account has been linked to an existing corporate master record and is awaiting confirmation from the tenant administrator. Commercial ordering, Price Card contract rates, and quotation acceptance are locked until verification is complete.
+
+#### 4. Route Security & Boundaries:
+- `authGuard`: Enforces active JWT authentication.
+- `workspaceGuard`: Confirms user is an external customer; blocks internal tenant staff and blocks customer accounts from accessing `/app/*`.
+- `roleGuard`: Ensures Retail accounts cannot access `/customer-portal/company/*` and Corporate accounts cannot access `/customer-portal/retail/*`.
 
 ---
 

@@ -1,8 +1,8 @@
 # ApexERP — Backend API Integration Matrix, Gaps & Architectural Questions
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Backend/ERP`, `Frontend/Web`)  
 **Related Documents:**
 - [README.md](README.md) — Documentation index and reading paths
@@ -51,6 +51,12 @@ Every backend capability investigated in `Backend/ERP/` is categorized into one 
 | **16. Customer User Management & Invitations** | **Category C: Missing Backend Capability** | `CustomerRegistrationService.cs`, `CustomerContact.cs` | **Missing Capability:** No customer-facing endpoint exists for primary company admin (`PORTAL_USERS.MANAGE`) to invite, update, or revoke secondary buyer permissions. |
 | **17. Tenant Landing Page Content CMS** | **Category C: Missing Backend Capability** | `TenantController.GetCurrentTenantContext` | **Missing Capability:** Backend returns basic flags (`isTenant`, `eCommerceEnabled`). No CMS endpoint exists for custom marketing copy or hero banners. |
 | **18. Online Payment Gateway Integration** | **Category D: Requires Business Decision (Deferred)** | None in Phase 1 | Excluded from Phase 1 by stakeholder policy. Retail Checkout operates on-account creating Draft orders. |
+| **19. Customer Self-Registration Endpoints** | **Category A: Verified and Implemented** | `CustomerAuthController.cs`, `CustomerRegistrationService.cs` | Supports `/api/portal/auth/register-individual` and `/api/portal/auth/register`. Provisions Customer, Contact, and User records. |
+| **20. Customer Deduplication Engine** | **Category A: Verified and Implemented** | `CustomerDeduplicationService.cs`, `ICustomerDeduplicationService.cs` | Matches corporate customer records by Tax Number, Company Name, or Corporate Email domain within tenant boundary. |
+| **21. Explicit CustomerType on Customer Master** | **Category C: Missing Backend Capability** | `Customer.cs` (`Domain/Features/MasterData`) | **Missing Capability:** `Customer` entity lacks an explicit `CustomerType` enum or column (`RetailIndividual` vs `CorporateOrganisation`). Classification is currently inferred from code prefix (`CUST-IND-*`) and security role. |
+| **22. Decoupled ContactId vs UserId Resolution** | **Category B: Partially Implemented / Requires Modification** | `CurrentCustomerContext.cs` | **Partially Implemented:** Fallback resolution query currently assumes `ContactId == UserId`. When contacts are created via internal ERP master data (`CustomerService`), `ContactId` and `UserId` differ. Requires fallback matching by email claim. |
+| **23. Corporate Pending Approval & Verification Gate** | **Category C: Missing Backend Capability** | `CustomerRegistrationService.cs`, `Customer.cs` | **Missing Capability:** Although `RequiresAuthorization = true` is flagged on matched deduplications, `user.IsActive = true` is currently set immediately with full `CUSTOMER_COMPANY_ADMIN` privileges. No tenant approval gate or activation endpoint exists. |
+| **24. Contact Email vs Security User Login Email Separation** | **Category B: Partially Implemented / Requires Modification** | `CustomerRegistrationService.cs`, `Users` vs `Contacts` vs `Customers` | Stored in separate tables, but no customer self-service endpoint exists to update contact notification email independently of user login credentials. |
 
 ---
 
@@ -146,17 +152,71 @@ Every backend capability investigated in `Backend/ERP/` is categorized into one 
 ### 3.3 Customer Authentication & Registration Endpoints
 
 #### `POST /api/portal/auth/register-individual`
-- **Payload:** `RegisterIndividualCustomerRequest` (`TenantId`, `FirstName`, `LastName`, `Email`, `MobileNumber`, `AddressLine1`, `City`, `PostalCode`, `Country`, `Password`, `ConfirmPassword`)
-- **Response:** `ApiResponse<CustomerRegistrationResult>` (`CustomerId`, `CustomerCode`, `UserId`, `Email`, `CanLoginImmediately: true`)
+- **Controller:** `CustomerAuthController`
+- **Permission:** Anonymous (`[AllowAnonymous]`)
+- **Payload:** `RegisterIndividualCustomerRequest`
+  ```csharp
+  public class RegisterIndividualCustomerRequest
+  {
+      public Guid TenantId { get; set; }
+      public string FirstName { get; set; }
+      public string LastName { get; set; }
+      public string Email { get; set; }              // Login credential & Contact email
+      public string? MobileNumber { get; set; }
+      public string AddressLine1 { get; set; }
+      public string? AddressLine2 { get; set; }
+      public string City { get; set; }
+      public string PostalCode { get; set; }
+      public string Country { get; set; }
+      public string Password { get; set; }
+      public string ConfirmPassword { get; set; }
+  }
+  ```
+- **Response Model:** `ApiResponse<CustomerRegistrationResult>`
+  - Returns `CustomerId`, `CustomerCode` (`CUST-IND-*`), `UserId`, `Email`, `CanLoginImmediately: true`, `RequiresAuthorization: false`.
+- **Backend Execution:** Provisions `Customer` (Retail, no PriceCard), `Contact` (`ContactId = userId`), `CustomerContact`, `User` (`Id = userId`, `IsActive = true`), and assigns role `CUSTOMER_INDIVIDUAL`.
 
-#### `POST /api/portal/auth/register` (Company Registration)
-- **Payload:** `RegisterCompanyCustomerRequest` (`TenantId`, `CompanyName`, `CompanyRegistrationNumber`, `TaxNumber`, `ContactPersonName`, `JobTitle`, `Email`, `MobileNumber`, `Password`, `ConfirmPassword`)
-- **Response:** `ApiResponse<CustomerRegistrationResult>`
+#### `POST /api/portal/auth/register` (Company / B2B Registration)
+- **Controller:** `CustomerAuthController`
+- **Permission:** Anonymous (`[AllowAnonymous]`)
+- **Payload:** `RegisterCompanyCustomerRequest`
+  ```csharp
+  public class RegisterCompanyCustomerRequest
+  {
+      public Guid TenantId { get; set; }
+      public string CompanyName { get; set; }
+      public string? TradingName { get; set; }
+      public string? CompanyRegistrationNumber { get; set; }
+      public string TaxNumber { get; set; }
+      public string? CompanyPhone { get; set; }
+      public string? CompanyEmail { get; set; }       // Corporate billing/tax email
+      public string AddressLine1 { get; set; }
+      public string? AddressLine2 { get; set; }
+      public string City { get; set; }
+      public string PostalCode { get; set; }
+      public string Country { get; set; }
+      public string ContactPersonName { get; set; }
+      public string? JobTitle { get; set; }
+      public string Email { get; set; }              // Login username & personal contact email
+      public string? MobileNumber { get; set; }
+      public string Password { get; set; }
+      public string ConfirmPassword { get; set; }
+  }
+  ```
+- **Response Model:** `ApiResponse<CustomerRegistrationResult>`
+  - Returns `CustomerId`, `CustomerCode`, `UserId`, `Email`, `CanLoginImmediately: true`, `RequiresAuthorization: boolean`.
+- **Backend Execution:** Runs `ICustomerDeduplicationService`.
+  - If existing matched: Links contact to existing `Customer` via `CustomerContact`, sets `RequiresAuthorization = true`.
+  - If new: Provisions new `Customer` record under the tenant.
+  - Provisions `Contact` (`ContactId = userId`), `User` (`Id = userId`, `IsActive = true`), and assigns role `CUSTOMER_COMPANY_ADMIN`.
+- **Documented Security Gap:** The backend currently sets `user.IsActive = true` immediately and assigns role `CUSTOMER_COMPANY_ADMIN` even when matched to an existing corporate customer. An administrative approval gate is required to withhold full corporate data access until verified.
 
 #### `POST /api/portal/auth/login`
+- **Controller:** `CustomerAuthController`
 - **Payload:** `CustomerLoginRequest` (`Email`, `Password`)
-- **Response:** `ApiResponse<CustomerLoginResponse>`
+- **Response Model:** `ApiResponse<CustomerLoginResponse>`
   - Returns `AccessToken` with claims `portal_type = "CUSTOMER"`, `tenant_id`, `customer_id`, `contact_id`, `roles`, `permissions`.
+  - Also compatible with common `/Security/login` (`UserService.LoginAsync`).
 
 ---
 

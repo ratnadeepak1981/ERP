@@ -1,10 +1,13 @@
 # ApexERP — E-commerce Frontend Implementation Roadmap & Extended QA Testing Plan
 
-**Document Version:** 1.1.0  
-**Status:** Architecture & Requirements Specification — Ready for Implementation  
-**Date:** 2026-11-21  
+**Document Version:** 1.5.0  
+**Status:** Architecture & Requirements Specification — Tenant Landing Page & Dynamic Storefront Completed (E3.1, E3.2), Customer Registration & Workspaces Milestone Active (E4)  
+**Date:** 2026-11-22  
 **Target Repository:** `ApexERP` (`Frontend/Web`, `Backend/ERP`)  
-**Starting Phase:** Phase E1 — Existing System Audit and API Contract Verification  
+**Completed Milestones:**  
+- Phase E3.1 — Tenant Subdomain Public Landing Page (Verified)  
+- Phase E3.2 — Dynamic E-commerce Storefront & Product Catalogue (Verified)  
+**Active Milestone:** Phase E4 — Customer Registration, Shared Authentication & Retail/Organisation Workspaces  
 **Related Documents:**
 - [README.md](README.md) — Documentation index and reading paths
 - [00-Ecommerce-Frontend-Master-Plan.md](00-Ecommerce-Frontend-Master-Plan.md) — Master architectural charter and invariants
@@ -63,36 +66,57 @@ flowchart TD
   - Reusable async feedback containers (`EmptyStateComponent`, `LoadingStateComponent`, `ErrorStateComponent`).
 - **Acceptance Criteria:** Customer portal layout renders with responsive command bar and side navigation; internal ERP routes reject customer accounts with `403 Forbidden`.
 
-### Phase E3: Public Tenant Landing Page and Storefront
-- **Objective:** Deliver the public-facing digital storefront and product discovery experience.
-- **Dependencies:** Phase E2.
-- **Components to Implement/Upgrade:**
-  - `TenantLandingComponent` (route: `/storefront` or tenant subdomain root `/`)
-  - `ProductCatalogComponent` (route: `/storefront/catalog`)
-  - `ProductCardComponent` (reusable standalone card)
-  - `CategoryFilterComponent` (hierarchical category tree)
-  - `ProductDetailComponent` (route: `/storefront/products/:productId`)
-- **Key Capabilities:**
-  - Dynamic tenant branding and hero section derived from `TenantContextService`.
-  - Public catalogue querying `GET /api/ecommerce/catalogue/{companyId}/products`.
-  - Real-time search, category filtering, stock availability indicators.
-  - Public product detail with UOM selection, packaging choices, and spec sheets.
-- **Acceptance Criteria:** Public visitors can browse all published products, filter categories, and inspect details without being prompted to log in.
+### Phase E3.1: Public Tenant Subdomain Landing Page (Completed & Verified)
+- **Objective:** Deliver the modern corporate public landing page for tenant subdomains (e.g. `abc.apexerp.com`, `xyz.apexerp.com`, `nova.192.168.1.65.nip.io:4200`), adhering to the core principle: **One consistent ApexERP platform design, with individual tenant branding and business content.**
+- **Status:** **COMPLETED & VERIFIED** (25/25 unit tests passed, production bundle successful with code 0).
+- **Delivered Capabilities:**
+  - `PublicLayoutComponent`: Header with company branding, 6 middle semantic navigation links (`Home`, `Products`, `About Us`, `Services`, `Suppliers`, `Contact Us`), theme toggle, `Sign In` / `Register` right action cluster, and corporate tenant footer.
+  - `HomeComponent`: 7 standard corporate sections including Hero with macOS 3-dot visual card, About Us narrative & milestones, featured product & category preview, business services, supplier RFQ link, and contact cards.
+  - Anonymous public access preserving resolved tenant subdomain and active Selling Company context.
 
-### Phase E4: Customer Authentication and Registration
-- **Objective:** Connect customer authentication, handle account-type routing, and implement the unauthenticated "Add to Cart" interception protocol.
+### Phase E3.2: Dynamic E-commerce Storefront & Product Catalogue (Completed & Verified)
+- **Objective:** Convert the tenant E-commerce storefront from static mock content into a fully dynamic, data-driven product catalogue with dedicated product details, search, category filtering, idempotent product publication backfill, and shared login account-type routing.
+- **Status:** **COMPLETED & VERIFIED** (All unit tests passed, full bundle compiled).
+- **Delivered Capabilities:**
+  - `StorefrontComponent` (route: `/storefront` / `/storefront/catalog`):
+    - Replaced static mock cards with real-time dynamic data from `EcommerceCatalogueService` (`GET /api/ecommerce/catalogue/{companyId}/products`).
+    - Search input, dynamic category filter pills with product counts, sort selector.
+    - Category icons and status badges (`StatusBadgeComponent`), formatted currency/pricing, and "Details" action.
+    - Comprehensive async feedback: loading skeleton, empty filter state (`EmptyStateComponent`), and error state (`ErrorStateComponent`).
+  - `ProductDetailComponent` (route: `/storefront/products/:productId`):
+    - High-fidelity product display consuming `GET /api/ecommerce/catalogue/{companyId}/products/{productId}`.
+    - Breadcrumb navigation (`Storefront / Category / Product Name`).
+    - Technical specifications grid, certified quality badges, lead time, related category items, and commercial CTAs.
+  - Safe Idempotent Product Publication Backfill:
+    - SQL script `seed_ecommerce_products_backfill.sql` and `IEcommerceProductService.BackfillCompanyPublicationsAsync`.
+    - Auto-backfill on-the-fly in `GetPublicCatalogueAsync` and `GetPublicProductDetailAsync` ensuring zero omitted items.
+  - Shared Login Entry Point & Account-Type Routing:
+    - Unified `/login` entry point with `CUSTOMER_INDIVIDUAL` &rarr; `/customer-portal` and `CUSTOMER_COMPANY_ADMIN` &rarr; `/customer-portal`.
+
+### Phase E4: Customer Registration & Retail/Organisation Workspaces (Active Milestone)
+- **Objective:** Deliver customer self-service registration for both Individual Retail and Organisation B2B customers, shared authentication reuse, a shared Customer Workspace foundation shell, and separate Retail and Organisation navigation, functionality, and permissions.
 - **Dependencies:** Phase E3.
 - **Components to Implement/Upgrade:**
-  - `LoginComponent` (upgrade existing `/login`)
-  - `CustomerRegisterComponent` (upgrade existing `/register` with Individual vs Company tabs)
-  - `AuthService` (update with customer session parsing, roles, and permissions)
-- **Key Capabilities:**
-  - Registration Tab 1: Submits `RegisterIndividualCustomerRequest` to `POST /api/portal/auth/register-individual`.
-  - Registration Tab 2: Submits `RegisterCompanyCustomerRequest` to `POST /api/portal/auth/register-company`.
-  - Login submits `CustomerLoginRequest` to `POST /api/portal/auth/login`.
-  - Captures `returnUrl` and detects `resumeAction` flag to automatically execute pending `AddToCartRequest`.
-  - Directs Individual accounts to Retail Workspace and Corporate accounts to Company Workspace.
-- **Acceptance Criteria:** Unauthenticated click on "Add to Cart" redirects to login, logs in, adds item to cart, and redirects to `/storefront/cart`.
+  - `CustomerRegisterComponent` (route: `/register` on tenant domain or `/customer-register`):
+    - Account type selector: Individual Retail Customer vs Organisation / Company (B2B) Customer.
+    - Individual form: First Name, Last Name, Email (login username), Mobile, Address (Line 1, Line 2, City, Postal Code, Country), Password, Confirm Password.
+    - Organisation form: Company Legal Name, Trading Name, Reg/Tax number, Company Email & Phone, Business Address, Contact Person Name, Job Title, Personal Business Email (login username), Mobile, Password, Confirm Password.
+    - Reuses `CustomerAuthController` backend endpoints (`POST /api/portal/auth/register-individual` and `POST /api/portal/auth/register`).
+    - Immediate login activation (`user.IsActive = true`, unique email identifier).
+    - Prevents accidental tenant creation or privileged role escalation.
+  - Shared Customer Workspace Shell (`CustomerWorkspaceLayoutComponent` under `/customer-portal`):
+    - Reuses ERP shell design language: brand tag, collapsible sidebar, theme toggle, user badge, and sign out.
+    - Separate navigation for Retail vs Organisation:
+      - **Retail Customer:** Dashboard, Product Catalogue, Shopping Cart, My Orders, My Addresses, My Profile.
+      - **Organisation Customer:** Dashboard, Product Catalogue, Shopping Cart, Quotations, Direct Orders, Order History, Company Profile, Addresses.
+    - Child route components: `CustomerPortalDashboardComponent`, reused `StorefrontComponent` (catalogue), reused `ProductDetailComponent` (product details), `CustomerCartPlaceholderComponent`, `CustomerOrdersComponent`, `CustomerQuotationsComponent`, `CustomerDirectOrdersComponent`, `CustomerAddressesComponent`, `CustomerProfileComponent`.
+    - Role and permission guards: `customerTypeGuard` enforcing that B2B-only routes (`quotations`, `direct-orders`) cannot be accessed by individual retail customers.
+- **Acceptance Criteria:**
+  - Both Individual and Organisation customers can self-register without backend errors.
+  - Immediate login succeeds with unique email; credentials route user to the appropriate workspace.
+  - Workspace displays only authorized navigation options for the authenticated account type.
+  - Product catalogue and detail components are cleanly reused within the customer workspace.
+  - External customer accounts are strictly blocked from internal ERP operational modules (`/app/*`).
 
 ### Phase E5: Authenticated Shopping Cart
 - **Objective:** Implement the authenticated shopping cart connecting to the persistent backend cart engine.
@@ -314,3 +338,48 @@ flowchart TD
 #### Test Scenario 24: Selling Company Scope Switching
 - **Test:** Corporate customer switches Selling Company via header selector.
 - **Verification:** Backend verifies relationship via `POST /api/portal/selling-companies/select`. Active catalogue, cart, and orders refresh dynamically to the selected selling entity.
+
+---
+
+### Group 6: Customer Registration, Identity & Context Tests
+
+#### Test Scenario 25: Retail Customer Self-Registration & Immediate Storefront Checkout
+- **Test:** User submits `RegisterIndividualCustomerRequest` to `/api/portal/auth/register-individual`.
+- **Verification:**
+  1. `Customer` record created with code `CUST-IND-*`.
+  2. `Contact` created with `ContactId = userId`.
+  3. `CustomerContact` created linking customer and contact with `IsPrimary = true`.
+  4. `User` created in `SecurityDbContext` with `IsActive = true` and role `CUSTOMER_INDIVIDUAL`.
+  5. Immediate login succeeds; user can stage items and proceed to Retail Checkout.
+
+#### Test Scenario 26: Corporate Organisation Self-Registration (New Company Path)
+- **Test:** User submits `RegisterCompanyCustomerRequest` for an unrecognised business name and tax ID.
+- **Verification:**
+  1. `ICustomerDeduplicationService` confirms no existing match.
+  2. New `Customer` record created with code `CUST-*` and requested business address.
+  3. `Contact` created for the human registrant.
+  4. `User` created with role `CUSTOMER_COMPANY_ADMIN`.
+  5. Response returns `RequiresAuthorization: false`.
+
+#### Test Scenario 27: Corporate Organisation Registration Deduplication & Tenant Approval Gate
+- **Test:** User submits `RegisterCompanyCustomerRequest` matching an existing customer company's tax number.
+- **Verification:**
+  1. `ICustomerDeduplicationService` detects match.
+  2. New contact is linked to the existing `Customer` entity.
+  3. Response returns `RequiresAuthorization: true`.
+  4. User is presented with "Pending Corporate Verification" banner in workspace. Commercial purchasing, Price Card access, and quotation acceptance are locked until tenant admin approval.
+
+#### Test Scenario 28: Login Email vs Contact Email Desynchronization Protection
+- **Test:** User registers with `login@corp.com`. Contact profile email is subsequently updated to `notifications@corp.com`.
+- **Verification:**
+  1. `User.Email` in `SecurityDbContext` remains `login@corp.com`.
+  2. `Contact.Email` in `DomainDbContext` updates to `notifications@corp.com`.
+  3. Login with `login@corp.com` continues to authenticate successfully.
+  4. Order dispatch and quotation emails route to `notifications@corp.com`.
+
+#### Test Scenario 29: CurrentCustomerContext Resolution with Non-Matching ContactId and UserId
+- **Test:** A customer contact created through internal ERP master data (`CustomerService`) with an independent `ContactId` logs in through the customer portal.
+- **Verification:**
+  1. `CurrentCustomerContext` evaluates caller `UserId`.
+  2. Contact fallback resolution matches via verified email claim.
+  3. Correct `CustomerId` and tenant scope are resolved without throwing `UnauthorizedAccessException`.

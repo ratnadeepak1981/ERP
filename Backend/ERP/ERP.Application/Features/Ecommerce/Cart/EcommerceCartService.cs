@@ -400,24 +400,27 @@ public class EcommerceCartService : IEcommerceCartService
             });
         }
 
-        // 7. Validate delivery address if provided
+        // 7. Validate delivery address ownership strictly scoped to authenticated customer
         Guid? deliveryAddressId = request.DeliveryAddressId;
-        if (deliveryAddressId.HasValue)
+        if (deliveryAddressId.HasValue && deliveryAddressId.Value != Guid.Empty)
         {
-            var addressValid = await _context.CustomerAddresses
+            var addressBelongsToCustomer = await _context.CustomerAddresses
                 .AnyAsync(ca => ca.TenantId == tenantId && ca.CustomerId == customer.CustomerId && ca.AddressId == deliveryAddressId.Value && ca.IsActive, ct);
 
-            if (!addressValid)
+            if (!addressBelongsToCustomer)
             {
-                // Fallback check on Addresses table
-                addressValid = await _context.Addresses
-                    .AnyAsync(a => a.TenantId == tenantId && a.AddressId == deliveryAddressId.Value && a.IsActive, ct);
-
-                if (!addressValid)
-                {
-                    throw new InvalidOperationException($"Delivery address '{deliveryAddressId.Value}' was not found or is inactive.");
-                }
+                throw new InvalidOperationException($"Delivery address '{deliveryAddressId.Value}' does not belong to this customer account or is inactive.");
             }
+        }
+        else
+        {
+            // Auto-fallback to customer's active default Address Master record if not explicitly supplied
+            var defaultAddressId = await _context.CustomerAddresses
+                .Where(ca => ca.TenantId == tenantId && ca.CustomerId == customer.CustomerId && ca.IsDefault && ca.IsActive)
+                .Select(ca => (Guid?)ca.AddressId)
+                .FirstOrDefaultAsync(ct);
+
+            deliveryAddressId = defaultAddressId;
         }
 
         // 8. Generate Order Number & Create Sales Order in Draft Status
