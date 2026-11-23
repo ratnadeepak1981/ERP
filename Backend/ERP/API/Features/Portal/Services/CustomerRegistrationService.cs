@@ -2,6 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using API.Features.Portal.DTOs;
+using Domain.Features.MasterData.Address;
+using Domain.Features.MasterData.AddressType;
 using Domain.Features.MasterData.Contact;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.CRM.Deduplication;
@@ -110,6 +112,41 @@ public class CustomerRegistrationService : ICustomerRegistrationService
         {
             customer = CreateNewCustomer(request, normalizedEmail);
             _domainContext.Customers.Add(customer);
+        }
+
+        // 3b. Auto-Link Initial Address to Address Master if provided during self-registration
+        if (!isExistingMatched && !string.IsNullOrWhiteSpace(request.AddressLine1))
+        {
+            var addressType = await _domainContext.AddressTypes
+                .FirstOrDefaultAsync(at => (at.TenantId == request.TenantId || at.TenantId == null) && (at.Code == "HEAD_OFFICE" || at.Code == "PRIMARY"), cancellationToken);
+
+            if (addressType == null)
+            {
+                addressType = AddressType.Create(request.TenantId, "HEAD_OFFICE", "Head Office");
+                _domainContext.AddressTypes.Add(addressType);
+            }
+
+            var address = Address.Create(
+                request.TenantId,
+                string.IsNullOrWhiteSpace(request.CompanyName) ? "Corporate Office" : $"{request.CompanyName.Trim()} - Head Office",
+                request.AddressLine1.Trim(),
+                string.IsNullOrWhiteSpace(request.City) ? "Default" : request.City.Trim(),
+                request.AddressLine2?.Trim(),
+                stateProvince: null,
+                postalCode: request.PostalCode?.Trim(),
+                countryId: null,
+                unmatchedCountryText: request.Country?.Trim());
+
+            _domainContext.Addresses.Add(address);
+
+            var customerAddress = CustomerAddress.Create(
+                request.TenantId,
+                customer.CustomerId,
+                address.AddressId,
+                addressType.AddressTypeId,
+                isDefault: true);
+
+            _domainContext.CustomerAddresses.Add(customerAddress);
         }
 
         // 4. Resolve or Initialize ContactType
@@ -285,6 +322,41 @@ public class CustomerRegistrationService : ICustomerRegistrationService
             defaultSalesPriceCardId: null);
 
         _domainContext.Customers.Add(customer);
+
+        // 2b. Auto-Link Initial Address to Address Master if provided during self-registration
+        if (!string.IsNullOrWhiteSpace(request.AddressLine1))
+        {
+            var addressType = await _domainContext.AddressTypes
+                .FirstOrDefaultAsync(at => (at.TenantId == request.TenantId || at.TenantId == null) && (at.Code == "HOME" || at.Code == "DELIVERY" || at.Code == "PRIMARY"), cancellationToken);
+
+            if (addressType == null)
+            {
+                addressType = AddressType.Create(request.TenantId, "DELIVERY", "Delivery Address");
+                _domainContext.AddressTypes.Add(addressType);
+            }
+
+            var address = Address.Create(
+                request.TenantId,
+                $"{fullName} - Home",
+                request.AddressLine1.Trim(),
+                string.IsNullOrWhiteSpace(request.City) ? "Default" : request.City.Trim(),
+                request.AddressLine2?.Trim(),
+                stateProvince: null,
+                postalCode: request.PostalCode?.Trim(),
+                countryId: null,
+                unmatchedCountryText: request.Country?.Trim());
+
+            _domainContext.Addresses.Add(address);
+
+            var customerAddress = CustomerAddress.Create(
+                request.TenantId,
+                customer.CustomerId,
+                address.AddressId,
+                addressType.AddressTypeId,
+                isDefault: true);
+
+            _domainContext.CustomerAddresses.Add(customerAddress);
+        }
 
         // 3. Resolve or create primary ContactType
         var contactType = await _domainContext.ContactTypes

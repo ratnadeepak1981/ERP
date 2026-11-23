@@ -57,6 +57,18 @@ export class GoodsReceiptNoteService {
       .pipe(map(res => res?.data ?? null));
   }
 
+  getActiveDraftForPo(
+    companyId: string,
+    branchId: string,
+    purchaseOrderId: string
+  ): Observable<GoodsReceiptNoteDto | null> {
+    return this.http
+      .get<ApiResponse<GoodsReceiptNoteDto>>(
+        this.buildPath(companyId, branchId, `/from-po/${purchaseOrderId}/draft`)
+      )
+      .pipe(map(res => res?.data ?? null));
+  }
+
   createDraftFromPo(
     companyId: string,
     branchId: string,
@@ -106,9 +118,17 @@ export class GoodsReceiptNoteService {
     return this.http.delete<void>(this.buildPath(companyId, branchId, `/${id}`));
   }
 
-  confirmGrn(companyId: string, branchId: string, id: string): Observable<GoodsReceiptNoteDto> {
+  confirmGrn(
+    companyId: string,
+    branchId: string,
+    id: string,
+    updateRequest?: UpdateGoodsReceiptNoteRequest | null
+  ): Observable<GoodsReceiptNoteDto> {
     return this.http
-      .post<ApiResponse<GoodsReceiptNoteDto>>(this.buildPath(companyId, branchId, `/${id}/confirm`), null)
+      .post<ApiResponse<GoodsReceiptNoteDto>>(
+        this.buildPath(companyId, branchId, `/${id}/confirm`),
+        updateRequest ?? null
+      )
       .pipe(map(res => res.data));
   }
 

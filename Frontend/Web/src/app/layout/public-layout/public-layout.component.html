@@ -1,17 +1,17 @@
 <div class="public-shell">
-  <!-- Public SaaS Top Navigation Bar -->
+  <!-- Public Top Navigation Bar -->
   <header class="public-header" role="banner">
     <div class="header-inner erp-container">
       <!-- Brand Logo Area -->
       <div class="brand-group">
-        <a routerLink="/" (click)="selectTab('platform')" class="brand-logo" aria-label="ApexERP SaaS Platform Home">
+        <a routerLink="/" (click)="scrollToSection('home', $event)" class="brand-logo" aria-label="ApexERP SaaS Platform Home">
           <div class="logo-mark" aria-hidden="true">
-            <i class="pi pi-box"></i>
+            <i [class]="tenantContext.isTenantDomain() ? 'pi pi-building' : 'pi pi-box'"></i>
           </div>
           <div class="brand-text">
             @if (tenantContext.isTenantDomain()) {
               <span class="brand-title">{{ tenantContext.currentTenant()?.name || tenantContext.subdomain() }}</span>
-              <span class="brand-tag">{{ tenantContext.currentTenant()?.industryType || 'Tenant Portal' }}</span>
+              <span class="brand-tag">{{ tenantContext.currentTenant()?.industryType || 'Corporate Portal' }}</span>
             } @else {
               <span class="brand-title">ApexERP</span>
               <span class="brand-tag">SaaS Platform</span>
@@ -20,8 +20,9 @@
         </a>
       </div>
 
-      <!-- Main Navigation Tabs (Platform Mode Only) -->
+      <!-- Main Navigation Tabs -->
       @if (!tenantContext.isTenantDomain()) {
+        <!-- Platform Mode Navigation Tabs -->
         <nav class="public-nav" role="tablist" aria-label="Main Navigation">
           <button
             type="button"
@@ -56,12 +57,66 @@
           </button>
         </nav>
       } @else {
-        <div class="tenant-nav-badge">
-          <span class="badge-text"><i class="pi pi-verified"></i> Dedicated Tenant Portal</span>
-        </div>
+        <!-- Tenant Subdomain Public Navigation -->
+        <nav class="public-nav tenant-nav" role="navigation" aria-label="Tenant Navigation">
+          <button
+            type="button"
+            class="nav-tab"
+            [class.active]="activeSection() === 'home'"
+            (click)="scrollToSection('home', $event)"
+          >
+            <i class="pi pi-home tab-icon" aria-hidden="true"></i>
+            <span>Home</span>
+          </button>
+          <button
+            type="button"
+            class="nav-tab"
+            [class.active]="activeSection() === 'products'"
+            (click)="scrollToSection('products', $event)"
+          >
+            <i class="pi pi-box tab-icon" aria-hidden="true"></i>
+            <span>Products</span>
+          </button>
+          <button
+            type="button"
+            class="nav-tab"
+            [class.active]="activeSection() === 'about'"
+            (click)="scrollToSection('about', $event)"
+          >
+            <i class="pi pi-info-circle tab-icon" aria-hidden="true"></i>
+            <span>About Us</span>
+          </button>
+          <button
+            type="button"
+            class="nav-tab"
+            [class.active]="activeSection() === 'services'"
+            (click)="scrollToSection('services', $event)"
+          >
+            <i class="pi pi-briefcase tab-icon" aria-hidden="true"></i>
+            <span>Services</span>
+          </button>
+          <button
+            type="button"
+            class="nav-tab"
+            [class.active]="activeSection() === 'suppliers'"
+            (click)="scrollToSection('suppliers', $event)"
+          >
+            <i class="pi pi-truck tab-icon" aria-hidden="true"></i>
+            <span>Suppliers</span>
+          </button>
+          <button
+            type="button"
+            class="nav-tab"
+            [class.active]="activeSection() === 'contact'"
+            (click)="scrollToSection('contact', $event)"
+          >
+            <i class="pi pi-envelope tab-icon" aria-hidden="true"></i>
+            <span>Contact Us</span>
+          </button>
+        </nav>
       }
 
-      <!-- Shared Actions: Theme Toggle, Sign In -->
+      <!-- Shared Actions: Theme Toggle, Sign In, Register / View Plans -->
       <div class="header-actions">
         <p-button
           [icon]="themeService.currentTheme() === 'clean-enterprise' ? 'pi pi-moon' : 'pi pi-sun'"
@@ -71,9 +126,52 @@
           [attr.aria-label]="themeService.currentTheme() === 'clean-enterprise' ? 'Switch to dark theme' : 'Switch to light theme'"
         ></p-button>
         <a routerLink="/login" class="nav-btn-link outlined">Sign In</a>
-        <a routerLink="/plans" class="nav-btn-link filled">View Plans</a>
+        @if (!tenantContext.isTenantDomain()) {
+          <a routerLink="/plans" class="nav-btn-link filled">View Plans</a>
+        } @else {
+          <a routerLink="/register" class="nav-btn-link filled">Register</a>
+        }
+        @if (tenantContext.isTenantDomain()) {
+          <button
+            type="button"
+            class="mobile-menu-toggle"
+            [attr.aria-expanded]="mobileMenuOpen()"
+            (click)="toggleMobileMenu()"
+            aria-label="Toggle Navigation Menu"
+          >
+            <i [class]="mobileMenuOpen() ? 'pi pi-times' : 'pi pi-bars'"></i>
+          </button>
+        }
       </div>
     </div>
+
+    <!-- Mobile Navigation Drawer (Tenant Subdomains) -->
+    @if (tenantContext.isTenantDomain() && mobileMenuOpen()) {
+      <div class="mobile-nav-drawer erp-container" role="navigation" aria-label="Mobile Navigation">
+        <button type="button" class="mobile-nav-link" [class.active]="activeSection() === 'home'" (click)="scrollToSection('home', $event)">
+          <i class="pi pi-home"></i> <span>Home</span>
+        </button>
+        <button type="button" class="mobile-nav-link" [class.active]="activeSection() === 'products'" (click)="scrollToSection('products', $event)">
+          <i class="pi pi-box"></i> <span>Products</span>
+        </button>
+        <button type="button" class="mobile-nav-link" [class.active]="activeSection() === 'about'" (click)="scrollToSection('about', $event)">
+          <i class="pi pi-info-circle"></i> <span>About Us</span>
+        </button>
+        <button type="button" class="mobile-nav-link" [class.active]="activeSection() === 'services'" (click)="scrollToSection('services', $event)">
+          <i class="pi pi-briefcase"></i> <span>Services</span>
+        </button>
+        <button type="button" class="mobile-nav-link" [class.active]="activeSection() === 'suppliers'" (click)="scrollToSection('suppliers', $event)">
+          <i class="pi pi-truck"></i> <span>Suppliers</span>
+        </button>
+        <button type="button" class="mobile-nav-link" [class.active]="activeSection() === 'contact'" (click)="scrollToSection('contact', $event)">
+          <i class="pi pi-envelope"></i> <span>Contact Us</span>
+        </button>
+        <div class="mobile-actions">
+          <a routerLink="/login" class="nav-btn-link outlined" (click)="closeMobileMenu()">Sign In</a>
+          <a routerLink="/register" class="nav-btn-link filled" (click)="closeMobileMenu()">Register</a>
+        </div>
+      </div>
+    }
   </header>
 
   <!-- Main Content Viewport -->
@@ -81,38 +179,87 @@
     <router-outlet></router-outlet>
   </main>
 
-  <!-- Public SaaS Footer -->
-  <footer class="public-footer">
-    <div class="footer-inner erp-container">
-      <div class="footer-brand">
-        <div class="footer-logo">
-          <i class="pi pi-box" aria-hidden="true"></i>
-          <span>ApexERP Manufacturing Cloud</span>
+  <!-- Public Footer -->
+  @if (tenantContext.isTenantDomain()) {
+    <!-- Tenant-Specific Corporate Footer -->
+    <footer class="public-footer tenant-footer">
+      <div class="footer-inner erp-container">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <i class="pi pi-building" aria-hidden="true"></i>
+            <span>{{ tenantContext.currentTenant()?.name || tenantContext.subdomain() }}</span>
+          </div>
+          <p class="footer-tagline">
+            Dedicated commercial operations, manufacturing and supply chain portal.
+            Delivering high-quality products, verified batch traceability and trusted commercial trade partnerships.
+          </p>
         </div>
-        <p class="footer-tagline">AI-Powered Multi-Tenant Manufacturing ERP SaaS with Clean Enterprise Architecture.</p>
+        <div class="footer-links">
+          <div class="link-column">
+            <h4>Quick Navigation</h4>
+            <button type="button" class="footer-link-btn" (click)="scrollToSection('home', $event)">Home</button>
+            <button type="button" class="footer-link-btn" (click)="scrollToSection('products', $event)">Products Catalogue</button>
+            <button type="button" class="footer-link-btn" (click)="scrollToSection('about', $event)">About Us</button>
+            <button type="button" class="footer-link-btn" (click)="scrollToSection('services', $event)">Services &amp; Capabilities</button>
+            <button type="button" class="footer-link-btn" (click)="scrollToSection('suppliers', $event)">Suppliers &amp; Vendors</button>
+            <button type="button" class="footer-link-btn" (click)="scrollToSection('contact', $event)">Contact Information</button>
+          </div>
+          <div class="link-column">
+            <h4>Commercial Portals</h4>
+            <a routerLink="/login">Customer Sign In</a>
+            <a routerLink="/register">Register Customer Account</a>
+            <a routerLink="/public/rfq-submit">Supplier RFQ Portal</a>
+            <a routerLink="/app/dashboard">Employee ERP Login</a>
+            <a routerLink="/storefront">Product Storefront</a>
+          </div>
+          <div class="link-column">
+            <h4>Corporate Profile</h4>
+            <span class="footer-meta-item"><strong>Sector:</strong> {{ tenantContext.currentTenant()?.industryType || 'Enterprise Operations' }}</span>
+            <span class="footer-meta-item"><strong>Structure:</strong> {{ tenantContext.currentTenant()?.companyStructure || 'Single Company' }}</span>
+            <span class="footer-meta-item"><strong>Subdomain:</strong> {{ tenantContext.subdomain() }}</span>
+            <span class="footer-meta-item"><strong>E-Commerce:</strong> {{ tenantContext.currentTenant()?.eCommerceEnabled ? 'Storefront Enabled' : 'Direct Inquiry' }}</span>
+          </div>
+        </div>
       </div>
-      <div class="footer-links">
-        <div class="link-column">
-          <h4>Platform Navigation</h4>
-          <a routerLink="/overview" class="footer-link-btn">Platform Overview</a>
-          <a routerLink="/plans" class="footer-link-btn">Subscription Plans</a>
-          <button type="button" class="footer-link-btn" (click)="selectTab('directory')">Business Directory</button>
+      <div class="footer-bottom erp-container">
+        <p>&copy; {{ currentYear }} {{ tenantContext.currentTenant()?.name || tenantContext.subdomain() }}. All rights reserved. Powered by ApexERP Enterprise Cloud.</p>
+      </div>
+    </footer>
+  } @else {
+    <!-- Public SaaS Platform Footer -->
+    <footer class="public-footer">
+      <div class="footer-inner erp-container">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <i class="pi pi-box" aria-hidden="true"></i>
+            <span>ApexERP Manufacturing Cloud</span>
+          </div>
+          <p class="footer-tagline">AI-Powered Multi-Tenant Manufacturing ERP SaaS with Clean Enterprise Architecture.</p>
         </div>
-        <div class="link-column">
-          <h4>Enterprise Portals</h4>
-          <a routerLink="/login">Sign In / SSO Login</a>
-          <a routerLink="/register">Register Organization</a>
-          <a routerLink="/platform-admin">Platform Admin Console</a>
-          <a routerLink="/platform-staff">Platform Staff Portal</a>
-          <a routerLink="/tenant-admin">Tenant Admin Console</a>
-          <a routerLink="/app/dashboard">Operational Workspace</a>
-          <a routerLink="/storefront">Tenant Storefront</a>
-          <a routerLink="/customer-portal">Customer Portal</a>
+        <div class="footer-links">
+          <div class="link-column">
+            <h4>Platform Navigation</h4>
+            <a routerLink="/overview" class="footer-link-btn">Platform Overview</a>
+            <a routerLink="/plans" class="footer-link-btn">Subscription Plans</a>
+            <button type="button" class="footer-link-btn" (click)="selectTab('directory')">Business Directory</button>
+          </div>
+          <div class="link-column">
+            <h4>Enterprise Portals</h4>
+            <a routerLink="/login">Sign In / SSO Login</a>
+            <a routerLink="/register">Register Organization</a>
+            <a routerLink="/platform-admin">Platform Admin Console</a>
+            <a routerLink="/platform-staff">Platform Staff Portal</a>
+            <a routerLink="/tenant-admin">Tenant Admin Console</a>
+            <a routerLink="/app/dashboard">Operational Workspace</a>
+            <a routerLink="/storefront">Tenant Storefront</a>
+            <a routerLink="/customer-portal">Customer Portal</a>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="footer-bottom erp-container">
-      <p>&copy; {{ currentYear }} ApexERP Inc. All rights reserved. Clean Enterprise &amp; Fluent Design.</p>
-    </div>
-  </footer>
+      <div class="footer-bottom erp-container">
+        <p>&copy; {{ currentYear }} ApexERP Inc. All rights reserved. Clean Enterprise &amp; Fluent Design.</p>
+      </div>
+    </footer>
+  }
 </div>
+

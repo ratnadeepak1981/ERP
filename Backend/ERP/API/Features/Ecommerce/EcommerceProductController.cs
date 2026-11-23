@@ -249,6 +249,31 @@ public class EcommerceProductController : BaseApiController
         }
     }
 
+    [HttpPost("backfill")]
+    [RequirePermission("ECOMMERCE_PRODUCT.CREATE")]
+    public async Task<IActionResult> BackfillPublications(
+        [FromQuery] Guid companyId,
+        CancellationToken ct = default)
+    {
+        var (authError, tenantId) = await ValidateScopeAccessAsync(companyId);
+        if (authError != null)
+            return authError;
+
+        try
+        {
+            var count = await _ecommerceService.BackfillCompanyPublicationsAsync(tenantId, companyId, ct);
+            return SuccessResponse(new { backfilledCount = count }, $"Successfully backfilled {count} products into publication.");
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequestResponse(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     private async Task<(IActionResult? Error, Guid TenantId)> ValidateScopeAccessAsync(Guid companyId)
     {
         if (companyId == Guid.Empty)

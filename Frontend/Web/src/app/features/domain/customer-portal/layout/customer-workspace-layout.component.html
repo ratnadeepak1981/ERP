@@ -1,0 +1,124 @@
+<div class="customer-workspace-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
+  <!-- Top Command Header -->
+  <header class="workspace-topbar">
+    <div class="topbar-left">
+      <button
+        type="button"
+        class="icon-btn sidebar-toggle-btn"
+        (click)="toggleSidebar()"
+        title="Toggle Sidebar"
+        aria-label="Toggle Sidebar"
+      >
+        <i class="pi pi-bars"></i>
+      </button>
+
+      <button
+        type="button"
+        class="icon-btn mobile-menu-btn"
+        (click)="toggleMobileMenu()"
+        title="Toggle Menu"
+        aria-label="Toggle Menu"
+      >
+        <i class="pi pi-bars"></i>
+      </button>
+
+      <div class="brand-container">
+        <a routerLink="/customer-portal" class="brand-link">
+          <div class="logo-box">
+            <i class="pi pi-box"></i>
+          </div>
+          <div class="brand-details">
+            <span class="tenant-name">{{ tenantName() }}</span>
+            <span class="portal-badge" [class.b2b]="isOrganisation()">{{ brandTag() }}</span>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <!-- Theme Toggle -->
+      <button
+        type="button"
+        class="icon-btn theme-toggle-btn"
+        (click)="toggleTheme()"
+        [title]="themeService.currentTheme() === 'fluent-dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        aria-label="Toggle Theme"
+      >
+        <i [class]="themeService.currentTheme() === 'fluent-dark' ? 'pi pi-sun' : 'pi pi-moon'"></i>
+      </button>
+
+      <!-- Cart Quick Access -->
+      <a routerLink="/customer-portal/cart" class="icon-btn cart-btn" title="View Shopping Cart">
+        <i class="pi pi-shopping-cart"></i>
+      </a>
+
+      <!-- User Identity Chip -->
+      <div class="user-chip">
+        <div class="user-avatar">
+          <i [class]="isOrganisation() ? 'pi pi-building' : 'pi pi-user'"></i>
+        </div>
+        <div class="user-meta">
+          <span class="user-email">{{ authService.currentUser()?.email || 'Customer' }}</span>
+          <span class="user-role-label">{{ isOrganisation() ? 'Corporate Account' : 'Retail Buyer' }}</span>
+        </div>
+      </div>
+
+      <!-- Sign Out Button -->
+      <button
+        type="button"
+        class="erp-button erp-button-secondary erp-button-sm sign-out-btn"
+        (click)="onSignOut()"
+        title="Sign Out of Customer Workspace"
+      >
+        <i class="pi pi-sign-out"></i>
+        <span>Sign Out</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="workspace-body">
+    <!-- Sidebar Navigation -->
+    <aside class="workspace-sidebar" [class.mobile-open]="mobileMenuOpen()">
+      <div class="sidebar-scroll">
+        <nav class="sidebar-nav">
+          @for (group of navGroups(); track group.groupName) {
+            <div class="nav-group">
+              <span class="group-title">{{ group.groupName }}</span>
+              <div class="group-items">
+                @for (item of group.items; track item.route) {
+                  <a
+                    [routerLink]="item.route"
+                    routerLinkActive="active"
+                    [routerLinkActiveOptions]="{ exact: item.route === '/customer-portal/dashboard' }"
+                    class="nav-item"
+                    (click)="closeMobileMenu()"
+                  >
+                    <i [class]="item.icon"></i>
+                    <span class="nav-label">{{ item.label }}</span>
+                  </a>
+                }
+              </div>
+            </div>
+          }
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <a routerLink="/storefront" class="public-store-link" title="Open Public Storefront">
+          <i class="pi pi-external-link"></i>
+          <span>Public Storefront</span>
+        </a>
+      </div>
+    </aside>
+
+    <!-- Mobile Backdrop -->
+    @if (mobileMenuOpen()) {
+      <div class="mobile-backdrop" (click)="closeMobileMenu()"></div>
+    }
+
+    <!-- Main Workspace Content Area -->
+    <main class="workspace-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

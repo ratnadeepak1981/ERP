@@ -374,9 +374,53 @@
       "contactPerson": "Service Reception"
     },
     {
+      "code": "CUST-SRV-RET01",
+      "name": "Mahesh Rodrigo",
+      "email": "mahesh.service@apexerp.local",
+      "phone": "+94 77 567 8901",
+      "addressLine1": "No. 22, Havelock City",
+      "city": "Colombo",
+      "postalCode": "00500",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Mahesh Rodrigo",
+      "loginUser": {
+        "username": "mahesh.service@apexerp.local",
+        "email": "mahesh.service@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
+      "code": "CUST-SRV-RET02",
+      "name": "Nirosha Weerakkody",
+      "email": "nirosha.service@apexerp.local",
+      "phone": "+94 77 567 8902",
+      "addressLine1": "No. 70, Nawala Road",
+      "city": "Nawala",
+      "postalCode": "10107",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Nirosha Weerakkody",
+      "loginUser": {
+        "username": "nirosha.service@apexerp.local",
+        "email": "nirosha.service@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
       "code": "CUST-SRV-001",
       "name": "Lanka Business Solutions (Pvt) Ltd",
-      "email": "accounts@example.local",
+      "tradingName": "Lanka Business Solutions",
+      "taxNumber": "V847291039",
+      "email": "facility@colombotowers.local",
       "phone": "+94 11 440 0000",
       "addressLine1": "No. 75, Business Park",
       "city": "Colombo",
@@ -384,7 +428,61 @@
       "country": "Sri Lanka",
       "currencyCode": "LKR",
       "paymentTerms": "NET30",
-      "contactPerson": "Customer Service Manager"
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Upul Priyantha",
+      "loginUser": {
+        "username": "facility@colombotowers.local",
+        "email": "facility@colombotowers.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-SRV-002",
+      "name": "Premier Facility Management (Pvt) Ltd",
+      "tradingName": "Premier Facilities",
+      "taxNumber": "V192837461",
+      "email": "operations@premierfacilities.local",
+      "phone": "+94 11 440 0002",
+      "addressLine1": "No. 120, Galle Road",
+      "city": "Colombo",
+      "postalCode": "00300",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Lasantha Abeyratne",
+      "loginUser": {
+        "username": "operations@premierfacilities.local",
+        "email": "operations@premierfacilities.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-SRV-003",
+      "name": "Apex Hospitality Services Ltd",
+      "tradingName": "Apex Hospitality",
+      "taxNumber": "V473829108",
+      "email": "service@apexhospitality.local",
+      "phone": "+94 11 440 0003",
+      "addressLine1": "No. 40, Airport Road",
+      "city": "Katunayake",
+      "postalCode": "11450",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Pending",
+      "contactPerson": "Gayan Mendis",
+      "loginUser": {
+        "username": "service@apexhospitality.local",
+        "email": "service@apexhospitality.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
     }
   ],
   "priceCards": [

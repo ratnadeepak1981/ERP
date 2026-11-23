@@ -54,7 +54,7 @@ export const routes: Routes = [
   // 7. Customer Private (Customer Account & Order Portal)
   {
     path: 'customer-portal',
-    canActivate: [roleGuard(['Customer'])],
+    canActivate: [roleGuard(['Customer', 'CUSTOMER_INDIVIDUAL', 'CUSTOMER_COMPANY_ADMIN', 'Individual Retail Customer', 'Customer Company Administrator'])],
     loadChildren: () =>
       import('./features/domain/customer-portal/customer-portal.routes').then(m => m.customerPortalRoutes)
   },

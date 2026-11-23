@@ -17,45 +17,263 @@
         </div>
       </section>
     } @else {
-      <section class="hero-section">
+      <!-- ================= SECTION 1: HERO & PROMOTIONAL BANNER ================= -->
+      <section id="home" class="hero-section">
         <div class="erp-container hero-inner">
           <div class="hero-content">
             <span class="hero-badge">
               <i class="pi pi-building" aria-hidden="true"></i>
-              {{ tenantContext.currentTenant()?.industryType || 'Enterprise Workspace' }}
+              {{ tenantIndustry() }} • Verified Enterprise
             </span>
-            <h1 class="hero-title">{{ tenantContext.currentTenant()?.name || tenantContext.subdomain() }}</h1>
+            <h1 class="hero-title">{{ tenantName() }} <span class="highlight-blue">Commercial Operations</span></h1>
             <p class="hero-subtitle">
-              Welcome to the dedicated business operations and management portal for {{ tenantContext.currentTenant()?.name || 'this organization' }}.
+              {{ tenantDescription() }}
             </p>
             <div class="hero-cta-group">
-              <a routerLink="/login" pButton label="Sign In to ERP Workspace" icon="pi pi-sign-in" class="p-button-primary"></a>
-              @if (tenantContext.currentTenant()?.eCommerceEnabled) {
-                <a routerLink="/storefront" pButton label="View Storefront" icon="pi pi-shopping-bag" [outlined]="true" class="p-button-secondary"></a>
-              }
+              <button type="button" class="erp-button erp-button-primary" (click)="scrollToSection('products', $event)">
+                <i class="pi pi-compass" aria-hidden="true"></i> Explore Products
+              </button>
+              <button type="button" class="erp-button erp-button-secondary" (click)="scrollToSection('suppliers', $event)">
+                <i class="pi pi-truck" aria-hidden="true"></i> Become a Supplier
+              </button>
+              <button type="button" class="erp-button erp-button-secondary" (click)="scrollToSection('contact', $event)">
+                <i class="pi pi-envelope" aria-hidden="true"></i> Contact Us
+              </button>
             </div>
           </div>
           <div class="hero-visual">
             <div class="visual-card">
               <div class="visual-card-header">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
                 <span class="dot green"></span>
-                <span class="card-caption">Enterprise Tenant Active</span>
+                <span class="card-caption">{{ tenantName() }} Operations Hub</span>
               </div>
               <div class="visual-card-body">
                 <div class="mock-stat">
-                  <span class="stat-label">Subdomain</span>
-                  <strong class="stat-val">{{ tenantContext.subdomain() }}</strong>
+                  <span class="stat-label">Enterprise Capacity</span>
+                  <strong class="stat-val">Active Live</strong>
+                  <span class="stat-trend positive"><i class="pi pi-check-circle" aria-hidden="true"></i> Dedicated Tenant Partition</span>
                 </div>
                 <div class="mock-stat">
-                  <span class="stat-label">Structure</span>
-                  <strong class="stat-val">{{ tenantContext.currentTenant()?.companyStructure || 'Single Company' }}</strong>
+                  <span class="stat-label">Business Sector</span>
+                  <strong class="stat-val">{{ tenantIndustry() }}</strong>
+                  <span class="stat-trend neutral"><i class="pi pi-tag" aria-hidden="true"></i> Industry Specialized</span>
                 </div>
                 <div class="mock-stat">
-                  <span class="stat-label">E-Commerce</span>
-                  <strong class="stat-val">{{ tenantContext.currentTenant()?.eCommerceEnabled ? 'Enabled' : 'Disabled' }}</strong>
+                  <span class="stat-label">Organization Structure</span>
+                  <strong class="stat-val">{{ tenantStructure() }}</strong>
+                  <span class="stat-trend positive"><i class="pi pi-sitemap" aria-hidden="true"></i> Verified Company Scope</span>
+                </div>
+                <div class="mock-stat">
+                  <span class="stat-label">Commercial Channels</span>
+                  <strong class="stat-val">Direct B2B &amp; Storefront</strong>
+                  <span class="stat-trend neutral"><i class="pi pi-shield" aria-hidden="true"></i> Batch Traceable Operations</span>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SECTION 2: COMPANY INTRODUCTION ("ABOUT US") ================= -->
+      <section id="about" class="about-section erp-container">
+        <div class="section-header text-center">
+          <span class="section-tag">About the Organization</span>
+          <h2>Who We Are: Operational &amp; Supply Chain Excellence</h2>
+          <p>Delivering high-integrity commercial capabilities, reliable supply chains, and certified quality.</p>
+        </div>
+        <div class="about-grid">
+          <div class="about-story erp-card">
+            <h3>Dedicated Enterprise Operations</h3>
+            <p>
+              At <strong>{{ tenantName() }}</strong>, we manage specialized operations within the {{ tenantIndustry().toLowerCase() }} sector.
+              Our organization operates integrated manufacturing, multi-warehouse stock holding, and commercial fulfillment
+              designed to deliver precision execution, consistent material traceability, and dependable delivery schedules.
+            </p>
+            <p>
+              By leveraging ApexERP's unified digital platform, our workflows connect inventory valuation, quality control,
+              and sales order fulfillment with end-to-end transparency. We work closely with commercial partners, corporate buyers,
+              and certified suppliers to uphold the highest standards of operational efficiency.
+            </p>
+          </div>
+          <div class="milestone-grid">
+            @for (m of milestones(); track m.label) {
+              <div class="milestone-card erp-card">
+                <span class="milestone-val">{{ m.value }}</span>
+                <span class="milestone-lbl">{{ m.label }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SECTION 3: PRODUCT CATEGORIES & FEATURED PRODUCTS ================= -->
+      <section id="products" class="products-section erp-container">
+        <div class="section-header text-center">
+          <span class="section-tag">Product Catalogues</span>
+          <h2>Product Categories &amp; Certified Inventory</h2>
+          <p>Explore commercial components, raw materials, and assemblies manufactured and supplied to strict standards.</p>
+        </div>
+
+        <!-- Category Discovery Cards Grid -->
+        <div class="capabilities-grid">
+          @for (cat of categories(); track cat.id) {
+            <div class="capability-card erp-card">
+              <div class="card-top-row">
+                <div class="capability-icon-wrap" aria-hidden="true">
+                  <i [class]="cat.icon || 'pi pi-box'"></i>
+                </div>
+              </div>
+              <h3>{{ cat.name }}</h3>
+              <p>{{ cat.description }}</p>
+            </div>
+          }
+        </div>
+
+        <!-- Featured Products Sub-Section -->
+        <div class="featured-products-header text-center">
+          <h3>Featured Commercial Products</h3>
+          <p>Active items available for immediate order placement or B2B sales quotation.</p>
+        </div>
+
+        @if (featuredProducts().length > 0) {
+          <div class="featured-products-grid">
+            @for (prod of featuredProducts(); track prod.productId) {
+              <div class="product-preview-card erp-card">
+                <div class="prod-badge-row">
+                  <span class="prod-cat-tag">{{ prod.categoryName || 'General Line' }}</span>
+                  <app-status-badge
+                    [status]="prod.inStock ? 'active' : 'warning'"
+                    [label]="prod.inStock ? 'In Stock' : 'Available'"
+                  ></app-status-badge>
+                </div>
+                <div class="prod-body">
+                  <span class="prod-sku">{{ prod.productCode }}</span>
+                  <h4 class="prod-title">{{ prod.productName }}</h4>
+                  <p class="prod-desc">{{ prod.onlineDescription || 'Certified commercial grade product with complete batch tracking.' }}</p>
+                </div>
+                <div class="prod-footer">
+                  <div class="prod-price">
+                    <span class="price-val">{{ prod.currency }} ${{ prod.sellingPrice.toFixed(2) }}</span>
+                    <span class="price-unit">/ {{ prod.unitOfMeasure }}</span>
+                  </div>
+                  <a routerLink="/login" class="erp-button erp-button-sm erp-button-secondary">
+                    <i class="pi pi-search"></i> Details
+                  </a>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <app-empty-state
+            icon="pi pi-box"
+            title="Product Catalogue Updating"
+            description="Published products are currently being updated for this organization. Inquire with our sales desk for immediate stock availability and custom contract pricing."
+            actionLabel="Contact Sales Desk"
+            (action)="scrollToSection('contact')"
+          ></app-empty-state>
+        }
+
+        <div class="text-center section-cta-row">
+          <a routerLink="/storefront" class="erp-button erp-button-primary">
+            <i class="pi pi-arrow-right"></i> View Entire Product Catalogue
+          </a>
+        </div>
+      </section>
+
+      <!-- ================= SECTION 4: BUSINESS SERVICES & CORPORATE CAPABILITIES ================= -->
+      <section id="services" class="services-section erp-container">
+        <div class="section-header text-center">
+          <span class="section-tag">Core Services</span>
+          <h2>Comprehensive Business Capabilities</h2>
+          <p>Supporting corporate and retail partners with full-lifecycle procurement, production, and supply services.</p>
+        </div>
+
+        <div class="capabilities-grid">
+          @for (svc of businessServices(); track svc.title) {
+            <div class="capability-card erp-card">
+              <div class="card-top-row">
+                <div class="capability-icon-wrap" aria-hidden="true">
+                  <i [class]="svc.icon"></i>
+                </div>
+              </div>
+              <h3>{{ svc.title }}</h3>
+              <p>{{ svc.description }}</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- ================= SECTION 5: SUPPLIER REGISTRATION & ONBOARDING PORTAL ================= -->
+      <section id="suppliers" class="suppliers-section erp-container">
+        <div class="growth-card erp-card">
+          <div class="section-header text-center">
+            <span class="section-tag"><i class="pi pi-handshake"></i> Vendor Network</span>
+            <h2>Partner with {{ tenantName() }} — Supplier &amp; Vendor Network</h2>
+            <p class="growth-desc">
+              We actively collaborate with certified raw material producers, specialized processing partners, and logistics carriers.
+              Join our authorized vendor ecosystem or submit quotations directly against active Requests for Quotation (RFQs).
+            </p>
+            <div class="supplier-cta-group">
+              <a routerLink="/public/rfq-submit" class="erp-button erp-button-primary">
+                <i class="pi pi-file-edit"></i> Submit Active RFQ Quotation
+              </a>
+              <button type="button" class="erp-button erp-button-secondary" (click)="scrollToSection('contact', $event)">
+                <i class="pi pi-envelope"></i> Supplier Registration Inquiry
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SECTION 6: CORPORATE CONTACT INFORMATION ================= -->
+      <section id="contact" class="contact-section erp-container">
+        <div class="section-header text-center">
+          <span class="section-tag">Contact Us</span>
+          <h2>Corporate Contact &amp; Operating Hours</h2>
+          <p>Reach our administrative offices, commercial sales desk, or dispatch facility.</p>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-card erp-card">
+            <div class="contact-icon-wrap" aria-hidden="true">
+              <i class="pi pi-map-marker"></i>
+            </div>
+            <h3>Registered Head Office</h3>
+            <p class="contact-detail">
+              <strong>{{ tenantName() }} Corporate Headquarters</strong><br>
+              Enterprise Business Park, Dock 4<br>
+              Subdomain: <code>{{ tenantSubdomain() }}</code><br>
+              ApexERP Enterprise Cloud
+            </p>
+          </div>
+
+          <div class="contact-card erp-card">
+            <div class="contact-icon-wrap" aria-hidden="true">
+              <i class="pi pi-phone"></i>
+            </div>
+            <h3>Inquiries &amp; Sales Desk</h3>
+            <p class="contact-detail">
+              <strong>Corporate Inquiries:</strong><br>
+              inquiries&#64;{{ tenantSubdomain() || 'tenant' }}.apexerp.com<br><br>
+              <strong>Commercial Sales Desk:</strong><br>
+              sales&#64;{{ tenantSubdomain() || 'tenant' }}.apexerp.com
+            </p>
+          </div>
+
+          <div class="contact-card erp-card">
+            <div class="contact-icon-wrap" aria-hidden="true">
+              <i class="pi pi-clock"></i>
+            </div>
+            <h3>Operating &amp; Receiving Hours</h3>
+            <p class="contact-detail">
+              <strong>Business Operations:</strong><br>
+              Monday – Friday: 08:00 – 17:30<br><br>
+              <strong>Warehouse Receiving:</strong><br>
+              Monday – Friday: 07:00 – 16:00<br>
+              Weekend: Emergency Dispatch On-Call
+            </p>
           </div>
         </div>
       </section>

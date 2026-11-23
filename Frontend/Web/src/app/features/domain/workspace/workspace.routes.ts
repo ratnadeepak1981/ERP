@@ -574,6 +574,32 @@ export const workspaceRoutes: Routes = [
         pathMatch: 'full'
       },
       {
+        path: 'quotations',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./sales/quotations/sales-quotation-register.component').then(
+                m => m.SalesQuotationRegisterComponent
+              )
+          },
+          {
+            path: 'new',
+            loadComponent: () =>
+              import('./sales/quotations/sales-quotation-page.component').then(
+                m => m.SalesQuotationPageComponent
+              )
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./sales/quotations/sales-quotation-page.component').then(
+                m => m.SalesQuotationPageComponent
+              )
+          }
+        ]
+      },
+      {
         path: 'orders',
         children: [
           {

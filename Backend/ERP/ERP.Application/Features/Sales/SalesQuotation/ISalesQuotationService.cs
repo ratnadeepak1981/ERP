@@ -12,7 +12,8 @@ public interface ISalesQuotationService
         Guid tenantId,
         Guid companyId,
         Guid branchId,
-        SalesQuotationStatus? status = null);
+        SalesQuotationStatus? status = null,
+        SalesQuotationType? documentType = null);
 
     Task<SalesQuotationDto?> GetQuotationAsync(
         Guid tenantId,
@@ -105,13 +106,23 @@ public interface ISalesQuotationService
         string actorUserName,
         string? remarks = null);
 
+    Task<SalesQuotationDto> ReturnToDraftAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid quotationId,
+        Guid actorUserId,
+        string actorUserName,
+        string? remarks = null);
+
     Task<SalesQuotationDto> SendQuotationAsync(
         Guid tenantId,
         Guid companyId,
         Guid branchId,
         Guid quotationId,
         Guid actorUserId,
-        string actorUserName);
+        string actorUserName,
+        bool isRetry = false);
 
     Task<SalesQuotationDto> AcceptQuotationAndConvertAtomicAsync(
         Guid tenantId,

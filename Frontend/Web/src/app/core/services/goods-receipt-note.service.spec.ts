@@ -1,13 +1,43 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, getTestBed } from '@angular/core/testing';
+import {
+  BrowserTestingModule,
+  platformBrowserTesting
+} from '@angular/platform-browser/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { GoodsReceiptNoteService } from './goods-receipt-note.service';
 import {
   GoodsReceiptNoteDto,
   GoodsReceiptNoteStatus,
-  CreateGoodsReceiptNoteRequest
+  CreateGoodsReceiptNoteRequest,
+  UpdateGoodsReceiptNoteRequest
 } from '../models/goods-receipt-note.models';
+
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    createElement: () => ({ style: {} }),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    body: {
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      appendChild: () => {},
+      removeChild: () => {}
+    },
+    location: { href: 'http://localhost' }
+  };
+  (globalThis as any).window = globalThis;
+}
+
+try {
+  getTestBed().initTestEnvironment(
+    BrowserTestingModule,
+    platformBrowserTesting()
+  );
+} catch {
+  // Already initialized
+}
 
 describe('GoodsReceiptNoteService', () => {
   let service: GoodsReceiptNoteService;
@@ -43,6 +73,7 @@ describe('GoodsReceiptNoteService', () => {
   };
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         GoodsReceiptNoteService,
@@ -113,6 +144,37 @@ describe('GoodsReceiptNoteService', () => {
     const req = httpTesting.expectOne(
       r => r.url.includes(`/companies/${companyId}/branches/${branchId}/goods-receipt-notes/${grnId}/confirm`) && r.method === 'POST'
     );
+    req.flush({ success: true, data: confirmedGrn });
+  });
+
+  it('should fetch active draft for PO if exists', () => {
+    service.getActiveDraftForPo(companyId, branchId, poId).subscribe(data => {
+      expect(data?.goodsReceiptNoteId).toBe(grnId);
+      expect(data?.status).toBe(GoodsReceiptNoteStatus.Draft);
+    });
+
+    const req = httpTesting.expectOne(
+      r => r.url.includes(`/companies/${companyId}/branches/${branchId}/goods-receipt-notes/from-po/${poId}/draft`) && r.method === 'GET'
+    );
+    req.flush({ success: true, data: mockGrn });
+  });
+
+  it('should confirm goods receipt note with direct post body', () => {
+    const updateReq: UpdateGoodsReceiptNoteRequest = {
+      deliveryNoteNumber: 'DN-DIRECT',
+      lines: []
+    };
+    const confirmedGrn = { ...mockGrn, status: GoodsReceiptNoteStatus.Confirmed, deliveryNoteNumber: 'DN-DIRECT' };
+
+    service.confirmGrn(companyId, branchId, grnId, updateReq).subscribe(data => {
+      expect(data.status).toBe(GoodsReceiptNoteStatus.Confirmed);
+      expect(data.deliveryNoteNumber).toBe('DN-DIRECT');
+    });
+
+    const req = httpTesting.expectOne(
+      r => r.url.includes(`/companies/${companyId}/branches/${branchId}/goods-receipt-notes/${grnId}/confirm`) && r.method === 'POST'
+    );
+    expect(req.request.body).toEqual(updateReq);
     req.flush({ success: true, data: confirmedGrn });
   });
 

@@ -571,9 +571,53 @@
       "contactPerson": "Cashier Desk"
     },
     {
+      "code": "CUST-WHO-RET01",
+      "name": "Suresh Jayakody",
+      "email": "suresh.wholesale@apexerp.local",
+      "phone": "+94 77 345 6701",
+      "addressLine1": "No. 55, Main Street",
+      "city": "Kelaniya",
+      "postalCode": "11600",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Suresh Jayakody",
+      "loginUser": {
+        "username": "suresh.wholesale@apexerp.local",
+        "email": "suresh.wholesale@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
+      "code": "CUST-WHO-RET02",
+      "name": "Tharanga Mendis",
+      "email": "tharanga.wholesale@apexerp.local",
+      "phone": "+94 77 345 6702",
+      "addressLine1": "No. 88, Kandy Road",
+      "city": "Kiribathgoda",
+      "postalCode": "11600",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Tharanga Mendis",
+      "loginUser": {
+        "username": "tharanga.wholesale@apexerp.local",
+        "email": "tharanga.wholesale@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
       "code": "CUST-WHO-001",
       "name": "Northern Retail Stores (Pvt) Ltd",
-      "email": "accounts@example.local",
+      "tradingName": "Northern Stores",
+      "taxNumber": "V384729105",
+      "email": "orders@cityretail.local",
       "phone": "+94 21 220 0000",
       "addressLine1": "No. 15, Market Road",
       "city": "Jaffna",
@@ -581,7 +625,61 @@
       "country": "Sri Lanka",
       "currencyCode": "LKR",
       "paymentTerms": "NET30",
-      "contactPerson": "Wholesale Customer Contact"
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Bandula Gunawardena",
+      "loginUser": {
+        "username": "orders@cityretail.local",
+        "email": "orders@cityretail.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-WHO-002",
+      "name": "Lanka Wholesale Distributors Ltd",
+      "tradingName": "Lanka Wholesale",
+      "taxNumber": "V726154839",
+      "email": "logistics@lankadist.local",
+      "phone": "+94 11 410 0002",
+      "addressLine1": "No. 120, Harbor Road",
+      "city": "Colombo",
+      "postalCode": "01300",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Janaka Alwis",
+      "loginUser": {
+        "username": "logistics@lankadist.local",
+        "email": "logistics@lankadist.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-WHO-003",
+      "name": "Southern Grocers Cooperative",
+      "tradingName": "Southern Grocers",
+      "taxNumber": "V593817264",
+      "email": "procure@southerngrocers.local",
+      "phone": "+94 91 223 4567",
+      "addressLine1": "No. 40, Fort Road",
+      "city": "Galle",
+      "postalCode": "80000",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Pending",
+      "contactPerson": "Dammika Karunaratne",
+      "loginUser": {
+        "username": "procure@southerngrocers.local",
+        "email": "procure@southerngrocers.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
     }
   ],
   "priceCards": [

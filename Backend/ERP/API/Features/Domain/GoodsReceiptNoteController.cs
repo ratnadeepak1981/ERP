@@ -66,6 +66,22 @@ public class GoodsReceiptNoteController : BaseApiController
         return SuccessResponse(grn);
     }
 
+    [HttpGet("from-po/{purchaseOrderId:guid}/draft")]
+    [RequirePermission("GRN.VIEW")]
+    public async Task<IActionResult> GetActiveDraftForPo(Guid companyId, Guid branchId, Guid purchaseOrderId)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        var grn = await _grnService.GetActiveDraftByPurchaseOrderIdAsync(authResult.TenantId, companyId, branchId, purchaseOrderId);
+        if (grn == null)
+        {
+            return NotFoundResponse("No active draft found for this purchase order.");
+        }
+
+        return SuccessResponse(grn);
+    }
+
     [HttpPost("from-po/{purchaseOrderId:guid}")]
     [RequirePermission("GRN.CREATE")]
     public async Task<IActionResult> CreateDraftFromPo(
@@ -198,14 +214,18 @@ public class GoodsReceiptNoteController : BaseApiController
 
     [HttpPost("{id:guid}/confirm")]
     [RequirePermission("GRN.CONFIRM")]
-    public async Task<IActionResult> ConfirmGrn(Guid companyId, Guid branchId, Guid id)
+    public async Task<IActionResult> ConfirmGrn(
+        Guid companyId,
+        Guid branchId,
+        Guid id,
+        [FromBody] UpdateGoodsReceiptNoteRequest? request = null)
     {
         var authResult = await ValidateScopeAccess(companyId, branchId);
         if (authResult.Action != null) return authResult.Action;
 
         try
         {
-            var grn = await _grnService.ConfirmGrnAsync(authResult.TenantId, companyId, branchId, id);
+            var grn = await _grnService.ConfirmGrnAsync(authResult.TenantId, companyId, branchId, id, request);
             return SuccessResponse(grn, "Goods Receipt Note confirmed successfully.");
         }
         catch (Exception ex)

@@ -566,9 +566,53 @@
       "contactPerson": "Dispensing Counter"
     },
     {
+      "code": "CUST-PHA-RET01",
+      "name": "Ruwan Gunasekara",
+      "email": "ruwan.pharmacy@apexerp.local",
+      "phone": "+94 77 456 7801",
+      "addressLine1": "No. 14, Ward Place",
+      "city": "Colombo",
+      "postalCode": "00700",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Ruwan Gunasekara",
+      "loginUser": {
+        "username": "ruwan.pharmacy@apexerp.local",
+        "email": "ruwan.pharmacy@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
+      "code": "CUST-PHA-RET02",
+      "name": "Sanduni Wijesinghe",
+      "email": "sanduni.pharmacy@apexerp.local",
+      "phone": "+94 77 456 7802",
+      "addressLine1": "No. 80, Cotta Road",
+      "city": "Rajagiriya",
+      "postalCode": "10107",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "IMMEDIATE",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Retail",
+      "approvalStatus": "Approved",
+      "contactPerson": "Sanduni Wijesinghe",
+      "loginUser": {
+        "username": "sanduni.pharmacy@apexerp.local",
+        "email": "sanduni.pharmacy@apexerp.local",
+        "role": "CUSTOMER_INDIVIDUAL"
+      }
+    },
+    {
       "code": "CUST-PHA-001",
       "name": "Northern Community Pharmacy",
-      "email": "accounts@example.local",
+      "tradingName": "Community Pharmacy",
+      "taxNumber": "V473829105",
+      "email": "procure@medicare.local",
       "phone": "+94 21 220 1000",
       "addressLine1": "No. 25, Hospital Road",
       "city": "Jaffna",
@@ -576,7 +620,61 @@
       "country": "Sri Lanka",
       "currencyCode": "LKR",
       "paymentTerms": "NET30",
-      "contactPerson": "Pharmacy Manager"
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Dr. Asela Peiris",
+      "loginUser": {
+        "username": "procure@medicare.local",
+        "email": "procure@medicare.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-PHA-002",
+      "name": "CareFirst Pharmacy Network Ltd",
+      "tradingName": "CareFirst Health",
+      "taxNumber": "V847291045",
+      "email": "admin@carefirst.local",
+      "phone": "+94 11 220 1002",
+      "addressLine1": "No. 120, High Level Road",
+      "city": "Nugegoda",
+      "postalCode": "10250",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Approved",
+      "contactPerson": "Kavinda Dissanayake",
+      "loginUser": {
+        "username": "admin@carefirst.local",
+        "email": "admin@carefirst.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
+    },
+    {
+      "code": "CUST-PHA-003",
+      "name": "Wellness Clinic & Surgical Care",
+      "tradingName": "Wellness Clinic",
+      "taxNumber": "V192837456",
+      "email": "supplies@wellnesscare.local",
+      "phone": "+94 11 220 1003",
+      "addressLine1": "No. 55, Havelock Road",
+      "city": "Colombo",
+      "postalCode": "00500",
+      "country": "Sri Lanka",
+      "currencyCode": "LKR",
+      "paymentTerms": "NET30",
+      "defaultPriceCard": "SPC-RETAIL-STD",
+      "customerType": "Company",
+      "approvalStatus": "Pending",
+      "contactPerson": "Dr. Kumara Senaratne",
+      "loginUser": {
+        "username": "supplies@wellnesscare.local",
+        "email": "supplies@wellnesscare.local",
+        "role": "CUSTOMER_COMPANY_ADMIN"
+      }
     }
   ],
   "priceCards": [

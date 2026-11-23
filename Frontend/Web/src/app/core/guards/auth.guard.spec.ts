@@ -128,15 +128,17 @@ describe('Auth Guards', () => {
     });
 
     it('should block customer accounts from accessing internal ERP workspace', () => {
-      authService.currentUser.set(createSession(['Customer']));
-      const route = {} as ActivatedRouteSnapshot;
-      const state = { url: '/app/dashboard' } as RouterStateSnapshot;
+      for (const custRole of ['Customer', 'CUSTOMER_INDIVIDUAL', 'CUSTOMER_COMPANY_ADMIN']) {
+        authService.currentUser.set(createSession([custRole]));
+        const route = {} as ActivatedRouteSnapshot;
+        const state = { url: '/app/dashboard' } as RouterStateSnapshot;
 
-      const result = TestBed.runInInjectionContext(() => workspaceGuard(route, state));
-      expect(result instanceof UrlTree).toBe(true);
-      const tree = result as UrlTree;
-      expect(tree.toString()).toContain('/access-denied');
-      expect(tree.queryParams['attempted']).toBe('/app/dashboard');
+        const result = TestBed.runInInjectionContext(() => workspaceGuard(route, state));
+        expect(result instanceof UrlTree).toBe(true);
+        const tree = result as UrlTree;
+        expect(tree.toString()).toContain('/access-denied');
+        expect(tree.queryParams['attempted']).toBe('/app/dashboard');
+      }
     });
 
     it('should block platform staff without explicit workspace authorization from accessing internal ERP workspace', () => {

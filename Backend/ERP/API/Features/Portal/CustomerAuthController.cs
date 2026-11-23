@@ -20,22 +20,31 @@ public class CustomerAuthController : BaseApiController
 {
     private readonly ICustomerRegistrationService _registrationService;
     private readonly ICustomerAuthService _authService;
+    private readonly API.Common.TenantResolution.ITenantContext _tenantContext;
 
     public CustomerAuthController(
         ICustomerRegistrationService registrationService,
-        ICustomerAuthService authService)
+        ICustomerAuthService authService,
+        API.Common.TenantResolution.ITenantContext tenantContext)
     {
         _registrationService = registrationService ?? throw new ArgumentNullException(nameof(registrationService));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
     }
 
     [HttpPost("register")]
+    [HttpPost("register-company")]
     public async Task<IActionResult> RegisterCompanyCustomer(
         [FromBody] RegisterCompanyCustomerRequest request,
         CancellationToken ct = default)
     {
         if (request == null)
             return BadRequestResponse("Registration payload is required.");
+
+        if (request.TenantId == Guid.Empty && _tenantContext.IsTenantDomainRequest && _tenantContext.TenantId.HasValue)
+        {
+            request.TenantId = _tenantContext.TenantId.Value;
+        }
 
         try
         {
@@ -59,6 +68,11 @@ public class CustomerAuthController : BaseApiController
     {
         if (request == null)
             return BadRequestResponse("Registration payload is required.");
+
+        if (request.TenantId == Guid.Empty && _tenantContext.IsTenantDomainRequest && _tenantContext.TenantId.HasValue)
+        {
+            request.TenantId = _tenantContext.TenantId.Value;
+        }
 
         try
         {

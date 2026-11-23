@@ -64,6 +64,8 @@
             size="small"
             severity="success"
             [loading]="actionInProgress()"
+            [disabled]="!canConfirmGrn()"
+            [pTooltip]="!canConfirmGrn() ? 'You do not have permission to post inventory receipts (GRN.CONFIRM required).' : ''"
             (onClick)="confirmCurrentDraft()"
           ></p-button>
 
@@ -296,7 +298,7 @@
               icon="pi pi-save"
               severity="secondary"
               [loading]="actionInProgress()"
-              [disabled]="!scopeService.canOperateTransactions()"
+              [disabled]="!scopeService.canOperateTransactions() || (!canCreateGrn() && !canEditGrn())"
               (onClick)="saveReceipt(false)"
             ></p-button>
 
@@ -305,7 +307,8 @@
               icon="pi pi-check"
               severity="success"
               [loading]="actionInProgress()"
-              [disabled]="!scopeService.canOperateTransactions()"
+              [disabled]="!scopeService.canOperateTransactions() || !canConfirmGrn()"
+              [pTooltip]="!canConfirmGrn() ? 'You do not have permission to post inventory receipts (GRN.CONFIRM required).' : ''"
               (onClick)="saveReceipt(true)"
             ></p-button>
           } @else if (mode() === 'create' && isFullyReceived()) {
@@ -321,6 +324,7 @@
               icon="pi pi-save"
               severity="secondary"
               [loading]="actionInProgress()"
+              [disabled]="!canCreateGrn() && !canEditGrn()"
               (onClick)="saveReceipt(false)"
             ></p-button>
 
@@ -329,6 +333,8 @@
               icon="pi pi-check"
               severity="success"
               [loading]="actionInProgress()"
+              [disabled]="!canConfirmGrn()"
+              [pTooltip]="!canConfirmGrn() ? 'You do not have permission to post inventory receipts (GRN.CONFIRM required).' : ''"
               (onClick)="saveReceipt(true)"
             ></p-button>
           }
@@ -336,4 +342,71 @@
       </section>
     </div>
   }
+
+  <!-- Post Receipt Confirmation Dialog -->
+  <p-dialog
+    [(visible)]="showPostConfirmDialog"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    header="Confirm & Post Goods Receipt"
+    [style]="{ width: '560px' }"
+  >
+    <div class="confirm-dialog-content">
+      <div class="dialog-warning-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <div>
+          <strong>Inventory Posting Notice:</strong>
+          <p>
+            Posting this receipt will immediately increment inventory balances in the designated warehouse/storage locations
+            and record received quantities against Purchase Order <strong>{{ sourcePo()?.orderNumber }}</strong>.
+            This action cannot be reverted as a draft.
+          </p>
+        </div>
+      </div>
+
+      <div class="dialog-receipt-summary">
+        <div class="summary-field">
+          <span class="label">Purchase Order:</span>
+          <span class="val">{{ sourcePo()?.orderNumber || '—' }}</span>
+        </div>
+        <div class="summary-field">
+          <span class="label">GRN Reference:</span>
+          <span class="val">{{ currentGrn()?.grnNumber || 'New Receipt' }}</span>
+        </div>
+        <div class="summary-field">
+          <span class="label">Receiving Facility:</span>
+          <span class="val">{{ selectedWarehouseName() }}</span>
+        </div>
+        <div class="summary-field">
+          <span class="label">Total Received Quantity:</span>
+          <span class="val font-semibold">{{ totalReceivedQuantity() | number:'1.0-4' }} units</span>
+        </div>
+        <div class="summary-field">
+          <span class="label">Total Receipt Value:</span>
+          <span class="val font-semibold">{{ totalReceiptAmount() | currency:'USD':'symbol':'1.2-2' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #footer pTemplate="footer">
+      <div class="dialog-actions-container">
+        <p-button
+          label="Cancel"
+          icon="pi pi-times"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="showPostConfirmDialog.set(false)"
+          [disabled]="actionInProgress()"
+        ></p-button>
+        <p-button
+          label="Confirm & Post Receipt"
+          icon="pi pi-check"
+          severity="success"
+          [loading]="actionInProgress()"
+          (onClick)="executeConfirmedPost()"
+        ></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
 </div>

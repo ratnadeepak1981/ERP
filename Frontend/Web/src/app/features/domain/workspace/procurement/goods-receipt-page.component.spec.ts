@@ -173,7 +173,9 @@ describe('GoodsReceiptPageComponent', () => {
         productName: 'Steel Sheet 2mm',
         quantityReceived: 15,
         unitCost: 25.0, // Strictly read-only
-        lineTotal: 375.0
+        lineTotal: 375.0,
+        warehouseId: 'wh-1',
+        warehouseLocationId: 'loc-1'
       }
     ]
   };
@@ -226,6 +228,10 @@ describe('GoodsReceiptPageComponent', () => {
     scopeService.selectedCompany.set(mockCompany);
     scopeService.selectedBranch.set(mockBranch);
     scopeService.isAllBranches.set(false);
+
+    const authService = TestBed.inject(AuthService);
+    vi.spyOn(authService, 'hasPermission').mockReturnValue(true);
+    vi.spyOn(grnService, 'getActiveDraftForPo').mockReturnValue(of(null));
   });
 
   it('should initialize and load approved PO, pre-populating outstanding quantities and locking prices', () => {
@@ -318,6 +324,8 @@ describe('GoodsReceiptPageComponent', () => {
 
     // Partial receipt: receive 10 instead of 15
     component.workingLines()[0].receivedQuantityNow = 10;
+    component.workingLines()[0].warehouseId = 'wh-1';
+    component.workingLines()[0].warehouseLocationId = 'loc-1';
     component.calculateRow(component.workingLines()[0]);
 
     component.saveReceipt(false);
@@ -348,10 +356,15 @@ describe('GoodsReceiptPageComponent', () => {
     const navSpy = vi.spyOn(router, 'navigate');
 
     component.ngOnInit();
+    component.workingLines()[0].warehouseId = 'wh-1';
+    component.workingLines()[0].warehouseLocationId = 'loc-1';
 
     component.saveReceipt(true);
+    expect(component.showPostConfirmDialog()).toBe(true);
 
-    expect(confirmSpy).toHaveBeenCalledWith(mockCompany.id, mockBranch.id, 'grn-201');
+    component.executeConfirmedPost();
+
+    expect(confirmSpy).toHaveBeenCalledWith(mockCompany.id, mockBranch.id, 'grn-201', null);
     expect(navSpy).toHaveBeenCalledWith(['/app/procurement/goods-receipts', 'grn-201']);
   });
 
@@ -829,6 +842,35 @@ describe('GoodsReceiptPageComponent', () => {
       const validator = receivedNowCol?.validators?.[0];
       expect(validator?.(1, lines[0])).toBe('Cannot exceed outstanding (0)');
       expect(validator?.(5, lines[1])).toBeNull();
+    });
+
+    it('should reopen existing active draft when getActiveDraftForPo returns a draft', () => {
+      vi.spyOn(poService, 'getOrder').mockReturnValue(of(mockApprovedPo));
+      vi.spyOn(grnService, 'getActiveDraftForPo').mockReturnValue(of(mockSavedGrn));
+
+      component.ngOnInit();
+
+      expect(component.currentGrn()).toEqual(mockSavedGrn);
+      expect(component.editingDraft()).toBe(true);
+      expect(component.message()?.severity).toBe('info');
+      expect(component.message()?.text).toContain('Existing editable Draft');
+      expect(component.headerForm.get('grnNumber')?.value).toBe('GRN-2026-001');
+    });
+
+    it('should prevent post when user lacks GRN.CONFIRM permission', () => {
+      const authService = TestBed.inject(AuthService);
+      vi.spyOn(authService, 'hasPermission').mockImplementation(perm => perm !== 'GRN.CONFIRM');
+      vi.spyOn(poService, 'getOrder').mockReturnValue(of(mockApprovedPo));
+
+      component.ngOnInit();
+      component.workingLines()[0].warehouseId = 'wh-1';
+      component.workingLines()[0].warehouseLocationId = 'loc-1';
+
+      component.saveReceipt(true);
+
+      expect(component.showPostConfirmDialog()).toBe(false);
+      expect(component.message()?.severity).toBe('danger');
+      expect(component.message()?.text).toContain('GRN.CONFIRM required');
     });
   });
 });

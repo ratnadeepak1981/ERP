@@ -247,6 +247,17 @@ export class SalesOverviewComponent implements OnInit, OnDestroy {
         layout: 'horizontal',
         stages: [
           {
+            id: 'sq',
+            code: 'SQ',
+            label: 'Sales Quotation',
+            description: 'Review customer quotation requests and prepare commercial offers',
+            icon: 'file',
+            status: 'completed',
+            statusLabel: 'Quotations',
+            route: '/app/sales/quotations',
+            requiredPermissions: ['SALES_ORDER.VIEW']
+          },
+          {
             id: 'so',
             code: 'SO',
             label: 'Sales Order',

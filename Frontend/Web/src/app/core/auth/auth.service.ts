@@ -52,7 +52,30 @@ export class AuthService {
   });
 
   readonly isCustomer = computed(() => {
-    return this.roles().includes('Customer');
+    const userRoles = this.roles();
+    return (
+      userRoles.includes('Customer') ||
+      userRoles.includes('CUSTOMER_INDIVIDUAL') ||
+      userRoles.includes('CUSTOMER_COMPANY_ADMIN') ||
+      userRoles.some(r => r.toUpperCase().startsWith('CUSTOMER_'))
+    );
+  });
+
+  readonly isCustomerIndividual = computed(() => {
+    const userRoles = this.roles();
+    return (
+      userRoles.includes('CUSTOMER_INDIVIDUAL') ||
+      userRoles.includes('Individual Retail Customer') ||
+      (userRoles.includes('Customer') && !userRoles.includes('CUSTOMER_COMPANY_ADMIN'))
+    );
+  });
+
+  readonly isCustomerCompany = computed(() => {
+    const userRoles = this.roles();
+    return (
+      userRoles.includes('CUSTOMER_COMPANY_ADMIN') ||
+      userRoles.includes('Customer Company Administrator')
+    );
   });
 
   private loadInitialSession(): UserSession | null {

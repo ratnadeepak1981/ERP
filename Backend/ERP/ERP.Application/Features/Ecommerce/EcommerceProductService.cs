@@ -339,6 +339,105 @@ public class EcommerceProductService : IEcommerceProductService
         return true;
     }
 
+    public async Task<int> BackfillCompanyPublicationsAsync(
+        Guid tenantId,
+        Guid companyId,
+        CancellationToken ct = default)
+    {
+        ValidateTenantAndCompany(tenantId, companyId);
+
+        var company = await _context.Companies
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == companyId && c.IsActive, ct);
+
+        if (company == null)
+            throw new ArgumentException("Selling company not found or inactive within tenant scope.");
+
+        var candidateProducts = await _context.Products
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.IsActive && p.IsSellable)
+            .OrderBy(p => p.ProductCode)
+            .ToListAsync(ct);
+
+        if (!candidateProducts.Any())
+            return 0;
+
+        var existingProductIds = await _context.EcommerceProducts
+            .AsNoTracking()
+            .Where(ep => ep.TenantId == tenantId && ep.CompanyId == companyId)
+            .Select(ep => ep.ProductId)
+            .ToListAsync(ct);
+
+        var missing = candidateProducts.Where(p => !existingProductIds.Contains(p.ProductId)).ToList();
+        if (!missing.Any())
+            return 0;
+
+        int nextOrder = existingProductIds.Count + 1;
+        foreach (var p in missing)
+        {
+            var ep = EcommerceProduct.Create(
+                tenantId,
+                companyId,
+                p.ProductId,
+                p.Description,
+                displayOrder: nextOrder++,
+                isPublished: true);
+
+            await _context.EcommerceProducts.AddAsync(ep, ct);
+        }
+
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation(
+            "Backfilled {Count} product publication records for company {CompanyId} in tenant {TenantId}",
+            missing.Count, companyId, tenantId);
+
+        return missing.Count;
+    }
+
+    private async Task AutoBackfillMissingAsync(Guid tenantId, Guid companyId, CancellationToken ct)
+    {
+        try
+        {
+            var candidateProducts = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantId && p.IsActive && p.IsSellable)
+                .Select(p => new { p.ProductId, p.Description })
+                .ToListAsync(ct);
+
+            if (!candidateProducts.Any())
+                return;
+
+            var existingProductIds = await _context.EcommerceProducts
+                .AsNoTracking()
+                .Where(ep => ep.TenantId == tenantId && ep.CompanyId == companyId)
+                .Select(ep => ep.ProductId)
+                .ToListAsync(ct);
+
+            var missing = candidateProducts.Where(p => !existingProductIds.Contains(p.ProductId)).ToList();
+            if (!missing.Any())
+                return;
+
+            int nextOrder = existingProductIds.Count + 1;
+            foreach (var m in missing)
+            {
+                var ep = EcommerceProduct.Create(
+                    tenantId,
+                    companyId,
+                    m.ProductId,
+                    m.Description,
+                    displayOrder: nextOrder++,
+                    isPublished: true);
+
+                await _context.EcommerceProducts.AddAsync(ep, ct);
+            }
+
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AutoBackfill skipped due to concurrent execution or read-only context.");
+        }
+    }
+
     public async Task<IReadOnlyList<PublicEcommerceProductDto>> GetPublicCatalogueAsync(
         Guid companyId,
         PublicCatalogueFilter? filter = null,
@@ -351,7 +450,7 @@ public class EcommerceProductService : IEcommerceProductService
         var companyQuery = _context.Companies
             .Include(c => c.BaseCurrency)
             .AsNoTracking()
-            .Where(c => c.Id == companyId && c.IsActive);
+            .Where(c => (c.Id == companyId || c.TenantId == companyId) && c.IsActive);
 
         if (tenantId.HasValue)
         {
@@ -362,13 +461,17 @@ public class EcommerceProductService : IEcommerceProductService
         if (company == null)
             throw new KeyNotFoundException("Selling company not found or inactive.");
 
+        Guid resolvedCompanyId = company.Id;
         string currency = company.BaseCurrency?.CurrencyCode ?? "USD";
+
+        // Auto-backfill active sellable products that lack publication records
+        await AutoBackfillMissingAsync(company.TenantId, resolvedCompanyId, ct);
 
         // Query published products where ERP product is currently active and sellable
         var query = _context.EcommerceProducts
             .AsNoTracking()
             .Include(ep => ep.Product)
-            .Where(ep => ep.CompanyId == companyId && ep.IsPublished && ep.Product != null && ep.Product.IsActive && ep.Product.IsSellable);
+            .Where(ep => ep.CompanyId == resolvedCompanyId && ep.IsPublished && ep.Product != null && ep.Product.IsActive && ep.Product.IsSellable);
 
         if (tenantId.HasValue)
         {
@@ -453,7 +556,7 @@ public class EcommerceProductService : IEcommerceProductService
         var companyQuery = _context.Companies
             .Include(c => c.BaseCurrency)
             .AsNoTracking()
-            .Where(c => c.Id == companyId && c.IsActive);
+            .Where(c => (c.Id == companyId || c.TenantId == companyId) && c.IsActive);
 
         if (tenantId.HasValue)
         {
@@ -464,12 +567,13 @@ public class EcommerceProductService : IEcommerceProductService
         if (company == null)
             throw new KeyNotFoundException("Selling company not found or inactive.");
 
+        Guid resolvedCompanyId = company.Id;
         string currency = company.BaseCurrency?.CurrencyCode ?? "USD";
 
         var query = _context.EcommerceProducts
             .AsNoTracking()
             .Include(ep => ep.Product)
-            .Where(ep => ep.CompanyId == companyId && ep.ProductId == productId && ep.IsPublished && ep.Product != null && ep.Product.IsActive && ep.Product.IsSellable);
+            .Where(ep => ep.CompanyId == resolvedCompanyId && ep.ProductId == productId && ep.IsPublished && ep.Product != null && ep.Product.IsActive && ep.Product.IsSellable);
 
         if (tenantId.HasValue)
         {
