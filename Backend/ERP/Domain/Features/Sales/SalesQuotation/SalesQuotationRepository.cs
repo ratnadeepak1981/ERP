@@ -20,7 +20,8 @@ public class SalesQuotationRepository : ISalesQuotationRepository
         Guid tenantId,
         Guid companyId,
         Guid branchId,
-        SalesQuotationStatus? status = null)
+        SalesQuotationStatus? status = null,
+        SalesQuotationType? documentType = null)
     {
         var query = _context.SalesQuotations
             .Include(x => x.Items)
@@ -33,6 +34,11 @@ public class SalesQuotationRepository : ISalesQuotationRepository
         if (status.HasValue)
         {
             query = query.Where(x => x.Status == status.Value);
+        }
+
+        if (documentType.HasValue)
+        {
+            query = query.Where(x => x.DocumentType == documentType.Value);
         }
 
         return await query.OrderByDescending(x => x.QuotationDate).ToListAsync();

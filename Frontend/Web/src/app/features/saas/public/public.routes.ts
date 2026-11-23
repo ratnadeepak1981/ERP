@@ -29,5 +29,9 @@ export const publicRoutes: Routes = [
   {
     path: 'register',
     loadComponent: () => import('./register/register.component').then(m => m.RegisterComponent)
+  },
+  {
+    path: 'customer-register',
+    loadComponent: () => import('../../public/customer-register/customer-register.component').then(m => m.CustomerRegisterComponent)
   }
 ];

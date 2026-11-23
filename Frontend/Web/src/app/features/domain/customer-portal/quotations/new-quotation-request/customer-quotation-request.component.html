@@ -1,0 +1,414 @@
+<div class="quotation-request-page">
+  <!-- Page Header matching Sales Order / Purchase Order standards -->
+  <app-page-header
+    title="Request Sales Quotation"
+    subtitle="Submit commercial quotation request with custom quantities, target pricing, and delivery schedules."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <button
+        type="button"
+        class="erp-button erp-button-secondary erp-button-sm"
+        (click)="navigateBack()"
+      >
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to Quotations</span>
+      </button>
+    </div>
+  </app-page-header>
+
+  <!-- Notification & Error Banners -->
+  @if (errorMessage()) {
+    <div class="message-banner banner-danger">
+      <i class="pi pi-times-circle"></i>
+      <span class="message-text">{{ errorMessage() }}</span>
+      <button type="button" class="dismiss-btn" (click)="errorMessage.set(null)" aria-label="Dismiss">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="message-banner banner-success">
+      <i class="pi pi-check-circle"></i>
+      <span class="message-text">{{ successMessage() }}</span>
+    </div>
+  }
+
+  <div class="rfq-form-container">
+    <!-- Section 1: Quotation Request Information & Operating Scope -->
+    <section class="erp-card rfq-section">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <span class="section-step-badge">Step 1</span>
+          <h3 class="section-title">Quotation Request Information</h3>
+        </div>
+        <p class="section-desc">
+          Authenticated corporate commercial context, operating supplier, and document dates.
+        </p>
+      </div>
+
+      <div class="scope-indicator-grid">
+        <div class="field-wrap">
+          <label class="erp-label">Customer Organisation</label>
+          <div class="readonly-value">
+            <i class="pi pi-building text-primary"></i>
+            <span>{{ customerName() }} (<code>{{ customerCode() }}</code>)</span>
+          </div>
+        </div>
+
+        <div class="field-wrap">
+          <label class="erp-label">Selling Supplier Company</label>
+          <div class="readonly-value">
+            <i class="pi pi-box text-primary"></i>
+            <span>{{ sellingCompanyName() }}</span>
+          </div>
+        </div>
+
+        <div class="field-wrap">
+          <label class="erp-label">Commercial Currency</label>
+          <div class="readonly-value">
+            <i class="pi pi-dollar text-primary"></i>
+            <span class="font-bold">{{ currencyCode() }}</span>
+          </div>
+        </div>
+      </div>
+
+      <form [formGroup]="requestForm" class="rfq-form-grid">
+        <div class="erp-form-group">
+          <label class="erp-label">Request Date</label>
+          <input
+            type="date"
+            class="erp-input"
+            formControlName="requestDate"
+            readonly
+          />
+        </div>
+
+        <div class="erp-form-group">
+          <label class="erp-label required">Required Delivery Date</label>
+          <input
+            type="date"
+            class="erp-input"
+            formControlName="requiredDeliveryDate"
+            [min]="minDeliveryDate"
+            required
+          />
+          @if (requestForm.get('requiredDeliveryDate')?.touched && requestForm.get('requiredDeliveryDate')?.invalid) {
+            <span class="erp-field-error">Required delivery date is mandatory.</span>
+          }
+        </div>
+
+        <div class="erp-form-group">
+          <label class="erp-label">Customer Reference / RFQ Reference</label>
+          <input
+            type="text"
+            class="erp-input"
+            formControlName="customerReference"
+            placeholder="e.g. RFQ-2026-IND-01"
+            maxlength="60"
+          />
+        </div>
+      </form>
+    </section>
+
+    <!-- Section 2: Product Lines (Editable Table) -->
+    <section class="erp-card rfq-section">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <span class="section-step-badge">Step 2</span>
+          <h3 class="section-title">Requested Product Lines</h3>
+          <span class="item-count-pill">{{ lines().length }} items</span>
+        </div>
+        <p class="section-desc">
+          Specify certified products, requested order quantities, optional target unit prices, and specifications.
+        </p>
+      </div>
+
+      <div class="table-responsive">
+        <table class="erp-table rfq-lines-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;">#</th>
+              <th style="width: 280px;">Product Selection *</th>
+              <th style="width: 110px;">SKU / Code</th>
+              <th style="width: 80px;">UOM</th>
+              <th style="width: 120px;" class="text-right">Requested Qty *</th>
+              <th style="width: 140px;" class="text-right">Target Price ({{ currencyCode() }})</th>
+              <th style="width: 140px;" class="text-right">Target Amount</th>
+              <th>Line Notes / Specs</th>
+              <th style="width: 60px;" class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines(); track line.id; let idx = $index) {
+              <tr>
+                <td class="text-secondary text-center">{{ idx + 1 }}</td>
+                <td>
+                  <select
+                    class="erp-select"
+                    [value]="line.productId"
+                    (change)="onProductSelected(idx, $any($event.target).value)"
+                  >
+                    <option value="">-- Select Product --</option>
+                    @for (prod of catalogueProducts(); track prod.productId) {
+                      <option [value]="prod.productId">
+                        {{ prod.productCode }} - {{ prod.productName }}
+                      </option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  <code>{{ line.productCode || '—' }}</code>
+                </td>
+                <td>
+                  <span class="uom-badge">{{ line.unitOfMeasure }}</span>
+                </td>
+                <td class="text-right">
+                  <input
+                    type="number"
+                    class="erp-input text-right"
+                    min="1"
+                    [value]="line.quantity"
+                    (input)="onQuantityChange(idx, +$any($event.target).value)"
+                    required
+                  />
+                </td>
+                <td class="text-right">
+                  <input
+                    type="number"
+                    class="erp-input text-right"
+                    min="0"
+                    step="0.01"
+                    [value]="line.targetUnitPrice"
+                    (input)="onTargetPriceChange(idx, +$any($event.target).value)"
+                    placeholder="0.00"
+                  />
+                </td>
+                <td class="text-right font-bold text-main">
+                  {{ line.targetLineTotal | currency:currencyCode():'symbol':'1.2-2' }}
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    class="erp-input"
+                    placeholder="e.g. Tolerance ±0.02mm, Batch test cert"
+                    [value]="line.notes"
+                    (input)="onLineNotesChange(idx, $any($event.target).value)"
+                  />
+                </td>
+                <td class="text-center">
+                  <button
+                    type="button"
+                    class="icon-action-btn delete-btn"
+                    (click)="removeLine(idx)"
+                    [disabled]="lines().length <= 1"
+                    title="Remove Line"
+                  >
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="lines-footer-actions">
+        <button
+          type="button"
+          class="erp-button erp-button-secondary erp-button-sm"
+          (click)="addLine()"
+        >
+          <i class="pi pi-plus"></i>
+          <span>Add Product Line</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Section 3: Delivery Information -->
+    <section class="erp-card rfq-section">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <span class="section-step-badge">Step 3</span>
+          <h3 class="section-title">Delivery &amp; Logistics Information</h3>
+        </div>
+        <p class="section-desc">
+          Select destination warehouse or plant address from your registered Address Master records.
+        </p>
+      </div>
+
+      <div class="delivery-grid">
+        <div class="erp-form-group">
+          <label class="erp-label">Select Delivery Address</label>
+          <select
+            class="erp-select"
+            [value]="selectedAddressId()"
+            (change)="onAddressChange($any($event.target).value)"
+          >
+            @if (availableAddresses().length === 0) {
+              <option value="">No registered addresses found</option>
+            }
+            @for (addr of availableAddresses(); track addr.addressId || addr.customerAddressId) {
+              <option [value]="addr.addressId || addr.customerAddressId">
+                {{ addr.addressName || addr.addressTypeName }} — {{ addr.addressLine1 }}, {{ addr.city }}
+                @if (addr.isDefault) { (Default) }
+              </option>
+            }
+          </select>
+
+          @if (selectedAddress()) {
+            <div class="address-preview-card">
+              <div class="preview-header">
+                <i class="pi pi-map-marker text-primary"></i>
+                <span class="preview-type">{{ selectedAddress()!.addressTypeName }}</span>
+                @if (selectedAddress()!.isDefault) {
+                  <span class="default-pill">Default Destination</span>
+                }
+              </div>
+              <div class="preview-body">
+                <strong>{{ selectedAddress()!.addressName }}</strong>
+                <p>{{ selectedAddress()!.addressLine1 }}</p>
+                @if (selectedAddress()!.addressLine2) {
+                  <p>{{ selectedAddress()!.addressLine2 }}</p>
+                }
+                <p>{{ selectedAddress()!.city }} {{ selectedAddress()!.postalCode }}</p>
+              </div>
+            </div>
+          }
+        </div>
+
+        <form [formGroup]="requestForm" class="delivery-notes-form">
+          <div class="erp-form-group">
+            <label class="erp-label">Delivery Instructions / Gate Requirements</label>
+            <textarea
+              class="erp-textarea"
+              rows="4"
+              formControlName="deliveryInstructions"
+              placeholder="e.g. Unloading bay 3, forklift required, delivery between 08:00 and 15:00."
+            ></textarea>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Section 4: Additional Information -->
+    <section class="erp-card rfq-section">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <span class="section-step-badge">Step 4</span>
+          <h3 class="section-title">Commercial &amp; Project Requirements</h3>
+        </div>
+        <p class="section-desc">
+          Add project references, special quality tolerances, packaging requests, or commercial terms.
+        </p>
+      </div>
+
+      <form [formGroup]="requestForm" class="additional-form-grid">
+        <div class="erp-form-group">
+          <label class="erp-label">Project Reference</label>
+          <input
+            type="text"
+            class="erp-input"
+            formControlName="projectReference"
+            placeholder="e.g. Project Orion Phase 2"
+          />
+        </div>
+
+        <div class="erp-form-group full-width">
+          <label class="erp-label">Customer Notes &amp; Special Requirements</label>
+          <textarea
+            class="erp-textarea"
+            rows="3"
+            formControlName="customerRemarks"
+            placeholder="Specify any quality certificates, material test reports, or bulk contract terms required."
+          ></textarea>
+        </div>
+      </form>
+    </section>
+
+    <!-- Section 5: Request Summary -->
+    <section class="erp-card summary-card">
+      <div class="summary-content-grid">
+        <div class="summary-details">
+          <h4 class="summary-heading">Quotation Request Overview</h4>
+          <div class="summary-items-list">
+            <div class="summary-stat">
+              <span class="stat-label">Requested Product Lines:</span>
+              <span class="stat-value font-bold">{{ totalRequestedLines() }} items</span>
+            </div>
+            <div class="summary-stat">
+              <span class="stat-label">Total Requested Quantity:</span>
+              <span class="stat-value font-bold">{{ totalRequestedQuantity() }} units</span>
+            </div>
+            <div class="summary-stat">
+              <span class="stat-label">Delivery Destination:</span>
+              <span class="stat-value text-secondary">
+                {{ selectedAddress() ? selectedAddress()!.city + ' (' + selectedAddress()!.addressTypeName + ')' : 'Not selected' }}
+              </span>
+            </div>
+            <div class="summary-stat">
+              <span class="stat-label">Required Delivery Date:</span>
+              <span class="stat-value text-secondary">
+                {{ requestForm.get('requiredDeliveryDate')?.value || 'Not specified' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="commercial-notice">
+            <i class="pi pi-info-circle text-primary"></i>
+            <span>
+              <strong>Quotation Request Notice:</strong> Target unit prices represent customer negotiation proposals.
+              Final commercial prices, volume discounts, taxes, and formal validity will be determined by the Selling Company
+              upon proposal issuance.
+            </span>
+          </div>
+        </div>
+
+        <div class="summary-target-box">
+          <span class="target-box-title">Target Budget Estimate</span>
+          <div class="target-amount">
+            {{ estimatedTargetTotal() | currency:currencyCode():'symbol':'1.2-2' }}
+          </div>
+          <span class="target-box-sub">Based on submitted target prices</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons matching Sales Order / Purchase Order standards -->
+      <div class="workflow-action-buttons">
+        <div class="left-actions">
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="navigateBack()"
+            [disabled]="actionInProgress()"
+          >
+            Cancel
+          </button>
+        </div>
+
+        <div class="right-actions">
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            [disabled]="actionInProgress()"
+            (click)="submitRequest(true)"
+          >
+            <i class="pi pi-save" [class.pi-spin]="actionInProgress()"></i>
+            <span>Save Draft</span>
+          </button>
+
+          <button
+            type="button"
+            class="erp-button erp-button-primary"
+            [disabled]="actionInProgress()"
+            (click)="submitRequest(false)"
+          >
+            <i class="pi pi-send" [class.pi-spin]="actionInProgress()"></i>
+            <span>Submit Quotation Request</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

@@ -117,6 +117,20 @@ public class SalesQuotationDto
 
     public Guid? SupersededByQuotationId { get; set; }
 
+    public OriginalCustomerRequestDto? OriginalRequest { get; set; }
+
+    public string? EmailStatus { get; set; }
+
+    public DateTime? EmailSentAtUtc { get; set; }
+
+    public string? EmailRecipient { get; set; }
+
+    public string? EmailFailureReason { get; set; }
+
+    public decimal? TotalCost { get; set; }
+
+    public decimal? GrossMarginPercentage { get; set; }
+
     public List<SalesQuotationItemDto> Items { get; set; } = new();
 }
 
@@ -139,6 +153,10 @@ public class SalesQuotationItemDto
     public decimal Quantity { get; set; }
 
     public decimal UnitPrice { get; set; }
+
+    public decimal? UnitCost { get; set; }
+
+    public decimal? GrossMarginPercentage { get; set; }
 
     public decimal DiscountRate { get; set; }
 
@@ -211,6 +229,20 @@ public class CreateCustomerQuotationRequest
 
     public string Currency { get; set; } = "USD";
 
+    public Guid? DeliveryAddressId { get; set; }
+
+    public string? DeliveryAddressSnapshot { get; set; }
+
+    public string? CustomerReference { get; set; }
+
+    public string? DeliveryInstructions { get; set; }
+
+    public string? ProjectReference { get; set; }
+
+    public string? IdempotencyKey { get; set; }
+
+    public bool IsDraft { get; set; } = false;
+
     public List<CreateSalesQuotationItemRequest> Items { get; set; } = new();
 }
 
@@ -235,6 +267,8 @@ public class UpdateSalesQuotationDraftRequest
     public Guid? DeliveryAddressId { get; set; }
 
     public string? DeliveryAddressSnapshot { get; set; }
+
+    public List<CreateSalesQuotationItemRequest>? Items { get; set; }
 }
 
 public class CreateSalesQuotationItemRequest
@@ -335,4 +369,28 @@ public class CustomerSalesQuotationDto
     public Guid? ConvertedSalesOrderId { get; set; }
     public DateTime? ConvertedAtUtc { get; set; }
     public List<SalesQuotationItemDto> Items { get; set; } = new();
+}
+
+public class OriginalCustomerRequestDto
+{
+    public string? CustomerRemarks { get; set; }
+    public string? DeliveryAddressSnapshot { get; set; }
+    public DateTime? RequiredDeliveryDate { get; set; }
+    public List<OriginalCustomerRequestItemDto> Items { get; set; } = new();
+}
+
+public class OriginalCustomerRequestItemDto
+{
+    public Guid ProductId { get; set; }
+    public string? ProductCode { get; set; }
+    public string? ProductName { get; set; }
+    public decimal RequestedQuantity { get; set; }
+    public decimal? TargetUnitPrice { get; set; }
+    public string? UnitOfMeasureCode { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class ReturnToDraftRequest
+{
+    public string? Remarks { get; set; }
 }

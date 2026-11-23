@@ -138,6 +138,23 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
   readonly sourcePo = signal<PurchaseOrderDto | null>(null);
   readonly editingDraft = signal<boolean>(false);
   readonly confirmDeleteDraft = signal<boolean>(false);
+  readonly showPostConfirmDialog = signal<boolean>(false);
+
+  readonly canCreateGrn = computed(() => this.authService.hasPermission('GRN.CREATE'));
+  readonly canEditGrn = computed(() => this.authService.hasPermission('GRN.EDIT'));
+  readonly canConfirmGrn = computed(() => this.authService.hasPermission('GRN.CONFIRM'));
+
+  readonly selectedWarehouseName = computed(() => {
+    const whId = this.headerWarehouseId();
+    const wh = this.warehouses().find(w => w.warehouseId === whId);
+    return wh ? `${wh.warehouseCode} - ${wh.warehouseName}` : (whId || 'Line-level locations');
+  });
+
+  private pendingPostRequest: {
+    isDirect: boolean;
+    createReq?: CreateGoodsReceiptNoteRequest;
+    updateReq?: UpdateGoodsReceiptNoteRequest;
+  } | null = null;
 
   readonly isFullyReceived = computed<boolean>(() => {
     if (this.mode() !== 'create') return false;
@@ -762,14 +779,34 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
 
     this.poService.getOrder(company.id, branch.id, poId).subscribe({
       next: po => {
-        this.loading.set(false);
         if (!po) {
+          this.loading.set(false);
           this.poIneligibleError.set('Source Purchase Order could not be found in the current operating scope.');
           return;
         }
 
         this.sourcePo.set(po);
         this.validateAndPopulateFromPo(po);
+
+        // Check if an active editable Draft already exists for this PO
+        this.grnService.getActiveDraftForPo(company.id, branch.id, poId).subscribe({
+          next: activeDraft => {
+            this.loading.set(false);
+            if (activeDraft) {
+              this.currentGrn.set(activeDraft);
+              this.populateFromSavedGrn(activeDraft);
+              this.loadPurchaseOrderForDraft(activeDraft);
+              this.editingDraft.set(true);
+              this.showMessage(
+                `Existing editable Draft (${activeDraft.grnNumber}) found for Purchase Order ${po.orderNumber}. Reopened active draft.`,
+                'info'
+              );
+            }
+          },
+          error: () => {
+            this.loading.set(false);
+          }
+        });
       },
       error: err => {
         this.loading.set(false);
@@ -851,13 +888,7 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
       ) / 100;
 
       const whId = this.headerWarehouseId() || '';
-      let defaultLocId = '';
-      if (whId) {
-        const locs = this.getLocationsForWarehouse(whId);
-        if (locs.length > 0) {
-          defaultLocId = locs[0].warehouseLocationId ?? locs[0].locationId ?? '';
-        }
-      }
+      const defaultLocId = '';
 
       return {
         lineId,
@@ -1429,92 +1460,73 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
       }
     }
 
-    const receiptDate = this.toSafeIsoString(formVal.receiptDate) || new Date().toISOString();
-
-    if (this.mode() === 'view' && currentGrn && this.editingDraft()) {
-      const request: UpdateGoodsReceiptNoteRequest = {
-        receiptDate,
-        deliveryNoteNumber: formVal.deliveryNoteNumber || null,
-        remarks: formVal.remarks || null,
-        lines: requestLines
-      };
-
-      this.actionInProgress.set(true);
-      this.grnService.updateDraft(company.id, branch.id, currentGrn.goodsReceiptNoteId, request).subscribe({
-        next: updatedGrn => {
-          this.currentGrn.set(updatedGrn);
-          this.populateFromSavedGrn(updatedGrn);
-          if (andConfirm) {
-            this.grnService.confirmGrn(company.id, branch.id, updatedGrn.goodsReceiptNoteId).subscribe({
-              next: confirmedGrn => {
-                this.actionInProgress.set(false);
-                this.currentGrn.set(confirmedGrn);
-                this.populateFromSavedGrn(confirmedGrn);
-                this.editingDraft.set(false);
-                this.showMessage(`Goods Receipt ${confirmedGrn.grnNumber} confirmed and stock posted successfully.`, 'success');
-              },
-              error: confErr => {
-                this.actionInProgress.set(false);
-                this.editingDraft.set(false);
-                this.showMessage(
-                  `Draft saved, but confirmation failed: ${this.getCleanErrorMessage(confErr, 'Failed to confirm.')}`,
-                  'warn'
-                );
-              }
-            });
-          } else {
-            this.actionInProgress.set(false);
-            this.editingDraft.set(false);
-            this.showMessage(`Goods Receipt ${updatedGrn.grnNumber} draft updated.`, 'success');
-          }
-        },
-        error: err => {
-          this.actionInProgress.set(false);
-          this.showMessage(this.getCleanErrorMessage(err, 'Failed to update Goods Receipt Note draft.'), 'danger');
-        }
-      });
+    if (andConfirm && !this.canConfirmGrn()) {
+      this.showMessage('You do not have permission to confirm goods receipts and post inventory (GRN.CONFIRM required).', 'danger');
       return;
     }
 
-    const request: CreateGoodsReceiptNoteRequest = {
-      purchaseOrderId: po!.id,
+    if (!andConfirm && !this.canCreateGrn() && !this.canEditGrn()) {
+      this.showMessage('You do not have permission to save goods receipt drafts (GRN.CREATE/GRN.EDIT required).', 'danger');
+      return;
+    }
+
+    const receiptDate = this.toSafeIsoString(formVal.receiptDate) || new Date().toISOString();
+
+    const updateRequest: UpdateGoodsReceiptNoteRequest = {
       receiptDate,
       deliveryNoteNumber: formVal.deliveryNoteNumber || null,
       remarks: formVal.remarks || null,
       lines: requestLines
     };
 
-    this.actionInProgress.set(true);
+    const createRequest: CreateGoodsReceiptNoteRequest = {
+      purchaseOrderId: po?.id || currentGrn?.purchaseOrderId || '',
+      receiptDate,
+      deliveryNoteNumber: formVal.deliveryNoteNumber || null,
+      remarks: formVal.remarks || null,
+      lines: requestLines
+    };
 
-    this.grnService.createManualDraft(company.id, branch.id, request).subscribe({
-      next: createdGrn => {
-        if (andConfirm) {
-          this.grnService.confirmGrn(company.id, branch.id, createdGrn.goodsReceiptNoteId).subscribe({
-            next: confirmedGrn => {
-              this.actionInProgress.set(false);
-              this.showMessage(`Goods Receipt ${confirmedGrn.grnNumber} confirmed and stock posted successfully.`, 'success');
-              this.router.navigate(['/app/procurement/goods-receipts', confirmedGrn.goodsReceiptNoteId]);
-            },
-            error: confErr => {
-              this.actionInProgress.set(false);
-              this.showMessage(
-                `Receipt saved as Draft ${createdGrn.grnNumber}, but confirmation failed: ${this.getCleanErrorMessage(confErr, 'Failed to confirm.')}`,
-                'warn'
-              );
-              this.router.navigate(['/app/procurement/goods-receipts', createdGrn.goodsReceiptNoteId]);
-            }
-          });
-        } else {
+    if (andConfirm) {
+      this.pendingPostRequest = {
+        isDirect: true,
+        createReq: createRequest,
+        updateReq: updateRequest
+      };
+      this.showPostConfirmDialog.set(true);
+      return;
+    }
+
+    // Save as Draft (Option A)
+    this.actionInProgress.set(true);
+    if (currentGrn) {
+      this.grnService.updateDraft(company.id, branch.id, currentGrn.goodsReceiptNoteId, updateRequest).subscribe({
+        next: updatedGrn => {
           this.actionInProgress.set(false);
+          this.currentGrn.set(updatedGrn);
+          this.populateFromSavedGrn(updatedGrn);
+          this.editingDraft.set(false);
+          this.showMessage(`Goods Receipt ${updatedGrn.grnNumber} draft updated.`, 'success');
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.showMessage(this.getCleanErrorMessage(err, 'Failed to update Goods Receipt Note draft.'), 'danger');
+        }
+      });
+    } else {
+      this.grnService.createManualDraft(company.id, branch.id, createRequest).subscribe({
+        next: createdGrn => {
+          this.actionInProgress.set(false);
+          this.currentGrn.set(createdGrn);
           this.showMessage(`Goods Receipt ${createdGrn.grnNumber} saved as Draft.`, 'success');
           this.router.navigate(['/app/procurement/goods-receipts', createdGrn.goodsReceiptNoteId]);
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.showMessage(this.getCleanErrorMessage(err, 'Failed to save Goods Receipt Note draft.'), 'danger');
         }
-      },
-      error: err => {
-        this.actionInProgress.set(false);
-        this.showMessage(this.getCleanErrorMessage(err, 'Failed to save Goods Receipt Note.'), 'danger');
-      }
-    });
+      });
+    }
   }
 
   // Confirm existing Draft in View mode
@@ -1523,6 +1535,11 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
     if (!grn || !company || !branch) return;
+
+    if (!this.canConfirmGrn()) {
+      this.showMessage('You do not have permission to confirm goods receipts and post inventory (GRN.CONFIRM required).', 'danger');
+      return;
+    }
 
     // Validate that any tracked lines have complete tracking details
     for (const line of this.workingLines()) {
@@ -1536,18 +1553,80 @@ export class GoodsReceiptPageComponent implements OnInit, AfterViewInit, OnDestr
       }
     }
 
-    this.actionInProgress.set(true);
-    this.grnService.confirmGrn(company.id, branch.id, grn.goodsReceiptNoteId).subscribe({
-      next: updated => {
-        this.actionInProgress.set(false);
-        this.currentGrn.set(updated);
-        this.showMessage(`Goods Receipt ${grn.grnNumber} confirmed and inventory updated.`, 'success');
-      },
-      error: err => {
-        this.actionInProgress.set(false);
-        this.showMessage(this.getCleanErrorMessage(err, 'Failed to confirm goods receipt.'), 'danger');
+    // Validate warehouse and location completeness
+    for (const line of this.workingLines().filter(l => Number(l.receivedQuantityNow) > 0)) {
+      if (!line.warehouseId || !line.warehouseLocationId) {
+        this.showMessage(
+          `Receiving warehouse and storage location must be assigned for line '${line.productCode}' before posting.`,
+          'danger'
+        );
+        return;
       }
-    });
+    }
+
+    this.pendingPostRequest = { isDirect: false };
+    this.showPostConfirmDialog.set(true);
+  }
+
+  // Execute Confirmed Post after user approves in confirmation dialog
+  executeConfirmedPost(): void {
+    this.showPostConfirmDialog.set(false);
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!company || !branch) return;
+
+    const pending = this.pendingPostRequest;
+    this.pendingPostRequest = null;
+    if (!pending) return;
+
+    this.actionInProgress.set(true);
+    const currentGrn = this.currentGrn();
+
+    if (currentGrn) {
+      // Existing draft: atomic update (if direct post) and confirm in one domain transaction
+      const payload = pending.isDirect ? pending.updateReq : null;
+      this.grnService.confirmGrn(company.id, branch.id, currentGrn.goodsReceiptNoteId, payload).subscribe({
+        next: confirmed => {
+          this.actionInProgress.set(false);
+          this.currentGrn.set(confirmed);
+          this.populateFromSavedGrn(confirmed);
+          this.editingDraft.set(false);
+          this.showMessage(`Goods Receipt ${confirmed.grnNumber} confirmed and stock posted successfully.`, 'success');
+          if (this.mode() === 'create') {
+            this.router.navigate(['/app/procurement/goods-receipts', confirmed.goodsReceiptNoteId]);
+          }
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.showMessage(this.getCleanErrorMessage(err, 'Failed to confirm Goods Receipt Note and post inventory.'), 'danger');
+        }
+      });
+    } else if (pending.createReq) {
+      // New receipt direct post: create draft then confirm atomically
+      this.grnService.createManualDraft(company.id, branch.id, pending.createReq).subscribe({
+        next: createdGrn => {
+          this.grnService.confirmGrn(company.id, branch.id, createdGrn.goodsReceiptNoteId, null).subscribe({
+            next: confirmed => {
+              this.actionInProgress.set(false);
+              this.showMessage(`Goods Receipt ${confirmed.grnNumber} confirmed and stock posted successfully.`, 'success');
+              this.router.navigate(['/app/procurement/goods-receipts', confirmed.goodsReceiptNoteId]);
+            },
+            error: confErr => {
+              this.actionInProgress.set(false);
+              this.showMessage(
+                `Receipt saved as Draft ${createdGrn.grnNumber}, but inventory posting failed: ${this.getCleanErrorMessage(confErr, 'Failed to post inventory.')}`,
+                'warn'
+              );
+              this.router.navigate(['/app/procurement/goods-receipts', createdGrn.goodsReceiptNoteId]);
+            }
+          });
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.showMessage(this.getCleanErrorMessage(err, 'Failed to create Goods Receipt Note draft.'), 'danger');
+        }
+      });
+    }
   }
 
   // Cancel existing Draft in View mode

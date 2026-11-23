@@ -1,11 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
 import { TenantRegistrationService } from '../../../../core/services/tenant-registration.service';
 import { SubscriptionPlanService } from '../../../../core/services/subscription-plan.service';
+import { TenantContextService } from '../../../../core/services/tenant-context.service';
 import { SubscriptionPlan } from '../../../../core/models/subscription-plan.model';
 import { CreateTenantRequest, TenantRegistrationResult } from '../../../../core/models/tenant-registration.model';
 import { environment } from '../../../../../environments/environment';
@@ -43,8 +44,10 @@ export class RegisterComponent implements OnInit {
   private static readonly EmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly registrationService = inject(TenantRegistrationService);
   private readonly planService = inject(SubscriptionPlanService);
+  private readonly tenantContext = inject(TenantContextService);
 
   // Industry Types supported by backend
   readonly industryOptions: IndustryOption[] = [
@@ -125,6 +128,13 @@ export class RegisterComponent implements OnInit {
   readonly registeredAdminEmail = signal<string>('');
 
   ngOnInit(): void {
+    if (this.tenantContext.isTenantDomain()) {
+      const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+      const queryParams = returnUrl ? { returnUrl } : undefined;
+      this.router.navigate(['/customer-register'], { queryParams });
+      return;
+    }
+
     const planId = this.route.snapshot.queryParamMap.get('planId') || '';
     this.selectedPlanId.set(planId);
 

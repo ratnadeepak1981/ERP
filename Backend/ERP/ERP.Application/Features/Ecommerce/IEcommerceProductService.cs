@@ -49,6 +49,11 @@ public interface IEcommerceProductService
         Guid publicationId,
         CancellationToken ct = default);
 
+    Task<int> BackfillCompanyPublicationsAsync(
+        Guid tenantId,
+        Guid companyId,
+        CancellationToken ct = default);
+
     Task<IReadOnlyList<PublicEcommerceProductDto>> GetPublicCatalogueAsync(
         Guid companyId,
         PublicCatalogueFilter? filter = null,

@@ -413,6 +413,27 @@ public class SalesQuotation : Auditable, ITenantScopedEntity, ICompanyScopedEnti
     }
 
     /// <summary>
+    /// Returns a submitted, rejected, or confirmed quotation back to Draft for commercial offer preparation or revision.
+    /// </summary>
+    public void ReturnToDraft(Guid actorUserId, string? remarks = null)
+    {
+        if (Status != SalesQuotationStatus.Submitted &&
+            Status != SalesQuotationStatus.RejectedInternal &&
+            Status != SalesQuotationStatus.Confirmed)
+        {
+            throw new InvalidOperationException($"Cannot return quotation in status '{Status}' to Draft.");
+        }
+
+        Status = SalesQuotationStatus.Draft;
+        if (!string.IsNullOrWhiteSpace(remarks))
+        {
+            InternalNotes = string.IsNullOrWhiteSpace(InternalNotes)
+                ? $"[Revision Draft by {actorUserId}: {remarks.Trim()}]"
+                : $"{InternalNotes} | [Revision Draft by {actorUserId}: {remarks.Trim()}]";
+        }
+    }
+
+    /// <summary>
     /// Cancels a quotation prior to customer acceptance.
     /// </summary>
     public void Cancel(Guid actorUserId)

@@ -16,6 +16,8 @@ namespace ERP.Application.Features.Procurement.GoodsReceiptNoteFeature;
 
 public class GoodsReceiptNoteService : IGoodsReceiptNoteService
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> _draftLocks = new();
+
     private readonly IGoodsReceiptNoteRepository _grnRepository;
     private readonly IPurchaseOrderRepository _poRepository;
     private readonly IProductRepository _productRepository;
@@ -58,6 +60,13 @@ _persistenceCoordinator = persistenceCoordinator;
         return grn == null ? null : await MapToDtoAsync(tenantId, grn);
     }
 
+    public async Task<GoodsReceiptNoteDto?> GetActiveDraftByPurchaseOrderIdAsync(
+        Guid tenantId, Guid companyId, Guid branchId, Guid purchaseOrderId)
+    {
+        var draft = await _grnRepository.GetActiveDraftByPurchaseOrderIdAsync(tenantId, companyId, branchId, purchaseOrderId);
+        return draft == null ? null : await MapToDtoAsync(tenantId, draft);
+    }
+
     public async Task<GoodsReceiptNoteDto> CreateDraftFromPoAsync(
         Guid tenantId,
         Guid companyId,
@@ -68,83 +77,89 @@ _persistenceCoordinator = persistenceCoordinator;
         Guid? defaultLocationId = null,
         string? remarks = null)
     {
-        string normGrnNumber = grnNumber?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(normGrnNumber))
+        var lockKey = $"{tenantId}:{companyId}:{branchId}:{purchaseOrderId}";
+        var sem = _draftLocks.GetOrAdd(lockKey, _ => new System.Threading.SemaphoreSlim(1, 1));
+        await sem.WaitAsync();
+        try
         {
-            normGrnNumber = $"GRN-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..18].ToUpperInvariant();
+            // Safeguard 1: If an active editable Draft already exists for this PO, reopen and return it
+            var existingDraft = await _grnRepository.GetActiveDraftByPurchaseOrderIdAsync(tenantId, companyId, branchId, purchaseOrderId);
+            if (existingDraft != null)
+            {
+                return await MapToDtoAsync(tenantId, existingDraft);
+            }
+
+            var po = await _poRepository.GetByIdAsync(tenantId, companyId, branchId, purchaseOrderId)
+                ?? throw new KeyNotFoundException("Purchase Order not found in authorized branch/company scope.");
+
+            if (po.Status != PurchaseOrderStatus.Approved)
+                throw new InvalidOperationException($"Cannot receive against Purchase Order in status '{po.Status}'. Only Approved POs can be received.");
+
+            // Check if there are active lines with unreceived quantity
+            var activeLines = po.Items.Where(i => i.IsActive).ToList();
+            if (activeLines.Count == 0)
+                throw new InvalidOperationException("Purchase Order has no active lines to receive.");
+
+            var receivableLines = activeLines.Where(i => (i.Quantity - i.ReceivedQuantity) > 0).ToList();
+            if (receivableLines.Count == 0)
+                throw new InvalidOperationException("All items on this Purchase Order have already been fully received.");
+
+            if (!defaultWarehouseId.HasValue || !defaultLocationId.HasValue)
+                throw new ArgumentException("Receiving warehouse and storage location must be provided to generate receipt lines from Purchase Order.");
+
+            Guid targetWarehouseId = defaultWarehouseId.Value;
+            Guid targetLocationId = defaultLocationId.Value;
+
+            await ValidateReceiptWarehouseScopeAsync(
+                tenantId, companyId, branchId, targetWarehouseId, targetLocationId);
+
+            string normGrnNumber = grnNumber?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normGrnNumber))
+            {
+                normGrnNumber = $"GRN-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..18].ToUpperInvariant();
+            }
+
+            if (await _grnRepository.ExistsGrnNumberAsync(tenantId, companyId, normGrnNumber))
+                throw new InvalidOperationException($"GRN number '{normGrnNumber}' already exists for this company.");
+
+            var grn = GoodsReceiptNote.Create(
+                tenantId,
+                companyId,
+                branchId,
+                po.Id,
+                normGrnNumber,
+                DateTime.UtcNow,
+                po.SupplierId,
+                remarks: remarks);
+
+            foreach (var poItem in receivableLines)
+            {
+                decimal remainingQty = poItem.Quantity - poItem.ReceivedQuantity;
+                var units = await ResolveReceiptUnitsAsync(tenantId, poItem, poItem.ProductId, poItem.UnitOfMeasureId);
+                decimal lineTotal = await CalculateReceiptValueAsync(tenantId, companyId, poItem, remainingQty);
+                var line = GoodsReceiptNoteLine.Create(
+                    grn.GoodsReceiptNoteId,
+                    poItem.Id,
+                    poItem.ProductId,
+                    targetWarehouseId,
+                    targetLocationId,
+                    remainingQty,
+                    Math.Round(lineTotal / remainingQty, 2, MidpointRounding.AwayFromZero),
+                    units.GrnUnitOfMeasureId,
+                    lineTotalOverride: lineTotal);
+
+                grn.AddLine(line);
+            }
+
+            await _grnRepository.AddAsync(grn);
+            await _grnRepository.SaveChangesAsync();
+
+            return await MapToDtoAsync(tenantId, grn);
         }
-
-        if (await _grnRepository.ExistsGrnNumberAsync(tenantId, companyId, normGrnNumber))
-            throw new InvalidOperationException($"GRN number '{normGrnNumber}' already exists for this company.");
-
-        var po = await _poRepository.GetByIdAsync(tenantId, companyId, branchId, purchaseOrderId)
-            ?? throw new KeyNotFoundException("Purchase Order not found in authorized branch/company scope.");
-
-        if (po.Status != PurchaseOrderStatus.Approved)
-            throw new InvalidOperationException($"Cannot receive against Purchase Order in status '{po.Status}'. Only Approved POs can be received.");
-
-        // Check if there are active lines with unreceived quantity
-        var activeLines = po.Items.Where(i => i.IsActive).ToList();
-        if (activeLines.Count == 0)
-            throw new InvalidOperationException("Purchase Order has no active lines to receive.");
-
-        var receivableLines = activeLines.Where(i => (i.Quantity - i.ReceivedQuantity) > 0).ToList();
-        if (receivableLines.Count == 0)
-            throw new InvalidOperationException("All items on this Purchase Order have already been fully received.");
-
-        Guid targetWarehouseId;
-        Guid targetLocationId;
-
-        if (defaultWarehouseId.HasValue != defaultLocationId.HasValue)
-            throw new ArgumentException("Warehouse and location must be provided together.");
-
-        if (defaultWarehouseId.HasValue)
+        finally
         {
-            targetWarehouseId = defaultWarehouseId.GetValueOrDefault();
-            targetLocationId = defaultLocationId.GetValueOrDefault();
+            sem.Release();
         }
-        else
-        {
-            (targetWarehouseId, targetLocationId) =
-                await GetDefaultWarehouseLocationAsync(tenantId, companyId, branchId);
-        }
-
-        await ValidateReceiptWarehouseScopeAsync(
-            tenantId, companyId, branchId, targetWarehouseId, targetLocationId);
-
-        var grn = GoodsReceiptNote.Create(
-            tenantId,
-            companyId,
-            branchId,
-            po.Id,
-            normGrnNumber,
-            DateTime.UtcNow,
-            po.SupplierId,
-            remarks: remarks);
-
-        foreach (var poItem in receivableLines)
-        {
-            decimal remainingQty = poItem.Quantity - poItem.ReceivedQuantity;
-            var units = await ResolveReceiptUnitsAsync(tenantId, poItem, poItem.ProductId, poItem.UnitOfMeasureId);
-            decimal lineTotal = await CalculateReceiptValueAsync(tenantId, companyId, poItem, remainingQty);
-            var line = GoodsReceiptNoteLine.Create(
-                grn.GoodsReceiptNoteId,
-                poItem.Id,
-                poItem.ProductId,
-                targetWarehouseId,
-                targetLocationId,
-                remainingQty,
-                Math.Round(lineTotal / remainingQty, 2, MidpointRounding.AwayFromZero),
-                units.GrnUnitOfMeasureId,
-                lineTotalOverride: lineTotal);
-
-            grn.AddLine(line);
-        }
-
-        await _grnRepository.AddAsync(grn);
-        await _grnRepository.SaveChangesAsync();
-
-        return await MapToDtoAsync(tenantId, grn);
     }
 
     public async Task<GoodsReceiptNoteDto> CreateManualDraftAsync(
@@ -155,106 +170,115 @@ _persistenceCoordinator = persistenceCoordinator;
     {
         if (request == null) throw new ArgumentNullException(nameof(request));
 
-        string normGrnNumber = request.GrnNumber?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(normGrnNumber))
+        var lockKey = $"{tenantId}:{companyId}:{branchId}:{request.PurchaseOrderId}";
+        var sem = _draftLocks.GetOrAdd(lockKey, _ => new System.Threading.SemaphoreSlim(1, 1));
+        await sem.WaitAsync();
+        try
         {
-            normGrnNumber = $"GRN-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..18].ToUpperInvariant();
-        }
-
-        if (await _grnRepository.ExistsGrnNumberAsync(tenantId, companyId, normGrnNumber))
-            throw new InvalidOperationException($"GRN number '{normGrnNumber}' already exists for this company.");
-
-        var po = await _poRepository.GetByIdAsync(tenantId, companyId, branchId, request.PurchaseOrderId)
-            ?? throw new KeyNotFoundException("Purchase Order not found in authorized branch/company scope.");
-
-        if (po.Status != PurchaseOrderStatus.Approved)
-            throw new InvalidOperationException($"Cannot receive against Purchase Order in status '{po.Status}'. Only Approved POs can be received.");
-
-        if (request.Lines == null || request.Lines.Count == 0)
-            throw new ArgumentException("At least one line is required to create a GRN.", nameof(request.Lines));
-
-        var grn = GoodsReceiptNote.Create(
-            tenantId,
-            companyId,
-            branchId,
-            po.Id,
-            normGrnNumber,
-            request.ReceiptDate,
-            po.SupplierId,
-            request.DeliveryNoteNumber,
-            request.Remarks);
-
-        Guid defaultWhId = Guid.Empty;
-        Guid defaultLocId = Guid.Empty;
-
-        foreach (var lineReq in request.Lines)
-        {
-            var poItem = po.Items.FirstOrDefault(i => i.Id == lineReq.PurchaseOrderItemId && i.IsActive)
-                ?? throw new InvalidOperationException($"PO item '{lineReq.PurchaseOrderItemId}' not found on PO '{po.OrderNumber}'.");
-
-            if (poItem.ProductId != lineReq.ProductId)
-                throw new InvalidOperationException($"Product mismatch for PO item '{poItem.Id}'.");
-
-            var units = await ResolveReceiptUnitsAsync(
-                tenantId,
-                poItem,
-                lineReq.ProductId,
-                lineReq.UnitOfMeasureId);
-            decimal quantityInPoUom = await ConvertReceiptQuantityAsync(
-                tenantId,
-                companyId,
-                lineReq.ProductId,
-                units.GrnUnitOfMeasureId,
-                units.PurchaseOrderUnitOfMeasureId,
-                lineReq.QuantityReceived);
-            decimal lineTotal = await CalculateReceiptValueAsync(tenantId, companyId, poItem, quantityInPoUom);
-            decimal grnUnitCost = Math.Round(lineTotal / Math.Round(lineReq.QuantityReceived, 4, MidpointRounding.AwayFromZero), 2, MidpointRounding.AwayFromZero);
-
-            Guid targetWhId = lineReq.WarehouseId;
-            Guid targetLocId = lineReq.WarehouseLocationId;
-
-            if (targetWhId == Guid.Empty != (targetLocId == Guid.Empty))
-                throw new InvalidOperationException("Warehouse and location must be provided together.");
-
-            if (targetWhId == Guid.Empty)
+            // Safeguard 1: If an active editable Draft already exists for this PO, update and return it instead of creating duplicate
+            var existingDraft = await _grnRepository.GetActiveDraftByPurchaseOrderIdAsync(tenantId, companyId, branchId, request.PurchaseOrderId);
+            if (existingDraft != null)
             {
-                if (defaultWhId == Guid.Empty || defaultLocId == Guid.Empty)
+                var updateReq = new UpdateGoodsReceiptNoteRequest
                 {
-                    (defaultWhId, defaultLocId) =
-                        await GetDefaultWarehouseLocationAsync(tenantId, companyId, branchId);
-                }
-                targetWhId = defaultWhId;
-                targetLocId = defaultLocId;
+                    ReceiptDate = request.ReceiptDate,
+                    DeliveryNoteNumber = request.DeliveryNoteNumber,
+                    Remarks = request.Remarks,
+                    Lines = request.Lines
+                };
+                return await UpdateDraftAsync(tenantId, companyId, branchId, existingDraft.GoodsReceiptNoteId, updateReq);
             }
 
-            await ValidateReceiptWarehouseScopeAsync(
-                tenantId, companyId, branchId, targetWhId, targetLocId);
+            string normGrnNumber = request.GrnNumber?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normGrnNumber))
+            {
+                normGrnNumber = $"GRN-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..18].ToUpperInvariant();
+            }
 
-            // CRITICAL BUSINESS RULE: Price protection - unit price is copied from approved PO line by server; client prices are ignored
-            var line = GoodsReceiptNoteLine.Create(
-                grn.GoodsReceiptNoteId,
-                poItem.Id,
-                lineReq.ProductId,
-                targetWhId,
-                targetLocId,
-                lineReq.QuantityReceived,
-                grnUnitCost, // PO value expressed per GRN unit
-                units.GrnUnitOfMeasureId,
-                lineReq.BatchNumber,
-                lineReq.SerialNumber,
-                lineReq.ExpiryDate,
-                lineReq.IsQuarantine,
-                lineReq.Remarks,
-                lineReq.ManufacturingDate,
-                lineTotal);
+            if (await _grnRepository.ExistsGrnNumberAsync(tenantId, companyId, normGrnNumber))
+                throw new InvalidOperationException($"GRN number '{normGrnNumber}' already exists for this company.");
 
-            grn.AddLine(line);
+            var po = await _poRepository.GetByIdAsync(tenantId, companyId, branchId, request.PurchaseOrderId)
+                ?? throw new KeyNotFoundException("Purchase Order not found in authorized branch/company scope.");
+
+            if (po.Status != PurchaseOrderStatus.Approved)
+                throw new InvalidOperationException($"Cannot receive against Purchase Order in status '{po.Status}'. Only Approved POs can be received.");
+
+            if (request.Lines == null || request.Lines.Count == 0)
+                throw new ArgumentException("At least one line is required to create a GRN.", nameof(request.Lines));
+
+            var grn = GoodsReceiptNote.Create(
+                tenantId,
+                companyId,
+                branchId,
+                po.Id,
+                normGrnNumber,
+                request.ReceiptDate,
+                po.SupplierId,
+                request.DeliveryNoteNumber,
+                request.Remarks);
+
+            foreach (var lineReq in request.Lines)
+            {
+                var poItem = po.Items.FirstOrDefault(i => i.Id == lineReq.PurchaseOrderItemId && i.IsActive)
+                    ?? throw new InvalidOperationException($"PO item '{lineReq.PurchaseOrderItemId}' not found on PO '{po.OrderNumber}'.");
+
+                if (poItem.ProductId != lineReq.ProductId)
+                    throw new InvalidOperationException($"Product mismatch for PO item '{poItem.Id}'.");
+
+                if (lineReq.WarehouseId == Guid.Empty)
+                    throw new ArgumentException("Receiving warehouse is required.");
+                if (lineReq.WarehouseLocationId == Guid.Empty)
+                    throw new ArgumentException("Storage location is required.");
+
+                await ValidateReceiptWarehouseScopeAsync(
+                    tenantId, companyId, branchId, lineReq.WarehouseId, lineReq.WarehouseLocationId);
+
+                var units = await ResolveReceiptUnitsAsync(
+                    tenantId,
+                    poItem,
+                    lineReq.ProductId,
+                    lineReq.UnitOfMeasureId);
+                decimal quantityInPoUom = await ConvertReceiptQuantityAsync(
+                    tenantId,
+                    companyId,
+                    lineReq.ProductId,
+                    units.GrnUnitOfMeasureId,
+                    units.PurchaseOrderUnitOfMeasureId,
+                    lineReq.QuantityReceived);
+                decimal lineTotal = await CalculateReceiptValueAsync(tenantId, companyId, poItem, quantityInPoUom);
+                decimal grnUnitCost = Math.Round(lineTotal / Math.Round(lineReq.QuantityReceived, 4, MidpointRounding.AwayFromZero), 2, MidpointRounding.AwayFromZero);
+
+                // CRITICAL BUSINESS RULE: Price protection - unit price is copied from approved PO line by server; client prices are ignored
+                var line = GoodsReceiptNoteLine.Create(
+                    grn.GoodsReceiptNoteId,
+                    poItem.Id,
+                    lineReq.ProductId,
+                    lineReq.WarehouseId,
+                    lineReq.WarehouseLocationId,
+                    lineReq.QuantityReceived,
+                    grnUnitCost, // PO value expressed per GRN unit
+                    units.GrnUnitOfMeasureId,
+                    lineReq.BatchNumber,
+                    lineReq.SerialNumber,
+                    lineReq.ExpiryDate,
+                    lineReq.IsQuarantine,
+                    lineReq.Remarks,
+                    lineReq.ManufacturingDate,
+                    lineTotal);
+
+                grn.AddLine(line);
+            }
+
+            await _grnRepository.AddAsync(grn);
+            await _grnRepository.SaveChangesAsync();
+
+            return await MapToDtoAsync(tenantId, grn);
         }
-
-        await _grnRepository.AddAsync(grn);
-        await _grnRepository.SaveChangesAsync();
-
-        return await MapToDtoAsync(tenantId, grn);
+        finally
+        {
+            sem.Release();
+        }
     }
 
     public async Task<GoodsReceiptNoteDto> UpdateDraftAsync(
@@ -283,8 +307,6 @@ _persistenceCoordinator = persistenceCoordinator;
 
         if (request.Lines != null)
         {
-            Guid defaultWhId = Guid.Empty;
-            Guid defaultLocId = Guid.Empty;
             var replacementLines = new List<GoodsReceiptNoteLine>();
 
             foreach (var lineReq in request.Lines)
@@ -294,6 +316,14 @@ _persistenceCoordinator = persistenceCoordinator;
 
                 if (poItem.ProductId != lineReq.ProductId)
                     throw new InvalidOperationException($"Product mismatch for PO item '{poItem.Id}'.");
+
+                if (lineReq.WarehouseId == Guid.Empty)
+                    throw new ArgumentException("Receiving warehouse is required.");
+                if (lineReq.WarehouseLocationId == Guid.Empty)
+                    throw new ArgumentException("Storage location is required.");
+
+                await ValidateReceiptWarehouseScopeAsync(
+                    tenantId, companyId, branchId, lineReq.WarehouseId, lineReq.WarehouseLocationId);
 
                 var units = await ResolveReceiptUnitsAsync(
                     tenantId,
@@ -310,33 +340,13 @@ _persistenceCoordinator = persistenceCoordinator;
                 decimal lineTotal = await CalculateReceiptValueAsync(tenantId, companyId, poItem, quantityInPoUom);
                 decimal grnUnitCost = Math.Round(lineTotal / Math.Round(lineReq.QuantityReceived, 4, MidpointRounding.AwayFromZero), 2, MidpointRounding.AwayFromZero);
 
-                Guid targetWhId = lineReq.WarehouseId;
-                Guid targetLocId = lineReq.WarehouseLocationId;
-
-                if (targetWhId == Guid.Empty != (targetLocId == Guid.Empty))
-                    throw new InvalidOperationException("Warehouse and location must be provided together.");
-
-                if (targetWhId == Guid.Empty)
-                {
-                    if (defaultWhId == Guid.Empty || defaultLocId == Guid.Empty)
-                    {
-                        (defaultWhId, defaultLocId) =
-                            await GetDefaultWarehouseLocationAsync(tenantId, companyId, branchId);
-                    }
-                    targetWhId = defaultWhId;
-                    targetLocId = defaultLocId;
-                }
-
-                await ValidateReceiptWarehouseScopeAsync(
-                    tenantId, companyId, branchId, targetWhId, targetLocId);
-
                 // CRITICAL BUSINESS RULE: Price protection - unit price is copied from approved PO line by server; client prices are ignored
                 var line = GoodsReceiptNoteLine.Create(
                     grn.GoodsReceiptNoteId,
                     poItem.Id,
                     lineReq.ProductId,
-                    targetWhId,
-                    targetLocId,
+                    lineReq.WarehouseId,
+                    lineReq.WarehouseLocationId,
                     lineReq.QuantityReceived,
                     grnUnitCost, // PO value expressed per GRN unit
                     units.GrnUnitOfMeasureId,
@@ -392,7 +402,8 @@ _persistenceCoordinator = persistenceCoordinator;
         Guid tenantId,
         Guid companyId,
         Guid branchId,
-        Guid grnId)
+        Guid grnId,
+        UpdateGoodsReceiptNoteRequest? updateRequest = null)
     {
         // 1. Initial check: Is GRN already confirmed? (Idempotent early return)
         var existingGrn = await _grnRepository.GetByIdAsync(tenantId, companyId, branchId, grnId)
@@ -410,200 +421,313 @@ _persistenceCoordinator = persistenceCoordinator;
         }
 
         // Open Domain Transaction
-await using var domainTx = await _persistenceCoordinator.BeginTransactionAsync();
+        await using var domainTx = await _persistenceCoordinator.BeginTransactionAsync();
 
-                // Re-fetch GRN with row version tracking and lock
-                var grn = await _grnRepository.GetByIdAsync(tenantId, companyId, branchId, grnId)
-                    ?? throw new KeyNotFoundException("GRN not found.");
+        // Re-fetch GRN with row version tracking and lock
+        var grn = await _grnRepository.GetByIdAsync(tenantId, companyId, branchId, grnId)
+            ?? throw new KeyNotFoundException("GRN not found.");
 
-                if (grn.Status == GoodsReceiptNoteStatus.Confirmed)
+        if (grn.Status == GoodsReceiptNoteStatus.Confirmed)
+        {
+            // Concurrent request already committed
+            return await MapToDtoAsync(tenantId, grn);
+        }
+
+        if (grn.Status == GoodsReceiptNoteStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Cancelled GRN cannot be confirmed.");
+        }
+
+        var po = await _poRepository.GetByIdAsync(tenantId, companyId, branchId, grn.PurchaseOrderId)
+            ?? throw new KeyNotFoundException("Associated Purchase Order not found.");
+
+        if (po.Status != PurchaseOrderStatus.Approved)
+        {
+            throw new InvalidOperationException($"Cannot receive against PO in status '{po.Status}'. Only Approved POs can be received.");
+        }
+
+        // If an update payload is provided (e.g. from Direct Post), persist amendments inside this single transaction
+        if (updateRequest != null)
+        {
+            if (updateRequest.ReceiptDate.HasValue)
+                grn.ReceiptDate = updateRequest.ReceiptDate.Value;
+
+            grn.DeliveryNoteNumber = updateRequest.DeliveryNoteNumber?.Trim();
+            grn.Remarks = updateRequest.Remarks?.Trim();
+
+            if (updateRequest.Lines != null)
+            {
+                var replacementLines = new List<GoodsReceiptNoteLine>();
+
+                foreach (var lineReq in updateRequest.Lines)
                 {
-                    // Concurrent request already committed
-                    return await MapToDtoAsync(tenantId, grn);
-                }
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == lineReq.PurchaseOrderItemId && i.IsActive)
+                        ?? throw new InvalidOperationException($"PO item '{lineReq.PurchaseOrderItemId}' not found on PO.");
 
-                if (grn.Status == GoodsReceiptNoteStatus.Cancelled)
-                {
-                    throw new InvalidOperationException("Cancelled GRN cannot be confirmed.");
-                }
+                    if (poItem.ProductId != lineReq.ProductId)
+                        throw new InvalidOperationException($"Product mismatch for PO item '{poItem.Id}'.");
 
-                var po = await _poRepository.GetByIdAsync(tenantId, companyId, branchId, grn.PurchaseOrderId)
-                    ?? throw new KeyNotFoundException("Associated Purchase Order not found.");
+                    if (lineReq.WarehouseId == Guid.Empty)
+                        throw new InvalidOperationException("Receiving warehouse is required.");
+                    if (lineReq.WarehouseLocationId == Guid.Empty)
+                        throw new InvalidOperationException("Storage location is required.");
 
-                var productIds = grn.Lines.Select(l => l.ProductId).Distinct().ToList();
-                var products = await _persistenceCoordinator.GetProductsByIdsAsync(tenantId, productIds);
-
-                if (po.Status != PurchaseOrderStatus.Approved)
-                {
-                    throw new InvalidOperationException($"Cannot receive against PO in status '{po.Status}'. Only Approved POs can be received.");
-                }
-
-                // Group received quantities by PO Item to validate zero over-receipt tolerance.
-                // If GRN line has a different UOM than the PO item, convert received qty to the PO item's UOM.
-                var grnQtyByPoItem = new Dictionary<Guid, decimal>();
-                foreach (var line in grn.Lines)
-                {
                     await ValidateReceiptWarehouseScopeAsync(
-                        tenantId, companyId, branchId, line.WarehouseId, line.WarehouseLocationId);
+                        tenantId, companyId, branchId, lineReq.WarehouseId, lineReq.WarehouseLocationId);
 
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == line.PurchaseOrderItemId && i.IsActive)
-                        ?? throw new InvalidOperationException($"PO item '{line.PurchaseOrderItemId}' not found or inactive.");
-
-                    var product = await GetActiveProductAsync(tenantId, line.ProductId, products);
-                    var units = await ResolveReceiptUnitsAsync(tenantId, poItem, line.ProductId, line.UnitOfMeasureId, product);
-                    decimal qtyInPoUom = await ConvertReceiptQuantityAsync(
-                        tenantId,
-                        companyId,
-                        line.ProductId,
-                        units.GrnUnitOfMeasureId,
-                        units.PurchaseOrderUnitOfMeasureId,
-                        line.QuantityReceived);
-
-                    if (!grnQtyByPoItem.ContainsKey(line.PurchaseOrderItemId))
-                        grnQtyByPoItem[line.PurchaseOrderItemId] = 0;
-                    grnQtyByPoItem[line.PurchaseOrderItemId] += qtyInPoUom;
-                }
-
-                var activePoItems = po.Items.Where(item => item.IsActive).ToList();
-                var activePoItemIds = activePoItems.Select(item => item.Id).ToList();
-                var previouslyConfirmedLines = await _persistenceCoordinator.GetPreviouslyConfirmedPoLinesAsync(tenantId, companyId, po.Id, grn.GoodsReceiptNoteId, activePoItemIds);
-
-                var exactReceivedByPoItem = activePoItems.ToDictionary(item => item.Id, _ => 0m);
-                foreach (var priorLine in previouslyConfirmedLines)
-                {
-                    var poItem = activePoItems.First(item => item.Id == priorLine.PurchaseOrderItemId);
-                    var product = await GetActiveProductAsync(tenantId, priorLine.ProductId, products);
                     var units = await ResolveReceiptUnitsAsync(
-                        tenantId, poItem, priorLine.ProductId, priorLine.UnitOfMeasureId, product);
-                    decimal priorQuantity = await ConvertReceiptQuantityAsync(
+                        tenantId,
+                        poItem,
+                        lineReq.ProductId,
+                        lineReq.UnitOfMeasureId);
+                    decimal quantityInPoUom = await ConvertReceiptQuantityAsync(
                         tenantId,
                         companyId,
-                        priorLine.ProductId,
+                        lineReq.ProductId,
                         units.GrnUnitOfMeasureId,
                         units.PurchaseOrderUnitOfMeasureId,
-                        priorLine.QuantityReceived);
-                    exactReceivedByPoItem[poItem.Id] += priorQuantity;
-                }
+                        lineReq.QuantityReceived);
+                    decimal lineTotal = await CalculateReceiptValueAsync(tenantId, companyId, poItem, quantityInPoUom);
+                    decimal grnUnitCost = Math.Round(lineTotal / Math.Round(lineReq.QuantityReceived, 4, MidpointRounding.AwayFromZero), 2, MidpointRounding.AwayFromZero);
 
-                foreach (var poItem in activePoItems)
-                {
-                    decimal receivedInThisGrn = grnQtyByPoItem.GetValueOrDefault(poItem.Id);
-                    decimal receivedBeforeThisGrn = exactReceivedByPoItem[poItem.Id];
-                    if (receivedInThisGrn == 0m)
-                        continue;
-
-                    decimal maxAllowable = poItem.Quantity - receivedBeforeThisGrn;
-                    if (receivedInThisGrn > maxAllowable)
-                    {
-                        throw new InvalidOperationException(
-                            $"Over-receipt rejected for item '{poItem.Id}'. Ordered: {poItem.Quantity}, Already Received: {receivedBeforeThisGrn}, Attempted in GRN: {receivedInThisGrn}. Over-receipt tolerance is 0%.");
-                    }
-
-                    decimal exactReceivedQuantity = receivedBeforeThisGrn + receivedInThisGrn;
-                    exactReceivedByPoItem[poItem.Id] = exactReceivedQuantity;
-                    decimal persistedReceivedQuantity = Math.Round(
-                        exactReceivedQuantity,
-                        4,
-                        MidpointRounding.AwayFromZero);
-                    if (persistedReceivedQuantity > poItem.Quantity)
-                    {
-                        throw new InvalidOperationException(
-                            $"Receipt quantity for item '{poItem.Id}' cannot be represented within the remaining PO quantity at four-decimal persistence precision.");
-                    }
-
-                    if (receivedInThisGrn > 0)
-                    {
-                        if (persistedReceivedQuantity >= poItem.Quantity &&
-                            exactReceivedQuantity < poItem.Quantity)
-                        {
-                            persistedReceivedQuantity = decimal.Truncate(exactReceivedQuantity * 10_000m) / 10_000m;
-                        }
-
-                        poItem.ReceivedQuantity = persistedReceivedQuantity;
-                    }
-                }
-
-                // Check if all active lines on PO are fully fulfilled
-                bool allFulfilled = activePoItems.All(item =>
-                    (previouslyConfirmedLines.Any(line => line.PurchaseOrderItemId == item.Id) ||
-                     grnQtyByPoItem.ContainsKey(item.Id))
-                        ? exactReceivedByPoItem[item.Id] >= item.Quantity
-                        : item.ReceivedQuantity >= item.Quantity);
-
-                if (allFulfilled)
-                {
-                    po.Status = PurchaseOrderStatus.Fulfilled;
-                }
-
-                // Mark GRN as Confirmed
-                grn.MarkConfirmed();
-
-                // Post Inventory ledger for each stock-tracked line using existing IInventoryPostingService
-                int sequence = 1;
-                foreach (var line in grn.Lines)
-                {
-                    var product = await GetActiveProductAsync(tenantId, line.ProductId, products);
-
-                    // Non-stock and service lines do NOT create inventory movements or track inventory balances
-                    if (!product.IsStockTracked)
-                    {
-                        continue;
-                    }
-
-                    if (!product.UnitOfMeasureId.HasValue)
-                        throw new InvalidOperationException($"Stock-tracked product '{product.ProductCode}' is missing its base unit of measure.");
-
-                    var poItem = po.Items.First(i => i.Id == line.PurchaseOrderItemId && i.IsActive);
-                    var units = await ResolveReceiptUnitsAsync(tenantId, poItem, line.ProductId, line.UnitOfMeasureId, product);
-                    Guid targetUomId = product.UnitOfMeasureId.Value;
-                    decimal baseQuantity = Math.Round(await ConvertReceiptQuantityAsync(
-                        tenantId,
-                        companyId,
-                        line.ProductId,
+                    var line = GoodsReceiptNoteLine.Create(
+                        grn.GoodsReceiptNoteId,
+                        poItem.Id,
+                        lineReq.ProductId,
+                        lineReq.WarehouseId,
+                        lineReq.WarehouseLocationId,
+                        lineReq.QuantityReceived,
+                        grnUnitCost,
                         units.GrnUnitOfMeasureId,
-                        targetUomId,
-                        line.QuantityReceived),
-                        4,
-                        MidpointRounding.AwayFromZero);
-                    if (baseQuantity <= 0)
-                        throw new InvalidOperationException("Converted stock quantity is below the supported four-decimal persistence precision.");
+                        lineReq.BatchNumber,
+                        lineReq.SerialNumber,
+                        lineReq.ExpiryDate,
+                        lineReq.IsQuarantine,
+                        lineReq.Remarks,
+                        lineReq.ManufacturingDate,
+                        lineTotal);
 
-                    // Compute effective base unit cost preserving total line valuation
-                    decimal effectiveUnitCost = baseQuantity > 0
-                        ? Math.Round(line.LineTotal / baseQuantity, 4, MidpointRounding.AwayFromZero)
-                        : line.UnitCost;
-
-                    await _persistenceCoordinator.DecrementOnOrderBalanceAsync(tenantId, line.WarehouseId, line.ProductId, baseQuantity);
-
-                    var postReq = new PostInventoryMovementRequest
-                    {
-                        MovementType = InventoryMovementType.GoodsReceipt,
-                        SourceDocumentType = SourceDocumentType.GoodsReceiptNote,
-                        SourceDocumentId = grn.GoodsReceiptNoteId,
-                        SourceDocumentLineId = line.GoodsReceiptNoteLineId,
-                        MovementSequence = sequence++,
-                        ProductId = line.ProductId,
-                        WarehouseId = line.WarehouseId,
-                        WarehouseLocationId = line.WarehouseLocationId,
-                        Quantity = baseQuantity,
-                        UnitCost = effectiveUnitCost,
-                        UnitOfMeasureId = targetUomId,
-                        BatchNumber = line.BatchNumber,
-                        SerialNumber = line.SerialNumber,
-                        ManufacturingDate = line.ManufacturingDate,
-                        ExpiryDate = line.ExpiryDate,
-                        TransactionDate = grn.ReceiptDate,
-                        IsQuarantine = line.IsQuarantine
-                    };
-
-                    await _postingService.PostMovementAsync(tenantId, postReq);
+                    replacementLines.Add(line);
                 }
 
-                // Commit Domain Db Changes & Domain Transaction
-await _persistenceCoordinator.SaveChangesAsync();
-await _persistenceCoordinator.CommitTransactionAsync();
+                await _persistenceCoordinator.ReplaceGrnLinesAsync(grn, replacementLines);
+            }
+        }
 
-                return await MapToDtoAsync(tenantId, grn);
+        if (grn.Lines.Count == 0)
+        {
+            throw new InvalidOperationException($"Cannot confirm GRN '{grn.GrnNumber}' because it contains no lines.");
+        }
+
+        if (!grn.Lines.Any(l => l.QuantityReceived > 0))
+        {
+            throw new InvalidOperationException($"Cannot confirm GRN '{grn.GrnNumber}' because all lines have zero received quantity.");
+        }
+
+        var productIds = grn.Lines.Select(l => l.ProductId).Distinct().ToList();
+        var products = await _persistenceCoordinator.GetProductsByIdsAsync(tenantId, productIds);
+
+        // Group received quantities by PO Item to validate zero over-receipt tolerance.
+        // If GRN line has a different UOM than the PO item, convert received qty to the PO item's UOM.
+        var grnQtyByPoItem = new Dictionary<Guid, decimal>();
+        foreach (var line in grn.Lines)
+        {
+            if (line.QuantityReceived > 0)
+            {
+                await ValidateReceiptWarehouseScopeAsync(
+                    tenantId, companyId, branchId, line.WarehouseId, line.WarehouseLocationId);
+            }
+
+            var poItem = po.Items.FirstOrDefault(i => i.Id == line.PurchaseOrderItemId && i.IsActive)
+                ?? throw new InvalidOperationException($"PO item '{line.PurchaseOrderItemId}' not found or inactive.");
+
+            var product = await GetActiveProductAsync(tenantId, line.ProductId, products);
+
+            // Validate tracking requirements for stock-tracked products
+            if (product.IsStockTracked && line.QuantityReceived > 0)
+            {
+                switch (product.TrackingMode)
+                {
+                    case TrackingMode.Batch:
+                        if (string.IsNullOrWhiteSpace(line.BatchNumber))
+                            throw new InvalidOperationException($"Batch number is required for batch-tracked product '{product.ProductCode}'.");
+                        break;
+                    case TrackingMode.Serial:
+                        if (string.IsNullOrWhiteSpace(line.SerialNumber))
+                            throw new InvalidOperationException($"Serial number is required for serial-tracked product '{product.ProductCode}'.");
+                        break;
+                    case TrackingMode.BatchAndSerial:
+                        if (string.IsNullOrWhiteSpace(line.BatchNumber))
+                            throw new InvalidOperationException($"Batch number is required for product '{product.ProductCode}'.");
+                        if (string.IsNullOrWhiteSpace(line.SerialNumber))
+                            throw new InvalidOperationException($"Serial number is required for product '{product.ProductCode}'.");
+                        break;
+                }
+            }
+
+            decimal qtyInPoUom = 0m;
+            if (line.QuantityReceived > 0)
+            {
+                var units = await ResolveReceiptUnitsAsync(tenantId, poItem, line.ProductId, line.UnitOfMeasureId, product);
+                qtyInPoUom = await ConvertReceiptQuantityAsync(
+                    tenantId,
+                    companyId,
+                    line.ProductId,
+                    units.GrnUnitOfMeasureId,
+                    units.PurchaseOrderUnitOfMeasureId,
+                    line.QuantityReceived);
+            }
+
+            if (!grnQtyByPoItem.ContainsKey(line.PurchaseOrderItemId))
+                grnQtyByPoItem[line.PurchaseOrderItemId] = 0;
+            grnQtyByPoItem[line.PurchaseOrderItemId] += qtyInPoUom;
+        }
+
+        var activePoItems = po.Items.Where(item => item.IsActive).ToList();
+        var activePoItemIds = activePoItems.Select(item => item.Id).ToList();
+        var previouslyConfirmedLines = await _persistenceCoordinator.GetPreviouslyConfirmedPoLinesAsync(tenantId, companyId, po.Id, grn.GoodsReceiptNoteId, activePoItemIds);
+
+        var exactReceivedByPoItem = activePoItems.ToDictionary(item => item.Id, _ => 0m);
+        foreach (var priorLine in previouslyConfirmedLines)
+        {
+            var poItem = activePoItems.First(item => item.Id == priorLine.PurchaseOrderItemId);
+            var product = await GetActiveProductAsync(tenantId, priorLine.ProductId, products);
+            var units = await ResolveReceiptUnitsAsync(
+                tenantId, poItem, priorLine.ProductId, priorLine.UnitOfMeasureId, product);
+            decimal priorQuantity = await ConvertReceiptQuantityAsync(
+                tenantId,
+                companyId,
+                priorLine.ProductId,
+                units.GrnUnitOfMeasureId,
+                units.PurchaseOrderUnitOfMeasureId,
+                priorLine.QuantityReceived);
+            exactReceivedByPoItem[poItem.Id] += priorQuantity;
+        }
+
+        foreach (var poItem in activePoItems)
+        {
+            decimal receivedInThisGrn = grnQtyByPoItem.GetValueOrDefault(poItem.Id);
+            decimal receivedBeforeThisGrn = exactReceivedByPoItem[poItem.Id];
+            if (receivedInThisGrn == 0m)
+                continue;
+
+            decimal maxAllowable = poItem.Quantity - receivedBeforeThisGrn;
+            if (receivedInThisGrn > maxAllowable)
+            {
+                throw new InvalidOperationException(
+                    $"Over-receipt rejected for item '{poItem.Id}'. Ordered: {poItem.Quantity}, Already Received: {receivedBeforeThisGrn}, Attempted in GRN: {receivedInThisGrn}. Over-receipt tolerance is 0%.");
+            }
+
+            decimal exactReceivedQuantity = receivedBeforeThisGrn + receivedInThisGrn;
+            exactReceivedByPoItem[poItem.Id] = exactReceivedQuantity;
+            decimal persistedReceivedQuantity = Math.Round(
+                exactReceivedQuantity,
+                4,
+                MidpointRounding.AwayFromZero);
+            if (persistedReceivedQuantity > poItem.Quantity)
+            {
+                throw new InvalidOperationException(
+                    $"Receipt quantity for item '{poItem.Id}' cannot be represented within the remaining PO quantity at four-decimal persistence precision.");
+            }
+
+            if (receivedInThisGrn > 0)
+            {
+                if (persistedReceivedQuantity >= poItem.Quantity &&
+                    exactReceivedQuantity < poItem.Quantity)
+                {
+                    persistedReceivedQuantity = decimal.Truncate(exactReceivedQuantity * 10_000m) / 10_000m;
+                }
+
+                poItem.ReceivedQuantity = persistedReceivedQuantity;
+            }
+        }
+
+        // Check if all active lines on PO are fully fulfilled
+        bool allFulfilled = activePoItems.All(item =>
+            (previouslyConfirmedLines.Any(line => line.PurchaseOrderItemId == item.Id) ||
+             grnQtyByPoItem.ContainsKey(item.Id))
+                ? exactReceivedByPoItem[item.Id] >= item.Quantity
+                : item.ReceivedQuantity >= item.Quantity);
+
+        if (allFulfilled)
+        {
+            po.Status = PurchaseOrderStatus.Fulfilled;
+        }
+
+        // Mark GRN as Confirmed
+        grn.MarkConfirmed();
+
+        // Post Inventory ledger for each stock-tracked line using existing IInventoryPostingService
+        int sequence = 1;
+        foreach (var line in grn.Lines)
+        {
+            if (line.QuantityReceived <= 0)
+            {
+                continue;
+            }
+
+            var product = await GetActiveProductAsync(tenantId, line.ProductId, products);
+
+            // Non-stock and service lines do NOT create inventory movements or track inventory balances
+            if (!product.IsStockTracked)
+            {
+                continue;
+            }
+
+            if (!product.UnitOfMeasureId.HasValue)
+                throw new InvalidOperationException($"Stock-tracked product '{product.ProductCode}' is missing its base unit of measure.");
+
+            var poItem = po.Items.First(i => i.Id == line.PurchaseOrderItemId && i.IsActive);
+            var units = await ResolveReceiptUnitsAsync(tenantId, poItem, line.ProductId, line.UnitOfMeasureId, product);
+            Guid targetUomId = product.UnitOfMeasureId.Value;
+            decimal baseQuantity = Math.Round(await ConvertReceiptQuantityAsync(
+                tenantId,
+                companyId,
+                line.ProductId,
+                units.GrnUnitOfMeasureId,
+                targetUomId,
+                line.QuantityReceived),
+                4,
+                MidpointRounding.AwayFromZero);
+            if (baseQuantity <= 0)
+                throw new InvalidOperationException("Converted stock quantity is below the supported four-decimal persistence precision.");
+
+            // Compute effective base unit cost preserving total line valuation
+            decimal effectiveUnitCost = baseQuantity > 0
+                ? Math.Round(line.LineTotal / baseQuantity, 4, MidpointRounding.AwayFromZero)
+                : line.UnitCost;
+
+            await _persistenceCoordinator.DecrementOnOrderBalanceAsync(tenantId, line.WarehouseId, line.ProductId, baseQuantity);
+
+            var postReq = new PostInventoryMovementRequest
+            {
+                MovementType = InventoryMovementType.GoodsReceipt,
+                SourceDocumentType = SourceDocumentType.GoodsReceiptNote,
+                SourceDocumentId = grn.GoodsReceiptNoteId,
+                SourceDocumentLineId = line.GoodsReceiptNoteLineId,
+                MovementSequence = sequence++,
+                ProductId = line.ProductId,
+                WarehouseId = line.WarehouseId,
+                WarehouseLocationId = line.WarehouseLocationId,
+                Quantity = baseQuantity,
+                UnitCost = effectiveUnitCost,
+                UnitOfMeasureId = targetUomId,
+                BatchNumber = line.BatchNumber,
+                SerialNumber = line.SerialNumber,
+                ManufacturingDate = line.ManufacturingDate,
+                ExpiryDate = line.ExpiryDate,
+                TransactionDate = grn.ReceiptDate,
+                IsQuarantine = line.IsQuarantine
+            };
+
+            await _postingService.PostMovementAsync(tenantId, postReq);
+        }
+
+        // Commit Domain Db Changes & Domain Transaction
+        await _persistenceCoordinator.SaveChangesAsync();
+        await _persistenceCoordinator.CommitTransactionAsync();
+
+        return await MapToDtoAsync(tenantId, grn);
     }
 
     private async Task<(Product Product, Guid PurchaseOrderUnitOfMeasureId, Guid GrnUnitOfMeasureId)> ResolveReceiptUnitsAsync(
@@ -717,6 +841,11 @@ await _persistenceCoordinator.CommitTransactionAsync();
         Guid warehouseId,
         Guid locationId)
     {
+        if (warehouseId == Guid.Empty)
+            throw new InvalidOperationException("Receiving warehouse is required.");
+        if (locationId == Guid.Empty)
+            throw new InvalidOperationException("Storage location is required.");
+
         var warehouse = await _warehouseRepository.GetWarehouseByIdAsync(tenantId, warehouseId);
         if (warehouse == null ||
             !warehouse.IsActive ||

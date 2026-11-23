@@ -1,0 +1,195 @@
+<div class="quotation-detail-page">
+  @if (loading()) {
+    <div class="erp-card state-card">
+      <div class="loading-state">
+        <i class="pi pi-spin pi-spinner text-primary" style="font-size: 2rem;"></i>
+        <p>Loading quotation details...</p>
+      </div>
+    </div>
+  } @else if (errorMessage()) {
+    <div class="erp-card state-card">
+      <div class="error-state">
+        <i class="pi pi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+        <p>{{ errorMessage() }}</p>
+        <button type="button" class="erp-button erp-button-secondary erp-button-sm" (click)="navigateBack()">
+          Back to Quotations
+        </button>
+      </div>
+    </div>
+  } @else if (quotation()) {
+    <app-page-header
+      [title]="'Quotation ' + quotation()!.quotationNumber"
+      [subtitle]="'Revision ' + quotation()!.revisionNumber + ' • Requested on ' + (quotation()!.quotationDate | date:'mediumDate')"
+      [breadcrumbs]="breadcrumbs"
+    >
+      <div actions class="page-header-actions">
+        <button
+          type="button"
+          class="erp-button erp-button-secondary erp-button-sm"
+          (click)="navigateBack()"
+        >
+          <i class="pi pi-arrow-left"></i>
+          <span>Back to Quotations</span>
+        </button>
+
+        <button
+          type="button"
+          class="erp-button erp-button-secondary erp-button-sm"
+          [disabled]="downloadingPdf()"
+          (click)="downloadPdf()"
+          title="Download PDF"
+        >
+          <i class="pi pi-file-pdf" [class.pi-spin]="downloadingPdf()"></i>
+          <span>Download PDF</span>
+        </button>
+      </div>
+    </app-page-header>
+
+    <div class="detail-container">
+      <!-- Status Banner -->
+      <div class="status-banner erp-card">
+        <div class="status-wrap">
+          <span class="status-label">Document Status:</span>
+          <app-status-badge
+            [status]="getStatusSeverity(quotation()!.status)"
+            [label]="getStatusLabel(quotation()!.status)"
+          ></app-status-badge>
+        </div>
+
+        @if (quotation()!.status === 2) {
+          <div class="status-hint">
+            <i class="pi pi-clock text-warning"></i>
+            <span>Your request is currently under review by our commercial sales engineering team. You will be notified once a formal proposal is issued.</span>
+          </div>
+        } @else if (quotation()!.status === 5) {
+          <div class="status-hint">
+            <i class="pi pi-check-circle text-primary"></i>
+            <span>A formal proposal has been issued. Valid until <strong>{{ quotation()!.validUntilDateUtc | date:'mediumDate' }}</strong> ({{ quotation()!.daysUntilExpiry }} days remaining).</span>
+          </div>
+        }
+      </div>
+
+      <!-- Scope & Commercial Overview -->
+      <section class="erp-card detail-section">
+        <h3 class="section-title">Commercial &amp; Operating Context</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Customer Organisation</span>
+            <span class="info-val font-bold">{{ quotation()!.customerName || 'Your Organisation' }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Contact Person</span>
+            <span class="info-val">{{ quotation()!.contactPersonName || 'Account Contact' }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Commercial Currency</span>
+            <span class="info-val font-bold">{{ quotation()!.currency }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Requested Delivery Date</span>
+            <span class="info-val">{{ quotation()!.deliveryDate ? (quotation()!.deliveryDate | date:'mediumDate') : 'Immediate / Flexible' }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Payment Terms</span>
+            <span class="info-val">{{ quotation()!.paymentTerms || 'Standard Commercial Terms' }}</span>
+          </div>
+
+          <div class="info-item">
+            <span class="info-label">Validity Period</span>
+            <span class="info-val">{{ quotation()!.validUntilDateUtc | date:'mediumDate' }}</span>
+          </div>
+        </div>
+
+        @if (quotation()!.deliveryAddressSnapshot) {
+          <div class="delivery-snapshot-box">
+            <i class="pi pi-map-marker text-primary"></i>
+            <div>
+              <strong>Delivery Destination:</strong>
+              <span>{{ quotation()!.deliveryAddressSnapshot }}</span>
+            </div>
+          </div>
+        }
+
+        @if (quotation()!.customerRemarks) {
+          <div class="remarks-box">
+            <i class="pi pi-comments text-secondary"></i>
+            <div>
+              <strong>Customer Remarks / Project:</strong>
+              <p>{{ quotation()!.customerRemarks }}</p>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- Line Items Table -->
+      <section class="erp-card detail-section">
+        <div class="section-header-row">
+          <h3 class="section-title">Requested Line Items</h3>
+          <span class="count-pill">{{ quotation()!.items.length }} items</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="erp-table detail-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th style="width: 130px;">Product Code</th>
+                <th>Product Description</th>
+                <th style="width: 80px;">UOM</th>
+                <th style="width: 100px;" class="text-right">Quantity</th>
+                <th style="width: 120px;" class="text-right">Unit Price</th>
+                <th style="width: 100px;" class="text-right">Discount</th>
+                <th style="width: 130px;" class="text-right">Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of quotation()!.items; track item.id; let idx = $index) {
+                <tr>
+                  <td class="text-secondary text-center">{{ idx + 1 }}</td>
+                  <td><code>{{ item.productCode }}</code></td>
+                  <td>
+                    <div class="item-name">{{ item.productName }}</div>
+                    @if (item.notes) {
+                      <div class="item-notes"><i class="pi pi-tag"></i> {{ item.notes }}</div>
+                    }
+                  </td>
+                  <td><span class="uom-pill">{{ item.unitOfMeasureCode || 'EA' }}</span></td>
+                  <td class="text-right font-bold">{{ item.quantity }}</td>
+                  <td class="text-right">{{ item.unitPrice | currency:quotation()!.currency:'symbol':'1.2-2' }}</td>
+                  <td class="text-right text-secondary">{{ item.discountRate ? item.discountRate + '%' : '—' }}</td>
+                  <td class="text-right font-bold text-main">{{ item.lineTotal | currency:quotation()!.currency:'symbol':'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Totals Summary -->
+        <div class="totals-summary-grid">
+          <div class="total-row">
+            <span class="total-label">Subtotal:</span>
+            <span class="total-val">{{ quotation()!.subTotal | currency:quotation()!.currency:'symbol':'1.2-2' }}</span>
+          </div>
+          @if (quotation()!.discountAmount > 0) {
+            <div class="total-row discount-row">
+              <span class="total-label">Discount:</span>
+              <span class="total-val">-{{ quotation()!.discountAmount | currency:quotation()!.currency:'symbol':'1.2-2' }}</span>
+            </div>
+          }
+          <div class="total-row">
+            <span class="total-label">Tax:</span>
+            <span class="total-val">{{ quotation()!.taxAmount | currency:quotation()!.currency:'symbol':'1.2-2' }}</span>
+          </div>
+          <div class="total-row grand-total-row">
+            <span class="total-label">Total Amount:</span>
+            <span class="total-val">{{ quotation()!.totalAmount | currency:quotation()!.currency:'symbol':'1.2-2' }}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  }
+</div>

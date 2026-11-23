@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Domain.Features.Ecommerce;
 using Domain.Features.MasterData.Address;
 using Domain.Features.MasterData.AddressType;
 using Domain.Features.MasterData.Branch;
@@ -85,6 +86,7 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
 
         // 8. Products, Packagings, Identifiers
         await SeedProductsAsync(tenantId, root, result);
+        await PublishSellableProductsAsync(tenantId, company.Id, result);
 
         // 9. Warehouses, Zones, Locations
         await SeedWarehousesAsync(tenantId, company.Id, branch.Id, root, result);
@@ -541,6 +543,47 @@ public class TenantMasterDataSetupService : ITenantMasterDataSetupService
             }
         }
         await _db.SaveChangesAsync();
+    }
+
+    private async Task PublishSellableProductsAsync(Guid tenantId, Guid companyId, TenantMasterDataSetupResult result)
+    {
+        var sellableProducts = await _db.Products
+            .Where(p => p.TenantId == tenantId && p.IsActive && p.IsSellable)
+            .ToListAsync();
+
+        int publishedCount = 0;
+        int order = 1;
+
+        foreach (var p in sellableProducts)
+        {
+            var existing = await _db.EcommerceProducts.FirstOrDefaultAsync(ep =>
+                ep.TenantId == tenantId && ep.CompanyId == companyId && ep.ProductId == p.ProductId);
+
+            if (existing == null)
+            {
+                var publication = EcommerceProduct.Create(
+                    tenantId,
+                    companyId,
+                    p.ProductId,
+                    p.Description ?? p.ProductName,
+                    order++,
+                    isPublished: true);
+
+                await _db.EcommerceProducts.AddAsync(publication);
+                publishedCount++;
+            }
+            else if (!existing.IsPublished)
+            {
+                existing.Publish();
+                publishedCount++;
+            }
+        }
+
+        if (publishedCount > 0)
+        {
+            await _db.SaveChangesAsync();
+            result.Messages.Add($"Published {publishedCount} products to company e-commerce storefront.");
+        }
     }
 
     private async Task SeedWarehousesAsync(Guid tenantId, Guid companyId, Guid branchId, JsonElement root, TenantMasterDataSetupResult result)

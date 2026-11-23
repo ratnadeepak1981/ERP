@@ -4,6 +4,7 @@ import { Router, provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { LoginComponent } from './login.component';
+import { AuthService } from '../../../../core/auth/auth.service';
 
 describe('LoginComponent', () => {
   let component: LoginComponent;
@@ -26,7 +27,7 @@ describe('LoginComponent', () => {
   it('should create login component', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h2')?.textContent).toContain('Tenant Sign In');
+    expect(compiled.querySelector('h2')?.textContent).toContain('Sign In');
   });
 
   it('should allow quick fill of test credentials', () => {
@@ -87,6 +88,69 @@ describe('LoginComponent', () => {
 
       expect(navigateByUrlSpy).not.toHaveBeenCalled();
       expect(navigateSpy).toHaveBeenCalled();
+    });
+
+    it('should route Retail Customer (CUSTOMER_INDIVIDUAL) to /customer-portal', () => {
+      const router = TestBed.inject(Router);
+      const authService = TestBed.inject(AuthService);
+      const navigateSpy = vi.spyOn(router, 'navigate').mockImplementation(() => Promise.resolve(true));
+
+      authService.currentUser.set({
+        userId: 'cust-retail-1',
+        username: 'retailuser',
+        email: 'retail@test.local',
+        tenantId: 'ten-1',
+        roles: ['CUSTOMER_INDIVIDUAL'],
+        permissions: [],
+        token: 'token-retail'
+      });
+
+      component.returnUrl.set('');
+      (component as any).navigateAfterLogin();
+
+      expect(navigateSpy).toHaveBeenCalledWith(['/customer-portal']);
+    });
+
+    it('should route Company B2B Customer (CUSTOMER_COMPANY_ADMIN) to /customer-portal', () => {
+      const router = TestBed.inject(Router);
+      const authService = TestBed.inject(AuthService);
+      const navigateSpy = vi.spyOn(router, 'navigate').mockImplementation(() => Promise.resolve(true));
+
+      authService.currentUser.set({
+        userId: 'cust-company-1',
+        username: 'companyuser',
+        email: 'b2b@acme.com',
+        tenantId: 'ten-1',
+        roles: ['CUSTOMER_COMPANY_ADMIN'],
+        permissions: [],
+        token: 'token-company'
+      });
+
+      component.returnUrl.set('');
+      (component as any).navigateAfterLogin();
+
+      expect(navigateSpy).toHaveBeenCalledWith(['/customer-portal']);
+    });
+
+    it('should route Tenant Admin to /app/dashboard', () => {
+      const router = TestBed.inject(Router);
+      const authService = TestBed.inject(AuthService);
+      const navigateSpy = vi.spyOn(router, 'navigate').mockImplementation(() => Promise.resolve(true));
+
+      authService.currentUser.set({
+        userId: 'admin-1',
+        username: 'tenantadmin',
+        email: 'admin@tenant.com',
+        tenantId: 'ten-1',
+        roles: ['Tenant Admin'],
+        permissions: [],
+        token: 'token-admin'
+      });
+
+      component.returnUrl.set('');
+      (component as any).navigateAfterLogin();
+
+      expect(navigateSpy).toHaveBeenCalledWith(['/app/dashboard']);
     });
   });
 });
