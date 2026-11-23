@@ -11,6 +11,7 @@ public interface IGoodsReceiptNoteRepository
     Task<GoodsReceiptNote?> GetByIdWithLinesAsync(Guid tenantId, Guid grnId);
     Task<bool> ExistsGrnNumberAsync(Guid tenantId, Guid companyId, string grnNumber);
     Task<List<GoodsReceiptNote>> GetByPurchaseOrderIdAsync(Guid tenantId, Guid purchaseOrderId);
+    Task<GoodsReceiptNote?> GetActiveDraftByPurchaseOrderIdAsync(Guid tenantId, Guid companyId, Guid branchId, Guid purchaseOrderId);
     Task AddAsync(GoodsReceiptNote grn);
     Task DeleteDraftAsync(GoodsReceiptNote grn);
     Task SaveChangesAsync();

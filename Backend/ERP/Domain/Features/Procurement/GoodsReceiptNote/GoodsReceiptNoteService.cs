@@ -57,6 +57,13 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
         return grn == null ? null : await MapToDtoAsync(tenantId, grn);
     }
 
+    public async Task<GoodsReceiptNoteDto?> GetActiveDraftByPurchaseOrderIdAsync(
+        Guid tenantId, Guid companyId, Guid branchId, Guid purchaseOrderId)
+    {
+        var draft = await _grnRepository.GetActiveDraftByPurchaseOrderIdAsync(tenantId, companyId, branchId, purchaseOrderId);
+        return draft == null ? null : await MapToDtoAsync(tenantId, draft);
+    }
+
     public async Task<GoodsReceiptNoteDto> CreateDraftFromPoAsync(
         Guid tenantId,
         Guid companyId,
@@ -396,7 +403,8 @@ public class GoodsReceiptNoteService : IGoodsReceiptNoteService
         Guid tenantId,
         Guid companyId,
         Guid branchId,
-        Guid grnId)
+        Guid grnId,
+        UpdateGoodsReceiptNoteRequest? updateRequest = null)
     {
         // 1. Initial check: Is GRN already confirmed? (Idempotent early return)
         var existingGrn = await _grnRepository.GetByIdAsync(tenantId, companyId, branchId, grnId)

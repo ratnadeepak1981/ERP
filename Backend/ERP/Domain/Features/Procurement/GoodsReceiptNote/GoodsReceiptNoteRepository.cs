@@ -53,6 +53,17 @@ public class GoodsReceiptNoteRepository : IGoodsReceiptNoteRepository
             .ToListAsync();
     }
 
+    public async Task<GoodsReceiptNote?> GetActiveDraftByPurchaseOrderIdAsync(Guid tenantId, Guid companyId, Guid branchId, Guid purchaseOrderId)
+    {
+        return await _context.GoodsReceiptNotes
+            .Include(x => x.Lines)
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId
+                                   && x.CompanyId == companyId
+                                   && x.BranchId == branchId
+                                   && x.PurchaseOrderId == purchaseOrderId
+                                   && x.Status == GoodsReceiptNoteStatus.Draft);
+    }
+
     public async Task AddAsync(GoodsReceiptNote grn)
     {
         await _context.GoodsReceiptNotes.AddAsync(grn);
