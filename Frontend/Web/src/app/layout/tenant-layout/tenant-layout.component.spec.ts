@@ -85,13 +85,14 @@ describe('TenantLayoutComponent', () => {
     expect(procurementItem?.route).toBe('/app/procurement');
 
     const children = procurementItem?.children || [];
-    expect(children.length).toBe(4);
+    expect(children.length).toBe(5);
 
     const routes = children.map(c => c.route);
     expect(routes).toEqual([
       '/app/procurement',
       '/app/procurement/purchase-requisitions',
       '/app/procurement/purchase-orders',
+      '/app/procurement/rfqs',
       '/app/procurement/goods-receipts'
     ]);
 
@@ -100,6 +101,7 @@ describe('TenantLayoutComponent', () => {
       'Overview',
       'Purchase Requisitions',
       'Purchase Orders',
+      'Request for Quotations',
       'Product Receipts (GRN)'
     ]);
 
@@ -199,11 +201,12 @@ describe('TenantLayoutComponent', () => {
     expect(salesItem?.route).toBe('/app/sales');
 
     const children = salesItem?.children || [];
-    expect(children.length).toBe(4);
+    expect(children.length).toBe(5);
 
     const routes = children.map(c => c.route);
     expect(routes).toEqual([
       '/app/sales',
+      '/app/sales/quotations',
       '/app/sales/orders',
       '/app/sales/dispatches',
       '/app/sales/invoices'
@@ -212,6 +215,7 @@ describe('TenantLayoutComponent', () => {
     const labels = children.map(c => c.label);
     expect(labels).toEqual([
       'Overview',
+      'Quotations',
       'Sales Orders',
       'Dispatch Notes',
       'Sales Invoices'
@@ -230,7 +234,7 @@ describe('TenantLayoutComponent', () => {
 
     expect(inventoryItem).toBeTruthy();
     expect(inventoryItem?.children).toBeTruthy();
-    expect(inventoryItem?.children?.length).toBe(6);
+    expect(inventoryItem?.children?.length).toBe(9);
 
     const childLabels = inventoryItem?.children?.map(c => c.label);
     expect(childLabels).toEqual([
@@ -239,7 +243,10 @@ describe('TenantLayoutComponent', () => {
       'Storage & Putaway',
       'Stock Transfers',
       'Stock Count & Adjustment',
-      'Stock Issue'
+      'Stock Issue',
+      'Stock by Storage Location',
+      'Stock by Staging Location',
+      'Stock Ledger'
     ]);
 
     const childRoutes = inventoryItem?.children?.map(c => c.route);
@@ -249,7 +256,10 @@ describe('TenantLayoutComponent', () => {
       '/app/inventory/store-putaway',
       '/app/inventory/transfers',
       '/app/inventory/count-adjust',
-      '/app/inventory/issue-stock'
+      '/app/inventory/issue-stock',
+      '/app/inventory/reports/stock-by-storage-location',
+      '/app/inventory/reports/stock-by-staging-location',
+      '/app/inventory/reports/stock-ledger'
     ]);
 
     // Test toggle expansion

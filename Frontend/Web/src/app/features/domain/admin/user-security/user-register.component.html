@@ -172,12 +172,12 @@
           }
         </ng-template>
 
-        <ng-template #userActionsTemplate let-row="row">
+        <ng-template #userActionsTemplate let-row let-rowItem="row">
           <div class="row-actions-group">
             <button
               type="button"
               class="p-button p-button-sm p-button-text p-button-primary"
-              (click)="navigateToUserDetails(row)"
+              (click)="navigateToUserDetails(row || rowItem)"
               pTooltip="View &amp; Edit User Account"
               tooltipPosition="top"
             >
@@ -188,7 +188,7 @@
             <button
               type="button"
               class="p-button p-button-sm p-button-text p-button-secondary"
-              (click)="manageUserScope(row)"
+              (click)="manageUserScope(row || rowItem)"
               pTooltip="Manage Company &amp; Branch Operating Scopes"
               tooltipPosition="top"
             >
@@ -199,14 +199,14 @@
             <button
               type="button"
               class="p-button p-button-sm p-button-text"
-              [class.text-danger]="row.accountStatus === 'Active'"
-              [class.text-success]="row.accountStatus !== 'Active'"
-              (click)="toggleUserStatus(row)"
-              [pTooltip]="row.accountStatus === 'Active' ? 'Suspend Access' : 'Activate Access'"
+              [class.text-danger]="(row || rowItem)?.accountStatus === 'Active'"
+              [class.text-success]="(row || rowItem)?.accountStatus !== 'Active'"
+              (click)="toggleUserStatus(row || rowItem)"
+              [pTooltip]="(row || rowItem)?.accountStatus === 'Active' ? 'Suspend Access' : 'Activate Access'"
               tooltipPosition="top"
             >
-              <i [class]="row.accountStatus === 'Active' ? 'pi pi-ban' : 'pi pi-check'"></i>
-              <span class="action-btn-text">{{ row.accountStatus === 'Active' ? 'Suspend' : 'Activate' }}</span>
+              <i [class]="(row || rowItem)?.accountStatus === 'Active' ? 'pi pi-ban' : 'pi pi-check'"></i>
+              <span class="action-btn-text">{{ (row || rowItem)?.accountStatus === 'Active' ? 'Suspend' : 'Activate' }}</span>
             </button>
           </div>
         </ng-template>

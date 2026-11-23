@@ -173,12 +173,15 @@ public class CustomerRegistrationService : ICustomerRegistrationService
 
         _domainContext.Contacts.Add(contact);
 
+        var hasExistingPrimary = isExistingMatched && await _domainContext.CustomerContacts
+            .AnyAsync(cc => cc.TenantId == request.TenantId && cc.CustomerId == customer.CustomerId && cc.IsPrimary && cc.IsActive, cancellationToken);
+
         var customerContact = CustomerContact.Create(
             request.TenantId,
             customer.CustomerId,
             contact.ContactId,
             contactType.ContactTypeId,
-            isPrimary: !isExistingMatched);
+            isPrimary: !hasExistingPrimary);
 
         _domainContext.CustomerContacts.Add(customerContact);
 
@@ -254,10 +257,10 @@ public class CustomerRegistrationService : ICustomerRegistrationService
             UserId = user.Id,
             Email = user.Email,
             IsExistingCompanyMatched = isExistingMatched,
-            RequiresAuthorization = isExistingMatched,
+            RequiresAuthorization = hasExistingPrimary,
             CanLoginImmediately = true,
-            Message = isExistingMatched
-                ? "Account registered and linked to existing company profile. Company representation authority requires separate validation."
+            Message = hasExistingPrimary
+                ? "Account registered and linked to existing company profile. Secondary company representation authority requires authorization."
                 : "Company customer account registered successfully. You may log in immediately."
         };
     }
