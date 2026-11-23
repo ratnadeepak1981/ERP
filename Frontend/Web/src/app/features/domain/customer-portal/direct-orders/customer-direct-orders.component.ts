@@ -1,6 +1,8 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
+import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 
 export interface CustomerDirectOrderSummary {
   directOrderRef: string;
@@ -15,15 +17,20 @@ export interface CustomerDirectOrderSummary {
 @Component({
   selector: 'app-customer-direct-orders',
   standalone: true,
-  imports: [CommonModule, StatusBadgeComponent],
+  imports: [CommonModule, RouterModule, StatusBadgeComponent, AppPageHeaderComponent],
   template: `
     <div class="customer-direct-orders-page">
-      <div class="page-title-row">
-        <div>
-          <h1>Direct Contract Orders</h1>
-          <p>Authorised commercial orders placed directly against active Sales Price Cards.</p>
+      <app-page-header
+        title="Direct Contract Orders"
+        subtitle="Authorised commercial orders placed directly against active Sales Price Cards."
+      >
+        <div actions class="page-header-actions">
+          <a routerLink="/customer-portal/catalog" class="erp-button erp-button-primary">
+            <i class="pi pi-shopping-bag"></i>
+            <span>Browse Products</span>
+          </a>
         </div>
-      </div>
+      </app-page-header>
 
       <div class="direct-orders-card erp-card">
         <div class="table-responsive">
@@ -52,7 +59,8 @@ export interface CustomerDirectOrderSummary {
                   </td>
                   <td>
                     <button type="button" class="erp-button erp-button-secondary erp-button-sm">
-                      View Dispatch
+                      <i class="pi pi-truck"></i>
+                      <span>View Dispatch</span>
                     </button>
                   </td>
                 </tr>
@@ -70,19 +78,10 @@ export interface CustomerDirectOrderSummary {
       gap: var(--erp-space-4);
     }
 
-    .page-title-row {
-      h1 {
-        font-size: 1.4rem;
-        font-weight: 700;
-        margin: 0;
-        color: var(--erp-text-main);
-      }
-
-      p {
-        font-size: 0.88rem;
-        color: var(--erp-text-secondary);
-        margin: 2px 0 0 0;
-      }
+    .page-header-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--erp-space-2, 8px);
     }
 
     .direct-orders-card {

@@ -51,30 +51,43 @@ export class AuthService {
     );
   });
 
-  readonly isCustomer = computed(() => {
+  readonly isCustomerCompany = computed(() => {
     const userRoles = this.roles();
-    return (
-      userRoles.includes('Customer') ||
-      userRoles.includes('CUSTOMER_INDIVIDUAL') ||
-      userRoles.includes('CUSTOMER_COMPANY_ADMIN') ||
-      userRoles.some(r => r.toUpperCase().startsWith('CUSTOMER_'))
-    );
+    return userRoles.some(r => {
+      const u = (r || '').trim().toUpperCase();
+      return (
+        u === 'CUSTOMER_COMPANY_ADMIN' ||
+        u === 'CUSTOMER COMPANY ADMINISTRATOR' ||
+        u === 'CUSTOMER COMPANY ADMIN' ||
+        (u.includes('CUSTOMER') && (u.includes('COMPANY') || u.includes('B2B') || u.includes('ADMIN')))
+      );
+    });
   });
 
   readonly isCustomerIndividual = computed(() => {
+    if (this.isCustomerCompany()) {
+      return false;
+    }
     const userRoles = this.roles();
-    return (
-      userRoles.includes('CUSTOMER_INDIVIDUAL') ||
-      userRoles.includes('Individual Retail Customer') ||
-      (userRoles.includes('Customer') && !userRoles.includes('CUSTOMER_COMPANY_ADMIN'))
-    );
+    return userRoles.some(r => {
+      const u = (r || '').trim().toUpperCase();
+      return (
+        u === 'CUSTOMER_INDIVIDUAL' ||
+        u === 'INDIVIDUAL RETAIL CUSTOMER' ||
+        u === 'RETAIL CUSTOMER' ||
+        u === 'CUSTOMER' ||
+        u.includes('RETAIL') ||
+        u.includes('INDIVIDUAL') ||
+        u.includes('CUSTOMER')
+      );
+    });
   });
 
-  readonly isCustomerCompany = computed(() => {
-    const userRoles = this.roles();
+  readonly isCustomer = computed(() => {
     return (
-      userRoles.includes('CUSTOMER_COMPANY_ADMIN') ||
-      userRoles.includes('Customer Company Administrator')
+      this.isCustomerCompany() ||
+      this.isCustomerIndividual() ||
+      this.roles().some(r => (r || '').toUpperCase().includes('CUSTOMER'))
     );
   });
 
