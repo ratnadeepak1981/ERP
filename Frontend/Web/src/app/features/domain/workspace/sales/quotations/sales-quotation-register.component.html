@@ -8,9 +8,9 @@
       <button
         type="button"
         class="erp-button erp-button-secondary"
-        (click)="loadQuotations()"
         [disabled]="loading() || actionInProgress()"
-        title="Refresh quotations list"
+        (click)="loadQuotations()"
+        title="Reload quotations list"
       >
         <i class="pi pi-refresh" [class.pi-spin]="loading()"></i>
         <span>Refresh</span>
@@ -20,6 +20,7 @@
         <button
           type="button"
           class="erp-button erp-button-primary"
+          [disabled]="!scopeService.canOperateTransactions() || actionInProgress()"
           (click)="navigateToCreate()"
         >
           <i class="pi pi-plus"></i>
@@ -45,9 +46,9 @@
     </div>
   }
 
-  <!-- Access Denied -->
+  <!-- 403 Forbidden Access Restricted State -->
   @if (isAccessDenied()) {
-    <div class="erp-card state-card">
+    <div class="sq-access-denied-wrapper erp-card">
       <app-access-denied
         [inline]="true"
         title="Access Restricted"
@@ -55,401 +56,222 @@
         [showBackAction]="true"
         [showHomeAction]="true"
         homeUrl="/app/dashboard"
-        homeLabel="Back to Dashboard"
+        homeLabel="Workspace Home"
       ></app-access-denied>
+    </div>
+  } @else if (!scopeService.canOperateTransactions()) {
+    <div class="scope-required-wrapper erp-card">
+      <app-empty-state
+        icon="pi pi-compass"
+        title="Operating Company and Branch Required"
+        description="Sales quotations and quotation requests are strictly scoped to an operating company and physical branch. Please select both from the scope switcher in the navigation bar to proceed."
+      ></app-empty-state>
     </div>
   } @else if (loading()) {
     <div class="erp-card state-card">
-      <app-loading-state message="Loading sales quotations..."></app-loading-state>
+      <app-loading-state message="Loading sales quotations from server..."></app-loading-state>
     </div>
   } @else if (error()) {
     <div class="erp-card state-card">
       <app-error-state [message]="error()!" (retry)="loadQuotations()"></app-error-state>
     </div>
   } @else {
-    <!-- Main Content Card -->
-    <div class="erp-card register-content-card">
-      <!-- Tabs Navigation -->
-      <div class="inbox-tabs-bar">
-        <button
-          type="button"
-          class="inbox-tab-btn"
-          [class.active]="activeTab() === 'inbox'"
-          (click)="setTab('inbox')"
-        >
-          <i class="pi pi-inbox"></i>
-          <span>Customer Requests Inbox</span>
-          @if (inboxCount() > 0) {
-            <span class="tab-badge inbox-badge">{{ inboxCount() }}</span>
-          }
-        </button>
+    <!-- Main Content Area: Search, Filter Pills & Data Table (Identical to Sales Orders) -->
+    <div class="sq-table-card erp-card">
+      <div class="table-controls-bar">
+        <div class="search-and-filters">
+          <!-- Quick Search -->
+          <div class="search-input-box">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              class="p-inputtext p-inputtext-sm search-field"
+              placeholder="Search quote #, customer or contact..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
 
-        <button
-          type="button"
-          class="inbox-tab-btn"
-          [class.active]="activeTab() === 'commercial'"
-          (click)="setTab('commercial')"
-        >
-          <i class="pi pi-file-edit"></i>
-          <span>Commercial Offers</span>
-          <span class="tab-badge">{{ commercialCount() }}</span>
-        </button>
-
-        <button
-          type="button"
-          class="inbox-tab-btn"
-          [class.active]="activeTab() === 'all'"
-          (click)="setTab('all')"
-        >
-          <i class="pi pi-list"></i>
-          <span>All Quotations</span>
-          <span class="tab-badge">{{ allCount() }}</span>
-        </button>
-      </div>
-
-      <!-- Filters & Search Toolbar -->
-      <div class="register-toolbar">
-        <div class="status-filters">
-          <button
-            type="button"
-            class="filter-pill"
-            [class.active]="activeStatusFilter() === 'all'"
-            (click)="setStatusFilter('all')"
-          >All</button>
-          <button
-            type="button"
-            class="filter-pill"
-            [class.active]="activeStatusFilter() === 'draft'"
-            (click)="setStatusFilter('draft')"
-          >Drafts</button>
-          <button
-            type="button"
-            class="filter-pill"
-            [class.active]="activeStatusFilter() === 'submitted'"
-            (click)="setStatusFilter('submitted')"
-          >Pending Approval</button>
-          <button
-            type="button"
-            class="filter-pill"
-            [class.active]="activeStatusFilter() === 'confirmed'"
-            (click)="setStatusFilter('confirmed')"
-          >Approved</button>
-          <button
-            type="button"
-            class="filter-pill"
-            [class.active]="activeStatusFilter() === 'sent'"
-            (click)="setStatusFilter('sent')"
-          >Issued to Customer</button>
-          <button
-            type="button"
-            class="filter-pill"
-            [class.active]="activeStatusFilter() === 'rejected'"
-            (click)="setStatusFilter('rejected')"
-          >Rejected</button>
-          <button
-            type="button"
-            class="filter-pill"
-            [class.active]="activeStatusFilter() === 'cancelled'"
-            (click)="setStatusFilter('cancelled')"
-          >Cancelled</button>
-        </div>
-
-        <div class="search-box">
-          <i class="pi pi-search search-icon"></i>
-          <input
-            type="text"
-            class="search-input"
-            placeholder="Search by quote #, customer or contact..."
-            [ngModel]="searchTerm()"
-            (ngModelChange)="searchTerm.set($event)"
-          />
-          @if (searchTerm()) {
-            <button type="button" class="clear-search-btn" (click)="searchTerm.set('')">
-              <i class="pi pi-times"></i>
+          <!-- Type Category Pills -->
+          <div class="filter-pills category-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeTab() === 'all'"
+              (click)="setTab('all')"
+            >
+              All Quotes ({{ allCount() }})
             </button>
-          }
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeTab() === 'inbox'"
+              (click)="setTab('inbox')"
+            >
+              <i class="pi pi-inbox pill-icon"></i>
+              <span>Customer Requests</span>
+              @if (inboxCount() > 0) {
+                <span class="pill-badge">{{ inboxCount() }}</span>
+              }
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeTab() === 'commercial'"
+              (click)="setTab('commercial')"
+            >
+              <i class="pi pi-file-edit pill-icon"></i>
+              <span>Commercial Offers ({{ commercialCount() }})</span>
+            </button>
+          </div>
+
+          <!-- Status Filter Pills -->
+          <div class="filter-pills">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'all'"
+              (click)="setStatusFilter('all')"
+            >
+              All Status
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'draft'"
+              (click)="setStatusFilter('draft')"
+            >
+              <i class="pi pi-file-edit pill-icon"></i> Draft
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'submitted'"
+              (click)="setStatusFilter('submitted')"
+            >
+              <i class="pi pi-clock pill-icon"></i> Pending Approval
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'confirmed'"
+              (click)="setStatusFilter('confirmed')"
+            >
+              <i class="pi pi-check pill-icon"></i> Approved
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'sent'"
+              (click)="setStatusFilter('sent')"
+            >
+              <i class="pi pi-envelope pill-icon"></i> Issued to Customer
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'accepted'"
+              (click)="setStatusFilter('accepted')"
+            >
+              <i class="pi pi-check-circle pill-icon"></i> Accepted
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'converted'"
+              (click)="setStatusFilter('converted')"
+            >
+              <i class="pi pi-shopping-bag pill-icon"></i> Converted
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'rejected'"
+              (click)="setStatusFilter('rejected')"
+            >
+              <i class="pi pi-times-circle pill-icon"></i> Rejected
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="activeStatusFilter() === 'cancelled'"
+              (click)="setStatusFilter('cancelled')"
+            >
+              <i class="pi pi-ban pill-icon"></i> Cancelled
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Badge Indicator (Consistent with Sales Orders) -->
+        <div class="scope-info-pill" title="Current Transaction Scope">
+          <i class="pi pi-building"></i>
+          <span class="scope-text">
+            {{ scopeService.selectedCompany()?.name }} / {{ scopeService.selectedBranch()?.name }}
+          </span>
         </div>
       </div>
 
-      <!-- Quotations Table or Empty State -->
-      @if (filteredQuotations().length === 0) {
-        <app-empty-state
-          icon="pi pi-file-edit"
-          [title]="activeTab() === 'inbox' ? 'No Customer Requests' : 'No Quotations Found'"
-          [description]="searchTerm() ? 'No quotations matched your search criteria.' : (activeTab() === 'inbox' ? 'There are currently no incoming customer quotation requests pending review.' : 'No commercial quotations have been recorded yet.')"
-          [actionLabel]="canCreate() ? 'Create Commercial Quotation' : undefined"
-          (action)="navigateToCreate()"
-        ></app-empty-state>
-      } @else {
-        <div class="quotations-table-wrapper">
-          <table class="erp-table">
-            <thead>
-              <tr>
-                <th>Quotation #</th>
-                <th>Type</th>
-                <th>Customer</th>
-                <th>Contact</th>
-                <th>Date</th>
-                <th>Valid Until</th>
-                <th class="text-right">Total Amount</th>
-                <th class="text-right">Gross Margin</th>
-                <th>Status</th>
-                <th>Email</th>
-                <th class="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (quote of filteredQuotations(); track quote.id) {
-                <tr [class.request-row]="quote.documentType === 2">
-                  <td class="quote-number-cell">
-                    <a class="quote-link" (click)="navigateToQuotation(quote)">
-                      {{ quote.quotationNumber }}
-                    </a>
-                    @if (quote.revisionNumber > 0) {
-                      <span class="revision-tag">R{{ quote.revisionNumber }}</span>
-                    }
-                  </td>
-                  <td>
-                    @if (quote.documentType === 2) {
-                      <span class="type-pill type-request" title="Incoming Customer Request">
-                        <i class="pi pi-inbox"></i> Request
-                      </span>
-                    } @else {
-                      <span class="type-pill type-commercial" title="Standard Commercial Offer">
-                        <i class="pi pi-tag"></i> Offer
-                      </span>
-                    }
-                  </td>
-                  <td class="customer-cell">
-                    <span class="customer-name" [title]="quote.customerName || 'Customer'">
-                      {{ quote.customerName || 'Unknown Customer' }}
-                    </span>
-                    @if (quote.customerCode) {
-                      <span class="customer-code">{{ quote.customerCode }}</span>
-                    }
-                  </td>
-                  <td>{{ quote.contactPersonName || '—' }}</td>
-                  <td>{{ quote.quotationDate | date:'yyyy-MM-dd' }}</td>
-                  <td>
-                    <div class="expiry-cell">
-                      <span>{{ quote.validUntilDateUtc | date:'yyyy-MM-dd' }}</span>
-                      @if (quote.isExpired) {
-                        <span class="badge-expired">Expired</span>
-                      } @else if (quote.daysUntilExpiry <= 7) {
-                        <span class="badge-expiring">{{ quote.daysUntilExpiry }}d left</span>
-                      }
-                    </div>
-                  </td>
-                  <td class="text-right font-medium">
-                    {{ quote.totalAmount | currency:quote.currency:'symbol':'1.2-2' }}
-                  </td>
-                  <td class="text-right">
-                    @if (quote.grossMarginPercentage !== null && quote.grossMarginPercentage !== undefined) {
-                      <span
-                        class="margin-badge"
-                        [ngClass]="{
-                          'margin-high': quote.grossMarginPercentage >= 25,
-                          'margin-mid': quote.grossMarginPercentage >= 10 && quote.grossMarginPercentage < 25,
-                          'margin-low': quote.grossMarginPercentage >= 0 && quote.grossMarginPercentage < 10,
-                          'margin-neg': quote.grossMarginPercentage < 0
-                        }"
-                      >
-                        {{ quote.grossMarginPercentage }}%
-                      </span>
-                    } @else {
-                      <span class="text-muted">—</span>
-                    }
-                  </td>
-                  <td>
-                    <span class="erp-badge" [ngClass]="'badge-' + getStatusSeverity(quote.status)">
-                      {{ getStatusName(quote.status) }}
-                    </span>
-                  </td>
-                  <td>
-                    @if (quote.emailStatus) {
-                      <span class="erp-badge" [ngClass]="'badge-' + getEmailSeverity(quote.emailStatus)">
-                        <i class="pi" [ngClass]="{
-                          'pi-check': quote.emailStatus === 'Sent',
-                          'pi-clock': quote.emailStatus === 'Pending',
-                          'pi-exclamation-circle': quote.emailStatus === 'Failed',
-                          'pi-minus': quote.emailStatus === 'NotSent'
-                        }"></i>
-                        {{ quote.emailStatus }}
-                      </span>
-                    } @else {
-                      <span class="text-muted">—</span>
-                    }
-                  </td>
-                  <td class="text-center actions-cell">
-                    <div class="row-actions-group">
-                      <!-- Primary Edit / Prepare / Review Button -->
-                      <button
-                        type="button"
-                        class="action-btn action-edit"
-                        (click)="navigateToQuotation(quote)"
-                        [title]="quote.documentType === 2 ? 'Review Request & Prepare Commercial Offer' : 'View / Edit Quotation'"
-                      >
-                        <i class="pi" [class.pi-file-edit]="quote.status === 1" [class.pi-eye]="quote.status !== 1"></i>
-                      </button>
-
-                      <!-- Submit Button (Draft only) -->
-                      @if (quote.status === 1 && canEdit()) {
-                        <button
-                          type="button"
-                          class="action-btn action-submit"
-                          (click)="submitQuotation(quote)"
-                          title="Submit for Approval"
-                        >
-                          <i class="pi pi-send"></i>
-                        </button>
-                      }
-
-                      <!-- Approve Button (Submitted only, manager) -->
-                      @if (quote.status === 2 && canApprove()) {
-                        <button
-                          type="button"
-                          class="action-btn action-approve"
-                          (click)="openApproveDialog(quote)"
-                          title="Approve Commercial Offer"
-                        >
-                          <i class="pi pi-check"></i>
-                        </button>
-
-                        <button
-                          type="button"
-                          class="action-btn action-reject"
-                          (click)="openRejectDialog(quote)"
-                          title="Reject with Remarks"
-                        >
-                          <i class="pi pi-times"></i>
-                        </button>
-                      }
-
-                      <!-- Send Email Button (Confirmed only, not sent yet) -->
-                      @if (quote.status === 3 && canEdit()) {
-                        <button
-                          type="button"
-                          class="action-btn action-email"
-                          (click)="openSendEmailDialog(quote, false)"
-                          title="Send Quotation by Email to Customer"
-                        >
-                          <i class="pi pi-envelope"></i>
-                        </button>
-                      }
-
-                      <!-- Retry Email Button (Failed email) -->
-                      @if (quote.emailStatus === 'Failed' && canEdit()) {
-                        <button
-                          type="button"
-                          class="action-btn action-retry"
-                          (click)="openSendEmailDialog(quote, true)"
-                          title="Retry Failed Email Notification"
-                        >
-                          <i class="pi pi-replay"></i>
-                        </button>
-                      }
-
-                      <!-- Download PDF Button (Confirmed or Sent) -->
-                      @if (quote.status === 3 || quote.status === 4 || quote.status === 5) {
-                        <button
-                          type="button"
-                          class="action-btn action-pdf"
-                          (click)="downloadPdf(quote)"
-                          title="Download Quotation PDF"
-                        >
-                          <i class="pi pi-download"></i>
-                        </button>
-                      }
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
+      <!-- Main Sales Quotations Data Table -->
+      <app-data-table
+        [data]="filteredQuotations()"
+        [columns]="tableColumns"
+        [rowActions]="tableActions"
+        rowKey="id"
+        [loading]="loading()"
+        emptyTitle="No sales quotations found"
+        emptyDescription="No sales quotations match your current filter or none exist for this operating branch yet."
+        [showGlobalSearch]="false"
+        [showColumnChooser]="true"
+        [showExport]="true"
+        [showViewSwitcher]="true"
+        cardTitleField="quotationNumber"
+        cardSubtitleField="customerName"
+        cardIcon="pi pi-file-edit"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[5, 10, 25, 50]"
+        (rowClick)="navigateToQuotation($event)"
+      ></app-data-table>
     </div>
   }
 
-  <!-- Action Modal Dialog (Approve, Reject, Cancel, Send Email, Retry Email) -->
-  @if (remarksDialogVisible() && remarksTargetQuotation()) {
-    <div class="modal-backdrop">
+  <!-- Action Remarks Dialog -->
+  @if (remarksDialogVisible()) {
+    <div class="modal-overlay">
       <div class="modal-dialog">
         <div class="modal-header">
-          <div class="modal-title-wrap">
-            <i class="pi" [ngClass]="{
-              'pi-check-circle modal-icon-success': remarksAction() === 'approve',
-              'pi-times-circle modal-icon-danger': remarksAction() === 'reject',
-              'pi-ban modal-icon-warn': remarksAction() === 'cancel',
-              'pi-envelope modal-icon-primary': remarksAction() === 'send' || remarksAction() === 'retry'
-            }"></i>
-            <h3 class="modal-title">{{ remarksDialogTitle() }}</h3>
-          </div>
-          <button type="button" class="modal-close-btn" (click)="closeRemarksDialog()" aria-label="Close">
+          <h3 class="modal-title">{{ remarksDialogTitle() }}</h3>
+          <button type="button" class="close-btn" (click)="closeRemarksDialog()" aria-label="Close">
             <i class="pi pi-times"></i>
           </button>
         </div>
-
         <div class="modal-body">
           <div class="dialog-quote-summary">
-            <div class="summary-line">
-              <span class="lbl">Quotation:</span>
-              <span class="val font-bold">{{ remarksTargetQuotation()!.quotationNumber }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="lbl">Customer:</span>
-              <span class="val">{{ remarksTargetQuotation()!.customerName }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="lbl">Total Amount:</span>
-              <span class="val">{{ remarksTargetQuotation()!.totalAmount | currency:remarksTargetQuotation()!.currency }}</span>
-            </div>
-            @if (remarksAction() === 'send' || remarksAction() === 'retry') {
-              <div class="summary-line highlight-line">
-                <span class="lbl">Recipient Email:</span>
-                <span class="val text-primary font-bold">{{ remarksTargetQuotation()!.contactEmail || 'Customer Primary Email' }}</span>
-              </div>
-            }
+            <strong>Quotation #{{ remarksTargetQuotation()?.quotationNumber }}</strong>
+            <span>{{ remarksTargetQuotation()?.customerName }}</span>
           </div>
 
-          @if (remarksAction() === 'send' || remarksAction() === 'retry') {
-            <p class="modal-explanation">
-              A professional notification email with the commercial offer summary, expiry date, and secure "View Quotation" button linking directly to the Customer Workspace will be dispatched.
-            </p>
-          } @else if (remarksAction() === 'reject') {
-            <div class="form-group">
-              <label for="remarksInput">Rejection Reason <span class="required">*</span></label>
-              <textarea
-                id="remarksInput"
-                class="form-control"
-                rows="3"
-                placeholder="Enter mandatory reason for rejection..."
-                [ngModel]="remarksText()"
-                (ngModelChange)="remarksText.set($event)"
-              ></textarea>
-            </div>
-          } @else {
-            <div class="form-group">
-              <label for="remarksInput">Remarks (Optional)</label>
-              <textarea
-                id="remarksInput"
-                class="form-control"
-                rows="3"
-                placeholder="Enter any internal notes or instructions..."
-                [ngModel]="remarksText()"
-                (ngModelChange)="remarksText.set($event)"
-              ></textarea>
-            </div>
-          }
-
           @if (remarksError()) {
-            <div class="dialog-error">
+            <div class="field-error-banner">
               <i class="pi pi-exclamation-triangle"></i>
               <span>{{ remarksError() }}</span>
             </div>
           }
-        </div>
 
+          <div class="form-group">
+            <label for="regQuotationRemarks">
+              {{ remarksAction() === 'reject' ? 'Rejection Reason *' : 'Remarks / Notes (Optional)' }}
+            </label>
+            <textarea
+              id="regQuotationRemarks"
+              rows="3"
+              class="p-inputtext form-control"
+              [ngModel]="remarksText()"
+              (ngModelChange)="remarksText.set($event)"
+              [placeholder]="remarksAction() === 'reject' ? 'State why this quotation is rejected...' : 'Enter any operational notes or remarks...'"
+            ></textarea>
+          </div>
+        </div>
         <div class="modal-footer">
           <button
             type="button"
@@ -459,7 +281,6 @@
           >
             Cancel
           </button>
-
           <button
             type="button"
             class="erp-button"
@@ -468,33 +289,24 @@
               'erp-button-danger': remarksAction() === 'reject' || remarksAction() === 'cancel'
             }"
             (click)="executeRemarksAction()"
-            [disabled]="actionInProgress() || (remarksAction() === 'reject' && !remarksText().trim())"
+            [disabled]="actionInProgress()"
           >
             @if (actionInProgress()) {
               <i class="pi pi-spin pi-spinner"></i>
             }
-            <span>
-              {{
-                remarksAction() === 'approve' ? 'Approve Offer' :
-                remarksAction() === 'reject' ? 'Confirm Rejection' :
-                remarksAction() === 'cancel' ? 'Confirm Cancellation' :
-                remarksAction() === 'retry' ? 'Retry Email' : 'Send Quotation Email'
-              }}
-            </span>
+            <span>{{ remarksDialogTitle() }}</span>
           </button>
         </div>
       </div>
     </div>
   }
 
-  <!-- Submit Confirmation Dialog -->
-  @if (confirmDialogVisible() && confirmDialogConfig()) {
-    <app-confirmation-dialog
-      [visible]="confirmDialogVisible()"
-      [config]="confirmDialogConfig()!"
-      [loading]="actionInProgress()"
-      (confirmed)="handleConfirmDialogResult($event)"
-      (cancelled)="confirmDialogVisible.set(false)"
-    ></app-confirmation-dialog>
-  }
+  <!-- REUSABLE CONFIRMATION DIALOG (Submit / Convert) -->
+  <app-confirmation-dialog
+    [(visible)]="confirmDialogVisible"
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    (confirmed)="handleConfirmDialogResult($event)"
+    (cancelled)="confirmDialogVisible.set(false)"
+  ></app-confirmation-dialog>
 </div>

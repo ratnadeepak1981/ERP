@@ -102,12 +102,39 @@
         @if (currentQuotation()?.status === 3 && canEdit()) {
           <button
             type="button"
-            class="erp-button erp-button-primary"
+            class="erp-button erp-button-secondary"
             (click)="openSendEmailDialog(false)"
             [disabled]="actionInProgress()"
           >
             <i class="pi pi-envelope"></i>
             <span>Send Quotation Email</span>
+          </button>
+        }
+
+        <!-- Convert to Sales Order (Confirmed, Sent, or Accepted mode) -->
+        @if ((currentQuotation()?.status === 3 || currentQuotation()?.status === 5 || currentQuotation()?.status === 6) && currentQuotation()?.status !== 8 && canCreateOrder()) {
+          <button
+            type="button"
+            class="erp-button erp-button-primary"
+            (click)="convertToSalesOrder()"
+            [disabled]="actionInProgress()"
+            title="Convert this quotation into a Sales Order Draft without re-entering items"
+          >
+            <i class="pi pi-shopping-bag"></i>
+            <span>Convert to Sales Order</span>
+          </button>
+        }
+
+        <!-- Converted Reference Link -->
+        @if (currentQuotation()?.status === 8) {
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="navigateToSalesOrders()"
+            title="View in Sales Orders"
+          >
+            <i class="pi pi-external-link"></i>
+            <span>View in Sales Orders</span>
           </button>
         }
 

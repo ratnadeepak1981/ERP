@@ -129,6 +129,7 @@ export class SalesQuotationPageComponent implements OnInit, OnDestroy {
   readonly canCreate = computed(() => this.authService.hasPermission('SALES_QUOTATION.CREATE'));
   readonly canEdit = computed(() => this.authService.hasPermission('SALES_QUOTATION.EDIT'));
   readonly canApprove = computed(() => this.authService.hasPermission('SALES_QUOTATION.APPROVE') || this.authService.hasPermission('SALES_ORDER.CONFIRM'));
+  readonly canCreateOrder = computed(() => this.authService.hasPermission('SALES_ORDER.CREATE'));
 
   // Scope Labels
   readonly orderCompanyName = computed(() => this.scopeService.selectedCompany()?.name ?? '—');
@@ -591,6 +592,49 @@ export class SalesQuotationPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Convert to Sales Order
+  convertToSalesOrder(): void {
+    const q = this.currentQuotation();
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!q || !company || !branch) return;
+
+    this.confirmDialogConfig.set({
+      action: 'convert',
+      title: 'Convert Quotation to Sales Order',
+      message: `Convert quotation ${q.quotationNumber} into an official Sales Order Draft? All line items, negotiated prices, and quantities will be automatically copied.`,
+      confirmLabel: 'Convert to Sales Order',
+      confirmSeverity: 'primary',
+      confirmIcon: 'pi pi-shopping-bag'
+    });
+    this.confirmCallback = () => {
+      this.actionInProgress.set(true);
+      this.quotationService.convertQuotationToOrder(company.id, branch.id, q.id).subscribe({
+        next: (updated: SalesQuotationDto) => {
+          this.actionInProgress.set(false);
+          this.message.set({
+            text: `Quotation ${updated.quotationNumber} successfully converted to Sales Order Draft.`,
+            severity: 'success'
+          });
+          this.fetchQuotationDetails(q.id);
+          this.router.navigate(['/app/sales/orders']);
+        },
+        error: (err: any) => {
+          this.actionInProgress.set(false);
+          this.message.set({
+            text: err?.error?.message || err?.message || 'Failed to convert quotation to order.',
+            severity: 'danger'
+          });
+        }
+      });
+    };
+    this.confirmDialogVisible.set(true);
+  }
+
+  navigateToSalesOrders(): void {
+    this.router.navigate(['/app/sales/orders']);
+  }
+
   // Open Dialogs
   openApproveDialog(): void {
     this.remarksAction.set('approve');
@@ -702,7 +746,7 @@ export class SalesQuotationPageComponent implements OnInit, OnDestroy {
 
   handleConfirmDialogResult(result: ConfirmationDialogResult): void {
     this.confirmDialogVisible.set(false);
-    if (result.action === 'submit' && this.confirmCallback) {
+    if ((result.action === 'submit' || result.action === 'convert') && this.confirmCallback) {
       this.confirmCallback();
     }
     this.confirmCallback = null;

@@ -2,13 +2,14 @@ export enum SalesQuotationStatus {
   Draft = 1,
   Submitted = 2,
   Confirmed = 3,
-  Sent = 4,
-  Accepted = 5,
-  DeclinedByCustomer = 6,
-  RejectedInternal = 7,
+  RejectedInternal = 4,
+  Sent = 5,
+  Accepted = 6,
+  DeclinedByCustomer = 7,
   Converted = 8,
-  Cancelled = 9,
-  Superseded = 10
+  Superseded = 9,
+  Expired = 10,
+  Cancelled = 11
 }
 
 export enum SalesQuotationType {
@@ -26,20 +27,22 @@ export function getSalesQuotationStatusName(status: SalesQuotationStatus | numbe
       return 'Pending Approval';
     case SalesQuotationStatus.Confirmed:
       return 'Approved (Internal)';
+    case SalesQuotationStatus.RejectedInternal:
+      return 'Rejected (Internal)';
     case SalesQuotationStatus.Sent:
       return 'Issued to Customer';
     case SalesQuotationStatus.Accepted:
       return 'Accepted by Customer';
     case SalesQuotationStatus.DeclinedByCustomer:
       return 'Declined by Customer';
-    case SalesQuotationStatus.RejectedInternal:
-      return 'Rejected (Internal)';
     case SalesQuotationStatus.Converted:
       return 'Converted to Order';
-    case SalesQuotationStatus.Cancelled:
-      return 'Cancelled';
     case SalesQuotationStatus.Superseded:
       return 'Superseded';
+    case SalesQuotationStatus.Expired:
+      return 'Expired';
+    case SalesQuotationStatus.Cancelled:
+      return 'Cancelled';
     default:
       return String(status || 'Draft');
   }
@@ -62,6 +65,7 @@ export function getSalesQuotationStatusSeverity(
     case SalesQuotationStatus.RejectedInternal:
     case SalesQuotationStatus.DeclinedByCustomer:
     case SalesQuotationStatus.Cancelled:
+    case SalesQuotationStatus.Expired:
       return 'danger';
     case SalesQuotationStatus.Superseded:
     default:
