@@ -39,7 +39,12 @@ public class DirectCustomerOrderController : BaseApiController
             return Forbid();
         }
 
-        if (!_customerContext.Permissions.Contains("PORTAL_ORDER.SUBMIT"))
+        bool hasOrderAuthority = _customerContext.Permissions.Contains("PORTAL_ORDER.SUBMIT")
+            || _customerContext.Permissions.Contains("PORTAL.ORDER.SUBMIT")
+            || _customerContext.Roles.Any(r => r.Contains("CUSTOMER_COMPANY_ADMIN", StringComparison.OrdinalIgnoreCase)
+                                            || r.Contains("Company Administrator", StringComparison.OrdinalIgnoreCase));
+
+        if (!hasOrderAuthority)
         {
             return Forbid("Purchasing authority required to place direct contract orders.");
         }

@@ -111,12 +111,37 @@ public class CustomerAuthService : ICustomerAuthService
             "PORTAL_INVOICE.VIEW"
         };
 
-        // Automatic purchasing/acceptance authority is only granted if primary contact and authorized
+        // Automatic purchasing/acceptance authority is granted if primary contact (or auto-promoted if no primary exists)
+        if (!customerContact.IsPrimary)
+        {
+            var hasOtherPrimary = await _domainContext.CustomerContacts.AnyAsync(cc =>
+                cc.TenantId == tenantId &&
+                cc.CustomerId == customer.CustomerId &&
+                cc.ContactId != contact.ContactId &&
+                cc.IsPrimary &&
+                cc.IsActive, ct);
+
+            if (!hasOtherPrimary)
+            {
+                customerContact.SetAsPrimary(true);
+                await _domainContext.SaveChangesAsync(ct);
+            }
+        }
+
         if (customerContact.IsPrimary)
         {
-            permissions.Add("PORTAL_QUOTATION.REQUEST");
-            permissions.Add("PORTAL_QUOTATION.ACCEPT");
-            permissions.Add("PORTAL_ORDER.SUBMIT");
+            if (!permissions.Contains("PORTAL_QUOTATION.REQUEST"))
+                permissions.Add("PORTAL_QUOTATION.REQUEST");
+            if (!permissions.Contains("PORTAL.QUOTATION.REQUEST"))
+                permissions.Add("PORTAL.QUOTATION.REQUEST");
+            if (!permissions.Contains("PORTAL_QUOTATION.ACCEPT"))
+                permissions.Add("PORTAL_QUOTATION.ACCEPT");
+            if (!permissions.Contains("PORTAL.QUOTATION.ACCEPT"))
+                permissions.Add("PORTAL.QUOTATION.ACCEPT");
+            if (!permissions.Contains("PORTAL_ORDER.SUBMIT"))
+                permissions.Add("PORTAL_ORDER.SUBMIT");
+            if (!permissions.Contains("PORTAL.ORDER.SUBMIT"))
+                permissions.Add("PORTAL.ORDER.SUBMIT");
         }
 
         // 7. Issue Customer JWT
@@ -192,11 +217,36 @@ public class CustomerAuthService : ICustomerAuthService
             "PORTAL_INVOICE.VIEW"
         };
 
+        if (!customerContact.IsPrimary)
+        {
+            var hasOtherPrimary = await _domainContext.CustomerContacts.AnyAsync(cc =>
+                cc.TenantId == tenantId &&
+                cc.CustomerId == customer.CustomerId &&
+                cc.ContactId != contact.ContactId &&
+                cc.IsPrimary &&
+                cc.IsActive, ct);
+
+            if (!hasOtherPrimary)
+            {
+                customerContact.SetAsPrimary(true);
+                await _domainContext.SaveChangesAsync(ct);
+            }
+        }
+
         if (customerContact.IsPrimary)
         {
-            permissions.Add("PORTAL_QUOTATION.REQUEST");
-            permissions.Add("PORTAL_QUOTATION.ACCEPT");
-            permissions.Add("PORTAL_ORDER.SUBMIT");
+            if (!permissions.Contains("PORTAL_QUOTATION.REQUEST"))
+                permissions.Add("PORTAL_QUOTATION.REQUEST");
+            if (!permissions.Contains("PORTAL.QUOTATION.REQUEST"))
+                permissions.Add("PORTAL.QUOTATION.REQUEST");
+            if (!permissions.Contains("PORTAL_QUOTATION.ACCEPT"))
+                permissions.Add("PORTAL_QUOTATION.ACCEPT");
+            if (!permissions.Contains("PORTAL.QUOTATION.ACCEPT"))
+                permissions.Add("PORTAL.QUOTATION.ACCEPT");
+            if (!permissions.Contains("PORTAL_ORDER.SUBMIT"))
+                permissions.Add("PORTAL_ORDER.SUBMIT");
+            if (!permissions.Contains("PORTAL.ORDER.SUBMIT"))
+                permissions.Add("PORTAL.ORDER.SUBMIT");
         }
 
         var availableSellingCompanies = await GetAvailableSellingCompaniesAsync(tenantId, ct);

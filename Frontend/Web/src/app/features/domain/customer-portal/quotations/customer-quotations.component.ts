@@ -2,6 +2,7 @@ import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
+import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { CustomerQuotationService } from '../../../../core/services/customer-quotation.service';
 import {
   CustomerSalesQuotationDto,
@@ -12,22 +13,35 @@ import {
 @Component({
   selector: 'app-customer-quotations',
   standalone: true,
-  imports: [CommonModule, RouterModule, StatusBadgeComponent],
+  imports: [CommonModule, RouterModule, StatusBadgeComponent, AppPageHeaderComponent],
   template: `
     <div class="customer-quotations-page">
-      <div class="page-title-row">
-        <div>
-          <h1>Corporate Sales Quotations</h1>
-          <p>Request customized price quotations, review supplier commercial proposals, and track RFQ statuses.</p>
-        </div>
+      <app-page-header
+        title="Corporate Sales Quotations"
+        subtitle="Request customized price quotations, review supplier commercial proposals, and track RFQ statuses."
+      >
+        <div actions class="page-header-actions">
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            [disabled]="loading()"
+            (click)="loadQuotations()"
+            title="Reload quotations list"
+          >
+            <i class="pi pi-refresh" [class.pi-spin]="loading()"></i>
+            <span>Refresh</span>
+          </button>
 
-        <div class="page-actions">
-          <a routerLink="/customer-portal/quotations/new" class="erp-button erp-button-primary">
+          <a
+            routerLink="/customer-portal/quotations/new"
+            class="erp-button erp-button-primary"
+            title="Create a new quotation request"
+          >
             <i class="pi pi-plus"></i>
             <span>Request Sales Quotation</span>
           </a>
         </div>
-      </div>
+      </app-page-header>
 
       @if (loading()) {
         <div class="quotations-card erp-card">
@@ -87,7 +101,8 @@ import {
                     </td>
                     <td>
                       <a [routerLink]="['/customer-portal/quotations', q.id]" class="erp-button erp-button-secondary erp-button-sm">
-                        View Details
+                        <i class="pi pi-eye"></i>
+                        <span>View Details</span>
                       </a>
                     </td>
                   </tr>
@@ -106,25 +121,10 @@ import {
       gap: var(--erp-space-4);
     }
 
-    .page-title-row {
+    .page-header-actions {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
-      gap: var(--erp-space-3);
-
-      h1 {
-        font-size: 1.4rem;
-        font-weight: 700;
-        margin: 0;
-        color: var(--erp-text-main);
-      }
-
-      p {
-        font-size: 0.88rem;
-        color: var(--erp-text-secondary);
-        margin: 2px 0 0 0;
-      }
+      gap: var(--erp-space-2, 8px);
     }
 
     .quotations-card {

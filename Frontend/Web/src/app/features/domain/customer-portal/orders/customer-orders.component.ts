@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
+import { AppPageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 
 export interface CustomerOrderSummary {
   orderNumber: string;
@@ -16,18 +17,20 @@ export interface CustomerOrderSummary {
 @Component({
   selector: 'app-customer-orders',
   standalone: true,
-  imports: [CommonModule, RouterLink, StatusBadgeComponent],
+  imports: [CommonModule, RouterLink, StatusBadgeComponent, AppPageHeaderComponent],
   template: `
     <div class="customer-orders-page">
-      <div class="page-title-row">
-        <div>
-          <h1>Order History &amp; Requisitions</h1>
-          <p>Track order fulfillment, shipment waybills, and historical sales orders.</p>
+      <app-page-header
+        title="Order History &amp; Requisitions"
+        subtitle="Track order fulfillment, shipment waybills, and historical sales orders."
+      >
+        <div actions class="page-header-actions">
+          <a routerLink="/customer-portal/catalog" class="erp-button erp-button-primary">
+            <i class="pi pi-plus"></i>
+            <span>New Requisition</span>
+          </a>
         </div>
-        <a routerLink="/customer-portal/catalog" class="erp-button erp-button-primary">
-          <i class="pi pi-plus"></i> New Requisition
-        </a>
-      </div>
+      </app-page-header>
 
       <div class="orders-card erp-card">
         <div class="table-responsive">
@@ -56,7 +59,8 @@ export interface CustomerOrderSummary {
                   </td>
                   <td>
                     <button type="button" class="erp-button erp-button-secondary erp-button-sm">
-                      View Details
+                      <i class="pi pi-eye"></i>
+                      <span>View Details</span>
                     </button>
                   </td>
                 </tr>
@@ -74,25 +78,10 @@ export interface CustomerOrderSummary {
       gap: var(--erp-space-4);
     }
 
-    .page-title-row {
+    .page-header-actions {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: var(--erp-space-3);
-
-      h1 {
-        font-size: 1.4rem;
-        font-weight: 700;
-        margin: 0;
-        color: var(--erp-text-main);
-      }
-
-      p {
-        font-size: 0.88rem;
-        color: var(--erp-text-secondary);
-        margin: 2px 0 0 0;
-      }
+      gap: var(--erp-space-2, 8px);
     }
 
     .orders-card {

@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, getTestBed } from '@angular/core/testing';
+import {
+  BrowserTestingModule,
+  platformBrowserTesting
+} from '@angular/platform-browser/testing';
 import { Router, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -7,6 +11,38 @@ import { provideRouter } from '@angular/router';
 import { authGuard, roleGuard, permissionGuard, workspaceGuard } from './auth.guard';
 import { AuthService } from '../auth/auth.service';
 import { UserSession } from '../models/auth.models';
+
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    createElement: () => ({ style: {} }),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    documentElement: {
+      classList: {
+        remove: () => {},
+        add: () => {},
+        contains: () => false
+      }
+    },
+    body: {
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      appendChild: () => {},
+      removeChild: () => {}
+    },
+    location: { href: 'http://localhost' }
+  };
+  (globalThis as any).window = globalThis;
+}
+
+try {
+  getTestBed().initTestEnvironment(
+    BrowserTestingModule,
+    platformBrowserTesting()
+  );
+} catch {
+  // Already initialized in test environment
+}
 
 describe('Auth Guards', () => {
   let authService: AuthService;
@@ -23,6 +59,7 @@ describe('Auth Guards', () => {
   });
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
@@ -128,7 +165,13 @@ describe('Auth Guards', () => {
     });
 
     it('should block customer accounts from accessing internal ERP workspace', () => {
-      for (const custRole of ['Customer', 'CUSTOMER_INDIVIDUAL', 'CUSTOMER_COMPANY_ADMIN']) {
+      for (const custRole of [
+        'Customer',
+        'CUSTOMER_INDIVIDUAL',
+        'CUSTOMER_COMPANY_ADMIN',
+        'Customer Company Administrator',
+        'Individual Retail Customer'
+      ]) {
         authService.currentUser.set(createSession([custRole]));
         const route = {} as ActivatedRouteSnapshot;
         const state = { url: '/app/dashboard' } as RouterStateSnapshot;

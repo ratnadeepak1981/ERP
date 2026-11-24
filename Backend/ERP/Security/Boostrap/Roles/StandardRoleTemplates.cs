@@ -22,7 +22,7 @@ public sealed record StandardRoleTemplate(
 /// </summary>
 public static class StandardRoleTemplates
 {
-    public const int CurrentVersion = 7;
+    public const int CurrentVersion = 8;
 
     public const string TenantAdminKey = "TENANT_ADMIN";
     public const string TenantAuditorKey = "TENANT_AUDITOR";
