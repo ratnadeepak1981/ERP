@@ -189,6 +189,11 @@ export interface SalesQuotationDto {
   convertedSalesOrderId?: string | null;
   convertedAtUtc?: string | null;
   supersededByQuotationId?: string | null;
+  linkedCustomerRequestId?: string | null;
+  linkedCustomerRequestNumber?: string | null;
+  linkedCommercialQuotationId?: string | null;
+  linkedCommercialQuotationNumber?: string | null;
+  requestReviewStatus?: string | null;
 
   originalRequest?: OriginalCustomerRequestDto | null;
   emailStatus?: string | null;

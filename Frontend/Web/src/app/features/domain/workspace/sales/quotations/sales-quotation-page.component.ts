@@ -612,18 +612,53 @@ export class SalesQuotationPageComponent implements OnInit, OnDestroy {
     const branch = this.scopeService.selectedBranch();
     if (!q || !company || !branch) return;
 
-    this.actionInProgress.set(true);
-    this.quotationService.returnToDraft(company.id, branch.id, q.id, 'Offer preparation by sales staff').subscribe({
-      next: updated => {
-        this.actionInProgress.set(false);
-        this.message.set({ text: `Quotation returned to Draft. You can now adjust offered products, quantities, prices, and terms.`, severity: 'info' });
-        this.fetchQuotationDetails(q.id);
-      },
-      error: err => {
-        this.actionInProgress.set(false);
-        this.message.set({ text: err?.error?.message || err?.message || 'Failed to return quotation to Draft.', severity: 'danger' });
-      }
-    });
+    if (this.isCustomerRequest()) {
+      this.actionInProgress.set(true);
+      this.quotationService.prepareQuotationFromRequest(company.id, branch.id, q.id).subscribe({
+        next: created => {
+          this.actionInProgress.set(false);
+          this.message.set({
+            text: `Commercial Quotation ${created.quotationNumber} prepared from Customer Request ${q.quotationNumber}.`,
+            severity: 'success'
+          });
+          this.router.navigate(['/app/sales/quotations', created.id]);
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.message.set({
+            text: err?.error?.message || err?.message || 'Failed to prepare commercial quotation from request.',
+            severity: 'danger'
+          });
+        }
+      });
+    } else {
+      this.actionInProgress.set(true);
+      this.quotationService.returnToDraft(company.id, branch.id, q.id, 'Offer preparation by sales staff').subscribe({
+        next: updated => {
+          this.actionInProgress.set(false);
+          this.message.set({ text: `Quotation returned to Draft. You can now adjust offered products, quantities, prices, and terms.`, severity: 'info' });
+          this.fetchQuotationDetails(q.id);
+        },
+        error: err => {
+          this.actionInProgress.set(false);
+          this.message.set({ text: err?.error?.message || err?.message || 'Failed to return quotation to Draft.', severity: 'danger' });
+        }
+      });
+    }
+  }
+
+  navigateToLinkedCommercialQuotation(): void {
+    const q = this.currentQuotation();
+    if (q?.linkedCommercialQuotationId) {
+      this.router.navigate(['/app/sales/quotations', q.linkedCommercialQuotationId]);
+    }
+  }
+
+  navigateToOriginatingCustomerRequest(): void {
+    const q = this.currentQuotation();
+    if (q?.linkedCustomerRequestId) {
+      this.router.navigate(['/app/sales/quotations', q.linkedCustomerRequestId]);
+    }
   }
 
   // Convert to Sales Order

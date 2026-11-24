@@ -546,11 +546,6 @@ public class SalesQuotationService : ISalesQuotationService
 
         if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
         {
-            throw new InvalidOperationException("Customer Requests cannot be rejected via commercial offer approval. Please prepare a commercial quotation or close the request.");
-        }
-
-        if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
-        {
             throw new InvalidOperationException("Customer Requests cannot be approved as commercial offers. Please prepare a formal Commercial Quotation first.");
         }
 
@@ -641,7 +636,7 @@ public class SalesQuotationService : ISalesQuotationService
 
         if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
         {
-            throw new InvalidOperationException("Customer Requests cannot be rejected via commercial offer approval. Please prepare a commercial quotation or close the request.");
+            throw new InvalidOperationException("Customer Requests cannot be cancelled through commercial quotation cancellation. Please reject or close the customer request directly.");
         }
 
         quotation.Cancel(actorUserId);
@@ -686,6 +681,113 @@ public class SalesQuotationService : ISalesQuotationService
         return dto;
     }
 
+    public async Task<SalesQuotationDto> PrepareCommercialQuotationFromRequestAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid customerRequestId,
+        Guid actorUserId,
+        string actorUserName)
+    {
+        var customerRequest = await _repository.GetByIdAsync(tenantId, companyId, branchId, customerRequestId);
+        if (customerRequest == null)
+        {
+            throw new KeyNotFoundException($"Customer request '{customerRequestId}' was not found.");
+        }
+
+        if (customerRequest.DocumentType != SalesQuotationType.CustomerRequest)
+        {
+            throw new InvalidOperationException($"Sales quotation '{customerRequestId}' is not a customer request.");
+        }
+
+        // If a commercial quotation has already been prepared and is active, return that one to prevent duplicate offers
+        if (!string.IsNullOrWhiteSpace(customerRequest.InternalNotes) && customerRequest.InternalNotes.Contains("[LinkedCommercialQuotationId:"))
+        {
+            var matchCom = System.Text.RegularExpressions.Regex.Match(customerRequest.InternalNotes, @"\[LinkedCommercialQuotationId:([0-9a-fA-F-]+)");
+            if (matchCom.Success && Guid.TryParse(matchCom.Groups[1].Value, out var existingQuotationId))
+            {
+                var existingQuotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, existingQuotationId);
+                if (existingQuotation != null && existingQuotation.Status != SalesQuotationStatus.Cancelled)
+                {
+                    var existingDto = MapToDto(existingQuotation);
+                    await EnrichQuotationDtoAsync(existingDto, tenantId);
+                    return existingDto;
+                }
+            }
+        }
+
+        var customer = await _customerRepository.GetCustomerByIdAsync(tenantId, customerRequest.CustomerId);
+        if (customer == null)
+        {
+            throw new InvalidOperationException($"Customer '{customerRequest.CustomerId}' was not found.");
+        }
+
+        int count = await _repository.GetCountByCompanyAsync(tenantId, companyId);
+        string quotationNumber = $"SQ-{DateTime.UtcNow.Year}-{(count + 1):D4}";
+        DateTime validUntil = DateTime.UtcNow.AddDays(30);
+
+        // Create formal Commercial Quotation (DocumentType = Standard, Status = Draft)
+        var commercialQuotation = global::Domain.Features.Sales.SalesQuotation.SalesQuotation.Create(
+            tenantId,
+            companyId,
+            branchId,
+            customerRequest.CustomerId,
+            quotationNumber,
+            validUntil,
+            documentType: SalesQuotationType.Standard,
+            notes: customerRequest.Notes,
+            currency: customerRequest.Currency,
+            customerRemarks: customerRequest.CustomerRemarks,
+            createdByUserId: actorUserId,
+            customerContactId: customerRequest.CustomerContactId,
+            deliveryAddressId: customerRequest.DeliveryAddressId,
+            deliveryAddressSnapshot: customerRequest.DeliveryAddressSnapshot,
+            priceCardId: customerRequest.PriceCardId ?? customer.DefaultSalesPriceCardId);
+
+        commercialQuotation.DeliveryDate = customerRequest.DeliveryDate;
+        commercialQuotation.PaymentTerms = customerRequest.PaymentTerms ?? customer.PaymentTerms;
+        commercialQuotation.DeliveryTerms = customerRequest.DeliveryTerms;
+
+        // Traceability linking marker on the new Commercial Quotation
+        string quotationLinkMarker = $"[LinkedCustomerRequestId:{customerRequest.Id}|RequestNumber:{customerRequest.QuotationNumber}]";
+        commercialQuotation.InternalNotes = string.IsNullOrWhiteSpace(commercialQuotation.InternalNotes)
+            ? quotationLinkMarker
+            : $"{commercialQuotation.InternalNotes}\n{quotationLinkMarker}";
+
+        // Copy requested product lines as initial proposal
+        foreach (var reqItem in customerRequest.Items.Where(i => i.IsActive))
+        {
+            commercialQuotation.AddItem(
+                reqItem.ProductId,
+                reqItem.Quantity,
+                reqItem.UnitPrice,
+                reqItem.DiscountRate,
+                reqItem.TaxCodeId,
+                reqItem.TaxRate,
+                reqItem.UnitOfMeasureId,
+                reqItem.IsTaxInclusive,
+                reqItem.Notes);
+        }
+
+        await ApplyCurrencySnapshotAsync(commercialQuotation, customerRequest.Currency);
+
+        // Save new Commercial Quotation
+        await _repository.AddAsync(commercialQuotation);
+        await _repository.SaveChangesAsync();
+
+        // Traceability linking marker and Review Status update on the original Customer Request
+        string requestLinkMarker = $"[LinkedCommercialQuotationId:{commercialQuotation.Id}|QuotationNumber:{commercialQuotation.QuotationNumber}][RequestReviewStatus:QuotationPrepared]";
+        customerRequest.InternalNotes = string.IsNullOrWhiteSpace(customerRequest.InternalNotes)
+            ? requestLinkMarker
+            : $"{customerRequest.InternalNotes}\n{requestLinkMarker}";
+
+        await _repository.SaveChangesAsync();
+
+        var dto = MapToDto(commercialQuotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
+    }
+
     public async Task<SalesQuotationDto> SendQuotationAsync(
         Guid tenantId,
         Guid companyId,
@@ -697,6 +799,16 @@ public class SalesQuotationService : ISalesQuotationService
     {
         var quotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, quotationId)
             ?? throw new KeyNotFoundException($"Sales quotation '{quotationId}' was not found in authorized scope.");
+
+        if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            throw new InvalidOperationException("Customer Requests cannot be dispatched as commercial offers. Please prepare a formal Commercial Quotation first.");
+        }
+
+        if (quotation.IsExpired())
+        {
+            throw new InvalidOperationException($"Cannot send quotation {quotation.QuotationNumber} because it has expired.");
+        }
 
         // Rule 1: Only approved (Confirmed) offers can be sent to customers (or Sent if retrying)
         if (quotation.Status != SalesQuotationStatus.Confirmed && !(isRetry && quotation.Status == SalesQuotationStatus.Sent))
@@ -1379,6 +1491,59 @@ public class SalesQuotationService : ISalesQuotationService
 
         int daysLeft = (int)Math.Max(0, (quotation.ValidUntilDateUtc - DateTime.UtcNow).TotalDays);
 
+        Guid? linkedCustomerRequestId = null;
+        string? linkedCustomerRequestNumber = null;
+        Guid? linkedCommercialQuotationId = null;
+        string? linkedCommercialQuotationNumber = null;
+        string? requestReviewStatus = null;
+
+        if (!string.IsNullOrWhiteSpace(quotation.InternalNotes))
+        {
+            var matchReq = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[LinkedCustomerRequestId:([0-9a-fA-F-]+)\|RequestNumber:([^\]]+)\]");
+            if (matchReq.Success && Guid.TryParse(matchReq.Groups[1].Value, out var parsedReqId))
+            {
+                linkedCustomerRequestId = parsedReqId;
+                linkedCustomerRequestNumber = matchReq.Groups[2].Value.Trim();
+            }
+
+            var matchCom = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[LinkedCommercialQuotationId:([0-9a-fA-F-]+)\|QuotationNumber:([^\]]+)\]");
+            if (matchCom.Success && Guid.TryParse(matchCom.Groups[1].Value, out var parsedComId))
+            {
+                linkedCommercialQuotationId = parsedComId;
+                linkedCommercialQuotationNumber = matchCom.Groups[2].Value.Trim();
+            }
+
+            var matchRev = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[RequestReviewStatus:([^\]]+)\]");
+            if (matchRev.Success)
+            {
+                requestReviewStatus = matchRev.Groups[1].Value.Trim();
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(requestReviewStatus) && quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            if (linkedCommercialQuotationId.HasValue)
+            {
+                requestReviewStatus = "QuotationPrepared";
+            }
+            else if (quotation.Status == SalesQuotationStatus.Draft)
+            {
+                requestReviewStatus = "UnderReview";
+            }
+            else if (quotation.Status == SalesQuotationStatus.Submitted)
+            {
+                requestReviewStatus = "Submitted";
+            }
+            else if (quotation.Status == SalesQuotationStatus.Cancelled)
+            {
+                requestReviewStatus = "Closed";
+            }
+            else
+            {
+                requestReviewStatus = "Submitted";
+            }
+        }
+
         return new CustomerSalesQuotationDto
         {
             Id = quotation.Id,
@@ -1410,6 +1575,11 @@ public class SalesQuotationService : ISalesQuotationService
             DeclinedRemarks = quotation.DeclinedRemarks,
             ConvertedSalesOrderId = quotation.ConvertedSalesOrderId,
             ConvertedAtUtc = quotation.ConvertedAtUtc,
+            LinkedCustomerRequestId = linkedCustomerRequestId,
+            LinkedCustomerRequestNumber = linkedCustomerRequestNumber,
+            LinkedCommercialQuotationId = linkedCommercialQuotationId,
+            LinkedCommercialQuotationNumber = linkedCommercialQuotationNumber,
+            RequestReviewStatus = requestReviewStatus,
             Items = quotation.Items.Where(i => i.IsActive).Select(MapItemToDto).ToList()
         };
     }
@@ -1709,6 +1879,59 @@ public class SalesQuotationService : ISalesQuotationService
             emailStatus = quotation.SentAtUtc.HasValue ? "Sent" : (quotation.Status == SalesQuotationStatus.Confirmed ? "Pending" : "NotSent");
         }
 
+        Guid? linkedCustomerRequestId = null;
+        string? linkedCustomerRequestNumber = null;
+        Guid? linkedCommercialQuotationId = null;
+        string? linkedCommercialQuotationNumber = null;
+        string? requestReviewStatus = null;
+
+        if (!string.IsNullOrWhiteSpace(quotation.InternalNotes))
+        {
+            var matchReq = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[LinkedCustomerRequestId:([0-9a-fA-F-]+)\|RequestNumber:([^\]]+)\]");
+            if (matchReq.Success && Guid.TryParse(matchReq.Groups[1].Value, out var parsedReqId))
+            {
+                linkedCustomerRequestId = parsedReqId;
+                linkedCustomerRequestNumber = matchReq.Groups[2].Value.Trim();
+            }
+
+            var matchCom = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[LinkedCommercialQuotationId:([0-9a-fA-F-]+)\|QuotationNumber:([^\]]+)\]");
+            if (matchCom.Success && Guid.TryParse(matchCom.Groups[1].Value, out var parsedComId))
+            {
+                linkedCommercialQuotationId = parsedComId;
+                linkedCommercialQuotationNumber = matchCom.Groups[2].Value.Trim();
+            }
+
+            var matchRev = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[RequestReviewStatus:([^\]]+)\]");
+            if (matchRev.Success)
+            {
+                requestReviewStatus = matchRev.Groups[1].Value.Trim();
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(requestReviewStatus) && quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            if (linkedCommercialQuotationId.HasValue)
+            {
+                requestReviewStatus = "QuotationPrepared";
+            }
+            else if (quotation.Status == SalesQuotationStatus.Draft)
+            {
+                requestReviewStatus = "UnderReview";
+            }
+            else if (quotation.Status == SalesQuotationStatus.Submitted)
+            {
+                requestReviewStatus = "Submitted";
+            }
+            else if (quotation.Status == SalesQuotationStatus.Cancelled)
+            {
+                requestReviewStatus = "Closed";
+            }
+            else
+            {
+                requestReviewStatus = "Submitted";
+            }
+        }
+
         return new SalesQuotationDto
         {
             Id = quotation.Id,
@@ -1761,6 +1984,11 @@ public class SalesQuotationService : ISalesQuotationService
             ConvertedSalesOrderId = quotation.ConvertedSalesOrderId,
             ConvertedAtUtc = quotation.ConvertedAtUtc,
             SupersededByQuotationId = quotation.SupersededByQuotationId,
+            LinkedCustomerRequestId = linkedCustomerRequestId,
+            LinkedCustomerRequestNumber = linkedCustomerRequestNumber,
+            LinkedCommercialQuotationId = linkedCommercialQuotationId,
+            LinkedCommercialQuotationNumber = linkedCommercialQuotationNumber,
+            RequestReviewStatus = requestReviewStatus,
             OriginalRequest = originalRequest,
             EmailStatus = emailStatus,
             EmailSentAtUtc = emailSentAtUtc,

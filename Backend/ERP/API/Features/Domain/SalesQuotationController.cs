@@ -409,6 +409,34 @@ public class SalesQuotationController : BaseApiController
         }
     }
 
+    [HttpPost("from-request/{customerRequestId:guid}")]
+    [RequirePermission("SALES_QUOTATION.CREATE")]
+    public async Task<IActionResult> PrepareCommercialQuotationFromRequest(
+        Guid companyId,
+        Guid branchId,
+        Guid customerRequestId)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var quotation = await _quotationService.PrepareCommercialQuotationFromRequestAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                customerRequestId,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString());
+
+            return SuccessResponse(quotation, "Commercial quotation draft prepared successfully from customer request.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost("{id:guid}/send")]
     [RequirePermission("SALES_QUOTATION.EDIT")]
     public async Task<IActionResult> SendQuotation(

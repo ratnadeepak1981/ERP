@@ -25,6 +25,29 @@
           <i class="pi pi-refresh" [class.pi-spin]="loading() || actionInProgress()"></i>
         </button>
 
+        <!-- Linked Navigation Buttons -->
+        @if (isCustomerRequest() && currentQuotation()?.linkedCommercialQuotationId) {
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="navigateToLinkedCommercialQuotation()"
+            title="View the formal commercial quotation prepared from this request"
+          >
+            <i class="pi pi-external-link"></i>
+            <span>Commercial Offer ({{ currentQuotation()?.linkedCommercialQuotationNumber }})</span>
+          </button>
+        } @else if (!isCustomerRequest() && currentQuotation()?.linkedCustomerRequestId) {
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="navigateToOriginatingCustomerRequest()"
+            title="View original customer request"
+          >
+            <i class="pi pi-link"></i>
+            <span>Originating Request ({{ currentQuotation()?.linkedCustomerRequestNumber }})</span>
+          </button>
+        }
+
         <!-- Download PDF -->
         @if (currentQuotation()?.status === 3 || currentQuotation()?.status === 4 || currentQuotation()?.status === 5) {
           <button
@@ -719,38 +742,51 @@
 
               <!-- Submitted / Review Mode -->
               @if (currentQuotation()?.status === 2) {
-                @if (canEdit()) {
-                  <button
-                    type="button"
-                    class="erp-button erp-button-secondary"
-                    (click)="prepareCommercialOffer()"
-                    title="Return this request to Draft to modify offered lines, prices, and terms"
-                  >
-                    <i class="pi pi-file-edit"></i>
-                    <span>Prepare Commercial Offer</span>
-                  </button>
-                }
+                @if (isCustomerRequest()) {
+                  @if (currentQuotation()?.linkedCommercialQuotationId) {
+                    <button
+                      type="button"
+                      class="erp-button erp-button-secondary"
+                      (click)="navigateToLinkedCommercialQuotation()"
+                      title="View the prepared formal commercial quotation"
+                    >
+                      <i class="pi pi-external-link"></i>
+                      <span>View Linked Commercial Offer ({{ currentQuotation()?.linkedCommercialQuotationNumber }})</span>
+                    </button>
+                  } @else if (canCreate()) {
+                    <button
+                      type="button"
+                      class="erp-button erp-button-primary"
+                      (click)="prepareCommercialOffer()"
+                      [disabled]="actionInProgress()"
+                      title="Prepare a separate formal commercial quotation from this customer request"
+                    >
+                      <i class="pi pi-file-edit"></i>
+                      <span>Prepare Commercial Quotation</span>
+                    </button>
+                  }
+                } @else {
+                  @if (canApprove()) {
+                    <button
+                      type="button"
+                      class="erp-button erp-button-danger"
+                      (click)="openRejectDialog()"
+                      [disabled]="actionInProgress()"
+                    >
+                      <i class="pi pi-times"></i>
+                      <span>Reject</span>
+                    </button>
 
-                @if (canApprove()) {
-                  <button
-                    type="button"
-                    class="erp-button erp-button-danger"
-                    (click)="openRejectDialog()"
-                    [disabled]="actionInProgress()"
-                  >
-                    <i class="pi pi-times"></i>
-                    <span>Reject</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    class="erp-button erp-button-primary"
-                    (click)="openApproveDialog()"
-                    [disabled]="actionInProgress()"
-                  >
-                    <i class="pi pi-check"></i>
-                    <span>Approve Commercial Offer</span>
-                  </button>
+                    <button
+                      type="button"
+                      class="erp-button erp-button-primary"
+                      (click)="openApproveDialog()"
+                      [disabled]="actionInProgress()"
+                    >
+                      <i class="pi pi-check"></i>
+                      <span>Approve Commercial Offer</span>
+                    </button>
+                  }
                 }
               }
 
