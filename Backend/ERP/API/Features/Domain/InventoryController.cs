@@ -153,6 +153,41 @@ public class InventoryController : BaseApiController
         return SuccessResponse(stock);
     }
 
+    [HttpGet("valuation")]
+    [RequirePermission("INVENTORY.VIEW")]
+    public async Task<IActionResult> GetStockValuation(
+        [FromQuery] Guid productId,
+        [FromQuery] Guid warehouseId,
+        [FromQuery] Guid? locationId = null,
+        [FromQuery] string? batchNumber = null)
+    {
+        if (_currentUserContext.IsPlatformUser)
+        {
+            return Forbid();
+        }
+
+        var tenantId = _currentUserContext.TenantId;
+        if (!tenantId.HasValue)
+        {
+            return UnauthorizedResponse("Tenant identity is missing or invalid.");
+        }
+
+        try
+        {
+            var valuation = await _inventoryService.GetStockValuationAsync(
+                tenantId.Value,
+                productId,
+                warehouseId,
+                locationId,
+                batchNumber);
+            return SuccessResponse(valuation);
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpPost("stock-issues")]
     [RequirePermission("STOCK_ISSUE.POST")]
     public async Task<IActionResult> CreateStockIssue([FromBody] CreateStockIssueRequest request)

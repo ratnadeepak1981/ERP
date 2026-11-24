@@ -90,4 +90,19 @@ public class InventoryValuationService : IInventoryValuationService
         var strategy = GetStrategy(context.Product.ValuationMethod);
         return await strategy.ProcessOutflowReversalAsync(context, originalOutflowTxn, reversalQuantity, reversalTxnId);
     }
+
+    public async Task<decimal> ProcessIntraWarehouseTransferAsync(
+        ValuationContext srcContext,
+        ValuationContext dstContext,
+        decimal quantity,
+        Guid outTxnId,
+        Guid inTxnId)
+    {
+        if (srcContext == null) throw new ArgumentNullException(nameof(srcContext));
+        if (dstContext == null) throw new ArgumentNullException(nameof(dstContext));
+        if (srcContext.Product == null) throw new ArgumentException("Product must be provided in ValuationContext.", nameof(srcContext));
+
+        var strategy = GetStrategy(srcContext.Product.ValuationMethod);
+        return await strategy.ProcessIntraWarehouseTransferAsync(srcContext, dstContext, quantity, outTxnId, inTxnId);
+    }
 }

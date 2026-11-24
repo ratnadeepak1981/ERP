@@ -156,12 +156,26 @@ public class InventoryPostingService : IInventoryPostingService
                 Product = product,
                 BatchNumber = normBatch,
                 SerialNumber = normSerial,
-                TransactionDate = request.TransactionDate ?? DateTime.UtcNow
+                TransactionDate = request.TransactionDate ?? DateTime.UtcNow,
+                IsFreeSample = request.IsFreeSample
             };
 
             decimal effectiveUnitCost;
             if (signedQuantity > 0)
             {
+                if (request.UnitCost <= 0 && !request.IsFreeSample)
+                {
+                    if (product.ValuationMethod == ValuationMethod.StandardCost && product.StandardCost > 0)
+                    {
+                        request.UnitCost = product.StandardCost;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException(
+                            "Inbound inventory receipt requires a valid positive cost rate. Zero-cost receipts are permitted only for explicitly identified free samples.");
+                    }
+                }
+
                 var inflowResult = await _valuationService.ProcessInflowAsync(
                     valContext,
                     request.Quantity,
@@ -397,9 +411,6 @@ public class InventoryPostingService : IInventoryPostingService
                 SerialNumber = normSerial,
                 TransactionDate = request.TransactionDate ?? DateTime.UtcNow
             };
-            var outflowResult = await _valuationService.ProcessOutflowAsync(srcValContext, request.Quantity, outTxnId);
-            decimal transferUnitCost = outflowResult.UnitCost;
-
             var dstValContext = new ValuationContext
             {
                 TenantId = tenantId,
@@ -411,7 +422,28 @@ public class InventoryPostingService : IInventoryPostingService
                 SerialNumber = normSerial,
                 TransactionDate = request.TransactionDate ?? DateTime.UtcNow
             };
-            await _valuationService.ProcessInflowAsync(dstValContext, request.Quantity, transferUnitCost, inTxnId);
+
+            decimal transferUnitCost;
+            bool isIntraWarehouse = request.SourceWarehouseId == request.DestinationWarehouseId;
+
+            if (isIntraWarehouse)
+            {
+                // Intra-warehouse transfer (e.g. Putaway from staging to storage, or bin-to-bin):
+                // Preserves original FIFO acquisition dates and unit costs without layer blending or artificial layer creation
+                transferUnitCost = await _valuationService.ProcessIntraWarehouseTransferAsync(
+                    srcValContext,
+                    dstValContext,
+                    request.Quantity,
+                    outTxnId,
+                    inTxnId);
+            }
+            else
+            {
+                // Inter-warehouse transfer: Relieve source warehouse and establish new cost in destination warehouse
+                var outflowResult = await _valuationService.ProcessOutflowAsync(srcValContext, request.Quantity, outTxnId);
+                transferUnitCost = outflowResult.UnitCost;
+                await _valuationService.ProcessInflowAsync(dstValContext, request.Quantity, transferUnitCost, inTxnId);
+            }
 
             // Outflow transaction
             var outTxn = InventoryTransaction.Create(
