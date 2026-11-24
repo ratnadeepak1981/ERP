@@ -765,7 +765,15 @@ public class InventoryPersistenceCoordinator : IInventoryPersistenceCoordinator
                 if (locRemainingQty > 0)
                 {
                     unitCost = Math.Round(locRemainingCost / locRemainingQty, 4, MidpointRounding.AwayFromZero);
-                    totalCostValue = Math.Round(b.QuantityOnHand * unitCost, 2, MidpointRounding.AwayFromZero);
+                    // Defect F: Use locRemainingCost directly when on-hand matches remaining quantity to prevent rounding drift
+                    if (b.QuantityOnHand == locRemainingQty)
+                    {
+                        totalCostValue = Math.Round(locRemainingCost, 2, MidpointRounding.AwayFromZero);
+                    }
+                    else
+                    {
+                        totalCostValue = Math.Round(b.QuantityOnHand * (locRemainingCost / locRemainingQty), 2, MidpointRounding.AwayFromZero);
+                    }
                 }
                 else
                 {
@@ -773,8 +781,16 @@ public class InventoryPersistenceCoordinator : IInventoryPersistenceCoordinator
                     var whLayers = costLayers.Where(l => l.ProductId == b.ProductId && l.WarehouseId == b.WarehouseId).ToList();
                     decimal whQty = whLayers.Sum(l => l.RemainingQuantity);
                     decimal whCost = whLayers.Sum(l => l.RemainingCost);
-                    unitCost = whQty > 0 ? Math.Round(whCost / whQty, 4, MidpointRounding.AwayFromZero) : product.StandardCost;
-                    totalCostValue = Math.Round(b.QuantityOnHand * unitCost, 2, MidpointRounding.AwayFromZero);
+                    if (whQty > 0)
+                    {
+                        unitCost = Math.Round(whCost / whQty, 4, MidpointRounding.AwayFromZero);
+                        totalCostValue = Math.Round(b.QuantityOnHand * (whCost / whQty), 2, MidpointRounding.AwayFromZero);
+                    }
+                    else
+                    {
+                        unitCost = product.StandardCost;
+                        totalCostValue = Math.Round(b.QuantityOnHand * unitCost, 2, MidpointRounding.AwayFromZero);
+                    }
                 }
             }
 
@@ -834,6 +850,82 @@ public class InventoryPersistenceCoordinator : IInventoryPersistenceCoordinator
             }
 
             rows.Add(row);
+        }
+
+        // Defect F: Ensure location values sum to warehouse valuation without penny drift across locations
+        var standardCostGroups = rows
+            .Where(r => r.ValuationMethod == ValuationMethod.StandardCost.ToString())
+            .GroupBy(r => (r.WarehouseId, r.ProductId));
+
+        foreach (var group in standardCostGroups)
+        {
+            if (products.TryGetValue(group.Key.ProductId, out var product) && product.StandardCost > 0)
+            {
+                decimal totalGroupQty = group.Sum(r => r.QuantityOnHand);
+                decimal targetValuation = Math.Round(totalGroupQty * product.StandardCost, 2, MidpointRounding.AwayFromZero);
+                decimal currentSum = group.Sum(r => r.TotalCostValue);
+                decimal residual = targetValuation - currentSum;
+                if (residual != 0m)
+                {
+                    var maxRow = group.OrderByDescending(r => r.QuantityOnHand).First();
+                    maxRow.TotalCostValue += residual;
+                    if (maxRow.QuantityOnHand > 0)
+                    {
+                        maxRow.UnitCost = Math.Round(maxRow.TotalCostValue / maxRow.QuantityOnHand, 4, MidpointRounding.AwayFromZero);
+                    }
+                }
+            }
+        }
+
+        var weightedAvgGroups = rows
+            .Where(r => r.ValuationMethod == ValuationMethod.WeightedAverage.ToString())
+            .GroupBy(r => (r.WarehouseId, r.ProductId));
+
+        foreach (var group in weightedAvgGroups)
+        {
+            var vb = valBalances.FirstOrDefault(v => v.WarehouseId == group.Key.WarehouseId && v.ProductId == group.Key.ProductId);
+            if (vb != null && vb.CurrentAverageCost > 0)
+            {
+                decimal totalGroupQty = group.Sum(r => r.QuantityOnHand);
+                decimal targetValuation = Math.Round(totalGroupQty * vb.CurrentAverageCost, 2, MidpointRounding.AwayFromZero);
+                decimal currentSum = group.Sum(r => r.TotalCostValue);
+                decimal residual = targetValuation - currentSum;
+                if (residual != 0m)
+                {
+                    var maxRow = group.OrderByDescending(r => r.QuantityOnHand).First();
+                    maxRow.TotalCostValue += residual;
+                    if (maxRow.QuantityOnHand > 0)
+                    {
+                        maxRow.UnitCost = Math.Round(maxRow.TotalCostValue / maxRow.QuantityOnHand, 4, MidpointRounding.AwayFromZero);
+                    }
+                }
+            }
+        }
+
+        var fifoGroups = rows
+            .Where(r => r.ValuationMethod == ValuationMethod.FIFO.ToString() || r.ValuationMethod == ValuationMethod.LIFO.ToString())
+            .GroupBy(r => (r.WarehouseId, r.ProductId));
+
+        foreach (var group in fifoGroups)
+        {
+            var prodLayers = costLayers.Where(l => l.WarehouseId == group.Key.WarehouseId && l.ProductId == group.Key.ProductId).ToList();
+            decimal totalLayerQty = prodLayers.Sum(l => l.RemainingQuantity);
+            decimal totalGroupQty = group.Sum(r => r.QuantityOnHand);
+            if (totalLayerQty > 0 && totalGroupQty == totalLayerQty)
+            {
+                decimal targetValuation = Math.Round(prodLayers.Sum(l => l.RemainingCost), 2, MidpointRounding.AwayFromZero);
+                decimal currentSum = group.Sum(r => r.TotalCostValue);
+                decimal residual = targetValuation - currentSum;
+                if (residual != 0m)
+                {
+                    var maxRow = group.OrderByDescending(r => r.QuantityOnHand).First();
+                    maxRow.TotalCostValue += residual;
+                    if (maxRow.QuantityOnHand > 0)
+                    {
+                        maxRow.UnitCost = Math.Round(maxRow.TotalCostValue / maxRow.QuantityOnHand, 4, MidpointRounding.AwayFromZero);
+                    }
+                }
+            }
         }
 
         // 5. Total aggregations across ALL matching rows
@@ -1669,6 +1761,17 @@ public class InventoryPersistenceCoordinator : IInventoryPersistenceCoordinator
     public async Task<Warehouse?> GetWarehouseAsync(Guid tenantId, Guid warehouseId)
     {
         return await _context.Warehouses.FindAsync(warehouseId);
+    }
+
+    public async Task<string?> GetWarehouseBaseCurrencyAsync(Guid tenantId, Guid warehouseId)
+    {
+        var wh = await _context.Warehouses.AsNoTracking()
+            .FirstOrDefaultAsync(w => w.TenantId == tenantId && w.WarehouseId == warehouseId);
+        if (wh?.CompanyId == null) return null;
+        var comp = await _context.Companies.AsNoTracking()
+            .Include(c => c.BaseCurrency)
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Id == wh.CompanyId.Value);
+        return comp?.BaseCurrencyCode ?? comp?.BaseCurrency?.CurrencyCode;
     }
 
     public async Task<UnitOfMeasure?> GetUnitOfMeasureAsync(Guid tenantId, Guid uomId)

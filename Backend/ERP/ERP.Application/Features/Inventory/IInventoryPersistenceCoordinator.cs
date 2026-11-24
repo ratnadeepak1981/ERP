@@ -100,6 +100,7 @@ public interface IInventoryPersistenceCoordinator
     Task<Product?> GetProductAsync(Guid tenantId, Guid productId);
     Task<WarehouseLocation?> GetLocationAsync(Guid tenantId, Guid locationId);
     Task<Warehouse?> GetWarehouseAsync(Guid tenantId, Guid warehouseId);
+    Task<string?> GetWarehouseBaseCurrencyAsync(Guid tenantId, Guid warehouseId);
     Task<UnitOfMeasure?> GetUnitOfMeasureAsync(Guid tenantId, Guid uomId);
     Task RemovePutawayLinesAndAllocationsAsync(global::Domain.Features.Inventory.Putaway.Putaway putaway);
     Task<PutawayReferenceLookups> GetPutawayReferenceLookupsAsync(

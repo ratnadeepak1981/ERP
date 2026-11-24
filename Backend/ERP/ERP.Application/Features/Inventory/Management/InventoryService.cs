@@ -67,6 +67,14 @@ public class InventoryService : IInventoryService
         var product = await _persistenceCoordinator.GetProductAsync(tenantId, productId);
         bool isBatchTracked = product != null && (product.TrackingMode == TrackingMode.Batch || product.TrackingMode == TrackingMode.BatchAndSerial);
 
+        var loc = await _persistenceCoordinator.GetLocationAsync(tenantId, locationId);
+        Guid whId = loc?.WarehouseId ?? Guid.Empty;
+        StockValuationDto? val = null;
+        if (whId != Guid.Empty && product != null)
+        {
+            val = await GetStockValuationAsync(tenantId, productId, whId, locationId, normBatch);
+        }
+
         if (!string.IsNullOrEmpty(normBatch))
         {
             var balance = await _inventoryRepository.GetBalanceAsync(
@@ -95,7 +103,13 @@ public class InventoryService : IInventoryService
                 QuantityOnHand = balance?.QuantityOnHand ?? 0m,
                 QuantityAllocated = balance?.QuantityAllocated ?? 0m,
                 QuantityQuarantine = balance?.QuantityQuarantine ?? 0m,
-                QuantityAvailable = avail
+                QuantityAvailable = avail,
+                CostRate = val?.CostRate ?? 0m,
+                TotalInventoryValue = val?.TotalInventoryValue ?? 0m,
+                ValuationMethod = product?.ValuationMethod ?? ValuationMethod.FIFO,
+                CostCurrency = val?.CostCurrency ?? "GBP",
+                CostUnitOfMeasure = product?.UnitOfMeasure ?? string.Empty,
+                IsCostEstablished = val?.IsCostEstablished ?? false
             };
         }
 
@@ -108,14 +122,21 @@ public class InventoryService : IInventoryService
                 locationId: locationId,
                 asOfDate: DateTime.UtcNow);
 
+            decimal onHand = eligibleBatches.Sum(b => b.QuantityOnHand);
             return new AvailableStockDto
             {
                 ProductId = productId,
                 WarehouseLocationId = locationId,
-                QuantityOnHand = eligibleBatches.Sum(b => b.QuantityOnHand),
+                QuantityOnHand = onHand,
                 QuantityAllocated = 0m,
                 QuantityQuarantine = 0m,
-                QuantityAvailable = eligibleBatches.Sum(b => b.QuantityAvailable)
+                QuantityAvailable = eligibleBatches.Sum(b => b.QuantityAvailable),
+                CostRate = val?.CostRate ?? 0m,
+                TotalInventoryValue = onHand > 0 ? (val?.TotalInventoryValue ?? (val?.CostRate ?? 0m) * onHand) : 0m,
+                ValuationMethod = product?.ValuationMethod ?? ValuationMethod.FIFO,
+                CostCurrency = val?.CostCurrency ?? "GBP",
+                CostUnitOfMeasure = product?.UnitOfMeasure ?? string.Empty,
+                IsCostEstablished = val?.IsCostEstablished ?? false
             };
         }
 
@@ -126,14 +147,167 @@ public class InventoryService : IInventoryService
             string.Empty,
             normSerial);
 
+        decimal untrackedOnHand = untrackedBalance?.QuantityOnHand ?? 0m;
         return new AvailableStockDto
         {
             ProductId = productId,
             WarehouseLocationId = locationId,
-            QuantityOnHand = untrackedBalance?.QuantityOnHand ?? 0m,
+            QuantityOnHand = untrackedOnHand,
             QuantityAllocated = untrackedBalance?.QuantityAllocated ?? 0m,
             QuantityQuarantine = untrackedBalance?.QuantityQuarantine ?? 0m,
-            QuantityAvailable = untrackedBalance?.QuantityAvailable ?? 0m
+            QuantityAvailable = untrackedBalance?.QuantityAvailable ?? 0m,
+            CostRate = val?.CostRate ?? 0m,
+            TotalInventoryValue = untrackedOnHand > 0 ? (val?.TotalInventoryValue ?? (val?.CostRate ?? 0m) * untrackedOnHand) : 0m,
+            ValuationMethod = product?.ValuationMethod ?? ValuationMethod.FIFO,
+            CostCurrency = val?.CostCurrency ?? "GBP",
+            CostUnitOfMeasure = product?.UnitOfMeasure ?? string.Empty,
+            IsCostEstablished = val?.IsCostEstablished ?? false
+        };
+    }
+
+    public async Task<StockValuationDto> GetStockValuationAsync(
+        Guid tenantId,
+        Guid productId,
+        Guid warehouseId,
+        Guid? locationId = null,
+        string? batchNumber = null)
+    {
+        var product = await _persistenceCoordinator.GetProductAsync(tenantId, productId)
+            ?? throw new KeyNotFoundException($"Product '{productId}' was not found.");
+
+        string normBatch = batchNumber?.Trim() ?? string.Empty;
+        var balances = await _postingService.GetProductBalancesAsync(tenantId, productId);
+        var filteredBalances = balances.Where(b => b.WarehouseId == warehouseId);
+        if (locationId.HasValue && locationId.Value != Guid.Empty)
+        {
+            filteredBalances = filteredBalances.Where(b => b.WarehouseLocationId == locationId.Value);
+        }
+        if (!string.IsNullOrEmpty(normBatch))
+        {
+            filteredBalances = filteredBalances.Where(b => string.Equals(b.BatchNumber, normBatch, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var balanceList = filteredBalances.ToList();
+        decimal onHand = balanceList.Sum(b => b.QuantityOnHand);
+        decimal available = balanceList.Sum(b => b.QuantityAvailable);
+
+        decimal costRate = 0m;
+        decimal? nextIssueRate = null;
+        decimal totalValue = 0m;
+        bool isCostEstablished = false;
+
+        switch (product.ValuationMethod)
+        {
+            case ValuationMethod.FIFO:
+            case ValuationMethod.LIFO:
+            {
+                var layers = await _inventoryRepository.GetActiveCostLayersAsync(
+                    tenantId,
+                    productId,
+                    warehouseId,
+                    ascending: product.ValuationMethod == ValuationMethod.FIFO,
+                    batchNumber: string.IsNullOrEmpty(normBatch) ? null : normBatch);
+
+                if (locationId.HasValue && locationId.Value != Guid.Empty)
+                {
+                    var locLayers = layers.Where(l => l.WarehouseLocationId == locationId.Value).ToList();
+                    decimal locQty = locLayers.Sum(l => l.RemainingQuantity);
+                    decimal locCost = locLayers.Sum(l => l.RemainingCost);
+
+                    if (onHand > 0 && locQty > 0)
+                    {
+                        totalValue = locCost;
+                        costRate = Math.Round(totalValue / locQty, 4, MidpointRounding.AwayFromZero);
+                        nextIssueRate = locLayers.FirstOrDefault(l => !l.IsExhausted && l.RemainingQuantity > 0)?.UnitCost;
+                        isCostEstablished = true;
+                    }
+                    else
+                    {
+                        // Location is empty or has zero on-hand: valuation value MUST be 0
+                        totalValue = 0m;
+                        decimal whQty = layers.Sum(l => l.RemainingQuantity);
+                        decimal whCost = layers.Sum(l => l.RemainingCost);
+                        if (whQty > 0)
+                        {
+                            costRate = Math.Round(whCost / whQty, 4, MidpointRounding.AwayFromZero);
+                            nextIssueRate = layers.FirstOrDefault(l => !l.IsExhausted && l.RemainingQuantity > 0)?.UnitCost;
+                            isCostEstablished = true;
+                        }
+                        else if (product.StandardCost > 0)
+                        {
+                            costRate = product.StandardCost;
+                            nextIssueRate = product.StandardCost;
+                            isCostEstablished = true;
+                        }
+                    }
+                }
+                else
+                {
+                    decimal activeQty = layers.Sum(l => l.RemainingQuantity);
+                    decimal activeCost = layers.Sum(l => l.RemainingCost);
+
+                    if (activeQty > 0)
+                    {
+                        totalValue = activeCost;
+                        costRate = Math.Round(totalValue / activeQty, 4, MidpointRounding.AwayFromZero);
+                        nextIssueRate = layers.FirstOrDefault(l => !l.IsExhausted && l.RemainingQuantity > 0)?.UnitCost;
+                        isCostEstablished = true;
+                    }
+                    else if (product.StandardCost > 0)
+                    {
+                        costRate = product.StandardCost;
+                        nextIssueRate = product.StandardCost;
+                        totalValue = Math.Round(onHand * costRate, 2, MidpointRounding.AwayFromZero);
+                        isCostEstablished = true;
+                    }
+                }
+                break;
+            }
+
+            case ValuationMethod.WeightedAverage:
+            {
+                var valBalance = await _inventoryRepository.GetValuationBalanceAsync(tenantId, productId, warehouseId);
+                if (valBalance != null && valBalance.CurrentAverageCost > 0)
+                {
+                    costRate = valBalance.CurrentAverageCost;
+                    totalValue = onHand > 0 ? Math.Round(onHand * costRate, 2, MidpointRounding.AwayFromZero) : 0m;
+                    isCostEstablished = true;
+                }
+                break;
+            }
+
+            case ValuationMethod.StandardCost:
+            {
+                if (product.StandardCost > 0)
+                {
+                    costRate = product.StandardCost;
+                    totalValue = onHand > 0 ? Math.Round(onHand * costRate, 2, MidpointRounding.AwayFromZero) : 0m;
+                    isCostEstablished = true;
+                }
+                break;
+            }
+        }
+
+        string costCurrency = await _persistenceCoordinator.GetWarehouseBaseCurrencyAsync(tenantId, warehouseId) ?? "GBP";
+
+        return new StockValuationDto
+        {
+            ProductId = productId,
+            WarehouseId = warehouseId,
+            WarehouseLocationId = locationId,
+            BatchNumber = string.IsNullOrEmpty(normBatch) ? null : normBatch,
+            ValuationMethod = product.ValuationMethod,
+            ValuationMethodName = product.ValuationMethod.ToString(),
+            TrackingMode = product.TrackingMode,
+            QuantityOnHand = onHand,
+            QuantityAvailable = available,
+            CostRate = costRate,
+            NextIssueRate = nextIssueRate,
+            TotalInventoryValue = totalValue,
+            CostCurrency = costCurrency,
+            CostUnitOfMeasure = product.UnitOfMeasure ?? string.Empty,
+            IsCostEstablished = isCostEstablished,
+            ValuationAsOfDate = DateTime.UtcNow
         };
     }
 
@@ -547,12 +721,30 @@ public class InventoryService : IInventoryService
                 var results = new List<StockReceiptDto>();
                 int sequence = 1;
 
+                bool isExplicitFreeSample = request.Reason == StockReceiptReason.FreeSample;
+
                 foreach (var line in request.Lines)
                 {
                     Guid lineId = line.StockReceiptLineId ?? DeriveDeterministicGuid(tenantId, receiptBatchId.ToString(), $"line_{sequence}");
                     var product = products[line.ProductId];
                     var location = locations[line.WarehouseLocationId];
-                    decimal unitCost = line.UnitCost ?? product.StandardCost;
+
+                    bool lineIsFreeSample = isExplicitFreeSample;
+
+                    decimal unitCost = line.UnitCost ?? (product.StandardCost > 0 && product.ValuationMethod == ValuationMethod.StandardCost ? product.StandardCost : 0m);
+
+                    if (unitCost <= 0 && !lineIsFreeSample)
+                    {
+                        if (product.StandardCost > 0 && product.ValuationMethod == ValuationMethod.StandardCost)
+                        {
+                            unitCost = product.StandardCost;
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException(
+                                "Inbound inventory receipt requires a valid positive cost rate. Zero-cost receipts are permitted only for explicitly identified free samples.");
+                        }
+                    }
 
                     var postRequest = new PostInventoryMovementRequest
                     {
@@ -570,7 +762,8 @@ public class InventoryService : IInventoryService
                         SerialNumber = line.SerialNumber?.Trim(),
                         ManufacturingDate = line.ManufacturingDate,
                         ExpiryDate = line.ExpiryDate,
-                        TransactionDate = request.ReceiptDate ?? DateTime.UtcNow
+                        TransactionDate = request.ReceiptDate ?? DateTime.UtcNow,
+                        IsFreeSample = lineIsFreeSample
                     };
 
                     var tx = await _postingService.PostMovementAsync(tenantId, postRequest);

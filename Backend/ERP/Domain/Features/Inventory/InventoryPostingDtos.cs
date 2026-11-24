@@ -26,6 +26,9 @@ public class PostInventoryMovementRequest
 
     // QC flag: If true on an inflow, sets both QuantityOnHand and QuantityQuarantine
     public bool IsQuarantine { get; set; } = false;
+
+    // Explicit Free Sample classification flag
+    public bool IsFreeSample { get; set; } = false;
 }
 
 public class PostTransferMovementRequest

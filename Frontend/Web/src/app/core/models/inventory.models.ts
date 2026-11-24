@@ -84,6 +84,31 @@ export interface AvailableStockDto {
   quantityAllocated: number;
   quantityQuarantine: number;
   quantityAvailable: number;
+  costRate?: number;
+  totalInventoryValue?: number;
+  valuationMethod?: number;
+  costCurrency?: string;
+  costUnitOfMeasure?: string;
+  isCostEstablished?: boolean;
+}
+
+export interface StockValuationDto {
+  productId: string;
+  warehouseId: string;
+  warehouseLocationId?: string | null;
+  batchNumber?: string | null;
+  valuationMethod: number;
+  valuationMethodName: string;
+  trackingMode: number;
+  quantityOnHand: number;
+  quantityAvailable: number;
+  costRate: number;
+  nextIssueRate?: number | null;
+  totalInventoryValue: number;
+  costCurrency: string;
+  costUnitOfMeasure: string;
+  isCostEstablished: boolean;
+  valuationAsOfDate: string;
 }
 
 export interface EligibleBatchDto {
@@ -394,7 +419,8 @@ export enum StockReceiptReason {
   OpeningBalance = 1,
   CustomerReturn = 2,
   InternalProduction = 3,
-  Miscellaneous = 4
+  Miscellaneous = 4,
+  FreeSample = 5
 }
 
 export enum StockReceiptStatus {
@@ -468,6 +494,8 @@ export function getStockReceiptReasonName(reason: StockReceiptReason | number): 
       return 'Internal Production / Assembly';
     case StockReceiptReason.Miscellaneous:
       return 'Miscellaneous Inbound';
+    case StockReceiptReason.FreeSample:
+      return 'Free Sample / Promotional Stock';
     default:
       return 'General Receipt';
   }
@@ -485,6 +513,8 @@ export function getStockReceiptReasonSeverity(
       return 'success';
     case StockReceiptReason.Miscellaneous:
       return 'neutral';
+    case StockReceiptReason.FreeSample:
+      return 'info';
     default:
       return 'info';
   }

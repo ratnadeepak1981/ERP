@@ -244,6 +244,19 @@ public class StockCountService : IStockCountService
             .ThenBy(x => x.SerialNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // Defect E: Preload authoritative valuation data for draft display
+        var draftProductIds = identities.Select(x => x.ProductId).Distinct().ToList();
+        var draftValBalances = await _context.ProductValuationBalances
+            .AsNoTracking()
+            .Where(v => v.TenantId == tenantId && v.WarehouseId == request.WarehouseId && draftProductIds.Contains(v.ProductId))
+            .ToDictionaryAsync(v => v.ProductId);
+
+        var draftFifoLayers = await _context.InventoryCostLayers
+            .AsNoTracking()
+            .Where(l => l.TenantId == tenantId && l.WarehouseId == request.WarehouseId && draftProductIds.Contains(l.ProductId) && !l.IsExhausted && l.RemainingQuantity > 0)
+            .OrderByDescending(l => l.LayerDate)
+            .ToListAsync();
+
         foreach (var identity in identities)
         {
             var product = products[identity.ProductId];
@@ -251,6 +264,39 @@ public class StockCountService : IStockCountService
             observations.TryGetValue(identity, out var observation);
             batchDetails.TryGetValue(new InventoryBatchIdentity(identity.ProductId, identity.BatchNumber), out var batch);
             identityNames.TryGetValue(identity, out var identityName);
+
+            // Defect E: Resolve authoritative unit cost for display in draft if observation didn't specify a positive unit cost
+            decimal lineUnitCost = observation?.UnitCost ?? 0m;
+            if (lineUnitCost <= 0m)
+            {
+                if (product.ValuationMethod == ValuationMethod.StandardCost)
+                {
+                    lineUnitCost = product.StandardCost > 0m ? product.StandardCost : 0m;
+                }
+                else if (product.ValuationMethod == ValuationMethod.WeightedAverage)
+                {
+                    if (draftValBalances.TryGetValue(product.ProductId, out var vb) && vb.CurrentAverageCost > 0m)
+                    {
+                        lineUnitCost = vb.CurrentAverageCost;
+                    }
+                    else if (product.StandardCost > 0m)
+                    {
+                        lineUnitCost = product.StandardCost;
+                    }
+                }
+                else if (product.ValuationMethod == ValuationMethod.FIFO)
+                {
+                    var latestLayer = draftFifoLayers.FirstOrDefault(l => l.ProductId == product.ProductId);
+                    if (latestLayer != null && latestLayer.UnitCost > 0m)
+                    {
+                        lineUnitCost = latestLayer.UnitCost;
+                    }
+                    else if (product.StandardCost > 0m)
+                    {
+                        lineUnitCost = product.StandardCost;
+                    }
+                }
+            }
 
             var line = StockCountLine.Create(
                 product.ProductId,
@@ -265,7 +311,7 @@ public class StockCountService : IStockCountService
                 identityName.SerialNumber,
                 batch?.ManufacturingDate ?? observation?.ManufacturingDate,
                 batch?.ExpiryDate ?? observation?.ExpiryDate,
-                observation?.UnitCost ?? 0m,
+                lineUnitCost,
                 observation?.Remarks);
 
             line.ExpectedQuantityEntered = expectedBase;
@@ -506,6 +552,19 @@ public class StockCountService : IStockCountService
 
             if (receiptLines.Count > 0)
             {
+                // Defect E: Pre-query valuation data for positive variance lines
+                var receiptProductIds = receiptLines.Select(x => x.ProductId).Distinct().ToList();
+                var postValBalances = await _context.ProductValuationBalances
+                    .AsNoTracking()
+                    .Where(v => v.TenantId == tenantId && v.WarehouseId == count.WarehouseId && receiptProductIds.Contains(v.ProductId))
+                    .ToDictionaryAsync(v => v.ProductId);
+
+                var postFifoLayers = await _context.InventoryCostLayers
+                    .AsNoTracking()
+                    .Where(l => l.TenantId == tenantId && l.WarehouseId == count.WarehouseId && receiptProductIds.Contains(l.ProductId) && !l.IsExhausted && l.RemainingQuantity > 0)
+                    .OrderByDescending(l => l.LayerDate)
+                    .ToListAsync();
+
                 var receiptRequest = new CreateStockReceiptRequest
                 {
                     StockReceiptId = count.StockCountId,
@@ -516,7 +575,8 @@ public class StockCountService : IStockCountService
                     Lines = receiptLines.Select(line =>
                     {
                         var product = products[line.ProductId];
-                        var unitCost = line.UnitCost;
+                        decimal unitCost = 0m;
+
                         if (product.ValuationMethod == ValuationMethod.StandardCost)
                         {
                             if (product.StandardCost <= 0)
@@ -525,8 +585,64 @@ public class StockCountService : IStockCountService
                                     $"Product '{line.ProductCode}' requires a positive standard cost for Standard Cost valuation.");
                             }
 
-                            if (unitCost <= 0)
+                            unitCost = product.StandardCost;
+                        }
+                        else if (product.ValuationMethod == ValuationMethod.WeightedAverage)
+                        {
+                            if (postValBalances.TryGetValue(line.ProductId, out var vb) && vb.CurrentAverageCost > 0)
+                            {
+                                unitCost = vb.CurrentAverageCost;
+                            }
+                            else if (product.StandardCost > 0)
+                            {
                                 unitCost = product.StandardCost;
+                            }
+                            else if (line.UnitCost > 0)
+                            {
+                                unitCost = line.UnitCost;
+                            }
+
+                            if (unitCost <= 0)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Positive variance for product '{line.ProductCode}' requires an approved unit cost for WeightedAverage valuation.");
+                            }
+                        }
+                        else if (product.ValuationMethod == ValuationMethod.FIFO)
+                        {
+                            var latestLayer = postFifoLayers.FirstOrDefault(l => l.ProductId == line.ProductId);
+                            if (latestLayer != null && latestLayer.UnitCost > 0)
+                            {
+                                unitCost = latestLayer.UnitCost;
+                            }
+                            else
+                            {
+                                var lastExhausted = _context.InventoryCostLayers
+                                    .AsNoTracking()
+                                    .Where(l => l.TenantId == tenantId && l.WarehouseId == count.WarehouseId && l.ProductId == line.ProductId && l.UnitCost > 0)
+                                    .OrderByDescending(l => l.LayerDate)
+                                    .ThenByDescending(l => l.CreatedAt)
+                                    .FirstOrDefault();
+
+                                if (lastExhausted != null && lastExhausted.UnitCost > 0)
+                                {
+                                    unitCost = lastExhausted.UnitCost;
+                                }
+                                else if (product.StandardCost > 0)
+                                {
+                                    unitCost = product.StandardCost;
+                                }
+                                else if (line.UnitCost > 0)
+                                {
+                                    unitCost = line.UnitCost;
+                                }
+                            }
+
+                            if (unitCost <= 0)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Positive variance for product '{line.ProductCode}' requires an approved unit cost for FIFO valuation when no prior cost layers exist.");
+                            }
                         }
 
                         if (unitCost <= 0)

@@ -26,6 +26,8 @@ public class FifoValuationStrategy : IInventoryValuationStrategy
         if (quantity <= 0)
             throw new ArgumentException("Inflow quantity must be greater than zero.", nameof(quantity));
 
+        decimal effectiveCost = unitCost;
+
         var layer = InventoryCostLayer.Create(
             context.TenantId,
             context.ProductId,
@@ -34,7 +36,7 @@ public class FifoValuationStrategy : IInventoryValuationStrategy
             transactionId,
             context.TransactionDate,
             quantity,
-            unitCost,
+            effectiveCost,
             context.BatchNumber,
             context.SerialNumber);
 
@@ -42,9 +44,9 @@ public class FifoValuationStrategy : IInventoryValuationStrategy
 
         return new ValuationInflowResult
         {
-            UnitCost = unitCost,
+            UnitCost = effectiveCost,
             TotalCost = layer.OriginalCost,
-            VarianceAmount = 0
+            VarianceAmount = 0m
         };
     }
 
@@ -155,5 +157,68 @@ public class FifoValuationStrategy : IInventoryValuationStrategy
             ReversalTotalCost = restoredLayer.OriginalCost,
             VarianceAmount = 0
         };
+    }
+
+    public async Task<decimal> ProcessIntraWarehouseTransferAsync(
+        ValuationContext srcContext,
+        ValuationContext dstContext,
+        decimal quantity,
+        Guid outTxnId,
+        Guid inTxnId)
+    {
+        if (quantity <= 0)
+            throw new ArgumentException("Transfer quantity must be greater than zero.", nameof(quantity));
+
+        var layers = await _inventoryRepository.GetActiveCostLayersAsync(
+            srcContext.TenantId,
+            srcContext.ProductId,
+            srcContext.WarehouseId,
+            ascending: true,
+            srcContext.BatchNumber,
+            srcContext.SerialNumber);
+
+        var sourceLocationLayers = layers
+            .Where(l => l.WarehouseLocationId == srcContext.WarehouseLocationId && !l.IsExhausted && l.RemainingQuantity > 0)
+            .OrderBy(l => l.LayerDate)
+            .ThenBy(l => l.CreatedAt)
+            .ToList();
+
+        decimal availableAtSource = sourceLocationLayers.Sum(l => l.RemainingQuantity);
+        if (availableAtSource < quantity)
+        {
+            throw new InvalidOperationException(
+                $"Insufficient eligible inventory in source location '{srcContext.WarehouseLocationId}' for product '{srcContext.Product.ProductCode}'. " +
+                $"Requested: {quantity}, Eligible in source location: {availableAtSource}. Never fall back to consuming stock from another bin or location.");
+        }
+
+        decimal remainingToTransfer = quantity;
+        decimal totalTransferredCost = 0m;
+
+        foreach (var layer in sourceLocationLayers)
+        {
+            if (remainingToTransfer <= 0) break;
+
+            decimal toTransfer = Math.Min(layer.RemainingQuantity, remainingToTransfer);
+            decimal layerCost = layer.Consume(toTransfer);
+
+            totalTransferredCost += layerCost;
+            remainingToTransfer -= toTransfer;
+
+            var dstLayer = InventoryCostLayer.Create(
+                srcContext.TenantId,
+                srcContext.ProductId,
+                dstContext.WarehouseId,
+                dstContext.WarehouseLocationId,
+                inTxnId,
+                layer.LayerDate, // PRESERVE ORIGINAL ACQUISITION DATE
+                toTransfer,
+                layer.UnitCost,  // PRESERVE ORIGINAL UNIT COST
+                layer.BatchNumber,
+                layer.SerialNumber);
+
+            await _inventoryRepository.AddCostLayerAsync(dstLayer);
+        }
+
+        return quantity > 0 ? Math.Round(totalTransferredCost / quantity, 4, MidpointRounding.AwayFromZero) : 0m;
     }
 }

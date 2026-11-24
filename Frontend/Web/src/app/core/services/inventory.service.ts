@@ -8,6 +8,7 @@ import {
   InventoryRecentTransactionDto,
   StockIssueDto,
   AvailableStockDto,
+  StockValuationDto,
   EligibleBatchDto,
   CreateStockIssueRequest,
   StockReceiptDto,
@@ -136,6 +137,49 @@ export class InventoryService {
             quantityAllocated: 0,
             quantityQuarantine: 0,
             quantityAvailable: 0
+          };
+        }
+        return res.data;
+      })
+    );
+  }
+
+  /**
+   * Retrieves authoritative inventory valuation data for a product
+   */
+  getStockValuation(
+    productId: string,
+    warehouseId: string,
+    warehouseLocationId?: string | null,
+    batchNumber?: string | null
+  ): Observable<StockValuationDto> {
+    const url = buildApiUrl('/inventory/valuation');
+    let params = new HttpParams()
+      .set('productId', productId)
+      .set('warehouseId', warehouseId);
+
+    if (warehouseLocationId) params = params.set('locationId', warehouseLocationId);
+    if (batchNumber) params = params.set('batchNumber', batchNumber);
+
+    return this.http.get<ApiResponse<StockValuationDto>>(url, { params }).pipe(
+      map(res => {
+        if (!res?.data) {
+          return {
+            productId,
+            warehouseId,
+            warehouseLocationId: warehouseLocationId ?? null,
+            batchNumber: batchNumber ?? null,
+            valuationMethod: 0,
+            valuationMethodName: 'StandardCost',
+            trackingMode: 0,
+            quantityOnHand: 0,
+            quantityAvailable: 0,
+            costRate: 0,
+            totalInventoryValue: 0,
+            costCurrency: 'GBP',
+            costUnitOfMeasure: '',
+            isCostEstablished: false,
+            valuationAsOfDate: new Date().toISOString()
           };
         }
         return res.data;

@@ -14,6 +14,7 @@ public class ValuationContext
     public string? BatchNumber { get; set; }
     public string? SerialNumber { get; set; }
     public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
+    public bool IsFreeSample { get; set; } = false;
 }
 
 public class ValuationInflowResult
