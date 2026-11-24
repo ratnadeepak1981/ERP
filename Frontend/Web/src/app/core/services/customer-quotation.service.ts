@@ -5,7 +5,9 @@ import { buildApiUrl } from '../utils/api-url.util';
 import { ApiResponse } from '../models/auth.models';
 import {
   CustomerSalesQuotationDto,
-  CreateCustomerQuotationRequest
+  CreateCustomerQuotationRequest,
+  AcceptQuotationRequest,
+  DeclineQuotationRequest
 } from '../models/customer-quotation.models';
 
 @Injectable({
@@ -75,5 +77,31 @@ export class CustomerQuotationService {
     return this.http.get(buildApiUrl(`/portal/customer/quotations/${id}/pdf`), {
       responseType: 'blob'
     });
+  }
+
+  /**
+   * Accepts a formally issued Sales Quotation and converts it into a Sales Order Draft.
+   */
+  acceptQuotation(
+    id: string,
+    request?: AcceptQuotationRequest
+  ): Observable<ApiResponse<CustomerSalesQuotationDto>> {
+    return this.http.post<ApiResponse<CustomerSalesQuotationDto>>(
+      buildApiUrl(`/portal/customer/quotations/${id}/accept`),
+      request || {}
+    );
+  }
+
+  /**
+   * Declines a formally issued Sales Quotation with mandatory remarks.
+   */
+  declineQuotation(
+    id: string,
+    request: DeclineQuotationRequest
+  ): Observable<ApiResponse<CustomerSalesQuotationDto>> {
+    return this.http.post<ApiResponse<CustomerSalesQuotationDto>>(
+      buildApiUrl(`/portal/customer/quotations/${id}/decline`),
+      request
+    );
   }
 }

@@ -5,7 +5,7 @@
 **Date:** 2026-11-20  
 **Target Repository:** `ApexERP` (`Backend/ERP`, `Frontend/Web`)  
 **Related Documents:**
-- [Sales-Quotation-Workflow.md](file:///z:/ERP/Sales-Quotation-Workflow.md) (v1.3.2)
+- [Sales-Quotation-Workflow.md](file:///z:/ERP/Sales-Quotation-Workflow.md) (v1.4.0)
 - [Shared-Email-Retry-Architecture.md](file:///z:/ERP/Shared-Email-Retry-Architecture.md) (v1.2.0)
 - [ApexERP-Frontend-UI-Standards.md](file:///z:/ERP/ApexERP-Frontend-UI-Standards.md) (v1.2.0)
 - [Root Instructions](file:///z:/ERP/AGENTS.md)

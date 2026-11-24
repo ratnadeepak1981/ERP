@@ -117,6 +117,16 @@ public class SalesQuotationDto
 
     public Guid? SupersededByQuotationId { get; set; }
 
+    public Guid? LinkedCustomerRequestId { get; set; }
+
+    public string? LinkedCustomerRequestNumber { get; set; }
+
+    public Guid? LinkedCommercialQuotationId { get; set; }
+
+    public string? LinkedCommercialQuotationNumber { get; set; }
+
+    public string? RequestReviewStatus { get; set; }
+
     public OriginalCustomerRequestDto? OriginalRequest { get; set; }
 
     public string? EmailStatus { get; set; }
@@ -368,6 +378,11 @@ public class CustomerSalesQuotationDto
     public string? DeclinedRemarks { get; set; }
     public Guid? ConvertedSalesOrderId { get; set; }
     public DateTime? ConvertedAtUtc { get; set; }
+    public Guid? LinkedCustomerRequestId { get; set; }
+    public string? LinkedCustomerRequestNumber { get; set; }
+    public Guid? LinkedCommercialQuotationId { get; set; }
+    public string? LinkedCommercialQuotationNumber { get; set; }
+    public string? RequestReviewStatus { get; set; }
     public List<SalesQuotationItemDto> Items { get; set; } = new();
 }
 

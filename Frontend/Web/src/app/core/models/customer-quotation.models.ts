@@ -148,3 +148,14 @@ export interface CreateCustomerQuotationRequest {
   isDraft: boolean;
   items: CreateCustomerQuotationItemRequest[];
 }
+
+export interface AcceptQuotationRequest {
+  deliveryAddressId?: string | null;
+  customerRemarks?: string | null;
+  idempotencyKey?: string | null;
+}
+
+export interface DeclineQuotationRequest {
+  remarks: string;
+}
+
