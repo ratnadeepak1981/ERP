@@ -657,6 +657,35 @@ _persistenceCoordinator = persistenceCoordinator;
         // Mark GRN as Confirmed
         grn.MarkConfirmed();
 
+        // Resolve company base currency and PO exchange rate snapshot for inventory valuation
+        string? baseCurrencyCode = po.BaseCurrencyCode;
+        int baseDecimalPlaces = po.BaseCurrencyDecimalPlaces ?? 2;
+        if (string.IsNullOrWhiteSpace(baseCurrencyCode))
+        {
+            var company = await _persistenceCoordinator.GetActiveCompanyWithBaseCurrencyAsync(tenantId, companyId);
+            baseCurrencyCode = company?.BaseCurrencyCode ?? company?.BaseCurrency?.CurrencyCode;
+        }
+
+        decimal appliedRate = 1.0m;
+        bool isForeignCurrency = !string.IsNullOrWhiteSpace(baseCurrencyCode) &&
+            !string.IsNullOrWhiteSpace(po.Currency) &&
+            !string.Equals(po.Currency, baseCurrencyCode, StringComparison.OrdinalIgnoreCase);
+
+        if (isForeignCurrency)
+        {
+            if (!po.AppliedExchangeRate.HasValue || po.AppliedExchangeRate.Value <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Purchase Order '{po.OrderNumber}' is in foreign currency '{po.Currency}' (Base: '{baseCurrencyCode}'), but AppliedExchangeRate is missing or invalid. Foreign-currency receipts cannot be confirmed without a valid positive exchange rate.");
+            }
+            appliedRate = po.AppliedExchangeRate.Value;
+        }
+        else
+        {
+            // Domestic purchases strictly use 1.0 to prevent stale exchange rate snapshots from corrupting base currency costs
+            appliedRate = 1.0m;
+        }
+
         // Post Inventory ledger for each stock-tracked line using existing IInventoryPostingService
         int sequence = 1;
         foreach (var line in grn.Lines)
@@ -692,10 +721,40 @@ _persistenceCoordinator = persistenceCoordinator;
             if (baseQuantity <= 0)
                 throw new InvalidOperationException("Converted stock quantity is below the supported four-decimal persistence precision.");
 
+            bool isExplicitFreeSample = (line.Remarks != null && line.Remarks.Contains("Free Sample", StringComparison.OrdinalIgnoreCase))
+                || (grn.Remarks != null && grn.Remarks.Contains("Free Sample", StringComparison.OrdinalIgnoreCase));
+
+            // Convert foreign-currency receipt value into company base currency using approved AppliedExchangeRate
+            decimal lineTotalInBaseCurrency = Math.Round(line.LineTotal * appliedRate, baseDecimalPlaces, MidpointRounding.AwayFromZero);
+
             // Compute effective base unit cost preserving total line valuation
             decimal effectiveUnitCost = baseQuantity > 0
-                ? Math.Round(line.LineTotal / baseQuantity, 4, MidpointRounding.AwayFromZero)
-                : line.UnitCost;
+                ? Math.Round(lineTotalInBaseCurrency / baseQuantity, 4, MidpointRounding.AwayFromZero)
+                : Math.Round(line.UnitCost * appliedRate, 4, MidpointRounding.AwayFromZero);
+
+            if (effectiveUnitCost <= 0 && !isExplicitFreeSample)
+            {
+                if (product.StandardCost > 0)
+                {
+                    effectiveUnitCost = product.StandardCost;
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        "Inbound inventory receipt requires a valid positive cost rate. Zero-cost receipts are permitted only for explicitly identified free samples.");
+                }
+            }
+
+            if (product.ValuationMethod == ValuationMethod.StandardCost && product.StandardCost > 0)
+            {
+                decimal variancePerUnit = effectiveUnitCost - product.StandardCost;
+                decimal totalPpv = Math.Round(baseQuantity * variancePerUnit, 2, MidpointRounding.AwayFromZero);
+                if (totalPpv != 0m)
+                {
+                    string ppvTag = $"[PPV: StandardCost={product.StandardCost:F4}, EffectiveCost={effectiveUnitCost:F4}, TotalVariance={totalPpv:F2}]";
+                    line.Remarks = string.IsNullOrWhiteSpace(line.Remarks) ? ppvTag : $"{line.Remarks} {ppvTag}";
+                }
+            }
 
             await _persistenceCoordinator.DecrementOnOrderBalanceAsync(tenantId, line.WarehouseId, line.ProductId, baseQuantity);
 
@@ -717,7 +776,8 @@ _persistenceCoordinator = persistenceCoordinator;
                 ManufacturingDate = line.ManufacturingDate,
                 ExpiryDate = line.ExpiryDate,
                 TransactionDate = grn.ReceiptDate,
-                IsQuarantine = line.IsQuarantine
+                IsQuarantine = line.IsQuarantine,
+                IsFreeSample = isExplicitFreeSample
             };
 
             await _postingService.PostMovementAsync(tenantId, postReq);

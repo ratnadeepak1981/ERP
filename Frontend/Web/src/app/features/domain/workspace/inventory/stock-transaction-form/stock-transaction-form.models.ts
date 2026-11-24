@@ -19,6 +19,8 @@ export interface StockTransactionLineItem {
   warehouseLocationId: string;
   availableStock: number;
   loadingStock: boolean;
+  costRate?: number;
+  valuationMethod?: string;
   quantity: number;
   unitCost?: number | null;
   batchNumber?: string;

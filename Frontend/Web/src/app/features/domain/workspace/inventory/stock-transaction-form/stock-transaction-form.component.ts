@@ -179,6 +179,12 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
           value: StockReceiptReason.Miscellaneous,
           description: 'Authorized general stock addition with ledger tracking and audit remarks',
           badgeSeverity: 'neutral'
+        },
+        {
+          label: 'Free Sample / Promotional Stock',
+          value: StockReceiptReason.FreeSample,
+          description: 'Authorized zero-cost promotional items or vendor free samples',
+          badgeSeverity: 'info'
         }
       ];
     } else {
@@ -240,8 +246,13 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       if (!line.warehouseLocationId) return false;
       if (line.quantity <= 0) return false;
 
-      // Inbound receipt validation: unitCost >= 0 if present, and tracking completeness
+      // Inbound receipt validation: positive cost rate unless explicitly classified as Free Sample, and tracking completeness
       if (this.isReceipt()) {
+        const isFreeSample = this.selectedReceiptReason() === StockReceiptReason.FreeSample;
+        const cost = Number(line.unitCost) || 0;
+        if (!isFreeSample && cost <= 0) {
+          return false;
+        }
         if (line.unitCost !== null && line.unitCost !== undefined && line.unitCost < 0) {
           return false;
         }
@@ -936,6 +947,9 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
       .subscribe({
         next: stock => {
           line.availableStock = stock?.quantityAvailable ?? 0;
+          if (stock?.costRate !== undefined && stock?.costRate !== null) {
+            line.costRate = stock.costRate;
+          }
           line.loadingStock = false;
           this.lines.update(curr => [...curr]);
         },
@@ -1015,6 +1029,16 @@ export class StockTransactionFormComponent implements OnInit, OnDestroy {
     this.error.set(null);
 
     if (this.isReceipt()) {
+      const isFreeSample = this.selectedReceiptReason() === StockReceiptReason.FreeSample;
+      for (const l of this.lines()) {
+        const cost = Number(l.unitCost) || 0;
+        if (!isFreeSample && cost <= 0) {
+          this.saving.set(false);
+          this.error.set('Inbound inventory receipt requires a valid positive cost rate. Zero-cost receipts are permitted only for explicitly identified free samples.');
+          return;
+        }
+      }
+
       const requestLines: CreateStockReceiptLineRequest[] = [];
       for (const l of this.lines()) {
         const mode = Number(l.trackingMode) || 0;

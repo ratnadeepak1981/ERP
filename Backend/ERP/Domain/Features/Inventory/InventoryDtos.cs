@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Domain.Features.MasterData.Product;
 
 namespace ERP.Domain.Features.Inventory;
 
@@ -95,6 +96,34 @@ public class AvailableStockDto
     public decimal QuantityAllocated { get; set; }
     public decimal QuantityQuarantine { get; set; }
     public decimal QuantityAvailable { get; set; }
+
+    // Enriched valuation fields
+    public decimal CostRate { get; set; }
+    public decimal TotalInventoryValue { get; set; }
+    public ValuationMethod ValuationMethod { get; set; }
+    public string CostCurrency { get; set; } = string.Empty;
+    public string CostUnitOfMeasure { get; set; } = string.Empty;
+    public bool IsCostEstablished { get; set; }
+}
+
+public class StockValuationDto
+{
+    public Guid ProductId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public Guid? WarehouseLocationId { get; set; }
+    public string? BatchNumber { get; set; }
+    public ValuationMethod ValuationMethod { get; set; }
+    public string ValuationMethodName { get; set; } = string.Empty;
+    public TrackingMode TrackingMode { get; set; }
+    public decimal QuantityOnHand { get; set; }
+    public decimal QuantityAvailable { get; set; }
+    public decimal CostRate { get; set; }
+    public decimal? NextIssueRate { get; set; }
+    public decimal TotalInventoryValue { get; set; }
+    public string CostCurrency { get; set; } = string.Empty;
+    public string CostUnitOfMeasure { get; set; } = string.Empty;
+    public bool IsCostEstablished { get; set; }
+    public DateTime ValuationAsOfDate { get; set; } = DateTime.UtcNow;
 }
 
 public class CreateStockIssueRequest
@@ -124,7 +153,8 @@ public enum StockReceiptReason
     OpeningBalance = 1,
     CustomerReturn = 2,
     InternalProduction = 3,
-    Miscellaneous = 4
+    Miscellaneous = 4,
+    FreeSample = 5
 }
 
 public enum StockReceiptStatus

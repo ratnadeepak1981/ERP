@@ -127,10 +127,17 @@ export class CountAdjustComponent implements OnInit, OnDestroy {
     },
     {
       field: 'standardCost',
-      header: 'STANDARD COST',
+      header: 'COST BASIS / VALUATION',
       sortable: true,
       align: 'right',
-      format: val => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      format: (val, row) => {
+        const method = Number(row.valuationMethod) === 1 ? 'FIFO'
+                     : Number(row.valuationMethod) === 2 ? 'Moving Avg'
+                     : Number(row.valuationMethod) === 3 ? 'Standard'
+                     : 'Cost';
+        const cost = Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `${cost} (${method})`;
+      }
     },
     {
       field: 'isStockTracked',

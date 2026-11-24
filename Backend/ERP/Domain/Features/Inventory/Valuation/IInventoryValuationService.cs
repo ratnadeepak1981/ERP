@@ -31,4 +31,11 @@ public interface IInventoryValuationService
         InventoryTransaction originalOutflowTxn,
         decimal reversalQuantity,
         Guid reversalTxnId);
+
+    Task<decimal> ProcessIntraWarehouseTransferAsync(
+        ValuationContext srcContext,
+        ValuationContext dstContext,
+        decimal quantity,
+        Guid outTxnId,
+        Guid inTxnId);
 }

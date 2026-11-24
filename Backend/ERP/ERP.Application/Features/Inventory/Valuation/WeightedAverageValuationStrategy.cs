@@ -43,13 +43,16 @@ public class WeightedAverageValuationStrategy : IInventoryValuationStrategy
         Guid transactionId)
     {
         var balance = await GetOrCreateBalanceAsync(context);
-        decimal inflowValue = balance.ApplyInflow(quantity, unitCost);
+        decimal effectiveCost = unitCost;
+
+        // Inflow into weighted average balance without artificial value inflation
+        decimal inflowValue = balance.ApplyInflow(quantity, effectiveCost);
 
         return new ValuationInflowResult
         {
-            UnitCost = unitCost,
+            UnitCost = effectiveCost,
             TotalCost = inflowValue,
-            VarianceAmount = 0
+            VarianceAmount = 0m
         };
     }
 
@@ -100,5 +103,25 @@ public class WeightedAverageValuationStrategy : IInventoryValuationStrategy
             ReversalTotalCost = restoredValue,
             VarianceAmount = 0
         };
+    }
+
+    public async Task<decimal> ProcessIntraWarehouseTransferAsync(
+        ValuationContext srcContext,
+        ValuationContext dstContext,
+        decimal quantity,
+        Guid outTxnId,
+        Guid inTxnId)
+    {
+        if (quantity <= 0)
+            throw new ArgumentException("Transfer quantity must be greater than zero.", nameof(quantity));
+
+        // Intra-warehouse transfer within same warehouse:
+        // Warehouse-level valuation balance remains unchanged; only physical location balances move.
+        var balance = await GetOrCreateBalanceAsync(srcContext);
+        decimal currentCost = balance.CurrentAverageCost > 0
+            ? balance.CurrentAverageCost
+            : (srcContext.Product.StandardCost > 0 ? srcContext.Product.StandardCost : 0m);
+
+        return currentCost;
     }
 }

@@ -99,4 +99,18 @@ public class StandardCostValuationStrategy : IInventoryValuationStrategy
             VarianceAmount = 0
         });
     }
+
+    public Task<decimal> ProcessIntraWarehouseTransferAsync(
+        ValuationContext srcContext,
+        ValuationContext dstContext,
+        decimal quantity,
+        Guid outTxnId,
+        Guid inTxnId)
+    {
+        if (quantity <= 0)
+            throw new ArgumentException("Transfer quantity must be greater than zero.", nameof(quantity));
+
+        EnsureValidStandardCost(srcContext);
+        return Task.FromResult(srcContext.Product.StandardCost);
+    }
 }
