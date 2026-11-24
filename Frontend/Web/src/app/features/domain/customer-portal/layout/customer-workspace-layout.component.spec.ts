@@ -1,4 +1,8 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed, getTestBed } from '@angular/core/testing';
+import {
+  BrowserTestingModule,
+  platformBrowserTesting
+} from '@angular/platform-browser/testing';
 import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -7,16 +11,65 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { TenantContextService } from '../../../../core/services/tenant-context.service';
 import { ThemeService } from '../../../../core/services/theme.service';
 
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    createElement: () => ({
+      style: {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => true
+    }),
+    createDocumentFragment: () => ({
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => true
+    }),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    documentElement: {
+      classList: {
+        remove: () => {},
+        add: () => {},
+        contains: () => false
+      }
+    },
+    body: {
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      appendChild: () => {},
+      removeChild: () => {}
+    },
+    location: { href: 'http://localhost' }
+  };
+  (globalThis as any).window = globalThis;
+}
+
+if ((globalThis as any).navigation && !(globalThis as any).navigation.eventTarget?.dispatchEvent) {
+  (globalThis as any).navigation.eventTarget = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => true
+  };
+}
+
+try {
+  getTestBed().initTestEnvironment(
+    BrowserTestingModule,
+    platformBrowserTesting()
+  );
+} catch {
+  // Already initialized in test environment
+}
+
 describe('CustomerWorkspaceLayoutComponent', () => {
   let component: CustomerWorkspaceLayoutComponent;
-  let fixture: ComponentFixture<CustomerWorkspaceLayoutComponent>;
   let mockAuthService: any;
   let mockTenantContext: any;
   let mockThemeService: any;
   let isCompanySignal: ReturnType<typeof signal<boolean>>;
   let isIndividualSignal: ReturnType<typeof signal<boolean>>;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     isCompanySignal = signal(false);
     isIndividualSignal = signal(true);
 
@@ -44,19 +97,17 @@ describe('CustomerWorkspaceLayoutComponent', () => {
       toggleTheme: vi.fn()
     };
 
-    await TestBed.configureTestingModule({
-      imports: [CustomerWorkspaceLayoutComponent],
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: AuthService, useValue: mockAuthService },
         { provide: TenantContextService, useValue: mockTenantContext },
         { provide: ThemeService, useValue: mockThemeService }
       ]
-    }).compileComponents();
+    });
 
-    fixture = TestBed.createComponent(CustomerWorkspaceLayoutComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
+    component = TestBed.runInInjectionContext(() => new CustomerWorkspaceLayoutComponent());
   });
 
   it('should create CustomerWorkspaceLayoutComponent', () => {

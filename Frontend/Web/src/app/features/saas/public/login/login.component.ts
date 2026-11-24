@@ -112,6 +112,10 @@ export class LoginComponent implements OnInit {
     const rawReturnUrl = this.returnUrl();
     const safeUrl = sanitizeReturnUrl(rawReturnUrl);
     if (safeUrl) {
+      if (this.authService.isCustomer() && (safeUrl.startsWith('/app') || safeUrl.startsWith('/tenant-admin') || safeUrl.startsWith('/platform'))) {
+        this.router.navigate(['/customer-portal']);
+        return;
+      }
       if (safeUrl === '/tenant-admin' || safeUrl === '/tenant-admin/' || safeUrl === '/tenant-admin/console') {
         this.router.navigate(['/app/dashboard']);
         return;
@@ -124,10 +128,10 @@ export class LoginComponent implements OnInit {
       this.router.navigate(['/platform-admin']);
     } else if (this.authService.isPlatformStaff()) {
       this.router.navigate(['/platform-staff']);
-    } else if (this.authService.isTenantAdmin()) {
-      this.router.navigate(['/app/dashboard']);
     } else if (this.authService.isCustomer()) {
       this.router.navigate(['/customer-portal']);
+    } else if (this.authService.isTenantAdmin()) {
+      this.router.navigate(['/app/dashboard']);
     } else {
       this.router.navigate(['/app/dashboard']);
     }

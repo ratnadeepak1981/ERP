@@ -201,6 +201,19 @@ export class SalesQuotationService {
       .pipe(map(res => res.data));
   }
 
+  convertQuotationToOrder(
+    companyId: string,
+    branchId: string,
+    quotationId: string
+  ): Observable<SalesQuotationDto> {
+    return this.http
+      .post<ApiResponse<SalesQuotationDto>>(
+        `${this.baseUrl(companyId, branchId)}/${quotationId}/convert-to-order`,
+        {}
+      )
+      .pipe(map(res => res.data));
+  }
+
   downloadPdf(
     companyId: string,
     branchId: string,

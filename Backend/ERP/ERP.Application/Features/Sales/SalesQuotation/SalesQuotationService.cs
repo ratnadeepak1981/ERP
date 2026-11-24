@@ -927,6 +927,206 @@ public class SalesQuotationService : ISalesQuotationService
         }
     }
 
+    public async Task<SalesQuotationDto> ConvertQuotationToOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid quotationId,
+        Guid actorUserId,
+        string actorUserName)
+    {
+        var quotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, quotationId)
+            ?? throw new KeyNotFoundException($"Quotation with ID '{quotationId}' was not found in this operating company and branch.");
+
+        if (quotation.Status != SalesQuotationStatus.Accepted &&
+            quotation.Status != SalesQuotationStatus.Sent &&
+            quotation.Status != SalesQuotationStatus.Confirmed)
+        {
+            throw new InvalidOperationException($"Cannot convert quotation with status '{quotation.Status}'. Only Confirmed, Sent, or Accepted quotations can be converted to a Sales Order.");
+        }
+
+        if (quotation.IsExpired())
+        {
+            throw new InvalidOperationException("Quotation has expired and cannot be converted. Please prepare a revised quotation.");
+        }
+
+        if (quotation.ConvertedSalesOrderId.HasValue || quotation.Status == SalesQuotationStatus.Converted)
+        {
+            throw new InvalidOperationException("This quotation has already been converted into a Sales Order.");
+        }
+
+        var customer = await _customerRepository.GetCustomerByIdAsync(tenantId, quotation.CustomerId)
+            ?? throw new InvalidOperationException("Customer account is inactive or not found.");
+
+        if (!customer.IsActive)
+        {
+            throw new InvalidOperationException($"Customer '{customer.CustomerCode}' is inactive.");
+        }
+
+        var now = DateTime.UtcNow;
+
+        var tx = _persistenceCoordinator != null
+            ? await _persistenceCoordinator.BeginTransactionIfNeededAsync()
+            : (_dbContext != null ? await _dbContext.Database.BeginTransactionAsync() : null);
+
+        try
+        {
+            // Step 1: Instantiate Official Sales Order Draft
+            string orderNum = $"SO-QT-{quotation.QuotationNumber.Replace("SQ-", "")}";
+            if (_salesOrderRepository != null && await _salesOrderRepository.ExistsOrderNumberAsync(tenantId, quotation.CompanyId, orderNum))
+            {
+                orderNum = $"SO-QT-{quotation.QuotationNumber.Replace("SQ-", "")}-{Guid.NewGuid():N[..4].ToUpperInvariant()}";
+            }
+
+            var salesOrder = global::Domain.Features.Sales.SalesOrder.SalesOrder.Create(
+                tenantId,
+                quotation.CompanyId,
+                quotation.BranchId,
+                quotation.CustomerId,
+                orderNum,
+                documentType: global::Domain.Features.Sales.SalesOrder.SalesOrderType.Standard,
+                orderDate: now,
+                deliveryDate: quotation.DeliveryDate,
+                currency: quotation.Currency,
+                paymentTerms: quotation.PaymentTerms ?? customer.PaymentTerms,
+                notes: $"Created via conversion of Quotation '{quotation.QuotationNumber}' by {actorUserName}",
+                createdByUserId: actorUserId,
+                deliveryAddressId: quotation.DeliveryAddressId,
+                deliveryAddressSnapshot: quotation.DeliveryAddressSnapshot
+            );
+
+            foreach (var item in quotation.Items.Where(i => i.IsActive))
+            {
+                salesOrder.AddItem(
+                    item.ProductId,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.DiscountRate,
+                    item.TaxRate,
+                    item.UnitOfMeasureId,
+                    item.Notes,
+                    item.TaxCodeId,
+                    item.IsTaxInclusive);
+            }
+
+            if (quotation.TransactionCurrencyId.HasValue && quotation.BaseCurrencyId.HasValue && quotation.AppliedExchangeRate.HasValue && quotation.ExchangeRateSource.HasValue)
+            {
+                var exRate = new ResolvedExchangeRate(
+                    quotation.AppliedExchangeRate.Value,
+                    quotation.ExchangeRateSource.Value,
+                    quotation.ExchangeRateId,
+                    quotation.ExchangeRateEffectiveDate);
+
+                salesOrder.SetCurrencySnapshot(
+                    quotation.TransactionCurrencyId.Value,
+                    quotation.Currency,
+                    quotation.BaseCurrencyId.Value,
+                    quotation.BaseCurrencyCode ?? "USD",
+                    quotation.BaseCurrencyDecimalPlaces ?? 2,
+                    exRate);
+            }
+
+            if (_salesOrderRepository != null)
+            {
+                await _salesOrderRepository.AddAsync(salesOrder);
+            }
+            else if (_dbContext != null)
+            {
+                _dbContext.SalesOrders.Add(salesOrder);
+            }
+
+            // Step 2: Non-destructive Price Card update (where assigned)
+            if (customer.DefaultSalesPriceCardId.HasValue && (_priceCardRepository != null || _dbContext != null))
+            {
+                var cardId = customer.DefaultSalesPriceCardId.Value;
+                PriceCard? priceCard = null;
+                if (_priceCardRepository != null)
+                {
+                    priceCard = await _priceCardRepository.GetPriceCardByIdAsync(tenantId, cardId, includeLines: true);
+                }
+                else if (_dbContext != null)
+                {
+                    priceCard = await _dbContext.PriceCards.Include(pc => pc.Lines).FirstOrDefaultAsync(pc => pc.TenantId == tenantId && pc.PriceCardId == cardId);
+                }
+
+                if (priceCard != null && priceCard.IsActive && priceCard.PriceCardType == PriceCardType.Sales)
+                {
+                    foreach (var item in quotation.Items.Where(i => i.IsActive))
+                    {
+                        var activeLine = priceCard.Lines.FirstOrDefault(l =>
+                            l.ProductId == item.ProductId &&
+                            l.IsActive &&
+                            (!l.EffectiveFrom.HasValue || l.EffectiveFrom.Value <= now) &&
+                            (!l.EffectiveTo.HasValue || l.EffectiveTo.Value >= now));
+
+                        if (activeLine != null)
+                        {
+                            activeLine.Update(activeLine.UnitPrice, activeLine.UnitOfMeasureId, activeLine.MinimumQuantity, activeLine.EffectiveFrom, now);
+                        }
+
+                        var newLine = PriceCardLine.Create(
+                            tenantId,
+                            priceCard.PriceCardId,
+                            item.ProductId,
+                            item.UnitPrice,
+                            item.UnitOfMeasureId,
+                            minimumQuantity: item.Quantity,
+                            effectiveFrom: now,
+                            effectiveTo: null);
+
+                        if (_priceCardRepository != null)
+                        {
+                            await _priceCardRepository.AddLineAsync(newLine);
+                        }
+                        else if (_dbContext != null)
+                        {
+                            _dbContext.PriceCardLines.Add(newLine);
+                        }
+                    }
+                }
+            }
+
+            // Step 3: Transition quotation
+            if (quotation.Status != SalesQuotationStatus.Accepted)
+            {
+                quotation.Accept(actorUserId, now);
+            }
+            quotation.MarkConverted(salesOrder.Id, now);
+
+            if (_persistenceCoordinator != null)
+            {
+                await _persistenceCoordinator.SaveChangesAsync();
+                await _persistenceCoordinator.CommitTransactionIfNeededAsync(tx);
+            }
+            else if (_dbContext != null)
+            {
+                await _dbContext.SaveChangesAsync();
+                if (tx is Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction efTx)
+                {
+                    await efTx.CommitAsync();
+                }
+            }
+            else
+            {
+                await _repository.SaveChangesAsync();
+            }
+
+            return MapToDto(quotation);
+        }
+        catch
+        {
+            if (_persistenceCoordinator != null)
+            {
+                await _persistenceCoordinator.RollbackTransactionIfNeededAsync(tx);
+            }
+            else if (tx is Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction efTx)
+            {
+                await efTx.RollbackAsync();
+            }
+            throw;
+        }
+    }
+
     public async Task<SalesQuotationDto> DeclineQuotationAsync(
         Guid tenantId,
         Guid customerId,

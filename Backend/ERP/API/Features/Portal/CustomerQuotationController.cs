@@ -124,7 +124,12 @@ public class CustomerQuotationController : BaseApiController
             return ForbiddenResponse("Individual/Retail customers cannot submit Company Sales Quotation requests.");
 
         // Purchasing permission check
-        if (!_customerContext.Permissions.Contains("PORTAL_QUOTATION.REQUEST"))
+        bool hasPurchasingAuthority = _customerContext.Permissions.Contains("PORTAL_QUOTATION.REQUEST")
+            || _customerContext.Permissions.Contains("PORTAL.QUOTATION.REQUEST")
+            || _customerContext.Roles.Any(r => r.Contains("CUSTOMER_COMPANY_ADMIN", StringComparison.OrdinalIgnoreCase)
+                                            || r.Contains("Company Administrator", StringComparison.OrdinalIgnoreCase));
+
+        if (!hasPurchasingAuthority)
             return ForbiddenResponse("Purchasing authority required to submit Sales Quotation requests.");
 
         if (request == null)
@@ -339,7 +344,12 @@ public class CustomerQuotationController : BaseApiController
         if (!_customerContext.IsCustomer)
             return Forbid();
 
-        if (!_customerContext.Permissions.Contains("PORTAL_QUOTATION.ACCEPT"))
+        bool hasAcceptAuthority = _customerContext.Permissions.Contains("PORTAL_QUOTATION.ACCEPT")
+            || _customerContext.Permissions.Contains("PORTAL.QUOTATION.ACCEPT")
+            || _customerContext.Roles.Any(r => r.Contains("CUSTOMER_COMPANY_ADMIN", StringComparison.OrdinalIgnoreCase)
+                                            || r.Contains("Company Administrator", StringComparison.OrdinalIgnoreCase));
+
+        if (!hasAcceptAuthority)
             return Forbid("Purchasing authority required to accept formal commercial proposals.");
 
         try

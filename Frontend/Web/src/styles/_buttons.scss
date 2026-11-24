@@ -1,0 +1,154 @@
+// Global Enterprise Button Styles (Matches PrimeNG Fluent Design System & Sales/Procurement standards)
+
+.erp-button {
+  font-family: var(--erp-font-sans, 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif);
+  border-radius: var(--erp-radius-sm, 4px);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+  text-decoration: none;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-sizing: border-box;
+
+  i {
+    font-size: 13px;
+  }
+
+  &:disabled,
+  &.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--erp-primary, #0f6cbd);
+    outline-offset: 2px;
+  }
+
+  // Primary Action Button (Solid Blue - matches Sales Order & Purchase Order)
+  &.erp-button-primary {
+    background-color: var(--erp-primary, #0f6cbd);
+    border-color: var(--erp-primary, #0f6cbd);
+    color: #ffffff !important;
+
+    i {
+      color: #ffffff;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: var(--erp-primary-hover, #115ea3);
+      border-color: var(--erp-primary-hover, #115ea3);
+      color: #ffffff !important;
+    }
+
+    &:active:not(:disabled) {
+      background-color: var(--erp-primary-active, #0c3b5e);
+      border-color: var(--erp-primary-active, #0c3b5e);
+    }
+  }
+
+  // Secondary Action Button (Subtle Neutral Surface / Outlined)
+  &.erp-button-secondary {
+    background-color: var(--erp-bg-secondary, #f1f5f9);
+    border-color: var(--erp-border-strong, #cbd5e1);
+    color: var(--erp-text-secondary, #475569);
+
+    i {
+      color: var(--erp-text-secondary, #475569);
+    }
+
+    &:hover:not(:disabled) {
+      background-color: var(--erp-bg-hover, #e2e8f0);
+      border-color: var(--erp-border-strong, #94a3b8);
+      color: var(--erp-text-main, #0f172a);
+
+      i {
+        color: var(--erp-text-main, #0f172a);
+      }
+    }
+  }
+
+  // Pure Outlined Button
+  &.erp-button-outlined {
+    background-color: transparent;
+    border-color: var(--erp-border-strong, #cbd5e1);
+    color: var(--erp-text-main, #0f172a);
+
+    &:hover:not(:disabled) {
+      background-color: var(--erp-bg-hover, #f1f5f9);
+      border-color: var(--erp-primary, #0f6cbd);
+      color: var(--erp-primary, #0f6cbd);
+    }
+  }
+
+  // Success Button (Green)
+  &.erp-button-success {
+    background-color: var(--erp-success, #107c41);
+    border-color: var(--erp-success, #107c41);
+    color: #ffffff !important;
+
+    &:hover:not(:disabled) {
+      background-color: #0b5a2f;
+      border-color: #0b5a2f;
+    }
+  }
+
+  // Danger Button (Red)
+  &.erp-button-danger {
+    background-color: var(--erp-danger, #c42b1c);
+    border-color: var(--erp-danger, #c42b1c);
+    color: #ffffff !important;
+
+    &:hover:not(:disabled) {
+      background-color: #a82315;
+      border-color: #a82315;
+    }
+  }
+
+  // Info Button
+  &.erp-button-info {
+    background-color: var(--erp-info-bg, #eff6fc);
+    border-color: var(--erp-info-border, #c7e0f4);
+    color: var(--erp-primary, #0f6cbd);
+
+    &:hover:not(:disabled) {
+      background-color: #deecf9;
+    }
+  }
+
+  // Sizing Modifiers
+  &.erp-button-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+    gap: 4px;
+
+    i {
+      font-size: 11px;
+    }
+  }
+
+  &.erp-button-lg {
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    gap: 8px;
+
+    i {
+      font-size: 14px;
+    }
+  }
+
+  &.erp-button-block {
+    width: 100%;
+    display: flex;
+  }
+}

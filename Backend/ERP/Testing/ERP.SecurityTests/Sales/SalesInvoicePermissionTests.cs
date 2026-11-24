@@ -103,6 +103,13 @@ public class SalesInvoicePermissionTests
         Assert.Contains("SALES_INVOICE.EDIT", assignedCodes);
         Assert.Contains("SALES_INVOICE.CONFIRM", assignedCodes);
         Assert.Contains("SALES_INVOICE.CANCEL", assignedCodes);
+        Assert.Contains("SALES_QUOTATION.VIEW", assignedCodes);
+        Assert.Contains("SALES_QUOTATION.CREATE", assignedCodes);
+        Assert.Contains("SALES_QUOTATION.EDIT", assignedCodes);
+        Assert.Contains("SALES_QUOTATION.DELETE", assignedCodes);
+        Assert.Contains("SALES_QUOTATION.SUBMIT", assignedCodes);
+        Assert.Contains("SALES_QUOTATION.CONFIRM", assignedCodes);
+        Assert.Contains("SALES_QUOTATION.CANCEL", assignedCodes);
         Assert.Contains("STOCK_COUNT.VIEW", assignedCodes);
         Assert.Contains("STOCK_COUNT.CREATE", assignedCodes);
         Assert.Contains("STOCK_COUNT.EDIT", assignedCodes);

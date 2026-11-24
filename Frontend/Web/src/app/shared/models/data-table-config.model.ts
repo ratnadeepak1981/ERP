@@ -87,6 +87,20 @@ export interface DataTableAction<T = any> {
   action: (row: T) => void;
 }
 
+export interface DataTableRowActionContext<T = any> {
+  $implicit: T;
+  row: T;
+  rowData: T;
+}
+
+export interface DataTableCellContext<T = any> {
+  $implicit: T;
+  row: T;
+  rowData: T;
+  col: DataTableColumn<T>;
+  column: DataTableColumn<T>;
+}
+
 export interface TableSortMeta {
   field: string;
   order: 1 | -1;

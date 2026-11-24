@@ -155,7 +155,7 @@
                         <div class="row-actions-cell" (click)="$event.stopPropagation()">
                           @if (actionTemplate || rowActionsTemplate) {
                             <ng-container
-                              *ngTemplateOutlet="actionTemplate || rowActionsTemplate!; context: { $implicit: rowData }"
+                              *ngTemplateOutlet="actionTemplate || rowActionsTemplate!; context: { $implicit: rowData, row: rowData, rowData: rowData }"
                             ></ng-container>
                           } @else if (rowActions && rowActions.length > 0) {
                             @for (act of rowActions; track act.id) {
@@ -175,7 +175,7 @@
                         </div>
                       } @else if (cellTemplate || customCellTemplate) {
                         <ng-container
-                          *ngTemplateOutlet="cellTemplate || customCellTemplate!; context: { row: rowData, col: col }"
+                          *ngTemplateOutlet="cellTemplate || customCellTemplate!; context: { $implicit: rowData, row: rowData, rowData: rowData, col: col, column: col }"
                         ></ng-container>
                       } @else {
                         @switch (col.type) {

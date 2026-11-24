@@ -131,6 +131,14 @@ public interface ISalesQuotationService
         Guid quotationId,
         AcceptQuotationRequest? request = null);
 
+    Task<SalesQuotationDto> ConvertQuotationToOrderAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid quotationId,
+        Guid actorUserId,
+        string actorUserName);
+
     Task<SalesQuotationDto> DeclineQuotationAsync(
         Guid tenantId,
         Guid customerId,

@@ -470,8 +470,8 @@ public class SalesQuotation : Auditable, ITenantScopedEntity, ICompanyScopedEnti
     /// </summary>
     public void Accept(Guid contactId, DateTime? acceptedAtUtc = null)
     {
-        if (Status != SalesQuotationStatus.Sent)
-            throw new InvalidOperationException($"Cannot accept quotation with status '{Status}'. Only formally issued (Sent) quotations can be accepted.");
+        if (Status != SalesQuotationStatus.Sent && Status != SalesQuotationStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot accept quotation with status '{Status}'. Only Confirmed or formally issued (Sent) quotations can be accepted.");
 
         if (IsExpired())
             throw new InvalidOperationException("Cannot accept an expired quotation. The validity period has elapsed.");
@@ -493,8 +493,8 @@ public class SalesQuotation : Auditable, ITenantScopedEntity, ICompanyScopedEnti
         if (salesOrderId == Guid.Empty)
             throw new ArgumentException("SalesOrderId is required.", nameof(salesOrderId));
 
-        if (Status != SalesQuotationStatus.Accepted && Status != SalesQuotationStatus.Sent)
-            throw new InvalidOperationException($"Cannot convert quotation with status '{Status}'. Quotation must be Accepted or Sent.");
+        if (Status != SalesQuotationStatus.Accepted && Status != SalesQuotationStatus.Sent && Status != SalesQuotationStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot convert quotation with status '{Status}'. Quotation must be Confirmed, Sent, or Accepted.");
 
         Status = SalesQuotationStatus.Converted;
         ConvertedSalesOrderId = salesOrderId;

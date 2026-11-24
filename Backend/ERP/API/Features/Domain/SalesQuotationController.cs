@@ -439,6 +439,34 @@ public class SalesQuotationController : BaseApiController
         }
     }
 
+    [HttpPost("{id:guid}/convert-to-order")]
+    [RequirePermission("SALES_ORDER.CREATE")]
+    public async Task<IActionResult> ConvertToOrder(
+        Guid companyId,
+        Guid branchId,
+        Guid id)
+    {
+        var authResult = await ValidateScopeAccess(companyId, branchId);
+        if (authResult.Action != null) return authResult.Action;
+
+        try
+        {
+            var quotation = await _quotationService.ConvertQuotationToOrderAsync(
+                authResult.TenantId,
+                companyId,
+                branchId,
+                id,
+                _currentUserContext.UserId,
+                User.Identity?.Name ?? _currentUserContext.UserId.ToString());
+
+            return SuccessResponse(quotation, "Sales quotation successfully converted to Sales Order Draft.");
+        }
+        catch (Exception ex)
+        {
+            return HandleDomainException(ex);
+        }
+    }
+
     [HttpGet("{id:guid}/approval-history")]
     public async Task<IActionResult> GetApprovalHistory(
         Guid companyId,

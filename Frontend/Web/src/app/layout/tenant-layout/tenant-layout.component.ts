@@ -278,17 +278,25 @@ export class TenantLayoutComponent implements OnInit {
     });
 
     if (this.canViewSales()) {
+      const salesChildren: NavItem[] = [
+        { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/sales' }
+      ];
+
+      if (this.canViewQuotations()) {
+        salesChildren.push({ label: 'Quotations', icon: 'pi pi-file-edit', route: '/app/sales/quotations' });
+      }
+
+      salesChildren.push(
+        { label: 'Sales Orders', icon: 'pi pi-shopping-bag', route: '/app/sales/orders' },
+        { label: 'Dispatch Notes', icon: 'pi pi-send', route: '/app/sales/dispatches' },
+        { label: 'Sales Invoices', icon: 'pi pi-file-invoice', route: '/app/sales/invoices' }
+      );
+
       items.push({
         label: 'Sales',
         icon: 'pi pi-dollar',
         route: '/app/sales',
-        children: [
-          { label: 'Overview', icon: 'pi pi-chart-line', route: '/app/sales' },
-          { label: 'Quotations', icon: 'pi pi-file-edit', route: '/app/sales/quotations' },
-          { label: 'Sales Orders', icon: 'pi pi-shopping-bag', route: '/app/sales/orders' },
-          { label: 'Dispatch Notes', icon: 'pi pi-send', route: '/app/sales/dispatches' },
-          { label: 'Sales Invoices', icon: 'pi pi-file-invoice', route: '/app/sales/invoices' }
-        ]
+        children: salesChildren
       });
     }
 
@@ -380,12 +388,27 @@ export class TenantLayoutComponent implements OnInit {
     return true;
   }
 
+  canViewQuotations(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('SALES_QUOTATION.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
   canViewSales(): boolean {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
       return true;
     }
     const perms = this.authService.permissions();
-    if (perms && perms.length > 0 && !perms.includes('SALES_ORDER.VIEW')) {
+    if (perms && perms.length > 0 &&
+        !perms.includes('SALES_ORDER.VIEW') &&
+        !perms.includes('SALES_QUOTATION.VIEW') &&
+        !perms.includes('SALES_SHIPMENT.VIEW') &&
+        !perms.includes('SALES_INVOICE.VIEW')) {
       return false;
     }
     return true;

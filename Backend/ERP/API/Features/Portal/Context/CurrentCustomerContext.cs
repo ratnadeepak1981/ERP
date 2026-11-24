@@ -131,6 +131,27 @@ public class CurrentCustomerContext : ICurrentCustomerContext
     public IReadOnlyCollection<string> Roles =>
         User?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList() ?? [];
 
-    public IReadOnlyCollection<string> Permissions =>
-        User?.FindAll("permission").Select(c => c.Value).ToList() ?? [];
+    public IReadOnlyCollection<string> Permissions
+    {
+        get
+        {
+            if (User == null) return [];
+            var raw = User.FindAll("permission").Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var normalized = new HashSet<string>(raw, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var perm in raw)
+            {
+                if (perm.StartsWith("PORTAL.", StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized.Add("PORTAL_" + perm[7..]);
+                }
+                else if (perm.StartsWith("PORTAL_", StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized.Add("PORTAL." + perm[7..]);
+                }
+            }
+
+            return normalized;
+        }
+    }
 }
