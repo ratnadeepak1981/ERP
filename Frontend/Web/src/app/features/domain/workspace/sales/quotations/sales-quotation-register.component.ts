@@ -292,10 +292,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       icon: 'pi pi-shopping-bag',
       severity: 'success',
       visible: (row: SalesQuotationDto) =>
-        (Number(row.status) === SalesQuotationStatus.Confirmed ||
-         Number(row.status) === SalesQuotationStatus.Sent ||
-         Number(row.status) === SalesQuotationStatus.Accepted) &&
-        Number(row.status) !== SalesQuotationStatus.Converted &&
+        Number(row.status) === SalesQuotationStatus.Accepted &&
         this.canCreateOrder(),
       action: (row: SalesQuotationDto) => this.convertToOrder(row)
     },
@@ -431,6 +428,14 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
     const branch = this.scopeService.selectedBranch();
     if (!company || !branch) return;
 
+    if (Number(quotation.status) !== SalesQuotationStatus.Accepted) {
+      this.message.set({
+        text: 'Sales Order conversion is locked until formal customer acceptance has been verified.',
+        severity: 'warn'
+      });
+      return;
+    }
+
     this.confirmDialogConfig.set({
       action: 'convert',
       title: 'Convert Quotation to Sales Order',
@@ -464,35 +469,90 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   openApproveDialog(quotation: SalesQuotationDto): void {
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!company || !branch) return;
+
     this.remarksTargetQuotation.set(quotation);
     this.remarksAction.set('approve');
-    this.remarksText.set('');
-    this.remarksError.set(null);
-    this.remarksDialogVisible.set(true);
+    this.confirmDialogConfig.set({
+      action: 'approve',
+      title: 'Approve Quotation',
+      message: `Approve commercial quotation ${quotation.quotationNumber} for ${quotation.customerName || 'customer'}? Authoring will be locked and the offer will be ready for formal client delivery.`,
+      commentLabel: 'Approval Remarks (Optional)',
+      commentPlaceholder: 'Enter any managerial approval notes or margin justifications...',
+      commentRequired: false,
+      confirmLabel: 'Approve Quotation',
+      confirmIcon: 'pi pi-check',
+      confirmSeverity: 'primary'
+    });
+    this.confirmDialogVisible.set(true);
   }
 
   openRejectDialog(quotation: SalesQuotationDto): void {
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!company || !branch) return;
+
     this.remarksTargetQuotation.set(quotation);
     this.remarksAction.set('reject');
-    this.remarksText.set('');
-    this.remarksError.set(null);
-    this.remarksDialogVisible.set(true);
+    this.confirmDialogConfig.set({
+      action: 'reject',
+      title: 'Reject Quotation',
+      message: `Reject commercial quotation ${quotation.quotationNumber}? A mandatory rejection reason is required for managerial audit tracking.`,
+      commentLabel: 'Rejection Reason *',
+      commentPlaceholder: 'State why this commercial quotation cannot be approved...',
+      commentRequired: true,
+      commentMinLength: 3,
+      confirmLabel: 'Reject Quotation',
+      confirmIcon: 'pi pi-times',
+      confirmSeverity: 'danger'
+    });
+    this.confirmDialogVisible.set(true);
   }
 
   openSendEmailDialog(quotation: SalesQuotationDto, isRetry: boolean = false): void {
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!company || !branch) return;
+
+    const action = isRetry ? 'retry' : 'send';
     this.remarksTargetQuotation.set(quotation);
-    this.remarksAction.set(isRetry ? 'retry' : 'send');
-    this.remarksText.set('');
-    this.remarksError.set(null);
-    this.remarksDialogVisible.set(true);
+    this.remarksAction.set(action);
+    this.confirmDialogConfig.set({
+      action,
+      title: isRetry ? 'Retry Quotation Email' : 'Send Quotation Email',
+      message: `Formally issue quotation ${quotation.quotationNumber} to customer ${quotation.customerName || 'Customer'} via email notification? Recipient: ${quotation.contactEmail || quotation.emailRecipient || 'Customer Primary Email'}.`,
+      subMessage: 'A professional email containing commercial quotation details and a direct secure link to the Customer Workspace will be dispatched.',
+      commentLabel: 'Dispatch Notes (Optional)',
+      commentPlaceholder: 'Enter optional internal dispatch notes...',
+      commentRequired: false,
+      confirmLabel: isRetry ? 'Retry Email' : 'Send Quotation',
+      confirmIcon: 'pi pi-envelope',
+      confirmSeverity: 'primary'
+    });
+    this.confirmDialogVisible.set(true);
   }
 
   openCancelDialog(quotation: SalesQuotationDto): void {
+    const company = this.scopeService.selectedCompany();
+    const branch = this.scopeService.selectedBranch();
+    if (!company || !branch) return;
+
     this.remarksTargetQuotation.set(quotation);
     this.remarksAction.set('cancel');
-    this.remarksText.set('');
-    this.remarksError.set(null);
-    this.remarksDialogVisible.set(true);
+    this.confirmDialogConfig.set({
+      action: 'cancel',
+      title: 'Cancel Quotation',
+      message: `Cancel quotation ${quotation.quotationNumber}? Cancelled quotations cannot be approved or converted.`,
+      commentLabel: 'Cancellation Reason (Optional)',
+      commentPlaceholder: 'Enter reason for cancellation...',
+      commentRequired: false,
+      confirmLabel: 'Cancel Quotation',
+      confirmIcon: 'pi pi-ban',
+      confirmSeverity: 'danger'
+    });
+    this.confirmDialogVisible.set(true);
   }
 
   submitQuotation(quotation: SalesQuotationDto): void {
@@ -525,60 +585,60 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
     this.confirmDialogVisible.set(true);
   }
 
-  executeRemarksAction(): void {
+  handleConfirmDialogResult(result: ConfirmationDialogResult): void {
+    this.confirmDialogVisible.set(false);
+    if ((result.action === 'submit' || result.action === 'convert') && this.confirmCallback) {
+      this.confirmCallback();
+      this.confirmCallback = null;
+      return;
+    }
+    this.executeRemarksActionWith(result.action, result.comment);
+  }
+
+  executeRemarksActionWith(action: string, remarks: string): void {
     const quotation = this.remarksTargetQuotation();
-    const action = this.remarksAction();
     const company = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
 
     if (!quotation || !action || !company || !branch) return;
 
-    const remarks = this.remarksText().trim();
-    if (action === 'reject' && !remarks) {
-      this.remarksError.set('Rejection remarks are mandatory.');
-      return;
-    }
-
+    const trimmedRemarks = (remarks || '').trim();
     this.actionInProgress.set(true);
-    this.remarksError.set(null);
 
     if (action === 'approve') {
-      this.quotationService.approveQuotation(company.id, branch.id, quotation.id, remarks).subscribe({
+      this.quotationService.approveQuotation(company.id, branch.id, quotation.id, trimmedRemarks).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
-          this.remarksDialogVisible.set(false);
           this.message.set({ text: `Quotation ${updated.quotationNumber} approved successfully. You can now issue it to the customer.`, severity: 'success' });
           this.loadQuotations();
         },
         error: err => {
           this.actionInProgress.set(false);
-          this.remarksError.set(err?.error?.message || err?.message || 'Failed to approve quotation.');
+          this.message.set({ text: err?.error?.message || err?.message || 'Failed to approve quotation.', severity: 'danger' });
         }
       });
     } else if (action === 'reject') {
-      this.quotationService.rejectQuotation(company.id, branch.id, quotation.id, remarks).subscribe({
+      this.quotationService.rejectQuotation(company.id, branch.id, quotation.id, trimmedRemarks).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
-          this.remarksDialogVisible.set(false);
           this.message.set({ text: `Quotation ${updated.quotationNumber} has been rejected.`, severity: 'warn' });
           this.loadQuotations();
         },
         error: err => {
           this.actionInProgress.set(false);
-          this.remarksError.set(err?.error?.message || err?.message || 'Failed to reject quotation.');
+          this.message.set({ text: err?.error?.message || err?.message || 'Failed to reject quotation.', severity: 'danger' });
         }
       });
     } else if (action === 'cancel') {
-      this.quotationService.cancelQuotation(company.id, branch.id, quotation.id, remarks).subscribe({
+      this.quotationService.cancelQuotation(company.id, branch.id, quotation.id, trimmedRemarks).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
-          this.remarksDialogVisible.set(false);
           this.message.set({ text: `Quotation ${updated.quotationNumber} has been cancelled.`, severity: 'info' });
           this.loadQuotations();
         },
         error: err => {
           this.actionInProgress.set(false);
-          this.remarksError.set(err?.error?.message || err?.message || 'Failed to cancel quotation.');
+          this.message.set({ text: err?.error?.message || err?.message || 'Failed to cancel quotation.', severity: 'danger' });
         }
       });
     } else if (action === 'send' || action === 'retry') {
@@ -586,33 +646,16 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       this.quotationService.sendQuotationEmail(company.id, branch.id, quotation.id, isRetry).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
-          this.remarksDialogVisible.set(false);
           this.message.set({ text: `Quotation ${updated.quotationNumber} sent by email to customer successfully.`, severity: 'success' });
           this.loadQuotations();
         },
         error: err => {
           this.actionInProgress.set(false);
-          this.remarksError.set(err?.error?.message || err?.message || 'Failed to send quotation email.');
+          this.message.set({ text: err?.error?.message || err?.message || 'Failed to send quotation email.', severity: 'danger' });
           this.loadQuotations();
         }
       });
     }
-  }
-
-  closeRemarksDialog(): void {
-    this.remarksDialogVisible.set(false);
-    this.remarksTargetQuotation.set(null);
-    this.remarksAction.set(null);
-    this.remarksText.set('');
-    this.remarksError.set(null);
-  }
-
-  handleConfirmDialogResult(result: ConfirmationDialogResult): void {
-    this.confirmDialogVisible.set(false);
-    if ((result.action === 'submit' || result.action === 'convert') && this.confirmCallback) {
-      this.confirmCallback();
-    }
-    this.confirmCallback = null;
   }
 
   downloadPdf(quotation: SalesQuotationDto): void {
