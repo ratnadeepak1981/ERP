@@ -1,7 +1,7 @@
 <div class="sales-quotation-page">
   <app-page-header
     [title]="pageTitle()"
-    [subtitle]="isCustomerRequest() ? 'Incoming customer request review and commercial offer preparation.' : 'Prepare and manage commercial offers, customer pricing, and quotation approvals.'"
+    [subtitle]="pageSubtitle()"
     [breadcrumbs]="breadcrumbs()"
   >
     <div actions class="page-header-actions">
@@ -38,93 +38,6 @@
           </button>
         }
 
-        <!-- Prepare Commercial Offer / Return to Draft -->
-        @if ((currentQuotation()?.status === 2 || currentQuotation()?.status === 7) && canEdit()) {
-          <button
-            type="button"
-            class="erp-button erp-button-secondary"
-            (click)="prepareCommercialOffer()"
-            title="Return this request to Draft to modify offered lines, prices, and terms"
-          >
-            <i class="pi pi-file-edit"></i>
-            <span>Prepare Commercial Offer</span>
-          </button>
-        }
-
-        <!-- Save Draft (Draft mode) -->
-        @if (!isReadOnly() && canEdit()) {
-          <button
-            type="button"
-            class="erp-button erp-button-secondary"
-            (click)="saveDraft()"
-            [disabled]="actionInProgress()"
-          >
-            <i class="pi pi-save"></i>
-            <span>Save Draft</span>
-          </button>
-
-          <!-- Submit for Approval -->
-          <button
-            type="button"
-            class="erp-button erp-button-primary"
-            (click)="submitForApproval()"
-            [disabled]="actionInProgress() || offeredLines().length === 0"
-          >
-            <i class="pi pi-send"></i>
-            <span>Submit for Approval</span>
-          </button>
-        }
-
-        <!-- Approve & Reject (Submitted mode, managers) -->
-        @if (currentQuotation()?.status === 2 && canApprove()) {
-          <button
-            type="button"
-            class="erp-button erp-button-danger"
-            (click)="openRejectDialog()"
-            [disabled]="actionInProgress()"
-          >
-            <i class="pi pi-times"></i>
-            <span>Reject</span>
-          </button>
-
-          <button
-            type="button"
-            class="erp-button erp-button-primary"
-            (click)="openApproveDialog()"
-            [disabled]="actionInProgress()"
-          >
-            <i class="pi pi-check"></i>
-            <span>Approve Commercial Offer</span>
-          </button>
-        }
-
-        <!-- Send Quotation by Email (Confirmed mode) -->
-        @if (currentQuotation()?.status === 3 && canEdit()) {
-          <button
-            type="button"
-            class="erp-button erp-button-secondary"
-            (click)="openSendEmailDialog(false)"
-            [disabled]="actionInProgress()"
-          >
-            <i class="pi pi-envelope"></i>
-            <span>Send Quotation Email</span>
-          </button>
-        }
-
-        <!-- Convert to Sales Order (Confirmed, Sent, or Accepted mode) -->
-        @if ((currentQuotation()?.status === 3 || currentQuotation()?.status === 5 || currentQuotation()?.status === 6) && currentQuotation()?.status !== 8 && canCreateOrder()) {
-          <button
-            type="button"
-            class="erp-button erp-button-primary"
-            (click)="convertToSalesOrder()"
-            [disabled]="actionInProgress()"
-            title="Convert this quotation into a Sales Order Draft without re-entering items"
-          >
-            <i class="pi pi-shopping-bag"></i>
-            <span>Convert to Sales Order</span>
-          </button>
-        }
-
         <!-- Converted Reference Link -->
         @if (currentQuotation()?.status === 8) {
           <button
@@ -135,45 +48,6 @@
           >
             <i class="pi pi-external-link"></i>
             <span>View in Sales Orders</span>
-          </button>
-        }
-
-        <!-- Retry Email Notification (Failed email) -->
-        @if (currentQuotation()?.emailStatus === 'Failed' && canEdit()) {
-          <button
-            type="button"
-            class="erp-button erp-button-danger"
-            (click)="openSendEmailDialog(true)"
-            [disabled]="actionInProgress()"
-          >
-            <i class="pi pi-replay"></i>
-            <span>Retry Failed Email</span>
-          </button>
-        }
-
-        <!-- Cancel Quotation -->
-        @if (currentQuotation() && currentQuotation()!.status !== 5 && currentQuotation()!.status !== 8 && currentQuotation()!.status !== 9 && canEdit()) {
-          <button
-            type="button"
-            class="erp-button erp-button-secondary"
-            (click)="openCancelDialog()"
-            [disabled]="actionInProgress()"
-            title="Cancel this quotation"
-          >
-            <i class="pi pi-ban"></i>
-          </button>
-        }
-      } @else {
-        <!-- Create Draft -->
-        @if (canCreate()) {
-          <button
-            type="button"
-            class="erp-button erp-button-primary"
-            (click)="saveDraft()"
-            [disabled]="actionInProgress()"
-          >
-            <i class="pi pi-check"></i>
-            <span>Create Draft Quotation</span>
           </button>
         }
       }
@@ -219,71 +93,41 @@
     </div>
   } @else {
     <div class="sq-form-container">
-      <!-- Section 1: Operating Scope & Status Overview -->
+      <!-- Section 1: Operating Scope (Matching Sales Order Reference Standard) -->
       <section class="erp-card scope-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <span class="section-step-badge">Scope</span>
-            <h3 class="section-title">Operating Scope & Status</h3>
+            <span class="section-step-badge">Step 1</span>
+            <h3 class="section-title">Operating Scope</h3>
           </div>
-          @if (currentQuotation()) {
-            <div class="header-badges-wrap">
-              <span class="erp-badge" [ngClass]="'badge-' + getStatusSeverity(currentQuotation()!.status)">
-                {{ getStatusName(currentQuotation()!.status) }}
-              </span>
-              @if (currentQuotation()!.emailStatus) {
-                <span class="erp-badge" [ngClass]="'badge-' + getEmailSeverity(currentQuotation()!.emailStatus)">
-                  <i class="pi" [ngClass]="{
-                    'pi-check': currentQuotation()!.emailStatus === 'Sent',
-                    'pi-clock': currentQuotation()!.emailStatus === 'Pending',
-                    'pi-exclamation-circle': currentQuotation()!.emailStatus === 'Failed'
-                  }"></i>
-                  Email: {{ currentQuotation()!.emailStatus }}
-                </span>
-              }
-              @if (currentQuotation()!.isExpired) {
-                <span class="badge-expired">Expired</span>
-              }
-            </div>
-          }
+          <p class="section-desc">Commercial sales quotations are bound to the operating company and branch context.</p>
         </div>
 
-        <div class="scope-grid">
-          <div class="scope-field">
+        <div class="scope-indicator-grid">
+          <div class="scope-field-wrap">
             <label>Operating Company</label>
-            <div class="scope-val">{{ orderCompanyName() }}</div>
+            <div class="scope-readonly-val">{{ orderCompanyName() }}</div>
           </div>
-          <div class="scope-field">
+          <div class="scope-field-wrap">
             <label>Operating Branch</label>
-            <div class="scope-val">{{ orderBranchName() }}</div>
+            <div class="scope-readonly-val">{{ orderBranchName() }}</div>
           </div>
-          @if (currentQuotation()?.quotationNumber) {
-            <div class="scope-field">
-              <label>Quotation Number</label>
-              <div class="scope-val font-bold text-primary">{{ currentQuotation()!.quotationNumber }}</div>
-            </div>
-            <div class="scope-field">
-              <label>Revision</label>
-              <div class="scope-val">Revision {{ currentQuotation()!.revisionNumber }}</div>
-            </div>
-          }
         </div>
       </section>
 
-      <!-- Section 2: Original Customer Request (Preserved Immutably) -->
+      <!-- Original Customer Request (Preserved Immutably, Standardized Theme) -->
       @if (currentQuotation()?.originalRequest || isCustomerRequest()) {
         <section class="erp-card original-request-section">
           <div class="section-header">
             <div class="section-title-wrap">
-              <span class="section-step-badge badge-request">Customer Request</span>
+              <span class="section-step-badge">Customer Request</span>
               <h3 class="section-title">Original Customer Quotation Request</h3>
+              <span class="immutable-tag"><i class="pi pi-lock"></i> Preserved Immutably</span>
             </div>
-            <span class="immutable-tag"><i class="pi pi-lock"></i> Preserved Immutably</span>
+            <p class="section-desc">
+              Preserved customer quotation request as submitted. Recorded for full audit and commercial traceability.
+            </p>
           </div>
-
-          <p class="section-desc request-desc">
-            This section shows the original customer request as submitted. It remains preserved without modification for full audit and compliance traceability. Use the commercial offer section below to adjust offered products, quantities, prices, discounts, and terms.
-          </p>
 
           <div class="request-details-grid">
             <div class="request-field">
@@ -291,7 +135,7 @@
               <div class="request-val">{{ currentQuotation()?.originalRequest?.customerRemarks || currentQuotation()?.customerRemarks || 'None provided' }}</div>
             </div>
             <div class="request-field">
-              <label>Delivery Address</label>
+              <label>Delivery Destination</label>
               <div class="request-val">{{ currentQuotation()?.originalRequest?.deliveryAddressSnapshot || currentQuotation()?.deliveryAddressSnapshot || 'Not specified' }}</div>
             </div>
             <div class="request-field">
@@ -304,51 +148,108 @@
 
           <!-- Original Requested Items -->
           <div class="original-items-table-wrap">
-            <h4 class="sub-table-title"><i class="pi pi-list"></i> Requested Product Lines</h4>
-            <table class="erp-table original-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th class="text-right">Requested Quantity</th>
-                  <th class="text-right">Customer Target Price</th>
-                  <th>Customer Remarks / Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of (currentQuotation()?.originalRequest?.items || []); track $index) {
+            <div class="table-responsive">
+              <table class="erp-table original-table">
+                <thead>
                   <tr>
-                    <td>
-                      <span class="font-bold">{{ item.productCode || 'Product' }}</span>
-                      @if (item.productName) {
-                        <span class="sub-name"> - {{ item.productName }}</span>
-                      }
-                    </td>
-                    <td class="text-right font-medium">
-                      {{ item.requestedQuantity }} {{ item.unitOfMeasureCode || '' }}
-                    </td>
-                    <td class="text-right">
-                      {{ (item.targetUnitPrice !== null && item.targetUnitPrice !== undefined) ? (item.targetUnitPrice | currency:currentQuotation()?.currency:'symbol':'1.2-2') : 'Target not specified' }}
-                    </td>
-                    <td>{{ item.notes || '—' }}</td>
+                    <th>Product</th>
+                    <th class="text-right">Requested Quantity</th>
+                    <th class="text-right">Customer Target Price</th>
+                    <th>Customer Remarks / Notes</th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @for (item of (currentQuotation()?.originalRequest?.items || []); track $index) {
+                    <tr>
+                      <td>
+                        <span class="font-bold">{{ item.productCode || 'Product' }}</span>
+                        @if (item.productName) {
+                          <span class="sub-name"> - {{ item.productName }}</span>
+                        }
+                      </td>
+                      <td class="text-right font-medium">
+                        {{ item.requestedQuantity }} {{ item.unitOfMeasureCode || '' }}
+                      </td>
+                      <td class="text-right">
+                        {{ (item.targetUnitPrice !== null && item.targetUnitPrice !== undefined) ? (item.targetUnitPrice | currency:currentQuotation()?.currency:'symbol':'1.2-2') : 'Target not specified' }}
+                      </td>
+                      <td>{{ item.notes || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       }
 
-      <!-- Section 3: Commercial Offer Header Information Form -->
-      <section class="erp-card offer-header-section">
+      <!-- Section 2: Quotation Information (Matching Sales Order Reference Standard) -->
+      <section class="erp-card header-details-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <span class="section-step-badge">Commercial Offer</span>
-            <h3 class="section-title">Commercial Offer Terms & Header</h3>
+            <span class="section-step-badge">Step 2</span>
+            <h3 class="section-title">Quotation Information</h3>
           </div>
-          <p class="section-desc">Customer account, document dates, validity period, and commercial settlement terms.</p>
+          <p class="section-desc">Customer account, document identifiers, dates, and commercial terms.</p>
         </div>
 
-        <form [formGroup]="quotationForm" class="offer-form-grid">
+        @if (currentQuotation()) {
+          <div class="order-status-banner">
+            <div class="status-info">
+              <span class="status-label">Document Status:</span>
+              <app-status-badge
+                [severity]="getStatusSeverity(currentQuotation()!.status)"
+                [label]="getStatusName(currentQuotation()!.status)"
+              ></app-status-badge>
+
+              @if (currentQuotation()!.emailStatus) {
+                <span class="erp-badge" [ngClass]="'badge-' + getEmailSeverity(currentQuotation()!.emailStatus)">
+                  <i class="pi" [ngClass]="{
+                    'pi-check': currentQuotation()!.emailStatus === 'Sent',
+                    'pi-clock': currentQuotation()!.emailStatus === 'Pending',
+                    'pi-exclamation-circle': currentQuotation()!.emailStatus === 'Failed'
+                  }"></i>
+                  Email: {{ currentQuotation()!.emailStatus }}
+                </span>
+              }
+
+              @if (currentQuotation()!.isExpired) {
+                <span class="badge-expired">Expired</span>
+              }
+            </div>
+
+            @if (currentQuotation()?.status === 5) {
+              <div class="fulfillment-hint hint-issued">
+                <i class="pi pi-send"></i>
+                <span>Issued to customer. Sales Order conversion is locked until verified customer acceptance.</span>
+              </div>
+            } @else if (currentQuotation()?.status === 6) {
+              <div class="fulfillment-hint hint-accepted">
+                <i class="pi pi-check-circle"></i>
+                <span>Accepted by customer. Ready for Sales Order conversion.</span>
+              </div>
+            } @else if (currentQuotation()?.status === 8) {
+              <div class="fulfillment-hint hint-converted">
+                <i class="pi pi-shopping-bag"></i>
+                <span>Converted to official Sales Order Draft.</span>
+              </div>
+            }
+          </div>
+        }
+
+        <form [formGroup]="quotationForm" class="so-form-grid">
+          <!-- Quotation Number -->
+          <div class="form-field">
+            <label>Quotation #</label>
+            <div class="readonly-form-val font-mono font-bold text-primary">
+              <i class="pi pi-lock text-muted"></i>
+              <span>{{ currentQuotation()?.quotationNumber || 'Auto-generated on save' }}</span>
+              @if (currentQuotation()?.revisionNumber !== undefined) {
+                <span class="revision-pill">Rev {{ currentQuotation()!.revisionNumber }}</span>
+              }
+            </div>
+          </div>
+
           <!-- Customer Selection -->
           <div class="form-field">
             <label for="customerId">Customer Account <span class="required">*</span></label>
@@ -356,7 +257,7 @@
               <div class="readonly-form-val">
                 <span class="font-bold">{{ currentQuotation()?.customerName || 'Selected Customer' }}</span>
                 @if (currentQuotation()?.customerCode) {
-                  <span class="customer-code">({{ currentQuotation()?.customerCode }})</span>
+                  <span class="text-secondary">({{ currentQuotation()?.customerCode }})</span>
                 }
               </div>
             } @else {
@@ -373,9 +274,9 @@
           <div class="form-field">
             <label for="contactPerson">Contact Person</label>
             <div class="readonly-form-val">
-              {{ currentQuotation()?.contactPersonName || 'Customer Primary Contact' }}
+              <span>{{ currentQuotation()?.contactPersonName || 'Customer Primary Contact' }}</span>
               @if (currentQuotation()?.contactEmail) {
-                <span class="contact-email">({{ currentQuotation()?.contactEmail }})</span>
+                <span class="text-secondary">({{ currentQuotation()?.contactEmail }})</span>
               }
             </div>
           </div>
@@ -404,7 +305,7 @@
             />
           </div>
 
-          <!-- Expected Delivery Date -->
+          <!-- Target Delivery Date -->
           <div class="form-field">
             <label for="deliveryDate">Target Delivery Date</label>
             <input
@@ -456,62 +357,53 @@
           </div>
 
           <!-- Delivery Address Snapshot -->
-          <div class="form-field span-2">
-            <label for="deliveryAddressSnapshot">Delivery Address</label>
+          <div class="form-field span-3">
+            <label for="deliveryAddressSnapshot">Delivery Destination</label>
             <input
               id="deliveryAddressSnapshot"
               type="text"
               class="form-control"
               formControlName="deliveryAddressSnapshot"
-              placeholder="Street, City, Postal Code, Country"
+              placeholder="Enter physical delivery destination..."
               [readonly]="isReadOnly()"
             />
           </div>
 
           <!-- Customer Remarks -->
-          <div class="form-field span-2">
-            <label for="customerRemarks">Customer-Facing Remarks / Proposal Notes</label>
+          <div class="form-field span-3">
+            <label for="customerRemarks">Commercial Notes &amp; Customer Instructions</label>
             <textarea
               id="customerRemarks"
               class="form-control"
               rows="2"
               formControlName="customerRemarks"
-              placeholder="Notes, delivery charges or commercial qualifications presented to the customer..."
-              [readonly]="isReadOnly()"
-            ></textarea>
-          </div>
-
-          <!-- Internal Notes (Staff only) -->
-          <div class="form-field span-2">
-            <label for="internalNotes">Internal Notes <span class="staff-tag">Internal Staff Only</span></label>
-            <textarea
-              id="internalNotes"
-              class="form-control"
-              rows="2"
-              formControlName="internalNotes"
-              placeholder="Internal pricing assumptions, cost considerations or approval notes..."
+              placeholder="Enter special delivery requirements, customer PO ref, packaging instructions..."
               [readonly]="isReadOnly()"
             ></textarea>
           </div>
         </form>
       </section>
 
-      <!-- Section 4: Commercial Offer Line Items -->
-      <section class="erp-card lines-section">
+      <!-- Section 3: Quotation Line Items -->
+      <section class="erp-card line-items-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <span class="section-step-badge">Offered Lines</span>
-            <h3 class="section-title">Offered Product Lines & Commercial Pricing</h3>
+            <span class="section-step-badge">Step 3</span>
+            <h3 class="section-title">Quotation Line Items</h3>
+            <span class="item-count-pill">{{ offeredLines().length }} items</span>
           </div>
+          <p class="section-desc">Search sellable products, specify offered quantities, pricing, discounts, and margins.</p>
           @if (!isReadOnly() && canEdit()) {
-            <button
-              type="button"
-              class="erp-button erp-button-secondary"
-              (click)="addLine()"
-            >
-              <i class="pi pi-plus"></i>
-              <span>Add Product Line</span>
-            </button>
+            <div class="section-header-action" style="margin-top: 8px;">
+              <button
+                type="button"
+                class="erp-button erp-button-secondary"
+                (click)="addLine()"
+              >
+                <i class="pi pi-plus"></i>
+                <span>Add Product Line</span>
+              </button>
+            </div>
           }
         </div>
 
@@ -687,8 +579,15 @@
         </div>
       </section>
 
-      <!-- Section 5: Commercial Totals & Financial Margin Summary -->
-      <section class="erp-card totals-card">
+      <!-- Section 4: Summary Totals & Workflow Actions -->
+      <section class="erp-card footer-summary-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-step-badge">Step 4</span>
+            <h3 class="section-title">Summary &amp; Actions</h3>
+          </div>
+          <p class="section-desc">Review commercial profitability, settlement amounts, and execute lifecycle actions.</p>
+        </div>
         <div class="totals-grid">
           <!-- Staff Profitability & Margin Summary -->
           <div class="margin-summary-box">
@@ -748,6 +647,168 @@
                 {{ calculatedTotalAmount() | currency:quotationForm.get('currency')?.value:'symbol':'1.2-2' }}
               </span>
             </div>
+          </div>
+        </div>
+
+        <!-- Workflow Action Buttons (Standardised to match Sales Order page) -->
+        <div class="workflow-action-buttons">
+          <div class="left-actions">
+            <button
+              type="button"
+              class="erp-button erp-button-secondary"
+              (click)="navigateBack()"
+              [disabled]="actionInProgress()"
+            >
+              Back
+            </button>
+
+            <!-- Status Transition: Cancel Quotation -->
+            @if (currentQuotation() && currentQuotation()!.status !== 5 && currentQuotation()!.status !== 8 && currentQuotation()!.status !== 9 && canEdit()) {
+              <button
+                type="button"
+                class="erp-button erp-button-danger"
+                (click)="openCancelDialog()"
+                [disabled]="actionInProgress()"
+                title="Cancel this quotation"
+              >
+                <i class="pi pi-ban"></i>
+                <span>Cancel Quotation</span>
+              </button>
+            }
+          </div>
+
+          <div class="right-actions">
+            <!-- Mode: Create -->
+            @if (!quotationId() && canCreate()) {
+              <button
+                type="button"
+                class="erp-button erp-button-primary"
+                (click)="saveDraft()"
+                [disabled]="actionInProgress()"
+              >
+                <i class="pi pi-check"></i>
+                <span>Create Draft Quotation</span>
+              </button>
+            }
+
+            @if (currentQuotation()) {
+              <!-- Draft Mode -->
+              @if (currentQuotation()?.status === 1) {
+                @if (!isReadOnly() && canEdit()) {
+                  <button
+                    type="button"
+                    class="erp-button erp-button-secondary"
+                    (click)="saveDraft()"
+                    [disabled]="actionInProgress()"
+                  >
+                    <i class="pi pi-save"></i>
+                    <span>Save Draft</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="erp-button erp-button-primary"
+                    (click)="submitForApproval()"
+                    [disabled]="actionInProgress() || offeredLines().length === 0"
+                  >
+                    <i class="pi pi-send"></i>
+                    <span>Submit for Approval</span>
+                  </button>
+                }
+              }
+
+              <!-- Submitted / Review Mode -->
+              @if (currentQuotation()?.status === 2) {
+                @if (canEdit()) {
+                  <button
+                    type="button"
+                    class="erp-button erp-button-secondary"
+                    (click)="prepareCommercialOffer()"
+                    title="Return this request to Draft to modify offered lines, prices, and terms"
+                  >
+                    <i class="pi pi-file-edit"></i>
+                    <span>Prepare Commercial Offer</span>
+                  </button>
+                }
+
+                @if (canApprove()) {
+                  <button
+                    type="button"
+                    class="erp-button erp-button-danger"
+                    (click)="openRejectDialog()"
+                    [disabled]="actionInProgress()"
+                  >
+                    <i class="pi pi-times"></i>
+                    <span>Reject</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="erp-button erp-button-primary"
+                    (click)="openApproveDialog()"
+                    [disabled]="actionInProgress()"
+                  >
+                    <i class="pi pi-check"></i>
+                    <span>Approve Commercial Offer</span>
+                  </button>
+                }
+              }
+
+              <!-- Confirmed / Approved Mode -->
+              @if (currentQuotation()?.status === 3 || currentQuotation()?.status === 4) {
+                @if (canEdit()) {
+                  <button
+                    type="button"
+                    class="erp-button erp-button-primary"
+                    (click)="openSendEmailDialog(false)"
+                    [disabled]="actionInProgress()"
+                  >
+                    <i class="pi pi-envelope"></i>
+                    <span>Send Quotation Email</span>
+                  </button>
+                }
+              }
+
+              <!-- Declined by Customer Mode -->
+              @if (currentQuotation()?.status === 7 && canEdit()) {
+                <button
+                  type="button"
+                  class="erp-button erp-button-secondary"
+                  (click)="prepareCommercialOffer()"
+                  title="Prepare a revised commercial offer in Draft status"
+                >
+                  <i class="pi pi-file-edit"></i>
+                  <span>Prepare Revised Offer</span>
+                </button>
+              }
+
+              <!-- Accepted Mode (Ready for Conversion) -->
+              @if (currentQuotation()?.status === 6 && canCreateOrder()) {
+                <button
+                  type="button"
+                  class="erp-button erp-button-primary"
+                  (click)="convertToSalesOrder()"
+                  [disabled]="actionInProgress()"
+                  title="Convert this accepted quotation into a Sales Order Draft without re-entering items"
+                >
+                  <i class="pi pi-shopping-bag"></i>
+                  <span>Convert to Sales Order</span>
+                </button>
+              }
+
+              <!-- Failed Email Retry -->
+              @if (currentQuotation()?.emailStatus === 'Failed' && canEdit()) {
+                <button
+                  type="button"
+                  class="erp-button erp-button-danger"
+                  (click)="openSendEmailDialog(true)"
+                  [disabled]="actionInProgress()"
+                >
+                  <i class="pi pi-replay"></i>
+                  <span>Retry Failed Email</span>
+                </button>
+              }
+            }
           </div>
         </div>
       </section>
@@ -865,129 +926,6 @@
           </div>
         </section>
       }
-    </div>
-  }
-
-  <!-- Action Modal Dialog (Approve, Reject, Cancel, Send/Retry Email) -->
-  @if (remarksDialogVisible()) {
-    <div class="modal-backdrop">
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <div class="modal-title-wrap">
-            <i class="pi" [ngClass]="{
-              'pi-check-circle modal-icon-success': remarksAction() === 'approve',
-              'pi-times-circle modal-icon-danger': remarksAction() === 'reject',
-              'pi-ban modal-icon-warn': remarksAction() === 'cancel',
-              'pi-envelope modal-icon-primary': remarksAction() === 'send' || remarksAction() === 'retry'
-            }"></i>
-            <h3 class="modal-title">
-              {{
-                remarksAction() === 'approve' ? 'Approve Commercial Offer' :
-                remarksAction() === 'reject' ? 'Reject Commercial Offer' :
-                remarksAction() === 'cancel' ? 'Cancel Quotation' :
-                remarksAction() === 'retry' ? 'Retry Failed Email Notification' : 'Send Quotation Email'
-              }}
-            </h3>
-          </div>
-          <button type="button" class="modal-close-btn" (click)="closeRemarksDialog()" aria-label="Close">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          <div class="dialog-quote-summary">
-            <div class="summary-line">
-              <span class="lbl">Quotation Reference:</span>
-              <span class="val font-bold">{{ currentQuotation()?.quotationNumber }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="lbl">Customer:</span>
-              <span class="val">{{ currentQuotation()?.customerName }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="lbl">Commercial Grand Total:</span>
-              <span class="val font-bold text-primary">{{ calculatedTotalAmount() | currency:quotationForm.get('currency')?.value }}</span>
-            </div>
-            @if (remarksAction() === 'send' || remarksAction() === 'retry') {
-              <div class="summary-line highlight-line">
-                <span class="lbl">Recipient Email:</span>
-                <span class="val text-primary font-bold">{{ currentQuotation()?.contactEmail || 'Customer Primary Email' }}</span>
-              </div>
-            }
-          </div>
-
-          @if (remarksAction() === 'send' || remarksAction() === 'retry') {
-            <p class="modal-explanation">
-              A professional notification email containing Selling Company details, Customer details, Quotation reference, Offer expiry date, and a secure "View Quotation" button linking directly to the Customer Workspace will be sent.
-            </p>
-          } @else if (remarksAction() === 'reject') {
-            <div class="form-group">
-              <label for="remarksInput">Rejection Reason <span class="required">*</span></label>
-              <textarea
-                id="remarksInput"
-                class="form-control"
-                rows="3"
-                placeholder="Enter mandatory reason for rejecting this quotation..."
-                [ngModel]="remarksText()"
-                (ngModelChange)="remarksText.set($event)"
-              ></textarea>
-            </div>
-          } @else {
-            <div class="form-group">
-              <label for="remarksInput">Remarks (Optional)</label>
-              <textarea
-                id="remarksInput"
-                class="form-control"
-                rows="3"
-                placeholder="Enter any internal review or approval remarks..."
-                [ngModel]="remarksText()"
-                (ngModelChange)="remarksText.set($event)"
-              ></textarea>
-            </div>
-          }
-
-          @if (remarksError()) {
-            <div class="dialog-error">
-              <i class="pi pi-exclamation-triangle"></i>
-              <span>{{ remarksError() }}</span>
-            </div>
-          }
-        </div>
-
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="erp-button erp-button-secondary"
-            (click)="closeRemarksDialog()"
-            [disabled]="actionInProgress()"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            class="erp-button"
-            [ngClass]="{
-              'erp-button-primary': remarksAction() === 'approve' || remarksAction() === 'send' || remarksAction() === 'retry',
-              'erp-button-danger': remarksAction() === 'reject' || remarksAction() === 'cancel'
-            }"
-            (click)="executeRemarksAction()"
-            [disabled]="actionInProgress() || (remarksAction() === 'reject' && !remarksText().trim())"
-          >
-            @if (actionInProgress()) {
-              <i class="pi pi-spin pi-spinner"></i>
-            }
-            <span>
-              {{
-                remarksAction() === 'approve' ? 'Approve Offer' :
-                remarksAction() === 'reject' ? 'Confirm Rejection' :
-                remarksAction() === 'cancel' ? 'Confirm Cancellation' :
-                remarksAction() === 'retry' ? 'Retry Email' : 'Send Quotation Email'
-              }}
-            </span>
-          </button>
-        </div>
-      </div>
     </div>
   }
 

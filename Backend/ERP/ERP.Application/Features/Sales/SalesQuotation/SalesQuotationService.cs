@@ -508,6 +508,11 @@ public class SalesQuotationService : ISalesQuotationService
             throw new InvalidOperationException($"Sales quotation '{quotationId}' was not found.");
         }
 
+        if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            throw new InvalidOperationException("Customer Requests cannot be submitted for commercial approval. Please prepare a formal Commercial Quotation first.");
+        }
+
         // Domain validation & state transition: Draft -> Submitted
         quotation.SubmitForApproval(actorUserId);
 
@@ -539,6 +544,26 @@ public class SalesQuotationService : ISalesQuotationService
             throw new InvalidOperationException($"Sales quotation '{quotationId}' was not found.");
         }
 
+        if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            throw new InvalidOperationException("Customer Requests cannot be rejected via commercial offer approval. Please prepare a commercial quotation or close the request.");
+        }
+
+        if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            throw new InvalidOperationException("Customer Requests cannot be approved as commercial offers. Please prepare a formal Commercial Quotation first.");
+        }
+
+        // Submitter / Creator cannot approve their own quotation
+        if (approverUserId != Guid.Empty &&
+            ((quotation.CreatedByUserId.HasValue && approverUserId == quotation.CreatedByUserId.Value) ||
+             (quotation.SubmittedByUserId.HasValue && approverUserId == quotation.SubmittedByUserId.Value)))
+        {
+            throw new InvalidOperationException("Users are not permitted to approve their own transactions.");
+        }
+
+        var creatorOrSubmitter = quotation.SubmittedByUserId ?? quotation.CreatedByUserId ?? Guid.Empty;
+
         // Enforce approval record & self-approval guard via ApprovalWorkflowService
         await _approvalService.RecordApprovalAsync(
             tenantId,
@@ -546,7 +571,7 @@ public class SalesQuotationService : ISalesQuotationService
             quotation.Id,
             approverUserId,
             approverUserName,
-            quotation.CreatedByUserId ?? Guid.Empty,
+            creatorOrSubmitter,
             quotation.TotalAmount,
             remarks);
 
@@ -575,6 +600,11 @@ public class SalesQuotationService : ISalesQuotationService
         if (quotation == null)
         {
             throw new InvalidOperationException($"Sales quotation '{quotationId}' was not found.");
+        }
+
+        if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            throw new InvalidOperationException("Customer Requests cannot be rejected via commercial offer approval. Please prepare a commercial quotation or close the request.");
         }
 
         // Record in approval audit log
@@ -607,6 +637,11 @@ public class SalesQuotationService : ISalesQuotationService
         if (quotation == null)
         {
             throw new InvalidOperationException($"Sales quotation '{quotationId}' was not found.");
+        }
+
+        if (quotation.DocumentType == SalesQuotationType.CustomerRequest)
+        {
+            throw new InvalidOperationException("Customer Requests cannot be rejected via commercial offer approval. Please prepare a commercial quotation or close the request.");
         }
 
         quotation.Cancel(actorUserId);
@@ -838,56 +873,8 @@ public class SalesQuotationService : ISalesQuotationService
                 _dbContext.SalesOrders.Add(salesOrder);
             }
 
-            // Step 2: Non-destructive Price Card update (where assigned)
-            if (customer.DefaultSalesPriceCardId.HasValue && (_priceCardRepository != null || _dbContext != null))
-            {
-                var cardId = customer.DefaultSalesPriceCardId.Value;
-                PriceCard? priceCard = null;
-                if (_priceCardRepository != null)
-                {
-                    priceCard = await _priceCardRepository.GetPriceCardByIdAsync(tenantId, cardId, includeLines: true);
-                }
-                else if (_dbContext != null)
-                {
-                    priceCard = await _dbContext.PriceCards.Include(pc => pc.Lines).FirstOrDefaultAsync(pc => pc.TenantId == tenantId && pc.PriceCardId == cardId);
-                }
-
-                if (priceCard != null && priceCard.IsActive && priceCard.PriceCardType == PriceCardType.Sales)
-                {
-                    foreach (var item in quotation.Items.Where(i => i.IsActive))
-                    {
-                        var activeLine = priceCard.Lines.FirstOrDefault(l =>
-                            l.ProductId == item.ProductId &&
-                            l.IsActive &&
-                            (!l.EffectiveFrom.HasValue || l.EffectiveFrom.Value <= now) &&
-                            (!l.EffectiveTo.HasValue || l.EffectiveTo.Value >= now));
-
-                        if (activeLine != null)
-                        {
-                            activeLine.Update(activeLine.UnitPrice, activeLine.UnitOfMeasureId, activeLine.MinimumQuantity, activeLine.EffectiveFrom, now);
-                        }
-
-                        var newLine = PriceCardLine.Create(
-                            tenantId,
-                            priceCard.PriceCardId,
-                            item.ProductId,
-                            item.UnitPrice,
-                            item.UnitOfMeasureId,
-                            minimumQuantity: item.Quantity,
-                            effectiveFrom: now,
-                            effectiveTo: null);
-
-                        if (_priceCardRepository != null)
-                        {
-                            await _priceCardRepository.AddLineAsync(newLine);
-                        }
-                        else if (_dbContext != null)
-                        {
-                            _dbContext.PriceCardLines.Add(newLine);
-                        }
-                    }
-                }
-            }
+            // Step 2: Price Card Resolution, Creation & Update
+            await ResolveOrUpdatePriceCardAsync(tenantId, customer, quotation, salesOrder, now);
 
             // Step 3: Quotation State Transitions
             quotation.Accept(customerContactId, now);
@@ -938,11 +925,9 @@ public class SalesQuotationService : ISalesQuotationService
         var quotation = await _repository.GetByIdAsync(tenantId, companyId, branchId, quotationId)
             ?? throw new KeyNotFoundException($"Quotation with ID '{quotationId}' was not found in this operating company and branch.");
 
-        if (quotation.Status != SalesQuotationStatus.Accepted &&
-            quotation.Status != SalesQuotationStatus.Sent &&
-            quotation.Status != SalesQuotationStatus.Confirmed)
+        if (quotation.Status != SalesQuotationStatus.Accepted || !quotation.AcceptedAtUtc.HasValue || !quotation.CustomerContactId.HasValue)
         {
-            throw new InvalidOperationException($"Cannot convert quotation with status '{quotation.Status}'. Only Confirmed, Sent, or Accepted quotations can be converted to a Sales Order.");
+            throw new InvalidOperationException($"Cannot convert quotation with status '{quotation.Status}'. Sales Order conversion is strictly gated on verified customer acceptance.");
         }
 
         if (quotation.IsExpired())
@@ -1035,62 +1020,10 @@ public class SalesQuotationService : ISalesQuotationService
                 _dbContext.SalesOrders.Add(salesOrder);
             }
 
-            // Step 2: Non-destructive Price Card update (where assigned)
-            if (customer.DefaultSalesPriceCardId.HasValue && (_priceCardRepository != null || _dbContext != null))
-            {
-                var cardId = customer.DefaultSalesPriceCardId.Value;
-                PriceCard? priceCard = null;
-                if (_priceCardRepository != null)
-                {
-                    priceCard = await _priceCardRepository.GetPriceCardByIdAsync(tenantId, cardId, includeLines: true);
-                }
-                else if (_dbContext != null)
-                {
-                    priceCard = await _dbContext.PriceCards.Include(pc => pc.Lines).FirstOrDefaultAsync(pc => pc.TenantId == tenantId && pc.PriceCardId == cardId);
-                }
-
-                if (priceCard != null && priceCard.IsActive && priceCard.PriceCardType == PriceCardType.Sales)
-                {
-                    foreach (var item in quotation.Items.Where(i => i.IsActive))
-                    {
-                        var activeLine = priceCard.Lines.FirstOrDefault(l =>
-                            l.ProductId == item.ProductId &&
-                            l.IsActive &&
-                            (!l.EffectiveFrom.HasValue || l.EffectiveFrom.Value <= now) &&
-                            (!l.EffectiveTo.HasValue || l.EffectiveTo.Value >= now));
-
-                        if (activeLine != null)
-                        {
-                            activeLine.Update(activeLine.UnitPrice, activeLine.UnitOfMeasureId, activeLine.MinimumQuantity, activeLine.EffectiveFrom, now);
-                        }
-
-                        var newLine = PriceCardLine.Create(
-                            tenantId,
-                            priceCard.PriceCardId,
-                            item.ProductId,
-                            item.UnitPrice,
-                            item.UnitOfMeasureId,
-                            minimumQuantity: item.Quantity,
-                            effectiveFrom: now,
-                            effectiveTo: null);
-
-                        if (_priceCardRepository != null)
-                        {
-                            await _priceCardRepository.AddLineAsync(newLine);
-                        }
-                        else if (_dbContext != null)
-                        {
-                            _dbContext.PriceCardLines.Add(newLine);
-                        }
-                    }
-                }
-            }
+            // Step 2: Price Card Resolution, Creation & Update
+            await ResolveOrUpdatePriceCardAsync(tenantId, customer, quotation, salesOrder, now);
 
             // Step 3: Transition quotation
-            if (quotation.Status != SalesQuotationStatus.Accepted)
-            {
-                quotation.Accept(actorUserId, now);
-            }
             quotation.MarkConverted(salesOrder.Id, now);
 
             if (_persistenceCoordinator != null)
@@ -1124,6 +1057,190 @@ public class SalesQuotationService : ISalesQuotationService
                 await efTx.RollbackAsync();
             }
             throw;
+        }
+    }
+
+    private async Task ResolveOrUpdatePriceCardAsync(
+        Guid tenantId,
+        Customer customer,
+        global::Domain.Features.Sales.SalesQuotation.SalesQuotation quotation,
+        global::Domain.Features.Sales.SalesOrder.SalesOrder salesOrder,
+        DateTime now)
+    {
+        if (_priceCardRepository == null && _dbContext == null)
+            return;
+
+        PriceCard? suitablePriceCard = null;
+
+        // 1. Check customer's default sales price card if assigned
+        if (customer.DefaultSalesPriceCardId.HasValue)
+        {
+            var cardId = customer.DefaultSalesPriceCardId.Value;
+            if (_priceCardRepository != null)
+            {
+                suitablePriceCard = await _priceCardRepository.GetPriceCardByIdAsync(tenantId, cardId, includeLines: true);
+            }
+            else if (_dbContext != null)
+            {
+                suitablePriceCard = await _dbContext.PriceCards
+                    .Include(pc => pc.Lines)
+                    .FirstOrDefaultAsync(pc => pc.TenantId == tenantId && pc.PriceCardId == cardId);
+            }
+
+            if (suitablePriceCard != null)
+            {
+                bool isSuitable = suitablePriceCard.IsActive
+                    && suitablePriceCard.PriceCardType == PriceCardType.Sales
+                    && string.Equals(suitablePriceCard.Currency, quotation.Currency, StringComparison.OrdinalIgnoreCase)
+                    && (!suitablePriceCard.EffectiveTo.HasValue || suitablePriceCard.EffectiveTo.Value >= now)
+                    && suitablePriceCard.EffectiveFrom <= now;
+
+                if (!isSuitable)
+                {
+                    suitablePriceCard = null;
+                }
+            }
+        }
+
+        // 2. If default card is not suitable, search for an existing customer-specific Sales price card matching currency
+        if (suitablePriceCard == null)
+        {
+            string expectedCustomerCardCode = $"SPC-{customer.CustomerCode}-{quotation.Currency}".ToUpperInvariant();
+            if (_priceCardRepository != null)
+            {
+                var existingCustomerCard = await _priceCardRepository.GetPriceCardByCodeAsync(tenantId, expectedCustomerCardCode);
+                if (existingCustomerCard != null
+                    && existingCustomerCard.IsActive
+                    && existingCustomerCard.PriceCardType == PriceCardType.Sales
+                    && string.Equals(existingCustomerCard.Currency, quotation.Currency, StringComparison.OrdinalIgnoreCase)
+                    && (!existingCustomerCard.EffectiveTo.HasValue || existingCustomerCard.EffectiveTo.Value >= now)
+                    && existingCustomerCard.EffectiveFrom <= now)
+                {
+                    suitablePriceCard = existingCustomerCard;
+                }
+            }
+            else if (_dbContext != null)
+            {
+                suitablePriceCard = await _dbContext.PriceCards
+                    .Include(pc => pc.Lines)
+                    .FirstOrDefaultAsync(pc =>
+                        pc.TenantId == tenantId
+                        && pc.PriceCardCode == expectedCustomerCardCode
+                        && pc.PriceCardType == PriceCardType.Sales
+                        && pc.IsActive
+                        && (!pc.EffectiveTo.HasValue || pc.EffectiveTo.Value >= now)
+                        && pc.EffectiveFrom <= now);
+            }
+        }
+
+        // 3. If suitable price card exists, update or add applicable entries
+        if (suitablePriceCard != null)
+        {
+            foreach (var item in quotation.Items.Where(i => i.IsActive))
+            {
+                var existingLine = suitablePriceCard.Lines.FirstOrDefault(l =>
+                    l.ProductId == item.ProductId &&
+                    l.UnitOfMeasureId == item.UnitOfMeasureId);
+
+                if (existingLine != null)
+                {
+                    existingLine.Update(
+                        item.UnitPrice,
+                        item.UnitOfMeasureId,
+                        item.Quantity,
+                        now,
+                        null);
+
+                    if (!existingLine.IsActive)
+                    {
+                        existingLine.Activate();
+                    }
+                }
+                else
+                {
+                    var newLine = suitablePriceCard.AddLine(
+                        item.ProductId,
+                        item.UnitPrice,
+                        item.UnitOfMeasureId,
+                        minimumQuantity: item.Quantity,
+                        effectiveFrom: now,
+                        effectiveTo: null);
+
+                    if (_priceCardRepository != null)
+                    {
+                        await _priceCardRepository.AddLineAsync(newLine);
+                    }
+                    else if (_dbContext != null)
+                    {
+                        _dbContext.PriceCardLines.Add(newLine);
+                    }
+                }
+            }
+
+            if (!customer.DefaultSalesPriceCardId.HasValue)
+            {
+                customer.SetDefaultSalesPriceCard(suitablePriceCard.PriceCardId);
+            }
+
+            salesOrder.PriceCardId = suitablePriceCard.PriceCardId;
+        }
+        else
+        {
+            // 4. Create new Price Card with accepted terms
+            string baseCode = $"SPC-{customer.CustomerCode}-{quotation.Currency}".ToUpperInvariant();
+            string priceCardCode = baseCode;
+
+            bool codeExists = _priceCardRepository != null
+                ? await _priceCardRepository.ExistsByCodeAsync(tenantId, priceCardCode)
+                : (_dbContext != null && await _dbContext.PriceCards.AnyAsync(pc => pc.TenantId == tenantId && pc.PriceCardCode == priceCardCode));
+
+            if (codeExists)
+            {
+                priceCardCode = $"{baseCode}-{Guid.NewGuid():N[..4].ToUpperInvariant()}";
+            }
+
+            string priceCardName = $"Sales Price Card - {customer.CustomerName} ({quotation.Currency})";
+            var newPriceCard = PriceCard.Create(
+                tenantId,
+                priceCardCode,
+                priceCardName,
+                PriceCardType.Sales,
+                quotation.Currency,
+                effectiveFrom: now,
+                effectiveTo: null,
+                description: $"Auto-generated upon acceptance of Sales Quotation {quotation.QuotationNumber}");
+
+            foreach (var item in quotation.Items.Where(i => i.IsActive))
+            {
+                var line = newPriceCard.AddLine(
+                    item.ProductId,
+                    item.UnitPrice,
+                    item.UnitOfMeasureId,
+                    minimumQuantity: item.Quantity,
+                    effectiveFrom: now,
+                    effectiveTo: null);
+
+                if (_priceCardRepository != null)
+                {
+                    await _priceCardRepository.AddLineAsync(line);
+                }
+                else if (_dbContext != null)
+                {
+                    _dbContext.PriceCardLines.Add(line);
+                }
+            }
+
+            if (_priceCardRepository != null)
+            {
+                await _priceCardRepository.AddPriceCardAsync(newPriceCard);
+            }
+            else if (_dbContext != null)
+            {
+                _dbContext.PriceCards.Add(newPriceCard);
+            }
+
+            customer.SetDefaultSalesPriceCard(newPriceCard.PriceCardId);
+            salesOrder.PriceCardId = newPriceCard.PriceCardId;
         }
     }
 

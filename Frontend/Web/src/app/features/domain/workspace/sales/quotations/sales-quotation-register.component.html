@@ -235,73 +235,7 @@
     </div>
   }
 
-  <!-- Action Remarks Dialog -->
-  @if (remarksDialogVisible()) {
-    <div class="modal-overlay">
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <h3 class="modal-title">{{ remarksDialogTitle() }}</h3>
-          <button type="button" class="close-btn" (click)="closeRemarksDialog()" aria-label="Close">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="dialog-quote-summary">
-            <strong>Quotation #{{ remarksTargetQuotation()?.quotationNumber }}</strong>
-            <span>{{ remarksTargetQuotation()?.customerName }}</span>
-          </div>
-
-          @if (remarksError()) {
-            <div class="field-error-banner">
-              <i class="pi pi-exclamation-triangle"></i>
-              <span>{{ remarksError() }}</span>
-            </div>
-          }
-
-          <div class="form-group">
-            <label for="regQuotationRemarks">
-              {{ remarksAction() === 'reject' ? 'Rejection Reason *' : 'Remarks / Notes (Optional)' }}
-            </label>
-            <textarea
-              id="regQuotationRemarks"
-              rows="3"
-              class="p-inputtext form-control"
-              [ngModel]="remarksText()"
-              (ngModelChange)="remarksText.set($event)"
-              [placeholder]="remarksAction() === 'reject' ? 'State why this quotation is rejected...' : 'Enter any operational notes or remarks...'"
-            ></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="erp-button erp-button-secondary"
-            (click)="closeRemarksDialog()"
-            [disabled]="actionInProgress()"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="erp-button"
-            [ngClass]="{
-              'erp-button-primary': remarksAction() === 'approve' || remarksAction() === 'send' || remarksAction() === 'retry',
-              'erp-button-danger': remarksAction() === 'reject' || remarksAction() === 'cancel'
-            }"
-            (click)="executeRemarksAction()"
-            [disabled]="actionInProgress()"
-          >
-            @if (actionInProgress()) {
-              <i class="pi pi-spin pi-spinner"></i>
-            }
-            <span>{{ remarksDialogTitle() }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  }
-
-  <!-- REUSABLE CONFIRMATION DIALOG (Submit / Convert) -->
+  <!-- REUSABLE CONFIRMATION DIALOG (Submit, Approve, Reject, Send, Retry, Cancel, Convert) -->
   <app-confirmation-dialog
     [(visible)]="confirmDialogVisible"
     [config]="confirmDialogConfig()"

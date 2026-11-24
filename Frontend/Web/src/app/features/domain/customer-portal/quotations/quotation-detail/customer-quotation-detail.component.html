@@ -42,8 +42,53 @@
           <i class="pi pi-file-pdf" [class.pi-spin]="downloadingPdf()"></i>
           <span>Download PDF</span>
         </button>
+
+        @if (isProposalActive() && canAct()) {
+          <button
+            type="button"
+            class="erp-button erp-button-danger erp-button-sm"
+            [disabled]="actionInProgress()"
+            (click)="openDeclineDialog()"
+            title="Decline this proposal with remarks"
+          >
+            <i class="pi pi-times"></i>
+            <span>Decline</span>
+          </button>
+
+          <button
+            type="button"
+            class="erp-button erp-button-success erp-button-sm"
+            [disabled]="actionInProgress()"
+            (click)="openAcceptDialog()"
+            title="Accept commercial terms and generate Sales Order Draft"
+          >
+            <i class="pi pi-check"></i>
+            <span>Accept Proposal</span>
+          </button>
+        }
+
+        @if (isConverted()) {
+          <a
+            routerLink="/customer-portal/orders"
+            class="erp-button erp-button-primary erp-button-sm"
+            title="View order history in customer workspace"
+          >
+            <i class="pi pi-shopping-bag"></i>
+            <span>View in Orders</span>
+          </a>
+        }
       </div>
     </app-page-header>
+
+    @if (successMessage()) {
+      <div class="success-banner erp-card">
+        <i class="pi pi-check-circle text-success" style="font-size: 1.5rem;"></i>
+        <div class="banner-content">
+          <strong>Success</strong>
+          <p>{{ successMessage() }}</p>
+        </div>
+      </div>
+    }
 
     <div class="detail-container">
       <!-- Status Banner -->
@@ -56,15 +101,65 @@
           ></app-status-badge>
         </div>
 
-        @if (quotation()!.status === 2) {
+        @if (quotation()!.status === 1) {
+          <div class="status-hint">
+            <i class="pi pi-info-circle text-info"></i>
+            <span>This quotation request is currently in <strong>Draft</strong> state. You can review and update requirements before submitting for review.</span>
+          </div>
+        } @else if (quotation()!.status === 2) {
           <div class="status-hint">
             <i class="pi pi-clock text-warning"></i>
             <span>Your request is currently under review by our commercial sales engineering team. You will be notified once a formal proposal is issued.</span>
           </div>
-        } @else if (quotation()!.status === 5) {
+        } @else if (quotation()!.status === 3) {
           <div class="status-hint">
-            <i class="pi pi-check-circle text-primary"></i>
-            <span>A formal proposal has been issued. Valid until <strong>{{ quotation()!.validUntilDateUtc | date:'mediumDate' }}</strong> ({{ quotation()!.daysUntilExpiry }} days remaining).</span>
+            <i class="pi pi-clock text-info"></i>
+            <span>The formal quotation has been approved internally and is being scheduled for formal delivery to your corporate account.</span>
+          </div>
+        } @else if (quotation()!.status === 5) {
+          @if (isExpired()) {
+            <div class="status-hint status-hint-expired">
+              <i class="pi pi-exclamation-triangle text-danger"></i>
+              <span>This proposal expired on <strong>{{ quotation()!.validUntilDateUtc | date:'mediumDate' }}</strong>. Customer acceptance is locked. Please contact sales to request an updated proposal revision.</span>
+            </div>
+          } @else {
+            <div class="status-hint">
+              <i class="pi pi-check-circle text-primary"></i>
+              <span>A formal proposal has been issued. Valid until <strong>{{ quotation()!.validUntilDateUtc | date:'mediumDate' }}</strong> ({{ quotation()!.daysUntilExpiry }} days remaining). You may review terms below and Accept or Decline.</span>
+            </div>
+          }
+        } @else if (quotation()!.status === 6) {
+          <div class="status-hint">
+            <i class="pi pi-check-circle text-success"></i>
+            <span>You formally accepted this commercial proposal on <strong>{{ quotation()!.acceptedAtUtc | date:'medium' }}</strong>. Processing order creation...</span>
+          </div>
+        } @else if (quotation()!.status === 7) {
+          <div class="status-hint">
+            <i class="pi pi-times-circle text-danger"></i>
+            <span>You declined this proposal on <strong>{{ quotation()!.declinedAtUtc | date:'medium' }}</strong>. Reason: <em>"{{ quotation()!.declinedRemarks }}"</em></span>
+          </div>
+        } @else if (quotation()!.status === 8) {
+          <div class="status-hint status-hint-converted">
+            <i class="pi pi-shopping-bag text-success"></i>
+            <div class="converted-info">
+              <span>This proposal was accepted and converted to an official <strong>Sales Order Draft</strong> on <strong>{{ quotation()!.convertedAtUtc | date:'medium' }}</strong>.</span>
+              @if (quotation()!.convertedSalesOrderId) {
+                <a [routerLink]="['/customer-portal/orders']" [queryParams]="{ orderId: quotation()!.convertedSalesOrderId }" class="erp-button erp-button-primary erp-button-sm">
+                  <i class="pi pi-external-link"></i>
+                  <span>View Converted Sales Order</span>
+                </a>
+              }
+            </div>
+          </div>
+        } @else if (quotation()!.status === 9) {
+          <div class="status-hint">
+            <i class="pi pi-info-circle text-secondary"></i>
+            <span>This quotation version has been superseded by a newer formal revision.</span>
+          </div>
+        } @else if (quotation()!.status === 10) {
+          <div class="status-hint">
+            <i class="pi pi-ban text-danger"></i>
+            <span>This quotation has been cancelled.</span>
           </div>
         }
       </div>
@@ -189,7 +284,80 @@
             <span class="total-val">{{ quotation()!.totalAmount | currency:quotation()!.currency:'symbol':'1.2-2' }}</span>
           </div>
         </div>
+
+        <!-- Section Footer Action Buttons (Matching Sales Order Reference Standard) -->
+        <div class="detail-footer-actions">
+          <div class="left-actions">
+            <button
+              type="button"
+              class="erp-button erp-button-secondary"
+              (click)="navigateBack()"
+            >
+              <i class="pi pi-arrow-left"></i>
+              <span>Back to Quotations</span>
+            </button>
+          </div>
+
+          <div class="right-actions">
+            <button
+              type="button"
+              class="erp-button erp-button-secondary"
+              [disabled]="downloadingPdf()"
+              (click)="downloadPdf()"
+              title="Download proposal PDF"
+            >
+              <i class="pi pi-file-pdf" [class.pi-spin]="downloadingPdf()"></i>
+              <span>Download PDF</span>
+            </button>
+
+            @if (isProposalActive() && canAct()) {
+              <button
+                type="button"
+                class="erp-button erp-button-danger"
+                [disabled]="actionInProgress()"
+                (click)="openDeclineDialog()"
+                title="Decline this proposal with remarks"
+              >
+                <i class="pi pi-times"></i>
+                <span>Decline</span>
+              </button>
+
+              <button
+                type="button"
+                class="erp-button erp-button-success"
+                [disabled]="actionInProgress()"
+                (click)="openAcceptDialog()"
+                title="Accept commercial terms and generate Sales Order Draft"
+              >
+                <i class="pi pi-check"></i>
+                <span>Accept Proposal</span>
+              </button>
+            }
+
+            @if (isConverted()) {
+              <a
+                routerLink="/customer-portal/orders"
+                class="erp-button erp-button-primary"
+                title="View order history in customer workspace"
+              >
+                <i class="pi pi-shopping-bag"></i>
+                <span>View Converted Sales Order</span>
+              </a>
+            }
+          </div>
+        </div>
       </section>
     </div>
+
+    <!-- Accept / Decline Confirmation Dialog -->
+    <app-confirmation-dialog
+      [visible]="confirmDialogVisible()"
+      (visibleChange)="confirmDialogVisible.set($event)"
+      [config]="confirmDialogConfig()"
+      [loading]="confirmDialogLoading()"
+      [errorMessage]="confirmDialogError()"
+      (confirmed)="handleConfirmResult($event)"
+      (cancelled)="onCancelDialog()"
+    ></app-confirmation-dialog>
   }
 </div>

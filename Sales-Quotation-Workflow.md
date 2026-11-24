@@ -672,17 +672,36 @@ When accepted quotation rates are applied to the customer's assigned Price Card:
 2. **Independence of Dates:** The new Price Card line's effective period is defined according to corporate contract policy, independent of the quotation's `ValidUntilDate`.
 3. **Auditability:** Modifications record the originating quotation reference (`"Updated via Acceptance of SQ-2026-0001"`) in `DomainAuditRecords`.
 
-### 12.3 Missing Assigned Price Card Handling (Closed Phase 1 Decision)
-If an authorized Company customer accepts a quotation but has no assigned Price Card (`DefaultSalesPriceCardId == null`):
-- The `SalesOrder` draft is created successfully.
-- The system **must not silently auto-generate an unmanaged Price Card**.
-- A reliable internal operational task is logged in the operational audit queue for the sales team to review and assign a managed Price Card.
-- An audit entry records that quotation conversion completed without Price Card mutation.
+### 12.3 Price Card Management & Resolution on Quotation Acceptance (Approved Decision)
+When an authorized Company customer accepts a quotation:
+- **Suitability Check:** The system checks whether an active Sales Price Card exists for the customer matching the quotation currency, active state, and effective date boundaries.
+- **If a suitable Price Card exists:** Applicable product entries are updated with the newly negotiated commercial terms (unit price, minimum order quantity, and effective date) or new product lines are appended to the existing card.
+- **If no suitable Price Card exists (or currency mismatch):** The system automatically generates a new managed Sales Price Card (`SPC-{CustomerCode}-{Currency}`), populates it with all accepted commercial terms, assigns it as the customer's `DefaultSalesPriceCardId`, and links it to the resulting `SalesOrder`.
+- **Traceability:** Price card mutations record the originating quotation reference (`"Auto-generated/updated via Acceptance of SQ-XXXX"`) in audit logs.
 
 ### 12.4 Idempotency & Concurrency Safety
 - Conversion operations enforce database-level unique constraints on `ConvertedSalesOrderId`.
-- Double-clicking or concurrent conversion requests are blocked by concurrency tokens.
+- Double-clicking or concurrent conversion requests are blocked by concurrency tokens and state guards.
 - If conversion encounters a technical failure, the entire transaction rolls back; the quotation remains in `Sent` status, allowing the customer to safely retry without generating duplicate orders.
+
+### 12.5 Strict Customer Acceptance-Gated Sales Order Conversion (Mandatory Security Boundary)
+Sales Order conversion is strictly permitted only after the customer has explicitly accepted the formal Sales Quotation.
+
+**Mandatory Business Invariant:**
+> **No verified customer acceptance = No Sales Order.**
+
+1. **Frontend Workspace Enforcement:**
+   - In both the Sales Quotation workspace and the Customer Portal, conversion actions are enabled strictly when the quotation is in `Accepted` status with verified customer acceptance.
+   - Conversion is disabled and hidden for `Draft`, `Submitted`, `Confirmed`, `Sent` (unaccepted), `Declined`, `Expired`, and `Converted` quotations.
+   - Contextual guidance explains to sales personnel that the quotation must be formally accepted by the customer before a Sales Order can be generated.
+2. **Authoritative Backend Security Boundary:**
+   - Both internal (`ConvertQuotationToOrderAsync`) and portal (`AcceptQuotationAndConvertAtomicAsync`) services strictly reject conversion requests unless:
+     - The quotation is in `Accepted` status.
+     - A genuine customer acceptance event has been recorded (`AcceptedAtUtc != null`).
+     - The acceptance belongs to the authorized customer contact (`CustomerContactId != null`).
+     - The quotation is not expired.
+     - No Sales Order has already been linked to the quotation.
+   - Internal employees cannot convert a quotation on behalf of a customer or bypass customer acceptance.
 
 ---
 
@@ -823,6 +842,7 @@ The Sales Portal architecture reuses platform infrastructure. All items below ar
 | 1.3.0 | 2026-11-20 | Antigravity Agent | Added 3 strategic sales channels, universal Explore Products, shared registration with email as username, Price Card assignment, and atomic quotation acceptance. |
 | 1.3.1 | 2026-11-20 | Antigravity Agent | Clarified global identity vs. tenant relationships; corrected Company login email mapping; clarified purchasing authority; added registration consistency; enforced mandatory quotation expiry; resolved missing Price Card handling; standardized fulfilment terminology; and qualified reuse claims. |
 | **1.3.2** | **2026-11-20** | **Antigravity Agent** | **Complete Customer Portal, Tracking & Notification Architecture:** Added dedicated Customer Portal Workspace architecture (Dashboard, Orders, Quotations, Tracking, Documents, Notifications, Profiles); established independent unauthenticated public product exploration; defined 8-stage customer order tracking mapped to domain states; added secure document download streaming; integrated resilient event-driven notification architecture; clarified UTC calendar date quotation expiry boundary (23:59:59.999 UTC); formalized company verification vs. purchasing authority vs. credit boundaries; and **explicitly excluded payment processing, gateways, and online payment tracking from Phase 1**. |
+| **1.4.0** | **2026-11-24** | **Antigravity Agent** | **Complete Quotation Acceptance, Price Card Management & Gated Conversion:** Enforced strict mandatory business invariant: "No verified customer acceptance = No Sales Order"; restricted internal and portal conversion actions to accepted quotations with verified customer acceptance; eliminated internal employee auto-acceptance bypass; implemented automatic Price Card creation (`SPC-{CustomerCode}-{Currency}`) when missing; non-destructive line updates when assigned Price Card exists; and added complete automated security and domain verification tests. |
 
 
 ---
@@ -831,13 +851,15 @@ The Sales Portal architecture reuses platform infrastructure. All items below ar
 
 | Architectural Capability | Status Classification | Implementation Details & Verified Evidence |
 |---|---|---|
-| **Domain Aggregate (`SalesQuotation`)** | `IMPLEMENTED` | Fully mapped in `Domain/Features/Sales/SalesQuotation/SalesQuotation.cs` with items, UTC calendar date expiry boundary, currency snapshot, audit properties, and domain transition methods (`MarkSent`, `Accept`, `Decline`, `MarkConverted`, `MarkSuperseded`). |
+| **Domain Aggregate (`SalesQuotation`)** | `IMPLEMENTED` | Fully mapped in `Domain/Features/Sales/SalesQuotation/SalesQuotation.cs` with items, UTC calendar date expiry boundary, currency snapshot, audit properties, and strictly hardened domain transition methods (`MarkSent`, `Accept`, `Decline`, `MarkConverted`, `MarkSuperseded`). `Accept` requires `Sent` status; `MarkConverted` requires verified `Accepted` status. |
 | **Internal Authoring Workflow** | `IMPLEMENTED` | Draft creation, line additions, quantity/price updates, totals recalculation in `SalesQuotationService.cs`. |
 | **Internal Review & Approval** | `IMPLEMENTED` | `SubmitQuotationAsync`, `ApproveQuotationAsync`, `RejectQuotationAsync`, `CancelQuotationAsync` in `SalesQuotationService.cs` integrated with `IApprovalWorkflowService`. |
 | **Quotation Cloned Requests** | `IMPLEMENTED` | `CloneCustomerQuotationRequestFromOrderAsync` and `CloneCustomerQuotationRequestFromQuotationAsync` implemented in `SalesQuotationService.cs` re-validating active catalog products without copying stale historical prices. |
 | **Manual Quotation Issuance (`Sent`)** | `IMPLEMENTED` | `MarkSent(sentAtUtc)` on aggregate and `SendQuotationAsync` in application service. Exposed via `POST api/companies/{c}/branches/{b}/sales-quotations/{id}/send`. Tested in `SalesBackendCompletionTests` (PASS). |
-| **Atomic Acceptance & Conversion** | `IMPLEMENTED` | `AcceptQuotationAndConvertAtomicAsync` executing `SalesOrder` draft instantiation, non-destructive `PriceCard` update, and quotation status transition in a single database transaction. |
+| **Atomic Acceptance & Conversion** | `IMPLEMENTED` | `AcceptQuotationAndConvertAtomicAsync` executing `SalesOrder` draft instantiation, Price Card resolution/creation (`SPC-{CustomerCode}-{Currency}`), and quotation status transition in a single atomic database transaction. |
 | **Customer Decline & Revision Request** | `IMPLEMENTED` | `DeclineQuotationAsync` updating status to `DeclinedByCustomer` with mandatory customer remarks. Tested in `SalesBackendCompletionTests` (PASS). |
 | **Customer Quotation API Controller** | `IMPLEMENTED` | Authenticated `CustomerQuotationController` under `/api/portal/customer/quotations` (`GET`, `GET {id}`, `POST request`, `POST request/clone-order/{orderId}`, `POST request/clone-quotation/{quotationId}`, `POST {id}/accept`, `POST {id}/decline`, `GET {id}/pdf`). |
 | **Customer Quotation PDF Generation** | `IMPLEMENTED` | Standards-compliant ISO 32000-1 binary PDF generator `SalesQuotationPdfService` in `ERP.Infrastructure.Pdf` with zero external dependencies, streamed via `GET .../{id}/pdf`. |
 | **Post-Commit Notification Handlers** | `IMPLEMENTED` | Resilient post-commit notification logging without rolling back committed orders on SMTP failure. |
+| **Customer Acceptance-Gated Conversion** | `IMPLEMENTED` | Enforces "No verified customer acceptance = No Sales Order". `ConvertQuotationToOrderAsync` strictly verifies `Status == Accepted`, `AcceptedAtUtc != null`, and `CustomerContactId != null`. Frontend disables/hides conversion until customer acceptance is recorded. |
+| **Automatic Price Card Management** | `IMPLEMENTED` | If no suitable Price Card exists on acceptance, auto-generates managed `PriceCard` (`SPC-{CustomerCode}-{Currency}`), adds accepted items, and assigns default to Customer and Sales Order. If existing card found, updates lines non-destructively. |

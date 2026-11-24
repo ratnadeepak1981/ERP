@@ -115,6 +115,14 @@ public interface ISalesQuotationService
         string actorUserName,
         string? remarks = null);
 
+    Task<SalesQuotationDto> PrepareCommercialQuotationFromRequestAsync(
+        Guid tenantId,
+        Guid companyId,
+        Guid branchId,
+        Guid customerRequestId,
+        Guid actorUserId,
+        string actorUserName);
+
     Task<SalesQuotationDto> SendQuotationAsync(
         Guid tenantId,
         Guid companyId,
