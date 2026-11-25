@@ -170,6 +170,19 @@ export class SalesQuotationService {
       .pipe(map(res => res.data));
   }
 
+  prepareQuotationFromRequest(
+    companyId: string,
+    branchId: string,
+    customerRequestId: string
+  ): Observable<SalesQuotationDto> {
+    return this.http
+      .post<ApiResponse<SalesQuotationDto>>(
+        `${this.baseUrl(companyId, branchId)}/from-request/${customerRequestId}`,
+        {}
+      )
+      .pipe(map(res => res.data));
+  }
+
   cancelQuotation(
     companyId: string,
     branchId: string,

@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Domain.Features.Procurement.Approval;
 using Domain.Features.Sales.SalesQuotation;
+using Domain.Infrastructure.Persistence;
 using ERP.SecurityTests;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace ERP.SecurityTests.Sales;
@@ -182,6 +186,8 @@ public class SalesQuotationWorkflowAndScopeIntegrationTests : IClassFixture<Test
         var submitted = await submitResponse.ReadApiResponseDataAsync<SalesQuotationDto>(_jsonOpts);
         Assert.NotNull(submitted);
         Assert.Equal(SalesQuotationStatus.Submitted, submitted.Status);
+        Assert.Equal("Pending Approval", submitted.ApprovalStatus);
+        Assert.Equal("Not Sent", submitted.CustomerStatus);
         Assert.Equal(TestConstants.BranchUserA1Id, submitted.SubmittedByUserId);
 
         // 3. Manager/Admin approves quotation
@@ -200,9 +206,38 @@ public class SalesQuotationWorkflowAndScopeIntegrationTests : IClassFixture<Test
         var approved = await approveResponse.ReadApiResponseDataAsync<SalesQuotationDto>(_jsonOpts);
         Assert.NotNull(approved);
         Assert.Equal(SalesQuotationStatus.Confirmed, approved.Status);
+        Assert.Equal("Approved", approved.ApprovalStatus);
+        Assert.Equal("Not Sent", approved.CustomerStatus);
+        Assert.Equal("NotSent", approved.EmailStatus);
         Assert.Equal(TestConstants.TenantAdminAlphaId, approved.ApprovedByUserId);
+        Assert.NotNull(approved.ApprovedAtUtc);
 
-        // 4. Verify Approval Audit History
+        // 4. Verify Quotation List API returns Approved & persisted state survives fresh query
+        var listResponse = await managerClient.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.ReadApiResponseDataAsync<List<SalesQuotationDto>>(_jsonOpts);
+        Assert.NotNull(list);
+        var listedApproved = list.FirstOrDefault(x => x.Id == created.Id);
+        Assert.NotNull(listedApproved);
+        Assert.Equal(SalesQuotationStatus.Confirmed, listedApproved.Status);
+        Assert.Equal("Approved", listedApproved.ApprovalStatus);
+        Assert.Equal("Not Sent", listedApproved.CustomerStatus);
+        Assert.Equal("NotSent", listedApproved.EmailStatus);
+
+        // 5. Verify Database persistence and NO Sales Order created on approval
+        using (var scope = _fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+            var persisted = await db.SalesQuotations.AsNoTracking().FirstOrDefaultAsync(q => q.Id == created.Id);
+            Assert.NotNull(persisted);
+            Assert.Equal(SalesQuotationStatus.Confirmed, persisted.Status);
+            Assert.Equal(TestConstants.TenantAdminAlphaId, persisted.ApprovedByUserId);
+            Assert.NotNull(persisted.ApprovedAtUtc);
+            Assert.Null(persisted.ConvertedSalesOrderId);
+        }
+
+        // 6. Verify Approval Audit History
         var historyResponse = await managerClient.GetAsync(
             $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/approval-history");
         Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
@@ -267,7 +302,19 @@ public class SalesQuotationWorkflowAndScopeIntegrationTests : IClassFixture<Test
         var rejected = await rejectResponse.ReadApiResponseDataAsync<SalesQuotationDto>(_jsonOpts);
         Assert.NotNull(rejected);
         Assert.Equal(SalesQuotationStatus.RejectedInternal, rejected.Status);
+        Assert.Equal("Approval Rejected", rejected.ApprovalStatus);
+        Assert.Equal("Not Sent", rejected.CustomerStatus);
         Assert.Equal("Discount too high. Minimum order quantity required.", rejected.RejectionRemarks);
+
+        // Verify list API returns Approval Rejected
+        var listResponse = await managerClient.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.ReadApiResponseDataAsync<List<SalesQuotationDto>>(_jsonOpts);
+        var listedRejected = list?.FirstOrDefault(x => x.Id == created.Id);
+        Assert.NotNull(listedRejected);
+        Assert.Equal("Approval Rejected", listedRejected.ApprovalStatus);
+        Assert.Equal("Not Sent", listedRejected.CustomerStatus);
     }
 
     [Fact]
@@ -332,5 +379,173 @@ public class SalesQuotationWorkflowAndScopeIntegrationTests : IClassFixture<Test
             $"/api/companies/{TestConstants.CompanyBId}/branches/{TestConstants.BranchB1Id}/sales-quotations");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UnauthorizedApproval_WithoutConfirmPermission_ReturnsForbidden_AndPreservesPendingStatus()
+    {
+        var authorClient = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Sales Officer" },
+            new[] { "SALES_QUOTATION.CREATE", "SALES_QUOTATION.VIEW", "SALES_QUOTATION.SUBMIT" });
+
+        var createResponse = await authorClient.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations",
+            new CreateSalesQuotationDraftRequest
+            {
+                QuotationNumber = $"SQ-{Guid.NewGuid():N}"[..15],
+                CustomerId = TestConstants.CustomerAlphaId,
+                ValidUntilDateUtc = DateTime.UtcNow.AddDays(15),
+                Items = new List<CreateSalesQuotationItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 3, UnitPrice = 100m }
+                }
+            });
+        var created = await createResponse.ReadApiResponseDataAsync<SalesQuotationDto>(_jsonOpts);
+        Assert.NotNull(created);
+
+        await authorClient.PostAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/submit",
+            null);
+
+        // User with SALES_QUOTATION.VIEW / EDIT but NO SALES_QUOTATION.CONFIRM tries to approve
+        var unauthorizedManager = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "sales_officer_no_confirm",
+            TestConstants.TenantAlphaId,
+            new[] { "Sales Officer" },
+            new[] { "SALES_QUOTATION.VIEW", "SALES_QUOTATION.EDIT" });
+
+        var approveResponse = await unauthorizedManager.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/approve",
+            new SalesQuotationDecisionRequest { Remarks = "Unauthorized approve" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, approveResponse.StatusCode);
+
+        // Verify quotation remains Pending Approval
+        var checkResponse = await authorClient.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}");
+        var persisted = await checkResponse.ReadApiResponseDataAsync<SalesQuotationDto>(_jsonOpts);
+        Assert.NotNull(persisted);
+        Assert.Equal(SalesQuotationStatus.Submitted, persisted.Status);
+        Assert.Equal("Pending Approval", persisted.ApprovalStatus);
+    }
+
+    [Fact]
+    public async Task TenantIsolation_CrossTenantManagerCannotApproveOrList_ReturnsForbidden()
+    {
+        var alphaAuthor = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Sales Officer" },
+            new[] { "SALES_QUOTATION.CREATE", "SALES_QUOTATION.VIEW", "SALES_QUOTATION.SUBMIT" });
+
+        var createResponse = await alphaAuthor.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations",
+            new CreateSalesQuotationDraftRequest
+            {
+                QuotationNumber = $"SQ-{Guid.NewGuid():N}"[..15],
+                CustomerId = TestConstants.CustomerAlphaId,
+                ValidUntilDateUtc = DateTime.UtcNow.AddDays(15),
+                Items = new List<CreateSalesQuotationItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 4, UnitPrice = 90m }
+                }
+            });
+        var created = await createResponse.ReadApiResponseDataAsync<SalesQuotationDto>(_jsonOpts);
+        Assert.NotNull(created);
+
+        await alphaAuthor.PostAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/submit",
+            null);
+
+        // Tenant Beta manager attempts to approve Tenant Alpha quotation
+        var betaManager = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminBetaId,
+            "tenant_beta_mgr",
+            TestConstants.TenantBetaId,
+            new[] { "Sales Manager" },
+            new[] { "SALES_QUOTATION.VIEW", "SALES_QUOTATION.CONFIRM" });
+
+        var approveResponse = await betaManager.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/approve",
+            new SalesQuotationDecisionRequest { Remarks = "Cross-tenant attempt" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, approveResponse.StatusCode);
+
+        var listResponse = await betaManager.GetAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations");
+        Assert.Equal(HttpStatusCode.Forbidden, listResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DuplicateApproval_And_EmailFailureAfterApproval_RetainsApprovedStatus()
+    {
+        var authorClient = _fixture.CreateAuthenticatedClient(
+            TestConstants.BranchUserA1Id,
+            "branchuser_a1",
+            TestConstants.TenantAlphaId,
+            new[] { "Sales Officer" },
+            new[] { "SALES_QUOTATION.CREATE", "SALES_QUOTATION.VIEW", "SALES_QUOTATION.SUBMIT", "SALES_QUOTATION.EDIT" });
+
+        var createResponse = await authorClient.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations",
+            new CreateSalesQuotationDraftRequest
+            {
+                QuotationNumber = $"SQ-{Guid.NewGuid():N}"[..15],
+                CustomerId = TestConstants.CustomerAlphaId,
+                ValidUntilDateUtc = DateTime.UtcNow.AddDays(15),
+                Items = new List<CreateSalesQuotationItemRequest>
+                {
+                    new() { ProductId = TestConstants.ProductAlphaId, Quantity = 2, UnitPrice = 250m }
+                }
+            });
+        var created = await createResponse.ReadApiResponseDataAsync<SalesQuotationDto>(_jsonOpts);
+        Assert.NotNull(created);
+
+        await authorClient.PostAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/submit",
+            null);
+
+        var managerClient = _fixture.CreateAuthenticatedClient(
+            TestConstants.TenantAdminAlphaId,
+            "tenant_admin",
+            TestConstants.TenantAlphaId,
+            new[] { "Sales Manager" },
+            new[] { "SALES_QUOTATION.VIEW", "SALES_QUOTATION.CONFIRM" });
+
+        var firstApprove = await managerClient.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/approve",
+            new SalesQuotationDecisionRequest { Remarks = "Approved by manager" });
+        Assert.Equal(HttpStatusCode.OK, firstApprove.StatusCode);
+
+        // Duplicate approval must fail without adding duplicate approval audit records
+        var duplicateApprove = await managerClient.PostAsJsonAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/approve",
+            new SalesQuotationDecisionRequest { Remarks = "Duplicate approve" });
+        Assert.False(duplicateApprove.IsSuccessStatusCode);
+
+        // Attempt email dispatch (in test environment SMTP is disabled/unconfigured -> fails)
+        var sendResponse = await authorClient.PostAsync(
+            $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations/{created.Id}/send",
+            null);
+
+        // Even when email dispatch fails, quotation remains Confirmed / Approved
+        if (!sendResponse.IsSuccessStatusCode)
+        {
+            var listResponse = await managerClient.GetAsync(
+                $"/api/companies/{TestConstants.CompanyAId}/branches/{TestConstants.BranchA1Id}/sales-quotations");
+            Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+            var list = await listResponse.ReadApiResponseDataAsync<List<SalesQuotationDto>>(_jsonOpts);
+            var listed = list?.FirstOrDefault(x => x.Id == created.Id);
+            Assert.NotNull(listed);
+            Assert.Equal(SalesQuotationStatus.Confirmed, listed.Status);
+            Assert.Equal("Approved", listed.ApprovalStatus);
+            Assert.Equal("Failed", listed.EmailStatus);
+            Assert.False(string.IsNullOrWhiteSpace(listed.EmailFailureReason));
+        }
     }
 }

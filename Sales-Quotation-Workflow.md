@@ -843,6 +843,7 @@ The Sales Portal architecture reuses platform infrastructure. All items below ar
 | 1.3.1 | 2026-11-20 | Antigravity Agent | Clarified global identity vs. tenant relationships; corrected Company login email mapping; clarified purchasing authority; added registration consistency; enforced mandatory quotation expiry; resolved missing Price Card handling; standardized fulfilment terminology; and qualified reuse claims. |
 | **1.3.2** | **2026-11-20** | **Antigravity Agent** | **Complete Customer Portal, Tracking & Notification Architecture:** Added dedicated Customer Portal Workspace architecture (Dashboard, Orders, Quotations, Tracking, Documents, Notifications, Profiles); established independent unauthenticated public product exploration; defined 8-stage customer order tracking mapped to domain states; added secure document download streaming; integrated resilient event-driven notification architecture; clarified UTC calendar date quotation expiry boundary (23:59:59.999 UTC); formalized company verification vs. purchasing authority vs. credit boundaries; and **explicitly excluded payment processing, gateways, and online payment tracking from Phase 1**. |
 | **1.4.0** | **2026-11-24** | **Antigravity Agent** | **Complete Quotation Acceptance, Price Card Management & Gated Conversion:** Enforced strict mandatory business invariant: "No verified customer acceptance = No Sales Order"; restricted internal and portal conversion actions to accepted quotations with verified customer acceptance; eliminated internal employee auto-acceptance bypass; implemented automatic Price Card creation (`SPC-{CustomerCode}-{Currency}`) when missing; non-destructive line updates when assigned Price Card exists; and added complete automated security and domain verification tests. |
+| **1.5.0** | **2026-11-25** | **Antigravity Agent** | **Standardised 8-Stage B2B Sales Quotation Business Workflow:** Documented complete end-to-end standardisation across Internal ERP Workspace (Tab A Customer Requests vs. Tab B Sales Quotations), Customer Portal (enquiries vs. formal proposals), bidirectional tracking (`LinkedCustomerRequestId`, `LinkedCommercialQuotationId`, `RequestReviewStatus`), segregation of duties (submitters cannot self-approve; customer requests cannot be approved directly), explicit staff dispatch, PDF internal cost/margin scrubbing, customer portal acceptance, and atomic Sales Order / Price Card generation. |
 
 
 ---
@@ -863,3 +864,116 @@ The Sales Portal architecture reuses platform infrastructure. All items below ar
 | **Post-Commit Notification Handlers** | `IMPLEMENTED` | Resilient post-commit notification logging without rolling back committed orders on SMTP failure. |
 | **Customer Acceptance-Gated Conversion** | `IMPLEMENTED` | Enforces "No verified customer acceptance = No Sales Order". `ConvertQuotationToOrderAsync` strictly verifies `Status == Accepted`, `AcceptedAtUtc != null`, and `CustomerContactId != null`. Frontend disables/hides conversion until customer acceptance is recorded. |
 | **Automatic Price Card Management** | `IMPLEMENTED` | If no suitable Price Card exists on acceptance, auto-generates managed `PriceCard` (`SPC-{CustomerCode}-{Currency}`), adds accepted items, and assigns default to Customer and Sales Order. If existing card found, updates lines non-destructively. |
+
+---
+
+## 19. Standardised 8-Stage B2B Sales Quotation Workflow Specification
+
+### 19.1 Workflow Sequence and Segregation of Duties
+
+The standardized B2B Sales Quotation process strictly separates customer inquiries from formal binding commercial offers, ensuring transparent segregation of duties across Sales Staff, Sales Manager, and Customer:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 1: Customer Submits Quotation Request (Customer Portal)                          │
+│ • DocumentType = CustomerRequest | Status = Submitted | RequestReviewStatus = Submitted│
+│ • Original items, quantities, UOM, and customer remarks preserved                      │
+│ • Strictly NO Sales Order created; NOT a binding commercial offer                      │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 2: Sales Staff Reviews Customer Request (Internal ERP Workspace — Tab A)         │
+│ • Inspects customer enquiry, requested products, requested delivery dates, and notes   │
+│ • Checks product availability and adds internal review remarks                         │
+│ • Original Customer Request record remains independently preserved                     │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 3: Sales Staff Prepares Formal Commercial Quotation                              │
+│ • Invokes PrepareCommercialQuotationFromRequestAsync: creates separate SalesQuotation │
+│ • DocumentType = Standard | Status = Draft                                             │
+│ • Copies requested products/quantities as proposal baseline                            │
+│ • Enters selling prices, discounts, taxes, delivery terms, payment terms, validity     │
+│ • Bidirectional link established: LinkedCustomerRequestId on new quotation;            │
+│   LinkedCommercialQuotationId + RequestReviewStatus = QuotationPrepared on request    │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 4: Sales Staff Submits Quotation for Manager Approval                            │
+│ • Validates commercial details, line prices, discounts, taxes, and totals              │
+│ • Status transitions to Submitted | Records SubmittedByUserId and SubmittedAtUtc       │
+│ • Editing locked for ordinary staff; Customer Requests cannot be submitted for approval│
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 5: Sales Manager Reviews and Decides                                             │
+│ • Segregation of Duties: Creator/submitter CANNOT self-approve (enforced by service)   │
+│ • Customer Requests cannot be approved directly as commercial offers                   │
+│   ├─ IF APPROVED: Status = Confirmed | Records ApprovedByUserId / ApprovedAtUtc        │
+│   │  IMPORTANT: Confirmed quotations are NOT automatically dispatched to customer     │
+│   └─ IF REJECTED: Status = RejectedInternal | Requires mandatory rejection remarks     │
+│      Returned to Sales Staff for commercial adjustment and resubmission                │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ (If Approved / Confirmed)
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 6: Sales Staff Explicitly Sends Approved Quotation                               │
+│ • Validates: Status == Confirmed, not expired, recipient email valid                   │
+│ • Generates official ISO 32000-1 PDF (costs, margins, internal notes strictly scrubbed)│
+│ • Dispatches email via shared resilient retry mechanism (IEmailService)                │
+│ • Makes offer available in Customer Portal Workspace                                   │
+│ • Status = Sent | Records SentAtUtc, recipient, and dispatch timestamp                 │
+│ • Controlled retry mechanism available if email transport fails                        │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 7: Customer Reviews Formal Quotation (Customer Portal Workspace)                 │
+│ • Customer inspects formal offer: prices, discounts, taxes, terms, and downloadable PDF│
+│ • Customer Requests do NOT show Accept/Decline actions (inquiry only)                  │
+│ • Expired, draft, or cancelled quotations CANNOT be accepted                           │
+│   ├─ IF ACCEPTED: Authenticates customer contact; Status = Accepted;                   │
+│   │  Records AcceptedAtUtc and CustomerContactId                                       │
+│   └─ IF DECLINED: Requires mandatory decline remarks; Status = DeclinedByCustomer;     │
+│      Strictly NO Sales Order created                                                   │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ (If Accepted)
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 8: Create Draft Sales Order & Price Card (Atomic Conversion)                     │
+│ • MANDATORY INVARIANT: NO VERIFIED CUSTOMER ACCEPTANCE = NO SALES ORDER                │
+│ • Resolves applicable active customer Sales Price Card                                 │
+│ • If missing: auto-generates customer-specific card SPC-{CustomerCode}-{Currency}      │
+│ • If existing: updates only applicable lines non-destructively                         │
+│ • Creates exactly ONE official SalesOrder in Draft status                              │
+│ • Preserves accepted price, discount, tax, currency, and UOM snapshots                 │
+│ • Links ConvertedSalesOrderId on quotation; status transitions to Converted           │
+│ • Fulfills transaction integrity and duplicate-conversion prevention                   │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 19.2 Internal ERP Workspace Alignment (Sales → Sales Quotation Management)
+
+- **Tab A — Customer Requests:**
+  - Dedicated grid displaying incoming customer inquiries (`DocumentType == CustomerRequest`).
+  - Filters: `All Requests`, `Submitted`, `Under Review`, `Quotation Prepared`, `Closed`.
+  - Actions: `View Request`, `Prepare Commercial Quotation`, `View Linked Commercial Quotation`.
+  - Submitter/Manager approval actions are hidden for customer requests.
+- **Tab B — Sales Quotations:**
+  - Dedicated grid displaying formal commercial offers (`DocumentType == Standard`).
+  - Filters: `All Quotations`, `Draft`, `Submitted for Approval`, `Confirmed / Approved`, `Sent`, `Accepted`, `Declined`, `Expired`, `Converted`.
+  - Actions: `View`, `Edit Draft`, `Submit for Approval`, `Approve`, `Reject`, `Revise`, `Send Quotation`, `Retry Dispatch`, `Convert to Sales Order` (strictly gated on verified acceptance), `Download PDF`.
+  - Segregation of duties enforced: Submitters cannot see or invoke Approve/Reject actions on quotations they created or submitted.
+
+### 19.3 Customer Portal Alignment (Purchasing → Quotations)
+
+- Clear visual distinction between **Customer Requests** (unpriced product inquiries) and **Formal Commercial Offers** (binding offers issued by Sales).
+- Inverted `documentType` logic corrected across tabs, counters, and table formatters.
+- Customer Requests show inquiry details, requested delivery date, and link to the prepared commercial quotation once ready, but never display commercial Accept/Decline action buttons.
+- Formal Commercial Offers display unit prices, discounts, taxes, totals, delivery and payment terms, official PDF download, and interactive `Accept Proposal` and `Decline` action controls.
+- Expired quotations display an expiry banner with actions disabled.
+

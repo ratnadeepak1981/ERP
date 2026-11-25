@@ -169,6 +169,33 @@
         <h3 class="section-title">Commercial &amp; Operating Context</h3>
         <div class="info-grid">
           <div class="info-item">
+            <span class="info-label">Document Type</span>
+            <span class="info-val font-bold">{{ isCustomerRequest() ? 'Customer Quotation Request' : 'Formal Commercial Offer' }}</span>
+          </div>
+
+          @if (quotation()!.linkedCommercialQuotationId) {
+            <div class="info-item">
+              <span class="info-label">Linked Commercial Offer</span>
+              <span class="info-val">
+                <a [routerLink]="['/customer-portal/quotations', quotation()!.linkedCommercialQuotationId]" class="text-primary font-bold">
+                  <i class="pi pi-external-link"></i> {{ quotation()!.linkedCommercialQuotationNumber || 'View Offer' }}
+                </a>
+              </span>
+            </div>
+          }
+
+          @if (quotation()!.linkedCustomerRequestId) {
+            <div class="info-item">
+              <span class="info-label">Originating Request</span>
+              <span class="info-val">
+                <a [routerLink]="['/customer-portal/quotations', quotation()!.linkedCustomerRequestId]" class="text-primary font-bold">
+                  <i class="pi pi-link"></i> {{ quotation()!.linkedCustomerRequestNumber || 'View Request' }}
+                </a>
+              </span>
+            </div>
+          }
+
+          <div class="info-item">
             <span class="info-label">Customer Organisation</span>
             <span class="info-val font-bold">{{ quotation()!.customerName || 'Your Organisation' }}</span>
           </div>

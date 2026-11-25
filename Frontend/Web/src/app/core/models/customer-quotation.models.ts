@@ -118,6 +118,11 @@ export interface CustomerSalesQuotationDto {
   declinedRemarks?: string | null;
   convertedSalesOrderId?: string | null;
   convertedAtUtc?: string | null;
+  linkedCustomerRequestId?: string | null;
+  linkedCustomerRequestNumber?: string | null;
+  linkedCommercialQuotationId?: string | null;
+  linkedCommercialQuotationNumber?: string | null;
+  requestReviewStatus?: string | null;
   items: CustomerQuotationItemDto[];
 }
 

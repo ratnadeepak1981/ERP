@@ -69,7 +69,8 @@
           "options": {
             "proxyConfig": "proxy.conf.json",
             "allowedHosts": [
-                ".192.168.1.65.nip.io"
+                "localhost",
+                ".nip.io"
             ]
           },
           "configurations": {

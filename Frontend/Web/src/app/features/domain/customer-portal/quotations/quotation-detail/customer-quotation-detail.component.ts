@@ -63,10 +63,15 @@ export class CustomerQuotationDetailComponent implements OnInit {
   ];
 
   // Invariant Computeds
+  readonly isCustomerRequest = computed<boolean>(() => {
+    const q = this.quotation();
+    return q ? Number(q.documentType) === 2 : false;
+  });
+
   readonly isProposalActive = computed<boolean>(() => {
     const q = this.quotation();
     if (!q) return false;
-    return q.status === CustomerSalesQuotationStatus.Sent && !q.isExpired;
+    return Number(q.documentType) !== 2 && q.status === CustomerSalesQuotationStatus.Sent && !q.isExpired;
   });
 
   readonly isConverted = computed<boolean>(() => {

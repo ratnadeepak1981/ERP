@@ -455,7 +455,7 @@ public class SalesQuotation : Auditable, ITenantScopedEntity, ICompanyScopedEnti
     public void MarkSent(DateTime? sentAtUtc = null)
     {
         if (Status != SalesQuotationStatus.Confirmed)
-            throw new InvalidOperationException($"Cannot issue quotation with status '{Status}'. Only internally approved (Confirmed) quotations can be sent to customers.");
+            throw new InvalidOperationException($"Cannot issue quotation with status '{Status}'. Only Confirmed quotations can be sent to customers.");
 
         if (IsExpired())
             throw new InvalidOperationException("Cannot issue an expired quotation. Please update the ValidUntilDate before sending.");
