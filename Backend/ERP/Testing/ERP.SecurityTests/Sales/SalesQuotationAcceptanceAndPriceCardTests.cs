@@ -7,11 +7,13 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using API.Contracts;
+using ERP.Domain.Features.MasterData.Category;
 using Domain.Features.MasterData.Contact;
 using ERP.Domain.Features.MasterData.Customer;
 using Domain.Features.MasterData.PriceCard;
 using Domain.Features.MasterData.Product;
 using Domain.Features.Sales.SalesQuotation;
+using ERP.Application.Features.Sales.SalesQuotation;
 using Domain.Infrastructure.Persistence;
 using ERP.SecurityTests;
 using Microsoft.EntityFrameworkCore;
@@ -93,12 +95,14 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         var customerId = Guid.NewGuid();
         var contactId = Guid.NewGuid();
 
+        var uniqueCode = $"{customerCode}_{Guid.NewGuid():N}"[..25];
+        var uniqueName = $"{customerName}_{Guid.NewGuid():N}"[..30];
         var customer = Customer.Create(
             tenantId,
-            customerCode,
-            customerName,
+            uniqueCode,
+            uniqueName,
             "Contact Person",
-            $"{customerCode.ToLowerInvariant()}@example.local",
+            $"{uniqueCode.ToLowerInvariant()}@example.local",
             "+1-555-0100",
             "100 Enterprise Way",
             city: "Industrial Park",
@@ -143,11 +147,21 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         string productName,
         decimal sellingPrice)
     {
+        var category = await db.Categories.FirstOrDefaultAsync(c => c.TenantId == tenantId);
+        if (category == null)
+        {
+            category = Category.Create(tenantId, $"CAT_{Guid.NewGuid():N}"[..18], "General Category");
+            db.Categories.Add(category);
+            await db.SaveChangesAsync();
+        }
+
+        var uniqueCode = $"{productCode}_{Guid.NewGuid():N}"[..25];
+        var uniqueName = $"{productName}_{Guid.NewGuid():N}"[..30];
         var product = Product.Create(
             tenantId,
-            productCode,
-            productName,
-            Guid.NewGuid(),
+            uniqueCode,
+            uniqueName,
+            category.CategoryId,
             sellingPrice: sellingPrice,
             isSellable: true);
         db.Products.Add(product);
@@ -161,10 +175,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
         var customerUserId = Guid.NewGuid();
 
         var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-ACCEPT-1", "Alpha Global Industries");
@@ -176,7 +190,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-ACC-001",
+            $"SQ-ACC-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(15),
             documentType: SalesQuotationType.Standard,
             notes: "Commercial proposal for sensors",
@@ -260,10 +274,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
         var customerUserId = Guid.NewGuid();
 
         var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-ACCEPT-2", "Beta Tech Solutions");
@@ -272,7 +286,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         // Seed an existing active Price Card for this customer
         var existingCard = PriceCard.Create(
             tenantId,
-            "SPC-CUST-ACCEPT-2-USD",
+            $"SPC-CUST2-{Guid.NewGuid():N}"[..20],
             "Beta Tech Sales Price Card",
             PriceCardType.Sales,
             "USD",
@@ -290,7 +304,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-ACC-002",
+            $"SQ-ACC2-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(10),
             documentType: SalesQuotationType.Standard,
             createdByUserId: employeeUserId);
@@ -337,10 +351,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
 
         var (customerId, _) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-GATE-1", "Gamma Enterprise");
         var productId = await SeedProductAsync(db, tenantId, "PROD-GATE-1", "Fiber Cable 100m", 80m);
@@ -351,7 +365,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-GATE-001",
+            $"SQ-GATE-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(15),
             documentType: SalesQuotationType.Standard,
             createdByUserId: employeeUserId);
@@ -395,10 +409,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
         var customerUserId = Guid.NewGuid();
 
         var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-DEC-1", "Delta Corp");
@@ -409,7 +423,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-DEC-001",
+            $"SQ-DEC-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(15),
             documentType: SalesQuotationType.Standard,
             createdByUserId: employeeUserId);
@@ -451,10 +465,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
         var customerUserId = Guid.NewGuid();
 
         var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-EXP-1", "Epsilon Systems");
@@ -465,7 +479,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-EXP-001",
+            $"SQ-EXP-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(-1), // Already expired
             documentType: SalesQuotationType.Standard,
             createdByUserId: employeeUserId);
@@ -502,10 +516,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
         var customerUserId = Guid.NewGuid();
 
         var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-CONCUR-1", "Zeta Concurrency Corp");
@@ -516,7 +530,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-CONCUR-001",
+            $"SQ-CON-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(15),
             documentType: SalesQuotationType.Standard,
             createdByUserId: employeeUserId);
@@ -562,10 +576,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
         var customerUserId = Guid.NewGuid();
 
         var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-ISOLATE-1", "Theta Multi-Tenant Ltd");
@@ -574,7 +588,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         // Seed a generic/shared active Sales Price Card in USD
         var sharedCard = PriceCard.Create(
             tenantId,
-            "SPC-GENERAL-CATALOG-USD",
+            $"SPC-GEN-{Guid.NewGuid():N}"[..20],
             "General Wholesale USD Price Card",
             PriceCardType.Sales,
             "USD",
@@ -594,7 +608,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-ISOLATE-001",
+            $"SQ-ISO-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(15),
             documentType: SalesQuotationType.Standard,
             createdByUserId: employeeUserId);
@@ -637,7 +651,9 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             .FirstOrDefaultAsync(pc => pc.PriceCardId == updatedCustomer.DefaultSalesPriceCardId.Value);
 
         Assert.NotNull(customerSpecificCard);
-        Assert.Equal("SPC-CUST-ISOLATE-1-USD", customerSpecificCard.PriceCardCode);
+        var expectedCardCode = $"SPC-{updatedCustomer.CustomerCode}-{quotation.Currency}";
+        if (expectedCardCode.Length > 50) expectedCardCode = expectedCardCode[..50];
+        Assert.Equal(expectedCardCode, customerSpecificCard.PriceCardCode, ignoreCase: true);
         Assert.Equal(80m, customerSpecificCard.Lines.First().UnitPrice);
     }
 
@@ -647,10 +663,10 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-        var tenantId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
-        var branchId = Guid.NewGuid();
-        var employeeUserId = Guid.NewGuid();
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
         var customerUserId = Guid.NewGuid();
 
         var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-ROLLBACK-1", "Iota Rollback Ltd");
@@ -661,7 +677,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
             companyId,
             branchId,
             customerId,
-            "SQ-ROLLBACK-001",
+            $"SQ-ROL-{Guid.NewGuid():N}"[..18],
             validUntilDateUtc: DateTime.UtcNow.AddDays(15),
             documentType: SalesQuotationType.Standard,
             createdByUserId: employeeUserId);
@@ -697,5 +713,64 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
 
         var ordersCount = await verifyDb.SalesOrders.CountAsync(o => o.CustomerId == customerId);
         Assert.Equal(0, ordersCount);
+    }
+
+    [Fact]
+    public async Task PrepareCommercialQuotation_FromCustomerRequest_PreservesOriginalRequestAndCreatesSeparateDraft()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var quotationService = scope.ServiceProvider.GetRequiredService<ISalesQuotationService>();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var staffUserId = Guid.NewGuid();
+
+        var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-REQ-1", "Precision Engineering Ltd");
+        var productId = await SeedProductAsync(db, tenantId, "PROD-REQ-1", "Custom Steel Flange", 75.00m);
+
+        // Stage 1: Customer submits quotation request
+        var createRequest = new CreateCustomerQuotationRequest
+        {
+            CustomerId = customerId,
+            CustomerContactId = contactId,
+            CustomerRemarks = "Target delivery within 14 days, need 50 units",
+            RequiredDeliveryDate = DateTime.UtcNow.AddDays(14),
+            Currency = "USD",
+            Items = new List<CreateSalesQuotationItemRequest>
+            {
+                new() { ProductId = productId, Quantity = 50m, UnitPrice = 75.00m, Notes = "Grade A Spec" }
+            }
+        };
+
+        var requestDto = await quotationService.CreateCustomerQuotationRequestAsync(
+            tenantId, companyId, branchId, createRequest, actorUserId: contactId, actorUserName: "B2B Portal Contact");
+
+        Assert.Equal(SalesQuotationType.CustomerRequest, requestDto.DocumentType);
+        Assert.Equal("Submitted", requestDto.RequestReviewStatus);
+        Assert.Null(requestDto.LinkedCommercialQuotationId);
+
+        // Stage 2 & 3: Sales Staff prepares formal Commercial Quotation from request
+        var commercialDto = await quotationService.PrepareCommercialQuotationFromRequestAsync(
+            tenantId, companyId, branchId, requestDto.Id, staffUserId, "Sales Staff Officer");
+
+        Assert.NotNull(commercialDto);
+        Assert.NotEqual(requestDto.Id, commercialDto.Id);
+        Assert.Equal(SalesQuotationType.Standard, commercialDto.DocumentType);
+        Assert.Equal(SalesQuotationStatus.Draft, commercialDto.Status);
+        Assert.Equal(requestDto.Id, commercialDto.LinkedCustomerRequestId);
+        Assert.Equal(requestDto.QuotationNumber, commercialDto.LinkedCustomerRequestNumber);
+        Assert.Single(commercialDto.Items);
+        Assert.Equal(50m, commercialDto.Items[0].Quantity);
+
+        // Verify Original Customer Request was preserved and linked
+        var reloadedRequest = await quotationService.GetQuotationAsync(tenantId, companyId, branchId, requestDto.Id);
+        Assert.NotNull(reloadedRequest);
+        Assert.Equal(SalesQuotationType.CustomerRequest, reloadedRequest.DocumentType);
+        Assert.Equal(commercialDto.Id, reloadedRequest.LinkedCommercialQuotationId);
+        Assert.Equal(commercialDto.QuotationNumber, reloadedRequest.LinkedCommercialQuotationNumber);
+        Assert.Equal("QuotationPrepared", reloadedRequest.RequestReviewStatus);
+        Assert.Equal("Target delivery within 14 days, need 50 units", reloadedRequest.CustomerRemarks);
     }
 }

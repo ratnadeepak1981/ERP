@@ -1,7 +1,7 @@
 <div class="sales-quotations-page">
   <app-page-header
-    title="Sales Quotations"
-    subtitle="Review customer quotation requests, prepare commercial offers, coordinate approvals and email proposals."
+    title="Sales Quotation Management"
+    subtitle="Segregated B2B quotation workspace for customer requests review, commercial offer preparation, manager approvals and dispatch."
     [breadcrumbs]="breadcrumbs"
   >
     <div actions class="page-header-actions">
@@ -76,7 +76,7 @@
       <app-error-state [message]="error()!" (retry)="loadQuotations()"></app-error-state>
     </div>
   } @else {
-    <!-- Main Content Area: Search, Filter Pills & Data Table (Identical to Sales Orders) -->
+    <!-- Main Content Area: Search, Tabs, Filter Pills & Data Table -->
     <div class="sq-table-card erp-card">
       <div class="table-controls-bar">
         <div class="search-and-filters">
@@ -92,117 +92,165 @@
             />
           </div>
 
-          <!-- Type Category Pills -->
+          <!-- Tab A / Tab B Switcher -->
           <div class="filter-pills category-pills">
             <button
               type="button"
               class="filter-pill"
-              [class.active]="activeTab() === 'all'"
-              (click)="setTab('all')"
-            >
-              All Quotes ({{ allCount() }})
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeTab() === 'inbox'"
-              (click)="setTab('inbox')"
+              [class.active]="activeTab() === 'requests'"
+              (click)="setTab('requests')"
             >
               <i class="pi pi-inbox pill-icon"></i>
               <span>Customer Requests</span>
-              @if (inboxCount() > 0) {
-                <span class="pill-badge">{{ inboxCount() }}</span>
+              @if (requestsCount() > 0) {
+                <span class="pill-badge">{{ requestsCount() }}</span>
               }
             </button>
             <button
               type="button"
               class="filter-pill"
-              [class.active]="activeTab() === 'commercial'"
-              (click)="setTab('commercial')"
+              [class.active]="activeTab() === 'quotations'"
+              (click)="setTab('quotations')"
             >
               <i class="pi pi-file-edit pill-icon"></i>
-              <span>Commercial Offers ({{ commercialCount() }})</span>
+              <span>Sales Quotations ({{ quotationsCount() }})</span>
             </button>
           </div>
 
-          <!-- Status Filter Pills -->
-          <div class="filter-pills">
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'all'"
-              (click)="setStatusFilter('all')"
-            >
-              All Status
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'draft'"
-              (click)="setStatusFilter('draft')"
-            >
-              <i class="pi pi-file-edit pill-icon"></i> Draft
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'submitted'"
-              (click)="setStatusFilter('submitted')"
-            >
-              <i class="pi pi-clock pill-icon"></i> Pending Approval
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'confirmed'"
-              (click)="setStatusFilter('confirmed')"
-            >
-              <i class="pi pi-check pill-icon"></i> Approved
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'sent'"
-              (click)="setStatusFilter('sent')"
-            >
-              <i class="pi pi-envelope pill-icon"></i> Issued to Customer
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'accepted'"
-              (click)="setStatusFilter('accepted')"
-            >
-              <i class="pi pi-check-circle pill-icon"></i> Accepted
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'converted'"
-              (click)="setStatusFilter('converted')"
-            >
-              <i class="pi pi-shopping-bag pill-icon"></i> Converted
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'rejected'"
-              (click)="setStatusFilter('rejected')"
-            >
-              <i class="pi pi-times-circle pill-icon"></i> Rejected
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="activeStatusFilter() === 'cancelled'"
-              (click)="setStatusFilter('cancelled')"
-            >
-              <i class="pi pi-ban pill-icon"></i> Cancelled
-            </button>
-          </div>
+          <!-- Status Filter Pills for Tab A: Customer Requests -->
+          @if (activeTab() === 'requests') {
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="requestFilter() === 'all'"
+                (click)="setRequestFilter('all')"
+              >
+                All Requests
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="requestFilter() === 'submitted'"
+                (click)="setRequestFilter('submitted')"
+              >
+                <i class="pi pi-clock pill-icon"></i> Submitted
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="requestFilter() === 'under_review'"
+                (click)="setRequestFilter('under_review')"
+              >
+                <i class="pi pi-search pill-icon"></i> Under Review
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="requestFilter() === 'quotation_prepared'"
+                (click)="setRequestFilter('quotation_prepared')"
+              >
+                <i class="pi pi-check-circle pill-icon"></i> Quotation Prepared
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="requestFilter() === 'closed'"
+                (click)="setRequestFilter('closed')"
+              >
+                <i class="pi pi-ban pill-icon"></i> Closed
+              </button>
+            </div>
+          }
+
+          <!-- Status Filter Pills for Tab B: Sales Quotations -->
+          @if (activeTab() === 'quotations') {
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'all'"
+                (click)="setQuotationFilter('all')"
+              >
+                All Quotations
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'draft'"
+                (click)="setQuotationFilter('draft')"
+              >
+                <i class="pi pi-file-edit pill-icon"></i> Draft
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'submitted'"
+                (click)="setQuotationFilter('submitted')"
+              >
+                <i class="pi pi-clock pill-icon"></i> Pending Approval
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'confirmed'"
+                (click)="setQuotationFilter('confirmed')"
+              >
+                <i class="pi pi-check pill-icon"></i> Approved
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'rejected_internal'"
+                (click)="setQuotationFilter('rejected_internal')"
+              >
+                <i class="pi pi-ban pill-icon"></i> Approval Rejected
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'sent'"
+                (click)="setQuotationFilter('sent')"
+              >
+                <i class="pi pi-envelope pill-icon"></i> Sent to Customer
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'accepted'"
+                (click)="setQuotationFilter('accepted')"
+              >
+                <i class="pi pi-check-circle pill-icon"></i> Customer Accepted
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'declined'"
+                (click)="setQuotationFilter('declined')"
+              >
+                <i class="pi pi-times-circle pill-icon"></i> Customer Rejected
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'expired'"
+                (click)="setQuotationFilter('expired')"
+              >
+                <i class="pi pi-calendar-times pill-icon"></i> Expired
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'converted'"
+                (click)="setQuotationFilter('converted')"
+              >
+                <i class="pi pi-shopping-bag pill-icon"></i> Sales Order Created
+              </button>
+            </div>
+          }
         </div>
 
-        <!-- Scope Badge Indicator (Consistent with Sales Orders) -->
+        <!-- Scope Badge Indicator -->
         <div class="scope-info-pill" title="Current Transaction Scope">
           <i class="pi pi-building"></i>
           <span class="scope-text">
@@ -214,12 +262,12 @@
       <!-- Main Sales Quotations Data Table -->
       <app-data-table
         [data]="filteredQuotations()"
-        [columns]="tableColumns"
-        [rowActions]="tableActions"
+        [columns]="currentColumns()"
+        [rowActions]="currentActions()"
         rowKey="id"
         [loading]="loading()"
-        emptyTitle="No sales quotations found"
-        emptyDescription="No sales quotations match your current filter or none exist for this operating branch yet."
+        [emptyTitle]="activeTab() === 'requests' ? 'No customer requests found' : 'No sales quotations found'"
+        [emptyDescription]="activeTab() === 'requests' ? 'No customer quotation requests match your current filter.' : 'No sales quotations match your current filter or none exist for this operating branch yet.'"
         [showGlobalSearch]="false"
         [showColumnChooser]="true"
         [showExport]="true"
@@ -235,7 +283,7 @@
     </div>
   }
 
-  <!-- REUSABLE CONFIRMATION DIALOG (Submit, Approve, Reject, Send, Retry, Cancel, Convert) -->
+  <!-- REUSABLE CONFIRMATION DIALOG (Submit, Approve, Reject, Send, Retry, Cancel, Convert, Revise) -->
   <app-confirmation-dialog
     [(visible)]="confirmDialogVisible"
     [config]="confirmDialogConfig()"

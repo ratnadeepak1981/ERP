@@ -25,8 +25,31 @@
           <i class="pi pi-refresh" [class.pi-spin]="loading() || actionInProgress()"></i>
         </button>
 
+        <!-- Linked Navigation Buttons -->
+        @if (isCustomerRequest() && currentQuotation()?.linkedCommercialQuotationId) {
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="navigateToLinkedCommercialQuotation()"
+            title="View the formal commercial quotation prepared from this request"
+          >
+            <i class="pi pi-external-link"></i>
+            <span>Commercial Offer ({{ currentQuotation()?.linkedCommercialQuotationNumber }})</span>
+          </button>
+        } @else if (!isCustomerRequest() && currentQuotation()?.linkedCustomerRequestId) {
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="navigateToOriginatingCustomerRequest()"
+            title="View original customer request"
+          >
+            <i class="pi pi-link"></i>
+            <span>Originating Request ({{ currentQuotation()?.linkedCustomerRequestNumber }})</span>
+          </button>
+        }
+
         <!-- Download PDF -->
-        @if (currentQuotation()?.status === 3 || currentQuotation()?.status === 4 || currentQuotation()?.status === 5) {
+        @if (currentQuotation()?.status === 3 || currentQuotation()?.status === 5 || currentQuotation()?.status === 6 || currentQuotation()?.status === 8) {
           <button
             type="button"
             class="erp-button erp-button-secondary"
@@ -196,11 +219,19 @@
         @if (currentQuotation()) {
           <div class="order-status-banner">
             <div class="status-info">
-              <span class="status-label">Document Status:</span>
+              <span class="status-label">Approval Status:</span>
               <app-status-badge
-                [severity]="getStatusSeverity(currentQuotation()!.status)"
-                [label]="getStatusName(currentQuotation()!.status)"
+                [severity]="getApprovalSeverity(currentQuotation())"
+                [label]="getApprovalStatusLabel(currentQuotation())"
               ></app-status-badge>
+
+              @if (!isCustomerRequest()) {
+                <span class="status-label">Customer Progress:</span>
+                <app-status-badge
+                  [severity]="getCustomerStatusSeverity(currentQuotation())"
+                  [label]="getCustomerStatusLabel(currentQuotation())"
+                ></app-status-badge>
+              }
 
               @if (currentQuotation()!.emailStatus) {
                 <span class="erp-badge" [ngClass]="'badge-' + getEmailSeverity(currentQuotation()!.emailStatus)">
@@ -209,7 +240,7 @@
                     'pi-clock': currentQuotation()!.emailStatus === 'Pending',
                     'pi-exclamation-circle': currentQuotation()!.emailStatus === 'Failed'
                   }"></i>
-                  Email: {{ currentQuotation()!.emailStatus }}
+                  Email: {{ getEmailStatusLabel(currentQuotation()!.emailStatus) }}
                 </span>
               }
 
@@ -218,20 +249,30 @@
               }
             </div>
 
-            @if (currentQuotation()?.status === 5) {
+            @if (currentQuotation()?.status === 3) {
+              <div class="fulfillment-hint hint-approved">
+                <i class="pi pi-check"></i>
+                <span>Manager approved. Ready for Sales Staff to formally send to the customer.</span>
+              </div>
+            } @else if (currentQuotation()?.status === 4) {
+              <div class="fulfillment-hint hint-rejected">
+                <i class="pi pi-times-circle"></i>
+                <span>Approval rejected{{ currentQuotation()?.rejectionRemarks ? ': ' + currentQuotation()!.rejectionRemarks : '. Return to Draft to revise and resubmit.' }}</span>
+              </div>
+            } @else if (currentQuotation()?.status === 5) {
               <div class="fulfillment-hint hint-issued">
                 <i class="pi pi-send"></i>
-                <span>Issued to customer. Sales Order conversion is locked until verified customer acceptance.</span>
+                <span>Sent to customer. Sales Order conversion is locked until verified customer acceptance.</span>
               </div>
             } @else if (currentQuotation()?.status === 6) {
               <div class="fulfillment-hint hint-accepted">
                 <i class="pi pi-check-circle"></i>
-                <span>Accepted by customer. Ready for Sales Order conversion.</span>
+                <span>Customer accepted. Ready for Sales Order conversion.</span>
               </div>
             } @else if (currentQuotation()?.status === 8) {
               <div class="fulfillment-hint hint-converted">
                 <i class="pi pi-shopping-bag"></i>
-                <span>Converted to official Sales Order Draft.</span>
+                <span>Sales Order created.</span>
               </div>
             }
           </div>
@@ -663,7 +704,7 @@
             </button>
 
             <!-- Status Transition: Cancel Quotation -->
-            @if (currentQuotation() && currentQuotation()!.status !== 5 && currentQuotation()!.status !== 8 && currentQuotation()!.status !== 9 && canEdit()) {
+            @if (currentQuotation() && currentQuotation()!.status !== 6 && currentQuotation()!.status !== 8 && currentQuotation()!.status !== 9 && currentQuotation()!.status !== 11 && canEdit()) {
               <button
                 type="button"
                 class="erp-button erp-button-danger"
@@ -719,43 +760,56 @@
 
               <!-- Submitted / Review Mode -->
               @if (currentQuotation()?.status === 2) {
-                @if (canEdit()) {
-                  <button
-                    type="button"
-                    class="erp-button erp-button-secondary"
-                    (click)="prepareCommercialOffer()"
-                    title="Return this request to Draft to modify offered lines, prices, and terms"
-                  >
-                    <i class="pi pi-file-edit"></i>
-                    <span>Prepare Commercial Offer</span>
-                  </button>
-                }
+                @if (isCustomerRequest()) {
+                  @if (currentQuotation()?.linkedCommercialQuotationId) {
+                    <button
+                      type="button"
+                      class="erp-button erp-button-secondary"
+                      (click)="navigateToLinkedCommercialQuotation()"
+                      title="View the prepared formal commercial quotation"
+                    >
+                      <i class="pi pi-external-link"></i>
+                      <span>View Linked Commercial Offer ({{ currentQuotation()?.linkedCommercialQuotationNumber }})</span>
+                    </button>
+                  } @else if (canCreate()) {
+                    <button
+                      type="button"
+                      class="erp-button erp-button-primary"
+                      (click)="prepareCommercialOffer()"
+                      [disabled]="actionInProgress()"
+                      title="Prepare a separate formal commercial quotation from this customer request"
+                    >
+                      <i class="pi pi-file-edit"></i>
+                      <span>Prepare Commercial Quotation</span>
+                    </button>
+                  }
+                } @else {
+                  @if (canApprove()) {
+                    <button
+                      type="button"
+                      class="erp-button erp-button-danger"
+                      (click)="openRejectDialog()"
+                      [disabled]="actionInProgress()"
+                    >
+                      <i class="pi pi-times"></i>
+                      <span>Reject</span>
+                    </button>
 
-                @if (canApprove()) {
-                  <button
-                    type="button"
-                    class="erp-button erp-button-danger"
-                    (click)="openRejectDialog()"
-                    [disabled]="actionInProgress()"
-                  >
-                    <i class="pi pi-times"></i>
-                    <span>Reject</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    class="erp-button erp-button-primary"
-                    (click)="openApproveDialog()"
-                    [disabled]="actionInProgress()"
-                  >
-                    <i class="pi pi-check"></i>
-                    <span>Approve Commercial Offer</span>
-                  </button>
+                    <button
+                      type="button"
+                      class="erp-button erp-button-primary"
+                      (click)="openApproveDialog()"
+                      [disabled]="actionInProgress()"
+                    >
+                      <i class="pi pi-check"></i>
+                      <span>Approve Commercial Offer</span>
+                    </button>
+                  }
                 }
               }
 
               <!-- Confirmed / Approved Mode -->
-              @if (currentQuotation()?.status === 3 || currentQuotation()?.status === 4) {
+              @if (currentQuotation()?.status === 3) {
                 @if (canEdit()) {
                   <button
                     type="button"
@@ -769,16 +823,16 @@
                 }
               }
 
-              <!-- Declined by Customer Mode -->
-              @if (currentQuotation()?.status === 7 && canEdit()) {
+              <!-- Internally Rejected or Declined by Customer Mode -->
+              @if ((currentQuotation()?.status === 4 || currentQuotation()?.status === 7) && canEdit()) {
                 <button
                   type="button"
                   class="erp-button erp-button-secondary"
                   (click)="prepareCommercialOffer()"
-                  title="Prepare a revised commercial offer in Draft status"
+                  title="Return to Draft to revise commercial terms and resubmit"
                 >
                   <i class="pi pi-file-edit"></i>
-                  <span>Prepare Revised Offer</span>
+                  <span>Revise Commercial Offer</span>
                 </button>
               }
 
@@ -849,7 +903,7 @@
               <label>Email Notification Status</label>
               <div class="email-val">
                 <span class="erp-badge" [ngClass]="'badge-' + getEmailSeverity(currentQuotation()!.emailStatus)">
-                  {{ currentQuotation()!.emailStatus || 'Not Sent' }}
+                  {{ getEmailStatusLabel(currentQuotation()!.emailStatus) }}
                 </span>
                 @if (currentQuotation()!.sentAtUtc) {
                   <span class="sent-time">Dispatched {{ currentQuotation()!.sentAtUtc | date:'yyyy-MM-dd HH:mm' }} UTC</span>
@@ -867,12 +921,18 @@
               </div>
             </div>
 
-            <div class="email-field span-2">
-              <label>Customer Workspace Direct Link</label>
-              <div class="portal-link-box">
-                <i class="pi pi-link"></i>
-                <code class="link-url">/customer-portal/quotations/{{ currentQuotation()!.id }}</code>
-                <span class="link-auth-note"><i class="pi pi-shield"></i> Customer login required & tenant ownership enforced</span>
+            <div class="email-field">
+              <label>Customer Portal Access</label>
+              <div class="email-val">
+                <button
+                  type="button"
+                  class="erp-button erp-button-secondary erp-button-sm"
+                  (click)="openCustomerPortalView()"
+                  title="Open quotation in Customer Portal view"
+                >
+                  <i class="pi pi-external-link"></i>
+                  <span>Open in Customer Portal</span>
+                </button>
               </div>
             </div>
 

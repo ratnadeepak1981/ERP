@@ -63,6 +63,10 @@ public class SalesQuotationDto
 
     public SalesQuotationStatus Status { get; set; }
 
+    public string ApprovalStatus { get; set; } = string.Empty;
+
+    public string CustomerStatus { get; set; } = string.Empty;
+
     public decimal SubTotal { get; set; }
 
     public decimal DiscountAmount { get; set; }
