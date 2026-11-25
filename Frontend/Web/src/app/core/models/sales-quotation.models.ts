@@ -26,17 +26,17 @@ export function getSalesQuotationStatusName(status: SalesQuotationStatus | numbe
     case SalesQuotationStatus.Submitted:
       return 'Pending Approval';
     case SalesQuotationStatus.Confirmed:
-      return 'Approved (Internal)';
+      return 'Approved';
     case SalesQuotationStatus.RejectedInternal:
-      return 'Rejected (Internal)';
+      return 'Approval Rejected';
     case SalesQuotationStatus.Sent:
-      return 'Issued to Customer';
+      return 'Sent to Customer';
     case SalesQuotationStatus.Accepted:
-      return 'Accepted by Customer';
+      return 'Customer Accepted';
     case SalesQuotationStatus.DeclinedByCustomer:
-      return 'Declined by Customer';
+      return 'Customer Rejected';
     case SalesQuotationStatus.Converted:
-      return 'Converted to Order';
+      return 'Sales Order Created';
     case SalesQuotationStatus.Superseded:
       return 'Superseded';
     case SalesQuotationStatus.Expired:
@@ -45,6 +45,119 @@ export function getSalesQuotationStatusName(status: SalesQuotationStatus | numbe
       return 'Cancelled';
     default:
       return String(status || 'Draft');
+  }
+}
+
+export function getSalesQuotationApprovalStatusLabel(q?: SalesQuotationDto | null): string {
+  if (!q) return 'Draft';
+  if (q.approvalStatus) return q.approvalStatus;
+
+  const num = Number(q.status);
+  switch (num) {
+    case SalesQuotationStatus.Draft:
+      return 'Draft';
+    case SalesQuotationStatus.Submitted:
+      return 'Pending Approval';
+    case SalesQuotationStatus.Confirmed:
+    case SalesQuotationStatus.Sent:
+    case SalesQuotationStatus.Accepted:
+    case SalesQuotationStatus.DeclinedByCustomer:
+    case SalesQuotationStatus.Converted:
+      return 'Approved';
+    case SalesQuotationStatus.RejectedInternal:
+      return 'Approval Rejected';
+    case SalesQuotationStatus.Cancelled:
+      return 'Cancelled';
+    case SalesQuotationStatus.Superseded:
+      return q.approvedAtUtc ? 'Approved' : (q.rejectedAtUtc ? 'Approval Rejected' : 'Superseded');
+    case SalesQuotationStatus.Expired:
+      return q.approvedAtUtc ? 'Approved' : (q.rejectedAtUtc ? 'Approval Rejected' : (q.submittedAtUtc ? 'Pending Approval' : 'Expired'));
+    default:
+      return q.approvedAtUtc ? 'Approved' : 'Draft';
+  }
+}
+
+export function getSalesQuotationApprovalSeverity(
+  q?: SalesQuotationDto | null
+): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  const label = getSalesQuotationApprovalStatusLabel(q);
+  switch (label) {
+    case 'Approved':
+      return 'success';
+    case 'Pending Approval':
+      return 'warning';
+    case 'Approval Rejected':
+    case 'Cancelled':
+    case 'Expired':
+      return 'danger';
+    case 'Draft':
+      return 'info';
+    default:
+      return 'neutral';
+  }
+}
+
+export function getSalesQuotationCustomerStatusLabel(q?: SalesQuotationDto | null): string {
+  if (!q) return 'Not Sent';
+  if (q.customerStatus) return q.customerStatus;
+
+  const num = Number(q.status);
+  if (num === SalesQuotationStatus.Converted || q.convertedSalesOrderId) {
+    return 'Sales Order Created';
+  }
+  switch (num) {
+    case SalesQuotationStatus.Accepted:
+      return 'Customer Accepted';
+    case SalesQuotationStatus.DeclinedByCustomer:
+      return 'Customer Rejected';
+    case SalesQuotationStatus.Sent:
+      return 'Sent to Customer';
+    case SalesQuotationStatus.Cancelled:
+      return 'Cancelled';
+    case SalesQuotationStatus.Expired:
+      return 'Expired';
+    case SalesQuotationStatus.Superseded:
+      return 'Superseded';
+    default:
+      if ((q.emailStatus || '').toLowerCase() === 'pending') return 'Pending Send';
+      return q.sentAtUtc ? 'Sent to Customer' : 'Not Sent';
+  }
+}
+
+export function getSalesQuotationCustomerStatusSeverity(
+  q?: SalesQuotationDto | null
+): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  const label = getSalesQuotationCustomerStatusLabel(q);
+  switch (label) {
+    case 'Customer Accepted':
+    case 'Sales Order Created':
+      return 'success';
+    case 'Sent to Customer':
+      return 'info';
+    case 'Pending Send':
+      return 'warning';
+    case 'Customer Rejected':
+    case 'Cancelled':
+    case 'Expired':
+      return 'danger';
+    case 'Not Sent':
+    default:
+      return 'neutral';
+  }
+}
+
+export function getSalesQuotationEmailStatusLabel(status?: string | null): string {
+  if (!status) return 'Not Sent';
+  switch (status.trim().toLowerCase()) {
+    case 'sent':
+      return 'Sent';
+    case 'pending':
+      return 'Pending Send';
+    case 'failed':
+      return 'Send Failed';
+    case 'notsent':
+    default:
+      return 'Not Sent';
   }
 }
 
@@ -162,6 +275,8 @@ export interface SalesQuotationDto {
   paymentTerms?: string | null;
   deliveryTerms?: string | null;
   status: SalesQuotationStatus | number | string;
+  approvalStatus?: string | null;
+  customerStatus?: string | null;
   subTotal: number;
   discountAmount: number;
   taxAmount: number;

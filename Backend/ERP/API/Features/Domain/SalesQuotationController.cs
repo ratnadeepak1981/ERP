@@ -19,6 +19,8 @@ public class SalesQuotationController : BaseApiController
     private readonly ISalesQuotationService _quotationService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserAccessService _userAccessService;
+    private readonly global::Domain.Features.MasterData.Company.ICompanyRepository _companyRepository;
+    private readonly global::Domain.Features.MasterData.Branch.IBranchRepository _branchRepository;
 
     private static readonly SortMapping<SalesQuotationDto> _sortMapping = new SortMapping<SalesQuotationDto>()
         .Add("quotationNumber", q => q.QuotationNumber, isDefault: true)
@@ -26,16 +28,22 @@ public class SalesQuotationController : BaseApiController
         .Add("validUntilDateUtc", q => q.ValidUntilDateUtc)
         .Add("totalAmount", q => q.TotalAmount)
         .Add("status", q => q.Status)
+        .Add("approvalStatus", q => q.ApprovalStatus)
+        .Add("customerStatus", q => q.CustomerStatus)
         .SetSecondary(q => q.Id);
 
     public SalesQuotationController(
         ISalesQuotationService quotationService,
         ICurrentUserContext currentUserContext,
-        IUserAccessService userAccessService)
+        IUserAccessService userAccessService,
+        global::Domain.Features.MasterData.Company.ICompanyRepository companyRepository,
+        global::Domain.Features.MasterData.Branch.IBranchRepository branchRepository)
     {
         _quotationService = quotationService ?? throw new ArgumentNullException(nameof(quotationService));
         _currentUserContext = currentUserContext ?? throw new ArgumentNullException(nameof(currentUserContext));
         _userAccessService = userAccessService ?? throw new ArgumentNullException(nameof(userAccessService));
+        _companyRepository = companyRepository ?? throw new ArgumentNullException(nameof(companyRepository));
+        _branchRepository = branchRepository ?? throw new ArgumentNullException(nameof(branchRepository));
     }
 
     [HttpGet]
@@ -521,6 +529,18 @@ public class SalesQuotationController : BaseApiController
         if (!tenantId.HasValue)
         {
             return (UnauthorizedResponse("Tenant identity is missing or invalid."), Guid.Empty);
+        }
+
+        var company = await _companyRepository.GetByIdAsync(tenantId.Value, companyId);
+        if (company == null)
+        {
+            return (Forbid(), Guid.Empty);
+        }
+
+        var branch = await _branchRepository.GetByIdAsync(tenantId.Value, companyId, branchId);
+        if (branch == null)
+        {
+            return (Forbid(), Guid.Empty);
         }
 
         var canAccessCompany = await _userAccessService.CanAccessCompanyAsync(

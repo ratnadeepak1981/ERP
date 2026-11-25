@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { AppPageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
@@ -20,13 +20,18 @@ import {
   SalesQuotationType,
   getSalesQuotationStatusName,
   getSalesQuotationStatusSeverity,
+  getSalesQuotationApprovalStatusLabel,
+  getSalesQuotationApprovalSeverity,
+  getSalesQuotationCustomerStatusLabel,
+  getSalesQuotationCustomerStatusSeverity,
+  getSalesQuotationEmailStatusLabel,
   getSalesQuotationEmailStatusSeverity
 } from '../../../../../core/models/sales-quotation.models';
 import { DataTableColumn, DataTableAction } from '../../../../../shared/models/data-table-config.model';
 
 export type QuotationTab = 'requests' | 'quotations';
 export type RequestFilter = 'all' | 'submitted' | 'under_review' | 'quotation_prepared' | 'closed';
-export type QuotationFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'sent' | 'accepted' | 'declined' | 'expired' | 'converted';
+export type QuotationFilter = 'all' | 'draft' | 'submitted' | 'confirmed' | 'rejected_internal' | 'sent' | 'accepted' | 'declined' | 'expired' | 'converted';
 
 @Component({
   selector: 'app-sales-quotation-register',
@@ -51,6 +56,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   readonly scopeService: WorkspaceScopeService = inject(WorkspaceScopeService);
   readonly authService = inject(AuthService);
   readonly router = inject(Router);
+  readonly route = inject(ActivatedRoute);
 
   private readonly subs = new Subscription();
 
@@ -139,12 +145,14 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
               return s === SalesQuotationStatus.Submitted;
             case 'confirmed':
               return s === SalesQuotationStatus.Confirmed;
+            case 'rejected_internal':
+              return s === SalesQuotationStatus.RejectedInternal;
             case 'sent':
               return s === SalesQuotationStatus.Sent;
             case 'accepted':
               return s === SalesQuotationStatus.Accepted;
             case 'declined':
-              return s === SalesQuotationStatus.DeclinedByCustomer || s === SalesQuotationStatus.RejectedInternal;
+              return s === SalesQuotationStatus.DeclinedByCustomer;
             case 'expired':
               return s === SalesQuotationStatus.Expired || q.isExpired;
             case 'converted':
@@ -174,7 +182,10 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   // Permissions
   readonly canCreate = computed(() => this.authService.hasPermission('SALES_QUOTATION.CREATE'));
   readonly canEdit = computed(() => this.authService.hasPermission('SALES_QUOTATION.EDIT'));
-  readonly canApprove = computed(() => this.authService.hasPermission('SALES_QUOTATION.APPROVE') || this.authService.hasPermission('SALES_ORDER.CONFIRM'));
+  readonly canApprove = computed(() =>
+    this.authService.hasPermission('SALES_QUOTATION.CONFIRM') ||
+    this.authService.hasPermission('SALES_QUOTATION.APPROVE')
+  );
   readonly canCreateOrder = computed(() => this.authService.hasPermission('SALES_ORDER.CREATE'));
 
   // Tab A: Customer Requests Columns
@@ -312,22 +323,31 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       format: (val: any) => val != null ? `${Number(val).toFixed(2)}%` : '—'
     },
     {
-      field: 'status',
-      header: 'Status',
+      field: 'approvalStatus',
+      header: 'Approval Status',
       sortable: true,
       width: '160px',
       type: 'badge',
-      badgeSeverityMap: (val: any) => getSalesQuotationStatusSeverity(val),
-      format: (val: any) => getSalesQuotationStatusName(val)
+      badgeSeverityMap: (_val: any, row?: SalesQuotationDto) => getSalesQuotationApprovalSeverity(row),
+      format: (_val: any, row?: SalesQuotationDto) => getSalesQuotationApprovalStatusLabel(row)
+    },
+    {
+      field: 'customerStatus',
+      header: 'Customer Progress',
+      sortable: true,
+      width: '170px',
+      type: 'badge',
+      badgeSeverityMap: (_val: any, row?: SalesQuotationDto) => getSalesQuotationCustomerStatusSeverity(row),
+      format: (_val: any, row?: SalesQuotationDto) => getSalesQuotationCustomerStatusLabel(row)
     },
     {
       field: 'emailStatus',
       header: 'Email Status',
       sortable: true,
-      width: '120px',
+      width: '130px',
       type: 'badge',
       badgeSeverityMap: (val: any) => getSalesQuotationEmailStatusSeverity(val),
-      format: (val: any) => val || 'Not Sent'
+      format: (val: any) => getSalesQuotationEmailStatusLabel(val)
     },
     {
       field: 'id',
@@ -453,7 +473,13 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       label: 'PDF',
       icon: 'pi pi-download',
       severity: 'secondary',
-      visible: (row: SalesQuotationDto) => Number(row.status) >= SalesQuotationStatus.Confirmed,
+      visible: (row: SalesQuotationDto) => {
+        const s = Number(row.status);
+        return s === SalesQuotationStatus.Confirmed ||
+               s === SalesQuotationStatus.Sent ||
+               s === SalesQuotationStatus.Accepted ||
+               s === SalesQuotationStatus.Converted;
+      },
       action: (row: SalesQuotationDto) => this.downloadPdf(row)
     }
   ];
@@ -467,6 +493,14 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    this.subs.add(
+      this.route.queryParams.subscribe(params => {
+        const tab = params['tab'];
+        if (tab === 'quotations' || tab === 'requests') {
+          this.activeTab.set(tab);
+        }
+      })
+    );
     if (this.scopeService.canOperateTransactions()) {
       this.loadQuotations();
     }
@@ -549,13 +583,27 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
     return getSalesQuotationEmailStatusSeverity(status);
   }
 
+  private getEffectiveScope(quotation?: SalesQuotationDto | null): { companyId: string; branchId: string } | null {
+    const comp = this.scopeService.selectedCompany();
+    const br = this.scopeService.selectedBranch();
+    const companyId = comp?.id || quotation?.companyId;
+    const branchId = br?.id || quotation?.branchId;
+    if (!companyId || !branchId) {
+      this.message.set({
+        text: 'Operating scope is missing. Please ensure an Operating Company and Branch are active.',
+        severity: 'warn'
+      });
+      return null;
+    }
+    return { companyId, branchId };
+  }
+
   prepareCommercialQuotation(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     this.actionInProgress.set(true);
-    this.quotationService.prepareQuotationFromRequest(company.id, branch.id, quotation.id).subscribe({
+    this.quotationService.prepareQuotationFromRequest(scope.companyId, scope.branchId, quotation.id).subscribe({
       next: created => {
         this.actionInProgress.set(false);
         this.message.set({
@@ -576,9 +624,8 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   openReviseDialog(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     this.confirmDialogConfig.set({
       action: 'revise',
@@ -593,7 +640,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
     });
     this.confirmCallback = () => {
       this.actionInProgress.set(true);
-      this.quotationService.returnToDraft(company.id, branch.id, quotation.id, 'Revision by sales officer').subscribe({
+      this.quotationService.returnToDraft(scope.companyId, scope.branchId, quotation.id, 'Revision by sales officer').subscribe({
         next: updated => {
           this.actionInProgress.set(false);
           this.message.set({ text: `Quotation ${updated.quotationNumber} returned to Draft for revision.`, severity: 'info' });
@@ -610,9 +657,8 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   convertToOrder(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     if (Number(quotation.status) !== SalesQuotationStatus.Accepted) {
       this.message.set({
@@ -632,7 +678,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
     });
     this.confirmCallback = () => {
       this.actionInProgress.set(true);
-      this.quotationService.convertQuotationToOrder(company.id, branch.id, quotation.id).subscribe({
+      this.quotationService.convertQuotationToOrder(scope.companyId, scope.branchId, quotation.id).subscribe({
         next: () => {
           this.actionInProgress.set(false);
           this.message.set({
@@ -655,9 +701,8 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   openApproveDialog(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     this.remarksTargetQuotation.set(quotation);
     this.remarksAction.set('approve');
@@ -676,9 +721,8 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   openRejectDialog(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     this.remarksTargetQuotation.set(quotation);
     this.remarksAction.set('reject');
@@ -698,9 +742,8 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   openSendEmailDialog(quotation: SalesQuotationDto, isRetry: boolean = false): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     const action = isRetry ? 'retry' : 'send';
     this.remarksTargetQuotation.set(quotation);
@@ -721,9 +764,8 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   openCancelDialog(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     this.remarksTargetQuotation.set(quotation);
     this.remarksAction.set('cancel');
@@ -742,9 +784,8 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   submitQuotation(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     this.confirmDialogConfig.set({
       action: 'submit',
@@ -756,7 +797,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
     });
     this.confirmCallback = () => {
       this.actionInProgress.set(true);
-      this.quotationService.submitQuotation(company.id, branch.id, quotation.id).subscribe({
+      this.quotationService.submitQuotation(scope.companyId, scope.branchId, quotation.id).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
           this.message.set({ text: `Quotation ${updated.quotationNumber} submitted for approval successfully.`, severity: 'success' });
@@ -783,18 +824,19 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
 
   executeRemarksActionWith(action: string, remarks: string): void {
     const quotation = this.remarksTargetQuotation();
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
+    if (!quotation || !action) return;
 
-    if (!quotation || !action || !company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
     const trimmedRemarks = (remarks || '').trim();
     this.actionInProgress.set(true);
 
     if (action === 'approve') {
-      this.quotationService.approveQuotation(company.id, branch.id, quotation.id, trimmedRemarks).subscribe({
+      this.quotationService.approveQuotation(scope.companyId, scope.branchId, quotation.id, trimmedRemarks).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
+          this.quotations.update(list => list.map(q => q.id === updated.id ? updated : q));
           this.message.set({ text: `Quotation ${updated.quotationNumber} approved successfully. You can now issue it to the customer.`, severity: 'success' });
           this.loadQuotations();
         },
@@ -804,9 +846,10 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
         }
       });
     } else if (action === 'reject') {
-      this.quotationService.rejectQuotation(company.id, branch.id, quotation.id, trimmedRemarks).subscribe({
+      this.quotationService.rejectQuotation(scope.companyId, scope.branchId, quotation.id, trimmedRemarks).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
+          this.quotations.update(list => list.map(q => q.id === updated.id ? updated : q));
           this.message.set({ text: `Quotation ${updated.quotationNumber} has been rejected.`, severity: 'warn' });
           this.loadQuotations();
         },
@@ -816,9 +859,10 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
         }
       });
     } else if (action === 'cancel') {
-      this.quotationService.cancelQuotation(company.id, branch.id, quotation.id, trimmedRemarks).subscribe({
+      this.quotationService.cancelQuotation(scope.companyId, scope.branchId, quotation.id, trimmedRemarks).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
+          this.quotations.update(list => list.map(q => q.id === updated.id ? updated : q));
           this.message.set({ text: `Quotation ${updated.quotationNumber} has been cancelled.`, severity: 'info' });
           this.loadQuotations();
         },
@@ -829,10 +873,11 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       });
     } else if (action === 'send' || action === 'retry') {
       const isRetry = action === 'retry';
-      this.quotationService.sendQuotationEmail(company.id, branch.id, quotation.id, isRetry).subscribe({
+      this.quotationService.sendQuotationEmail(scope.companyId, scope.branchId, quotation.id, isRetry).subscribe({
         next: updated => {
           this.actionInProgress.set(false);
-          this.message.set({ text: `Quotation ${updated.quotationNumber} sent by email to customer successfully.`, severity: 'success' });
+          this.quotations.update(list => list.map(q => q.id === updated.id ? updated : q));
+          this.message.set({ text: `Quotation ${updated.quotationNumber} sent to customer successfully.`, severity: 'success' });
           this.loadQuotations();
         },
         error: err => {
@@ -845,11 +890,10 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
   }
 
   downloadPdf(quotation: SalesQuotationDto): void {
-    const company = this.scopeService.selectedCompany();
-    const branch = this.scopeService.selectedBranch();
-    if (!company || !branch) return;
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
 
-    this.quotationService.downloadPdf(company.id, branch.id, quotation.id).subscribe({
+    this.quotationService.downloadPdf(scope.companyId, scope.branchId, quotation.id).subscribe({
       next: blob => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');

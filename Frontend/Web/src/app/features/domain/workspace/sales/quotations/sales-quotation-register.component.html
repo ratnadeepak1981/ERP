@@ -188,7 +188,7 @@
                 [class.active]="quotationFilter() === 'submitted'"
                 (click)="setQuotationFilter('submitted')"
               >
-                <i class="pi pi-clock pill-icon"></i> Submitted for Approval
+                <i class="pi pi-clock pill-icon"></i> Pending Approval
               </button>
               <button
                 type="button"
@@ -196,7 +196,15 @@
                 [class.active]="quotationFilter() === 'confirmed'"
                 (click)="setQuotationFilter('confirmed')"
               >
-                <i class="pi pi-check pill-icon"></i> Confirmed / Approved
+                <i class="pi pi-check pill-icon"></i> Approved
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                [class.active]="quotationFilter() === 'rejected_internal'"
+                (click)="setQuotationFilter('rejected_internal')"
+              >
+                <i class="pi pi-ban pill-icon"></i> Approval Rejected
               </button>
               <button
                 type="button"
@@ -204,7 +212,7 @@
                 [class.active]="quotationFilter() === 'sent'"
                 (click)="setQuotationFilter('sent')"
               >
-                <i class="pi pi-envelope pill-icon"></i> Sent
+                <i class="pi pi-envelope pill-icon"></i> Sent to Customer
               </button>
               <button
                 type="button"
@@ -212,7 +220,7 @@
                 [class.active]="quotationFilter() === 'accepted'"
                 (click)="setQuotationFilter('accepted')"
               >
-                <i class="pi pi-check-circle pill-icon"></i> Accepted
+                <i class="pi pi-check-circle pill-icon"></i> Customer Accepted
               </button>
               <button
                 type="button"
@@ -220,7 +228,7 @@
                 [class.active]="quotationFilter() === 'declined'"
                 (click)="setQuotationFilter('declined')"
               >
-                <i class="pi pi-times-circle pill-icon"></i> Declined
+                <i class="pi pi-times-circle pill-icon"></i> Customer Rejected
               </button>
               <button
                 type="button"
@@ -236,7 +244,7 @@
                 [class.active]="quotationFilter() === 'converted'"
                 (click)="setQuotationFilter('converted')"
               >
-                <i class="pi pi-shopping-bag pill-icon"></i> Converted
+                <i class="pi pi-shopping-bag pill-icon"></i> Sales Order Created
               </button>
             </div>
           }

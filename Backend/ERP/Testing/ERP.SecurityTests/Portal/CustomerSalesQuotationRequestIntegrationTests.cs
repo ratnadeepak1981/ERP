@@ -323,7 +323,7 @@ public class CustomerSalesQuotationRequestIntegrationTests : IClassFixture<TestS
         {
             var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-            var customer = Customer.Create(tenantId, $"CUST-ADR-{Guid.NewGuid():N}"[..12], "Address Test Corp");
+            var customer = Customer.Create(tenantId, $"CUST-ADR-{Guid.NewGuid():N}"[..30], "Address Test Corp");
             typeof(Customer).GetProperty("CustomerId")!.SetValue(customer, customerId);
             db.Customers.Add(customer);
 
@@ -379,7 +379,7 @@ public class CustomerSalesQuotationRequestIntegrationTests : IClassFixture<TestS
         {
             var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-            var customer = Customer.Create(tenantId, $"CUST-IDEM-{Guid.NewGuid():N}"[..12], "Idempotent Corp");
+            var customer = Customer.Create(tenantId, $"CUST-IDEM-{Guid.NewGuid():N}"[..30], "Idempotent Corp");
             typeof(Customer).GetProperty("CustomerId")!.SetValue(customer, customerId);
             db.Customers.Add(customer);
 
@@ -451,7 +451,7 @@ public class CustomerSalesQuotationRequestIntegrationTests : IClassFixture<TestS
         {
             var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
-            var customer = Customer.Create(tenantId, $"CUST-HIST-{Guid.NewGuid():N}"[..12], "History Test Corp");
+            var customer = Customer.Create(tenantId, $"CUST-HIST-{Guid.NewGuid():N}"[..30], "History Test Corp");
             typeof(Customer).GetProperty("CustomerId")!.SetValue(customer, customerId);
             db.Customers.Add(customer);
 

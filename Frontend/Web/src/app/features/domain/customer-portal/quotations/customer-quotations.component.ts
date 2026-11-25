@@ -382,17 +382,17 @@ export class CustomerQuotationsComponent implements OnInit {
   });
 
   readonly allCount = computed(() => this.quotations().length);
-  readonly requestsCount = computed(() => this.quotations().filter(q => Number(q.documentType) !== 2).length);
-  readonly offersCount = computed(() => this.quotations().filter(q => Number(q.documentType) === 2).length);
+  readonly requestsCount = computed(() => this.quotations().filter(q => Number(q.documentType) === 2).length);
+  readonly offersCount = computed(() => this.quotations().filter(q => Number(q.documentType) !== 2).length);
 
   readonly filteredQuotations = computed<CustomerSalesQuotationDto[]>(() => {
     let list = this.quotations();
 
     // Type category filter
     if (this.activeTab() === 'requests') {
-      list = list.filter(q => Number(q.documentType) !== 2);
-    } else if (this.activeTab() === 'offers') {
       list = list.filter(q => Number(q.documentType) === 2);
+    } else if (this.activeTab() === 'offers') {
+      list = list.filter(q => Number(q.documentType) !== 2);
     }
 
     // Status filter
@@ -449,7 +449,7 @@ export class CustomerQuotationsComponent implements OnInit {
       header: 'Type',
       sortable: true,
       width: '150px',
-      format: (val: any) => Number(val) === 2 ? 'Commercial Offer' : 'Customer Request'
+      format: (val: any) => Number(val) === 2 ? 'Customer Request' : 'Commercial Offer'
     },
     {
       field: 'quotationDate',

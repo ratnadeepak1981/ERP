@@ -252,12 +252,17 @@ public class SalesQuotationService : ISalesQuotationService
             remarksParts.Add($"Project: {request.ProjectReference.Trim()}");
         if (!string.IsNullOrWhiteSpace(request.DeliveryInstructions))
             remarksParts.Add($"Delivery Instructions: {request.DeliveryInstructions.Trim()}");
-        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
-            remarksParts.Add($"[IdempotencyKey:{request.IdempotencyKey.Trim()}]");
 
         if (remarksParts.Count > 0)
         {
             quotation.CustomerRemarks = string.Join(" | ", remarksParts);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            quotation.InternalNotes = string.IsNullOrWhiteSpace(quotation.InternalNotes)
+                ? $"[IdempotencyKey:{request.IdempotencyKey.Trim()}]"
+                : $"{quotation.InternalNotes}\n[IdempotencyKey:{request.IdempotencyKey.Trim()}]";
         }
 
         if (request.Items != null && request.Items.Count > 0)
@@ -301,8 +306,9 @@ public class SalesQuotationService : ISalesQuotationService
             ? snapshotMarker
             : $"{quotation.InternalNotes}\n{snapshotMarker}";
 
-        // If submitted by customer via portal, submit quotation request for internal review
-        if (!request.IsDraft && actorUserName == "Customer Portal User" && quotation.Items.Any(i => i.IsActive))
+        // If submitted by customer via portal or with customer contact, submit quotation request for internal review (Status: Submitted)
+        if (!request.IsDraft && quotation.Items.Any(i => i.IsActive) &&
+            (request.CustomerContactId.HasValue || (actorUserName != null && actorUserName.Contains("Portal"))))
         {
             quotation.SubmitForApproval(actorUserId ?? customer.CustomerId);
         }
@@ -526,7 +532,9 @@ public class SalesQuotationService : ISalesQuotationService
             quotation.TotalAmount);
 
         await _repository.SaveChangesAsync();
-        return MapToDto(quotation);
+        var submitDto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(submitDto, tenantId);
+        return submitDto;
     }
 
     public async Task<SalesQuotationDto> ApproveQuotationAsync(
@@ -559,6 +567,9 @@ public class SalesQuotationService : ISalesQuotationService
 
         var creatorOrSubmitter = quotation.SubmittedByUserId ?? quotation.CreatedByUserId ?? Guid.Empty;
 
+        // Validate and transition domain state FIRST: Submitted -> Confirmed
+        quotation.Approve(approverUserId);
+
         // Enforce approval record & self-approval guard via ApprovalWorkflowService
         await _approvalService.RecordApprovalAsync(
             tenantId,
@@ -570,11 +581,10 @@ public class SalesQuotationService : ISalesQuotationService
             quotation.TotalAmount,
             remarks);
 
-        // Transition domain state: Submitted -> Confirmed
-        quotation.Approve(approverUserId);
-
         await _repository.SaveChangesAsync();
-        return MapToDto(quotation);
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
     }
 
     public async Task<SalesQuotationDto> RejectQuotationAsync(
@@ -602,6 +612,9 @@ public class SalesQuotationService : ISalesQuotationService
             throw new InvalidOperationException("Customer Requests cannot be rejected via commercial offer approval. Please prepare a commercial quotation or close the request.");
         }
 
+        // Validate and transition domain state FIRST: Submitted -> RejectedInternal
+        quotation.Reject(approverUserId, remarks);
+
         // Record in approval audit log
         await _approvalService.RecordRejectionAsync(
             tenantId,
@@ -612,11 +625,10 @@ public class SalesQuotationService : ISalesQuotationService
             remarks,
             quotation.TotalAmount);
 
-        // Transition domain state: Submitted -> RejectedInternal
-        quotation.Reject(approverUserId, remarks);
-
         await _repository.SaveChangesAsync();
-        return MapToDto(quotation);
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
     }
 
     public async Task<SalesQuotationDto> CancelQuotationAsync(
@@ -651,7 +663,9 @@ public class SalesQuotationService : ISalesQuotationService
             remarks);
 
         await _repository.SaveChangesAsync();
-        return MapToDto(quotation);
+        var cancelDto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(cancelDto, tenantId);
+        return cancelDto;
     }
 
     public async Task<List<ApprovalAuditRecord>> GetApprovalHistoryAsync(
@@ -822,10 +836,25 @@ public class SalesQuotationService : ISalesQuotationService
             throw new InvalidOperationException($"Quotation {quotation.QuotationNumber} was already sent on {quotation.SentAtUtc.Value:yyyy-MM-dd HH:mm:ss} UTC. Enable retry if resending is required.");
         }
 
-        // Rule 3: Dispatch email notification
+        // Rule 3: Dispatch email notification (failure must never reverse internal approval)
         if (_emailService != null)
         {
-            var dispatchResult = await _emailService.SendQuotationNotificationAsync(quotation);
+            SalesQuotationEmailDispatchResult dispatchResult;
+            try
+            {
+                dispatchResult = await _emailService.SendQuotationNotificationAsync(quotation);
+            }
+            catch (Exception ex)
+            {
+                string failedMarker = $"[EmailStatus:Failed|Recipient:Unknown|Error:{ex.Message}]";
+                quotation.InternalNotes = string.IsNullOrWhiteSpace(quotation.InternalNotes)
+                    ? failedMarker
+                    : $"{quotation.InternalNotes}\n{failedMarker}";
+
+                await _repository.SaveChangesAsync();
+                throw new InvalidOperationException($"Failed to send quotation email: {ex.Message}", ex);
+            }
+
             if (dispatchResult.IsSuccess)
             {
                 quotation.MarkSent(DateTime.UtcNow);
@@ -1568,7 +1597,7 @@ public class SalesQuotationService : ISalesQuotationService
             TaxAmount = quotation.TaxAmount,
             TotalAmount = quotation.TotalAmount,
             Notes = quotation.Notes,
-            CustomerRemarks = quotation.CustomerRemarks,
+            CustomerRemarks = CleanCustomerRemarks(quotation.CustomerRemarks),
             SentAtUtc = quotation.SentAtUtc,
             AcceptedAtUtc = quotation.AcceptedAtUtc,
             DeclinedAtUtc = quotation.DeclinedAtUtc,
@@ -1864,6 +1893,12 @@ public class SalesQuotationService : ISalesQuotationService
                 var match = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[EmailStatus:Sent\|Recipient:([^\|\]]+)");
                 if (match.Success) emailRecipient = match.Groups[1].Value.Trim();
             }
+            else if (quotation.InternalNotes.Contains("[EmailStatus:Pending"))
+            {
+                emailStatus = "Pending";
+                var match = System.Text.RegularExpressions.Regex.Match(quotation.InternalNotes, @"\[EmailStatus:Pending\|Recipient:([^\|\]]+)");
+                if (match.Success) emailRecipient = match.Groups[1].Value.Trim();
+            }
             else if (quotation.InternalNotes.Contains("[EmailStatus:Failed"))
             {
                 emailStatus = "Failed";
@@ -1876,8 +1911,11 @@ public class SalesQuotationService : ISalesQuotationService
 
         if (string.IsNullOrEmpty(emailStatus))
         {
-            emailStatus = quotation.SentAtUtc.HasValue ? "Sent" : (quotation.Status == SalesQuotationStatus.Confirmed ? "Pending" : "NotSent");
+            emailStatus = quotation.SentAtUtc.HasValue ? "Sent" : "NotSent";
         }
+
+        string approvalStatus = ResolveApprovalStatus(quotation);
+        string customerStatus = ResolveCustomerStatus(quotation, emailStatus);
 
         Guid? linkedCustomerRequestId = null;
         string? linkedCustomerRequestNumber = null;
@@ -1957,6 +1995,8 @@ public class SalesQuotationService : ISalesQuotationService
             PaymentTerms = quotation.PaymentTerms,
             DeliveryTerms = quotation.DeliveryTerms,
             Status = quotation.Status,
+            ApprovalStatus = approvalStatus,
+            CustomerStatus = customerStatus,
             SubTotal = quotation.SubTotal,
             DiscountAmount = quotation.DiscountAmount,
             TaxAmount = quotation.TaxAmount,
@@ -1966,7 +2006,7 @@ public class SalesQuotationService : ISalesQuotationService
             BaseTaxAmount = quotation.BaseTaxAmount,
             BaseTotalAmount = quotation.BaseTotalAmount,
             Notes = quotation.Notes,
-            CustomerRemarks = quotation.CustomerRemarks,
+            CustomerRemarks = CleanCustomerRemarks(quotation.CustomerRemarks),
             InternalNotes = quotation.InternalNotes,
             DeliveryAddressId = quotation.DeliveryAddressId,
             DeliveryAddressSnapshot = quotation.DeliveryAddressSnapshot,
@@ -1996,6 +2036,61 @@ public class SalesQuotationService : ISalesQuotationService
             EmailFailureReason = emailFailureReason,
             Items = quotation.Items.Where(i => i.IsActive).Select(MapItemToDto).ToList()
         };
+    }
+
+    private static string ResolveApprovalStatus(global::Domain.Features.Sales.SalesQuotation.SalesQuotation quotation)
+    {
+        return quotation.Status switch
+        {
+            SalesQuotationStatus.Draft => "Draft",
+            SalesQuotationStatus.Submitted => "Pending Approval",
+            SalesQuotationStatus.Confirmed => "Approved",
+            SalesQuotationStatus.RejectedInternal => "Approval Rejected",
+            SalesQuotationStatus.Sent => "Approved",
+            SalesQuotationStatus.Accepted => "Approved",
+            SalesQuotationStatus.DeclinedByCustomer => "Approved",
+            SalesQuotationStatus.Converted => "Approved",
+            SalesQuotationStatus.Cancelled => "Cancelled",
+            SalesQuotationStatus.Superseded => quotation.ApprovedAtUtc.HasValue
+                ? "Approved"
+                : (quotation.RejectedAtUtc.HasValue ? "Approval Rejected" : "Superseded"),
+            SalesQuotationStatus.Expired => quotation.ApprovedAtUtc.HasValue
+                ? "Approved"
+                : (quotation.RejectedAtUtc.HasValue
+                    ? "Approval Rejected"
+                    : (quotation.SubmittedAtUtc.HasValue ? "Pending Approval" : "Expired")),
+            _ => "Draft"
+        };
+    }
+
+    private static string ResolveCustomerStatus(
+        global::Domain.Features.Sales.SalesQuotation.SalesQuotation quotation,
+        string? emailStatus)
+    {
+        if (quotation.Status == SalesQuotationStatus.Converted || quotation.ConvertedSalesOrderId.HasValue)
+            return "Sales Order Created";
+
+        return quotation.Status switch
+        {
+            SalesQuotationStatus.Accepted => "Customer Accepted",
+            SalesQuotationStatus.DeclinedByCustomer => "Customer Rejected",
+            SalesQuotationStatus.Sent => "Sent to Customer",
+            SalesQuotationStatus.Cancelled => "Cancelled",
+            SalesQuotationStatus.Expired => "Expired",
+            SalesQuotationStatus.Superseded => "Superseded",
+            _ => string.Equals(emailStatus, "Pending", StringComparison.OrdinalIgnoreCase)
+                ? "Pending Send"
+                : (quotation.SentAtUtc.HasValue ? "Sent to Customer" : "Not Sent")
+        };
+    }
+
+    private static string? CleanCustomerRemarks(string? remarks)
+    {
+        if (string.IsNullOrWhiteSpace(remarks)) return remarks;
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(remarks, @"\[IdempotencyKey:[^\]]+\]", string.Empty);
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s*\|\s*\|+", " | ").Trim();
+        cleaned = cleaned.Trim(' ', '|', '-');
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
     }
 
     private static SalesQuotationItemDto MapItemToDto(SalesQuotationItem item)

@@ -125,9 +125,7 @@ public class CustomerQuotationController : BaseApiController
 
         // Purchasing permission check
         bool hasPurchasingAuthority = _customerContext.Permissions.Contains("PORTAL_QUOTATION.REQUEST")
-            || _customerContext.Permissions.Contains("PORTAL.QUOTATION.REQUEST")
-            || _customerContext.Roles.Any(r => r.Contains("CUSTOMER_COMPANY_ADMIN", StringComparison.OrdinalIgnoreCase)
-                                            || r.Contains("Company Administrator", StringComparison.OrdinalIgnoreCase));
+            || _customerContext.Permissions.Contains("PORTAL.QUOTATION.REQUEST");
 
         if (!hasPurchasingAuthority)
             return ForbiddenResponse("Purchasing authority required to submit Sales Quotation requests.");
@@ -205,12 +203,13 @@ public class CustomerQuotationController : BaseApiController
         // 6. Duplicate Submission Protection (via Idempotency Key)
         if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
+            var keyTag = $"[IdempotencyKey:{request.IdempotencyKey.Trim()}]";
             var existing = await _domainContext.SalesQuotations
                 .AsNoTracking()
                 .FirstOrDefaultAsync(sq => sq.TenantId == _customerContext.TenantId
                     && sq.CustomerId == _customerContext.CustomerId
-                    && sq.CustomerRemarks != null
-                    && sq.CustomerRemarks.Contains($"[IdempotencyKey:{request.IdempotencyKey.Trim()}]"), ct);
+                    && ((sq.InternalNotes != null && sq.InternalNotes.Contains(keyTag))
+                        || (sq.CustomerRemarks != null && sq.CustomerRemarks.Contains(keyTag))), ct);
 
             if (existing != null)
             {
