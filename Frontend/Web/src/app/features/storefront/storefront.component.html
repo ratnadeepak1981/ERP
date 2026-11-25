@@ -27,12 +27,29 @@
           <i class="pi pi-home"></i> Portal Home
         </a>
 
-        <a routerLink="/login" class="erp-button erp-button-secondary erp-button-sm">
-          <i class="pi pi-user"></i> Customer Sign In
-        </a>
+        @if (authService.isAuthenticated()) {
+          <a routerLink="/customer-portal" class="erp-button erp-button-secondary erp-button-sm">
+            <i class="pi pi-user"></i> My Account
+          </a>
+        } @else {
+          <a routerLink="/login" class="erp-button erp-button-secondary erp-button-sm">
+            <i class="pi pi-user"></i> Customer Sign In
+          </a>
 
-        <a routerLink="/register" class="erp-button erp-button-primary erp-button-sm">
-          Request B2B Account
+          <a routerLink="/register" class="erp-button erp-button-primary erp-button-sm">
+            Request B2B Account
+          </a>
+        }
+
+        <!-- Reactive Cart Item Count Badge -->
+        <a
+          routerLink="/customer-portal/cart"
+          class="cart-indicator-badge"
+          [title]="cartService.totalItems() + ' items in cart - View Cart'"
+          aria-label="View Shopping Cart"
+        >
+          <i class="pi pi-shopping-cart"></i>
+          <span class="cart-count">{{ cartService.totalItems() }}</span>
         </a>
       </div>
     </div>
@@ -189,6 +206,16 @@
               </div>
             </div>
 
+            <!-- Action Feedback Notification -->
+            @if (actionFeedback(); as feedback) {
+              @if (feedback.productId === prod.productId) {
+                <div class="card-feedback-banner" [class.feedback-success]="feedback.success" [class.feedback-error]="!feedback.success">
+                  <i [class]="feedback.success ? 'pi pi-check-circle' : 'pi pi-exclamation-circle'"></i>
+                  <span>{{ feedback.message }}</span>
+                </div>
+              }
+            }
+
             <!-- Price & Action Footer -->
             <div class="product-footer">
               <div class="price-box">
@@ -203,14 +230,19 @@
                 >
                   Details
                 </a>
-                <a
-                  routerLink="/login"
-                  [queryParams]="{ returnUrl: '/storefront/products/' + prod.productId }"
-                  class="erp-button erp-button-primary erp-button-sm"
-                  title="Sign in to place order"
+                <button
+                  type="button"
+                  class="erp-button erp-button-primary erp-button-sm add-to-cart-btn"
+                  (click)="addToCart(prod, $event)"
+                  [disabled]="addingProductId() === prod.productId || prod.inStock === false"
+                  [title]="prod.inStock === false ? 'Item is made to order' : (authService.isAuthenticated() ? 'Add to cart' : 'Sign in to add to cart')"
                 >
-                  <i class="pi pi-shopping-cart"></i> Order
-                </a>
+                  @if (addingProductId() === prod.productId) {
+                    <i class="pi pi-spin pi-spinner"></i> Adding...
+                  } @else {
+                    <i class="pi pi-shopping-cart"></i> Add to Cart
+                  }
+                </button>
               </div>
             </div>
           </article>

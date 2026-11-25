@@ -24,9 +24,9 @@ export function getCustomerQuotationStatusLabel(status: number): string {
     case CustomerSalesQuotationStatus.Sent:
       return 'Formal Proposal Issued';
     case CustomerSalesQuotationStatus.Accepted:
-      return 'Accepted by Customer';
+      return 'Accepted';
     case CustomerSalesQuotationStatus.DeclinedByCustomer:
-      return 'Declined by Customer';
+      return 'Rejected';
     case CustomerSalesQuotationStatus.Converted:
       return 'Converted to Sales Order';
     case CustomerSalesQuotationStatus.Superseded:

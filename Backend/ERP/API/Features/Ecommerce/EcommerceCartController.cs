@@ -293,6 +293,11 @@ public class EcommerceCartController : BaseApiController
             return BadRequestResponse("Request body is required.");
 
         var (customerId, effectiveSessionId) = ResolveCustomerAndSession(request.SessionId);
+        if (!customerId.HasValue || customerId.Value == Guid.Empty)
+        {
+            return UnauthorizedResponse("Authentication is required to proceed to checkout. Please log in to your account.");
+        }
+
         request.SessionId = effectiveSessionId;
         EnsureSessionHeader(effectiveSessionId);
 

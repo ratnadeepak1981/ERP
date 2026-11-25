@@ -1,0 +1,316 @@
+<div class="customer-cart-page">
+  <!-- Page Header -->
+  <app-page-header
+    title="Shopping Cart"
+    [subtitle]="cartHeaderSubtitle()"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <a routerLink="/customer-portal/catalog" class="erp-button erp-button-secondary erp-button-sm">
+        <i class="pi pi-arrow-left"></i>
+        <span>Continue Shopping</span>
+      </a>
+
+      @if (cart() && cart()!.lines.length > 0) {
+        <button
+          type="button"
+          class="erp-button erp-button-secondary erp-button-sm"
+          (click)="confirmClearCart()"
+          [disabled]="loading() || clearingCart() || updatingLineId() !== null || removingLineId() !== null"
+          title="Remove all items from shopping cart"
+        >
+          @if (clearingCart()) {
+            <i class="pi pi-spin pi-spinner"></i>
+          } @else {
+            <i class="pi pi-trash"></i>
+          }
+          <span>Clear Cart</span>
+        </button>
+      }
+    </div>
+  </app-page-header>
+
+  <!-- Inline Context or Feedback Alert -->
+  @if (actionFeedback(); as feedback) {
+    <div class="action-feedback-banner" [class.success]="feedback.success" [class.error]="!feedback.success">
+      <i [class]="feedback.success ? 'pi pi-check-circle' : 'pi pi-exclamation-triangle'"></i>
+      <span>{{ feedback.message }}</span>
+      <button type="button" class="close-feedback-btn" (click)="clearFeedback()" aria-label="Dismiss feedback">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Error / Mismatch State Banner -->
+  @if (error() && !loading()) {
+    <div class="cart-alert-card error-card erp-card">
+      <div class="alert-icon">
+        <i class="pi pi-exclamation-triangle"></i>
+      </div>
+      <div class="alert-body">
+        <h4>Cart Attention Required</h4>
+        <p>{{ error() }}</p>
+      </div>
+      <div class="alert-actions">
+        <button type="button" class="erp-button erp-button-secondary erp-button-sm" (click)="reloadCart()">
+          <i class="pi pi-refresh"></i>
+          <span>Retry</span>
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Main Cart Content Area -->
+  @if (loading() && !cart()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Loading your shopping cart..."></app-loading-state>
+    </div>
+  } @else if (!cart() || cart()!.lines.length === 0) {
+    <!-- Empty Cart State -->
+    <div class="cart-empty-wrap erp-card">
+      <app-empty-state
+        title="Your Shopping Cart is Empty"
+        description="Browse our industrial catalog to discover manufactured parts, assemblies, and published products."
+        icon="pi-shopping-cart"
+        actionLabel="Explore Product Catalogue"
+        actionIcon="pi pi-search"
+        (action)="goToCatalog()"
+      ></app-empty-state>
+    </div>
+  } @else {
+    <!-- Populated Cart Layout: 2 Columns (Items List + Order Summary) -->
+    <div class="cart-layout-grid">
+      <!-- Left Column: Items List -->
+      <div class="cart-items-column">
+        <div class="erp-card cart-items-card">
+          <div class="card-header-row">
+            <h3 class="section-title">
+              <span>Cart Items</span>
+              <span class="count-pill">{{ cart()!.totalItems }} {{ cart()!.totalItems === 1 ? 'item' : 'items' }}</span>
+            </h3>
+            <span class="company-badge" [title]="'Selling entity: ' + cart()!.companyName">
+              <i class="pi pi-building"></i> {{ cart()!.companyName || 'Company Context' }}
+            </span>
+          </div>
+
+          <!-- Line Items Table / List -->
+          <div class="table-responsive">
+            <table class="erp-table cart-table">
+              <thead>
+                <tr>
+                  <th style="min-width: 240px;">Product</th>
+                  <th style="width: 100px;" class="text-center">Packaging / UOM</th>
+                  <th style="width: 140px;" class="text-right">Unit Price</th>
+                  <th style="width: 160px;" class="text-center">Quantity</th>
+                  <th style="width: 140px;" class="text-right">Line Total</th>
+                  <th style="width: 60px;" class="text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of cart()!.lines; track item.lineId) {
+                  <tr class="cart-line-row" [class.row-updating]="updatingLineId() === item.lineId || removingLineId() === item.lineId">
+                    <!-- Product Info -->
+                    <td>
+                      <div class="product-cell">
+                        <div class="product-icon-wrap">
+                          <i class="pi pi-box"></i>
+                        </div>
+                        <div class="product-meta">
+                          <span class="product-name font-medium">{{ item.productName }}</span>
+                          <span class="product-sku"><code>{{ item.productCode }}</code></span>
+                          @if (!item.isAvailable) {
+                            <span class="availability-badge out-of-stock">
+                              <i class="pi pi-exclamation-circle"></i> Unavailable
+                            </span>
+                          }
+                          @if (item.validationMessage) {
+                            <span class="validation-msg text-danger">{{ item.validationMessage }}</span>
+                          }
+                        </div>
+                      </div>
+                    </td>
+
+                    <!-- Packaging / UOM -->
+                    <td class="text-center">
+                      <div class="uom-cell">
+                        <span class="uom-pill">{{ item.unitOfMeasureCode || 'EA' }}</span>
+                        @if (item.packagingName) {
+                          <span class="packaging-label">{{ item.packagingName }}</span>
+                        }
+                      </div>
+                    </td>
+
+                    <!-- Unit Price & Discounts -->
+                    <td class="text-right tabular-nums">
+                      <div class="price-cell">
+                        <span class="unit-price font-bold">
+                          {{ item.unitPrice | currency:item.currency:'symbol':'1.2-2' }}
+                        </span>
+                        @if (item.discountAmount > 0) {
+                          <span class="discount-pill" [title]="'Discount: ' + item.discountRate + '%'">
+                            -{{ item.discountAmount | currency:item.currency:'symbol':'1.2-2' }} ({{ item.discountRate }}%)
+                          </span>
+                        }
+                        @if (item.taxAmount > 0) {
+                          <span class="tax-rate-subtext">
+                            Tax: {{ item.taxAmount | currency:item.currency:'symbol':'1.2-2' }}
+                            @if (item.isTaxInclusive) {
+                              <em class="tax-inc">(Inc)</em>
+                            }
+                          </span>
+                        }
+                      </div>
+                    </td>
+
+                    <!-- Quantity Controls -->
+                    <td class="text-center">
+                      <div class="quantity-control-group">
+                        <button
+                          type="button"
+                          class="qty-btn"
+                          (click)="decrementQuantity(item)"
+                          [disabled]="item.quantity <= 1 || updatingLineId() === item.lineId || removingLineId() === item.lineId || loading()"
+                          title="Decrease quantity"
+                          aria-label="Decrease quantity"
+                        >
+                          <i class="pi pi-minus"></i>
+                        </button>
+
+                        <div class="qty-input-wrapper">
+                          @if (updatingLineId() === item.lineId) {
+                            <i class="pi pi-spin pi-spinner qty-spinner"></i>
+                          } @else {
+                            <input
+                              type="number"
+                              class="qty-input tabular-nums"
+                              [value]="item.quantity"
+                              min="1"
+                              max="99999"
+                              (change)="onQuantityInputChange(item, $event)"
+                              (keydown.enter)="onQuantityInputChange(item, $event)"
+                              [disabled]="updatingLineId() === item.lineId || removingLineId() === item.lineId || loading()"
+                              aria-label="Item quantity"
+                            />
+                          }
+                        </div>
+
+                        <button
+                          type="button"
+                          class="qty-btn"
+                          (click)="incrementQuantity(item)"
+                          [disabled]="updatingLineId() === item.lineId || removingLineId() === item.lineId || loading()"
+                          title="Increase quantity"
+                          aria-label="Increase quantity"
+                        >
+                          <i class="pi pi-plus"></i>
+                        </button>
+                      </div>
+                    </td>
+
+                    <!-- Authoritative Line Total -->
+                    <td class="text-right font-bold text-main tabular-nums">
+                      <div class="line-total-cell">
+                        <span class="total-val">{{ item.lineTotal | currency:item.currency:'symbol':'1.2-2' }}</span>
+                      </div>
+                    </td>
+
+                    <!-- Action: Remove -->
+                    <td class="text-center">
+                      <button
+                        type="button"
+                        class="remove-line-btn"
+                        (click)="removeLine(item)"
+                        [disabled]="updatingLineId() === item.lineId || removingLineId() === item.lineId || loading()"
+                        title="Remove item"
+                        aria-label="Remove item from cart"
+                      >
+                        @if (removingLineId() === item.lineId) {
+                          <i class="pi pi-spin pi-spinner"></i>
+                        } @else {
+                          <i class="pi pi-trash"></i>
+                        }
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Authoritative Order Summary -->
+      <div class="cart-summary-column">
+        <div class="erp-card summary-card">
+          <h3 class="section-title">Order Summary</h3>
+
+          <div class="summary-breakdown">
+            <!-- Authoritative Subtotal -->
+            <div class="summary-row">
+              <span class="label">Subtotal</span>
+              <span class="value tabular-nums">{{ cart()!.subTotal | currency:cart()!.currency:'symbol':'1.2-2' }}</span>
+            </div>
+
+            <!-- Authoritative Total Discount (if any) -->
+            @if (cart()!.totalDiscount > 0) {
+              <div class="summary-row discount-row">
+                <span class="label">Total Discount</span>
+                <span class="value tabular-nums text-success">
+                  -{{ cart()!.totalDiscount | currency:cart()!.currency:'symbol':'1.2-2' }}
+                </span>
+              </div>
+            }
+
+            <!-- Authoritative Tax -->
+            <div class="summary-row">
+              <span class="label">Estimated Tax</span>
+              <span class="value tabular-nums">{{ cart()!.totalTax | currency:cart()!.currency:'symbol':'1.2-2' }}</span>
+            </div>
+
+            <!-- Divider -->
+            <div class="summary-divider"></div>
+
+            <!-- Authoritative Grand Total -->
+            <div class="summary-row grand-total-row">
+              <span class="label">Grand Total</span>
+              <span class="value grand-total-val tabular-nums text-primary">
+                {{ cart()!.grandTotal | currency:cart()!.currency:'symbol':'1.2-2' }}
+              </span>
+            </div>
+            <div class="currency-note">
+              <span>All charges computed authoritatively in <strong>{{ cart()!.currency }}</strong></span>
+            </div>
+          </div>
+
+          <!-- Checkout Out-of-Scope Milestone Notice -->
+          <div class="checkout-notice-box">
+            <div class="notice-header">
+              <i class="pi pi-info-circle text-primary"></i>
+              <span class="font-bold">Checkout Readiness</span>
+            </div>
+            <p class="notice-desc">
+              Cart pricing, discounts, and tax rates are verified authoritatively. Checkout and payment processing will be finalized in the next milestone.
+            </p>
+          </div>
+
+          <!-- Actions -->
+          <div class="summary-actions">
+            <a
+              routerLink="/customer-portal/checkout"
+              class="erp-button erp-button-primary erp-button-lg full-width-btn"
+              title="Proceed to Address Selection and Checkout"
+            >
+              <i class="pi pi-arrow-right"></i>
+              <span>Proceed to Checkout</span>
+            </a>
+
+            <a routerLink="/customer-portal/catalog" class="erp-button erp-button-secondary full-width-btn">
+              <i class="pi pi-arrow-left"></i>
+              <span>Add More Products</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

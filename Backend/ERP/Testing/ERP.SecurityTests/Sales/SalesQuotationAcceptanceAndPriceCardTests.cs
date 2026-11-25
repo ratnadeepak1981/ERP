@@ -170,7 +170,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
     }
 
     [Fact]
-    public async Task CustomerAcceptance_WhenFormallyIssued_CreatesDraftSalesOrderAndAutoGeneratesPriceCard()
+    public async Task CustomerAcceptance_WhenFormallyIssued_RecordsAcceptanceOnly_AndDoesNotCreateSalesOrder()
     {
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
@@ -221,7 +221,78 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // 3. Verify Database: Quotation is Accepted & Converted, SalesOrder Draft is created, PriceCard is created
+        // 3. Verify Database: Quotation is Accepted ONLY, NO SalesOrder created, NO ConvertedSalesOrderId
+        using var verifyScope = _fixture.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+
+        var updatedQuote = await verifyDb.SalesQuotations
+            .Include(q => q.Items)
+            .FirstOrDefaultAsync(q => q.Id == quotation.Id);
+
+        Assert.NotNull(updatedQuote);
+        Assert.Equal(SalesQuotationStatus.Accepted, updatedQuote.Status);
+        Assert.NotNull(updatedQuote.AcceptedAtUtc);
+        Assert.Equal(contactId, updatedQuote.CustomerContactId);
+        Assert.Null(updatedQuote.ConvertedSalesOrderId);
+
+        // Crucial Architectural Rule: Customer acceptance MUST NOT generate a Sales Order!
+        var ordersCount = await verifyDb.SalesOrders.CountAsync(o => o.CustomerId == customerId);
+        Assert.Equal(0, ordersCount);
+    }
+
+    [Fact]
+    public async Task InternalConversion_AfterCustomerAcceptance_CreatesSingleDraftSalesOrder_AndAutoGeneratesPriceCard()
+    {
+        using var scope = _fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
+
+        var tenantId = TestConstants.TenantAlphaId;
+        var companyId = TestConstants.CompanyAId;
+        var branchId = TestConstants.BranchA1Id;
+        var employeeUserId = TestConstants.BranchUserA1Id;
+        var customerUserId = Guid.NewGuid();
+
+        var (customerId, contactId) = await SeedCustomerAndContactAsync(db, tenantId, "CUST-CONV-1", "Alpha Global Industries 2");
+        var productId = await SeedProductAsync(db, tenantId, "PROD-CONV-1", "Precision Sensor B", 300m);
+
+        // 1. Arrange a quotation accepted by customer
+        var quotation = SalesQuotation.Create(
+            tenantId,
+            companyId,
+            branchId,
+            customerId,
+            $"SQ-CNV-{Guid.NewGuid():N}"[..18],
+            validUntilDateUtc: DateTime.UtcNow.AddDays(15),
+            documentType: SalesQuotationType.Standard,
+            notes: "Commercial proposal for sensors B",
+            createdByUserId: employeeUserId);
+
+        quotation.AddItem(productId, 20m, 280m, discountRate: 5m, taxRate: 10m);
+        quotation.SubmitForApproval(employeeUserId);
+        quotation.Approve(Guid.NewGuid());
+        quotation.MarkSent();
+        quotation.Accept(contactId);
+
+        db.SalesQuotations.Add(quotation);
+        await db.SaveChangesAsync();
+
+        Assert.Equal(SalesQuotationStatus.Accepted, quotation.Status);
+
+        // 2. Authorised ERP employee explicitly converts the accepted quotation to Sales Order
+        var employeeClient = CreateEmployeeClient(
+            employeeUserId,
+            "sales.officer@apexerp.com",
+            tenantId,
+            roles: new[] { "SALES_OFFICER" },
+            permissions: new[] { "SALES_ORDER.CREATE", "SALES_QUOTATION.VIEW" });
+
+        var response = await employeeClient.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/sales-quotations/{quotation.Id}/convert-to-order",
+            null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // 3. Verify Database: Quotation is now Converted, exactly ONE Draft SalesOrder exists
         using var verifyScope = _fixture.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
 
@@ -231,8 +302,6 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
 
         Assert.NotNull(updatedQuote);
         Assert.Equal(SalesQuotationStatus.Converted, updatedQuote.Status);
-        Assert.NotNull(updatedQuote.AcceptedAtUtc);
-        Assert.Equal(contactId, updatedQuote.CustomerContactId);
         Assert.NotNull(updatedQuote.ConvertedSalesOrderId);
 
         // Verify Draft Sales Order
@@ -248,9 +317,9 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         Assert.Single(order.Items);
         Assert.Equal(productId, order.Items.First().ProductId);
         Assert.Equal(20m, order.Items.First().Quantity);
-        Assert.Equal(220m, order.Items.First().UnitPrice);
+        Assert.Equal(280m, order.Items.First().UnitPrice);
 
-        // Verify Price Card creation: Missing price card should be auto-created and assigned
+        // Verify Price Card creation: Missing price card auto-created and assigned
         var customer = await verifyDb.Customers.FirstOrDefaultAsync(c => c.CustomerId == customerId);
         Assert.NotNull(customer);
         Assert.NotNull(customer.DefaultSalesPriceCardId);
@@ -265,7 +334,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
         Assert.True(priceCard.IsActive);
         Assert.Single(priceCard.Lines);
         Assert.Equal(productId, priceCard.Lines.First().ProductId);
-        Assert.Equal(220m, priceCard.Lines.First().UnitPrice);
+        Assert.Equal(280m, priceCard.Lines.First().UnitPrice);
     }
 
     [Fact]
@@ -328,6 +397,19 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
 
         var response = await customerClient.PostAsJsonAsync($"/api/portal/customer/quotations/{quotation.Id}/accept", new { });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // Employee converts accepted quotation to Sales Order (triggering Price Card update)
+        var employeeClient = CreateEmployeeClient(
+            employeeUserId,
+            "sales.officer@apexerp.com",
+            tenantId,
+            roles: new[] { "SALES_OFFICER" },
+            permissions: new[] { "SALES_ORDER.CREATE", "SALES_QUOTATION.VIEW" });
+
+        var convertResp = await employeeClient.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/sales-quotations/{quotation.Id}/convert-to-order",
+            null);
+        Assert.Equal(HttpStatusCode.OK, convertResp.StatusCode);
 
         // Verify that existing card was updated with negotiated commercial terms
         using var verifyScope = _fixture.Services.CreateScope();
@@ -511,7 +593,7 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
     }
 
     [Fact]
-    public async Task CustomerAcceptance_ConcurrentRequests_OnlyOneSucceedsAndCreatesSingleSalesOrder()
+    public async Task CustomerAcceptance_ConcurrentRequests_Idempotent_TransitionsToAcceptedOnly()
     {
         using var scope = _fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DomainDbContext>();
@@ -556,18 +638,19 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
 
         var responses = await Task.WhenAll(task1, task2);
 
-        // Exactly one should succeed with 200 OK
-        int successCount = responses.Count(r => r.StatusCode == HttpStatusCode.OK);
-        int failureCount = responses.Count(r => r.StatusCode == HttpStatusCode.Conflict || !r.IsSuccessStatusCode);
+        // At least one should succeed with 200 OK
+        Assert.All(responses, r => Assert.True(r.StatusCode == HttpStatusCode.OK || r.StatusCode == HttpStatusCode.Conflict));
+        Assert.Contains(responses, r => r.StatusCode == HttpStatusCode.OK);
 
-        Assert.Equal(1, successCount);
-        Assert.Equal(1, failureCount);
-
-        // Exactly one Sales Order should exist in DB
+        // Crucial: Acceptance MUST NOT create any Sales Order!
         using var verifyScope = _fixture.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<DomainDbContext>();
+        var updatedQuote = await verifyDb.SalesQuotations.FirstOrDefaultAsync(q => q.Id == quotation.Id);
+        Assert.NotNull(updatedQuote);
+        Assert.Equal(SalesQuotationStatus.Accepted, updatedQuote.Status);
+
         var orders = await verifyDb.SalesOrders.Where(o => o.CustomerId == customerId).ToListAsync();
-        Assert.Single(orders);
+        Assert.Empty(orders);
     }
 
     [Fact]
@@ -627,6 +710,19 @@ public class SalesQuotationAcceptanceAndPriceCardTests : IClassFixture<TestSecur
 
         var response = await customerClient.PostAsJsonAsync($"/api/portal/customer/quotations/{quotation.Id}/accept", new { });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // Employee converts accepted quotation to Sales Order (triggering Price Card resolution and customer-specific card creation)
+        var employeeClient = CreateEmployeeClient(
+            employeeUserId,
+            "sales.officer@apexerp.com",
+            tenantId,
+            roles: new[] { "SALES_OFFICER" },
+            permissions: new[] { "SALES_ORDER.CREATE", "SALES_QUOTATION.VIEW" });
+
+        var convertResp = await employeeClient.PostAsync(
+            $"/api/companies/{companyId}/branches/{branchId}/sales-quotations/{quotation.Id}/convert-to-order",
+            null);
+        Assert.Equal(HttpStatusCode.OK, convertResp.StatusCode);
 
         // Verify that the shared card was NOT modified
         using var verifyScope = _fixture.Services.CreateScope();

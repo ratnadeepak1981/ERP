@@ -48,8 +48,16 @@
       </button>
 
       <!-- Cart Quick Access -->
-      <a routerLink="/customer-portal/cart" class="icon-btn cart-btn" title="View Shopping Cart">
+      <a
+        routerLink="/customer-portal/cart"
+        class="icon-btn cart-btn"
+        [title]="'View Shopping Cart (' + cartService.totalItems() + ' items)'"
+        aria-label="View Shopping Cart"
+      >
         <i class="pi pi-shopping-cart"></i>
+        @if (cartService.totalItems() > 0) {
+          <span class="cart-badge-count">{{ cartService.totalItems() }}</span>
+        }
       </a>
 
       <!-- User Identity Chip -->

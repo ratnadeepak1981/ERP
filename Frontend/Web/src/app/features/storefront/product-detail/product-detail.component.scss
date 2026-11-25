@@ -524,3 +524,108 @@
     font-size: 13px;
   }
 }
+
+.cart-indicator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--erp-space-1);
+  padding: 6px 12px;
+  background: var(--erp-primary-light, rgba(0, 120, 212, 0.1));
+  border: 1px solid var(--erp-primary);
+  border-radius: var(--erp-radius-pill, 9999px);
+  color: var(--erp-primary);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: default;
+
+  .cart-count {
+    background: var(--erp-primary);
+    color: #ffffff;
+    border-radius: 9999px;
+    padding: 1px 7px;
+    font-size: 11px;
+    min-width: 18px;
+    text-align: center;
+  }
+}
+
+.detail-feedback-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--erp-space-2);
+  padding: var(--erp-space-3) var(--erp-space-4);
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: var(--erp-radius-sm);
+  margin-bottom: var(--erp-space-3);
+  animation: fadeIn 0.2s ease-in-out;
+
+  &.feedback-success {
+    background-color: #dff6dd;
+    color: #107c10;
+    border: 1px solid #107c10;
+  }
+
+  &.feedback-error {
+    background-color: #fde7e9;
+    color: #a80000;
+    border: 1px solid #a80000;
+  }
+}
+
+.order-controls-row {
+  display: flex;
+  align-items: center;
+  gap: var(--erp-space-3);
+  margin-bottom: var(--erp-space-3);
+  flex-wrap: wrap;
+
+  .quantity-selector {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--erp-border);
+    border-radius: var(--erp-radius-sm);
+    background: var(--erp-bg-surface);
+    overflow: hidden;
+
+    .qty-btn {
+      width: 38px;
+      height: 38px;
+      border: none;
+      background: transparent;
+      color: var(--erp-text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+
+      &:hover:not(:disabled) {
+        background: var(--erp-bg-hover, rgba(0, 0, 0, 0.05));
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    .qty-val {
+      min-width: 44px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--erp-text-main);
+    }
+  }
+
+  .add-to-cart-cta {
+    flex: 1;
+    min-width: 180px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

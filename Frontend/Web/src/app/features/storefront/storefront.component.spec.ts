@@ -1,18 +1,58 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, getTestBed } from '@angular/core/testing';
+import {
+  BrowserTestingModule,
+  platformBrowserTesting
+} from '@angular/platform-browser/testing';
 import { provideRouter, Router } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { StorefrontComponent } from './storefront.component';
 import { EcommerceCatalogueService } from '../../core/services/ecommerce-catalogue.service';
+import { EcommerceCartService } from '../../core/services/ecommerce-cart.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { TenantContextService } from '../../core/services/tenant-context.service';
 import { PublicEcommerceProductDto } from '../../core/models/ecommerce-catalogue.models';
+
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).document = {
+    createElement: () => ({ style: {} }),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    documentElement: {
+      classList: {
+        remove: () => {},
+        add: () => {},
+        contains: () => false
+      }
+    },
+    body: {
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      appendChild: () => {},
+      removeChild: () => {}
+    },
+    location: { href: 'http://localhost' }
+  };
+  (globalThis as any).window = globalThis;
+}
+
+try {
+  getTestBed().initTestEnvironment(
+    BrowserTestingModule,
+    platformBrowserTesting()
+  );
+} catch {
+  // Already initialized
+}
 
 describe('StorefrontComponent', () => {
   let component: StorefrontComponent;
   let fixture: ComponentFixture<StorefrontComponent>;
   let catalogueService: EcommerceCatalogueService;
+  let cartService: EcommerceCartService;
+  let authService: AuthService;
   let router: Router;
 
   const mockProducts: PublicEcommerceProductDto[] = [
@@ -61,6 +101,14 @@ describe('StorefrontComponent', () => {
   ];
 
   beforeEach(async () => {
+    TestBed.resetTestingModule();
+
+    TestBed.overrideComponent(StorefrontComponent, {
+      set: {
+        template: '<div>Storefront Test Template</div>'
+      }
+    });
+
     await TestBed.configureTestingModule({
       imports: [StorefrontComponent],
       providers: [
@@ -71,6 +119,8 @@ describe('StorefrontComponent', () => {
     }).compileComponents();
 
     catalogueService = TestBed.inject(EcommerceCatalogueService);
+    cartService = TestBed.inject(EcommerceCartService);
+    authService = TestBed.inject(AuthService);
     router = TestBed.inject(Router);
     const tenantContext = TestBed.inject(TenantContextService);
     tenantContext.currentTenant.set({

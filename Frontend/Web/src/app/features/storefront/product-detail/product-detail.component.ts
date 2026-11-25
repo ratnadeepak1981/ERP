@@ -1,11 +1,15 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { EcommerceCatalogueService } from '../../../core/services/ecommerce-catalogue.service';
+import { EcommerceCartService } from '../../../core/services/ecommerce-cart.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { TenantContextService } from '../../../core/services/tenant-context.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { PublicEcommerceProductDto } from '../../../core/models/ecommerce-catalogue.models';
+import { AddToCartRequest } from '../../../core/models/ecommerce-cart.models';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { KNOWN_STOREFRONTS } from '../storefront.component';
@@ -16,6 +20,7 @@ import { KNOWN_STOREFRONTS } from '../storefront.component';
   imports: [
     CommonModule,
     RouterLink,
+    FormsModule,
     ButtonModule,
     StatusBadgeComponent,
     EmptyStateComponent
@@ -27,6 +32,8 @@ export class ProductDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly catalogueService = inject(EcommerceCatalogueService);
+  readonly cartService = inject(EcommerceCartService);
+  readonly authService = inject(AuthService);
   readonly tenantContext = inject(TenantContextService);
   readonly themeService = inject(ThemeService);
 
@@ -34,6 +41,11 @@ export class ProductDetailComponent implements OnInit {
   readonly relatedProducts = signal<PublicEcommerceProductDto[]>([]);
   readonly loading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
+
+  // User-configurable quantity
+  readonly quantity = signal<number>(1);
+  readonly addingToCart = signal<boolean>(false);
+  readonly actionFeedback = signal<{ success: boolean; message: string } | null>(null);
 
   readonly activeFallback = computed(() => {
     const querySlug = this.route.snapshot.queryParamMap.get('tenant')?.toLowerCase();
@@ -65,6 +77,34 @@ export class ProductDetailComponent implements OnInit {
     this.errorMessage.set(null);
 
     const companyId = this.tenantContext.currentTenant()?.tenantId || this.activeFallback().companyId;
+    this.cartService.setCompanyContext(companyId);
+
+    // If authenticated, check if this was a redirected action to resume
+    if (this.authService.isAuthenticated()) {
+      const pending = this.cartService.getPendingAction();
+      if (pending && pending.productId === productId) {
+        this.cartService.resumePendingAction().subscribe({
+          next: () => {
+            this.actionFeedback.set({
+              success: true,
+              message: 'Product added to your cart.'
+            });
+            setTimeout(() => this.actionFeedback.set(null), 4000);
+          },
+          error: (err) => {
+            this.actionFeedback.set({
+              success: false,
+              message: err?.message || 'Failed to add pending product to cart.'
+            });
+            setTimeout(() => this.actionFeedback.set(null), 4000);
+          }
+        });
+      } else {
+        this.cartService.getCart(companyId).subscribe({
+          error: () => {}
+        });
+      }
+    }
 
     this.catalogueService.getPublicProductDetail(companyId, productId).subscribe({
       next: (prod) => {
@@ -112,6 +152,64 @@ export class ProductDetailComponent implements OnInit {
       return 'pi pi-bolt';
     }
     return 'pi pi-tag';
+  }
+
+  changeQuantity(delta: number): void {
+    const next = this.quantity() + delta;
+    if (next >= 1) {
+      this.quantity.set(next);
+    }
+  }
+
+  addToCart(): void {
+    const prod = this.product();
+    if (!prod || this.addingToCart() || prod.inStock === false) {
+      return;
+    }
+
+    const companyId = this.tenantContext.currentTenant()?.tenantId || this.activeFallback().companyId;
+    const qty = Math.max(1, this.quantity());
+
+    // If anonymous, redirect to login with returnUrl and store intended action
+    if (!this.authService.isAuthenticated()) {
+      this.cartService.storePendingAction({
+        productId: prod.productId,
+        quantity: qty,
+        companyId
+      });
+
+      const currentUrl = this.router.url;
+      this.router.navigate(['/login'], { queryParams: { returnUrl: currentUrl } });
+      return;
+    }
+
+    // Authenticated customer: Add to cart
+    this.addingToCart.set(true);
+    this.actionFeedback.set(null);
+
+    const request: AddToCartRequest = {
+      productId: prod.productId,
+      quantity: qty
+    };
+
+    this.cartService.addToCart(request, companyId).subscribe({
+      next: () => {
+        this.addingToCart.set(false);
+        this.actionFeedback.set({
+          success: true,
+          message: `${qty} × ${prod.productName} added to cart.`
+        });
+        setTimeout(() => this.actionFeedback.set(null), 4000);
+      },
+      error: (err) => {
+        this.addingToCart.set(false);
+        this.actionFeedback.set({
+          success: false,
+          message: err?.message || 'Unable to add product to cart.'
+        });
+        setTimeout(() => this.actionFeedback.set(null), 5000);
+      }
+    });
   }
 
   goBack(): void {

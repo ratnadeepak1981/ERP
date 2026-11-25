@@ -747,6 +747,33 @@ export class SalesQuotationPageComponent implements OnInit, OnDestroy {
     this.router.navigate(['/app/sales/orders']);
   }
 
+  // Direct Commercial Approval (Immediate Execution with Feedback)
+  approveCommercialOffer(): void {
+    const q = this.currentQuotation();
+    const scope = this.getEffectiveScope(q);
+    if (!q || !scope) return;
+
+    this.actionInProgress.set(true);
+    this.quotationService.approveQuotation(scope.companyId, scope.branchId, q.id, '').subscribe({
+      next: (updated: SalesQuotationDto) => {
+        this.actionInProgress.set(false);
+        this.currentQuotation.set(updated);
+        this.message.set({
+          text: `Quotation ${updated.quotationNumber} approved successfully. You can now email it to the customer.`,
+          severity: 'success'
+        });
+        this.fetchQuotationDetails(q.id);
+      },
+      error: (err: any) => {
+        this.actionInProgress.set(false);
+        this.message.set({
+          text: err?.error?.message || err?.message || 'Failed to approve quotation.',
+          severity: 'danger'
+        });
+      }
+    });
+  }
+
   // Open Dialogs
   openApproveDialog(): void {
     const q = this.currentQuotation();

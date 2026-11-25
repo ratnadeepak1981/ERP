@@ -418,7 +418,7 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       severity: 'success',
       visible: (row: SalesQuotationDto) =>
         Number(row.status) === SalesQuotationStatus.Submitted && this.canApprove(),
-      action: (row: SalesQuotationDto) => this.openApproveDialog(row)
+      action: (row: SalesQuotationDto) => this.approveQuotationDirectly(row)
     },
     {
       id: 'reject',
@@ -698,6 +698,31 @@ export class SalesQuotationRegisterComponent implements OnInit, OnDestroy {
       });
     };
     this.confirmDialogVisible.set(true);
+  }
+
+  approveQuotationDirectly(quotation: SalesQuotationDto): void {
+    const scope = this.getEffectiveScope(quotation);
+    if (!scope) return;
+
+    this.actionInProgress.set(true);
+    this.quotationService.approveQuotation(scope.companyId, scope.branchId, quotation.id, '').subscribe({
+      next: updated => {
+        this.actionInProgress.set(false);
+        this.quotations.update(list => list.map(q => q.id === updated.id ? updated : q));
+        this.message.set({
+          text: `Quotation ${updated.quotationNumber} approved successfully. You can now issue it to the customer.`,
+          severity: 'success'
+        });
+        this.loadQuotations();
+      },
+      error: err => {
+        this.actionInProgress.set(false);
+        this.message.set({
+          text: err?.error?.message || err?.message || 'Failed to approve quotation.',
+          severity: 'danger'
+        });
+      }
+    });
   }
 
   openApproveDialog(quotation: SalesQuotationDto): void {

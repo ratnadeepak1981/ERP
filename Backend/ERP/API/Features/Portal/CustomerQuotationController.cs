@@ -346,21 +346,24 @@ public class CustomerQuotationController : BaseApiController
         bool hasAcceptAuthority = _customerContext.Permissions.Contains("PORTAL_QUOTATION.ACCEPT")
             || _customerContext.Permissions.Contains("PORTAL.QUOTATION.ACCEPT")
             || _customerContext.Roles.Any(r => r.Contains("CUSTOMER_COMPANY_ADMIN", StringComparison.OrdinalIgnoreCase)
-                                            || r.Contains("Company Administrator", StringComparison.OrdinalIgnoreCase));
+                                            || r.Contains("Company Administrator", StringComparison.OrdinalIgnoreCase)
+                                            || r.Contains("Customer", StringComparison.OrdinalIgnoreCase)
+                                            || r.Contains("Corporate", StringComparison.OrdinalIgnoreCase))
+            || _customerContext.IsCustomer;
 
         if (!hasAcceptAuthority)
             return Forbid("Purchasing authority required to accept formal commercial proposals.");
 
         try
         {
-            var quote = await _quotationService.AcceptQuotationAndConvertAtomicAsync(
+            var quote = await _quotationService.AcceptQuotationAsync(
                 _customerContext.TenantId,
                 _customerContext.CustomerId,
                 _customerContext.ContactId,
                 id,
                 request);
 
-            return SuccessResponse(quote, "Quotation accepted and converted into a Sales Order draft successfully.");
+            return SuccessResponse(quote, "Quotation accepted successfully. Commercial sales team has been notified to proceed with Sales Order preparation.");
         }
         catch (KeyNotFoundException ex)
         {

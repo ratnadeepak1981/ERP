@@ -285,12 +285,31 @@ public class EcommerceCartService : IEcommerceCartService
             }
         }
 
-        // 2. Find Active Cart
+        // 2. Resolve & Validate Authenticated Customer Context
         Guid? effectiveCustomerId = customerId ?? request.CustomerId;
+        if (!effectiveCustomerId.HasValue || effectiveCustomerId.Value == Guid.Empty)
+        {
+            throw new InvalidOperationException("Checkout requires an authenticated customer account. Anonymous checkout is not permitted.");
+        }
+
+        var customer = await _context.Customers
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CustomerId == effectiveCustomerId.Value && c.IsActive, ct);
+
+        if (customer == null)
+        {
+            throw new InvalidOperationException("Authenticated customer account was not found or is inactive.");
+        }
+
+        // 3. Find Active Cart & Verify Customer Ownership
         var cart = await FindActiveCartAsync(tenantId, companyId, effectiveCustomerId, request.SessionId, ct);
         if (cart == null || cart.Lines.Count == 0)
         {
             throw new InvalidOperationException("Cannot checkout an empty shopping cart.");
+        }
+
+        if (cart.CustomerId.HasValue && cart.CustomerId.Value != customer.CustomerId)
+        {
+            throw new InvalidOperationException("You do not have permission to check out a cart belonging to another customer.");
         }
 
         // Record checkout attempt timestamp
@@ -299,11 +318,11 @@ public class EcommerceCartService : IEcommerceCartService
             cart.RecordCheckoutAttempt(request.IdempotencyKey);
         }
 
-        // 3. Resolve Selling Company and Currency
+        // 4. Resolve Selling Company and Currency
         var company = await GetCompanyAsync(tenantId, companyId, ct);
         string orderCurrency = company.BaseCurrency?.CurrencyCode ?? "USD";
 
-        // 4. Resolve Active Branch for Selling Company
+        // 5. Resolve Active Branch for Selling Company
         var branches = await _context.Branches
             .AsNoTracking()
             .Where(b => b.CompanyId == companyId && b.IsActive)
@@ -317,33 +336,6 @@ public class EcommerceCartService : IEcommerceCartService
         var branch = branches.FirstOrDefault(b => b.Code.Equals("MAIN", StringComparison.OrdinalIgnoreCase) ||
                                                   b.Code.Equals("HQ", StringComparison.OrdinalIgnoreCase))
                      ?? branches.First();
-
-        // 5. Resolve Customer Context
-        Customer? customer = null;
-        if (effectiveCustomerId.HasValue)
-        {
-            customer = await _context.Customers
-                .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CustomerId == effectiveCustomerId.Value && c.IsActive, ct);
-        }
-
-        if (customer == null)
-        {
-            // Anonymous / Walk-in checkout: fallback to tenant walk-in customer CUST-WALKIN
-            customer = await _context.Customers
-                .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CustomerCode == "CUST-WALKIN" && c.IsActive, ct);
-
-            if (customer == null)
-            {
-                // Fallback to any active customer in tenant if CUST-WALKIN is missing
-                customer = await _context.Customers
-                    .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.IsActive, ct);
-            }
-
-            if (customer == null)
-            {
-                throw new InvalidOperationException("No active customer could be resolved for checkout.");
-            }
-        }
 
         // 6. Validate published status & resolve server-side pricing and tax for all cart lines
         var orderItems = new List<CreateSalesOrderItemRequest>();
@@ -370,17 +362,45 @@ public class EcommerceCartService : IEcommerceCartService
             }
 
             // Real-time server-side price resolution
-            var priceResult = await _pricingResolutionService.ResolveSalesPriceAsync(
-                tenantId,
-                customer.CustomerId,
-                line.ProductId,
-                line.UnitOfMeasureId,
-                DateTime.UtcNow);
+            decimal unitPrice;
 
-            decimal unitPrice = priceResult.Found ? priceResult.UnitPrice : product.SellingPrice;
-            if (unitPrice <= 0)
+            if (!IsRetailCustomer(customer))
             {
-                throw new InvalidOperationException($"No selling price is configured for product '{product.ProductCode}'.");
+                // Corporate Customer: must validate against contracted Sales Price Card
+                if (!customer.DefaultSalesPriceCardId.HasValue)
+                {
+                    throw new InvalidOperationException(
+                        $"Corporate pricing could not be resolved for product '{product.ProductCode}'. Your corporate account does not have an assigned contract Sales Price Card.");
+                }
+
+                var priceResult = await _pricingResolutionService.ResolveSalesPriceAsync(
+                    tenantId,
+                    customer.CustomerId,
+                    line.ProductId,
+                    line.UnitOfMeasureId,
+                    DateTime.UtcNow);
+
+                bool priceFoundOnCard = priceResult.Found && !string.Equals(priceResult.Source, "ProductMaster", StringComparison.OrdinalIgnoreCase);
+
+                if (!priceFoundOnCard || priceResult.UnitPrice <= 0)
+                {
+                    string msg = !string.IsNullOrWhiteSpace(priceResult.Message)
+                        ? priceResult.Message
+                        : $"Product '{product.ProductCode}' does not exist on your corporate assigned Price Card.";
+                    throw new InvalidOperationException(
+                        $"Corporate pricing could not be resolved for product '{product.ProductCode}': {msg}");
+                }
+
+                unitPrice = priceResult.UnitPrice;
+            }
+            else
+            {
+                // Retail / Individual Customer: uses Product.SellingPrice directly
+                unitPrice = product.SellingPrice;
+                if (unitPrice <= 0)
+                {
+                    throw new InvalidOperationException($"No selling price is configured for product '{product.ProductCode}'.");
+                }
             }
 
             decimal taxRate = activeTaxCode?.Rate ?? 0m;
@@ -532,9 +552,10 @@ public class EcommerceCartService : IEcommerceCartService
         string currency = company.BaseCurrency?.CurrencyCode ?? "USD";
 
         string? customerName = null;
+        Customer? customer = null;
         if (cart.CustomerId.HasValue)
         {
-            var customer = await _context.Customers
+            customer = await _context.Customers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.TenantId == cart.TenantId && c.CustomerId == cart.CustomerId.Value, ct);
             customerName = customer?.CustomerName;
@@ -577,10 +598,45 @@ public class EcommerceCartService : IEcommerceCartService
                     line.UnitOfMeasureId,
                     DateTime.UtcNow);
 
-                unitPrice = priceResult.Found ? priceResult.UnitPrice : product.SellingPrice;
+                if (customer != null && !IsRetailCustomer(customer))
+                {
+                    // Corporate Customer: strictly requires contracted Sales Price Card
+                    bool hasCorporateContract = customer.DefaultSalesPriceCardId.HasValue;
+                    bool priceFoundOnCard = priceResult.Found && !string.Equals(priceResult.Source, "ProductMaster", StringComparison.OrdinalIgnoreCase);
+
+                    if (hasCorporateContract && priceFoundOnCard && priceResult.UnitPrice > 0)
+                    {
+                        unitPrice = priceResult.UnitPrice;
+                    }
+                    else
+                    {
+                        unitPrice = 0m;
+                        isAvailable = false;
+                        if (!hasCorporateContract)
+                        {
+                            validationMsg = "Your corporate account does not currently have an assigned contract Sales Price Card.";
+                        }
+                        else
+                        {
+                            validationMsg = !string.IsNullOrWhiteSpace(priceResult.Message)
+                                ? priceResult.Message
+                                : $"Product '{productCode}' does not exist on your corporate assigned Price Card.";
+                        }
+                    }
+                }
+                else
+                {
+                    // Retail / Individual Customer or Guest Catalog view: uses Product.SellingPrice directly (or server price if explicitly resolved)
+                    unitPrice = priceResult.Found && priceResult.UnitPrice > 0 ? priceResult.UnitPrice : product.SellingPrice;
+                    if (unitPrice <= 0)
+                    {
+                        isAvailable = false;
+                        validationMsg = "No selling price is configured for this product.";
+                    }
+                }
             }
 
-            if (!isAvailable)
+            if (!isAvailable && string.IsNullOrWhiteSpace(validationMsg))
             {
                 validationMsg = "Item is currently not available for purchase.";
             }
@@ -694,5 +750,13 @@ public class EcommerceCartService : IEcommerceCartService
 
         if (companyId == Guid.Empty)
             throw new ArgumentException("CompanyId is required.", nameof(companyId));
+    }
+
+    private static bool IsRetailCustomer(Customer? customer)
+    {
+        if (customer == null) return false;
+        return customer.CustomerCode.StartsWith("CUST-IND-", StringComparison.OrdinalIgnoreCase)
+            || customer.CustomerCode.StartsWith("CUST-RETAIL-", StringComparison.OrdinalIgnoreCase)
+            || customer.CustomerCode.Equals("CUST-WALKIN", StringComparison.OrdinalIgnoreCase);
     }
 }

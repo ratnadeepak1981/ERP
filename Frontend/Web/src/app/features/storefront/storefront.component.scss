@@ -530,3 +530,56 @@
     font-size: 12.5px;
   }
 }
+
+.cart-indicator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--erp-space-1);
+  padding: 6px 12px;
+  background: var(--erp-primary-light, rgba(0, 120, 212, 0.1));
+  border: 1px solid var(--erp-primary);
+  border-radius: var(--erp-radius-pill, 9999px);
+  color: var(--erp-primary);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: default;
+
+  .cart-count {
+    background: var(--erp-primary);
+    color: #ffffff;
+    border-radius: 9999px;
+    padding: 1px 7px;
+    font-size: 11px;
+    min-width: 18px;
+    text-align: center;
+  }
+}
+
+.card-feedback-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--erp-space-2);
+  padding: var(--erp-space-2) var(--erp-space-3);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--erp-radius-sm);
+  margin-bottom: var(--erp-space-2);
+  animation: fadeIn 0.2s ease-in-out;
+
+  &.feedback-success {
+    background-color: #dff6dd;
+    color: #107c10;
+    border: 1px solid #107c10;
+  }
+
+  &.feedback-error {
+    background-color: #fde7e9;
+    color: #a80000;
+    border: 1px solid #a80000;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

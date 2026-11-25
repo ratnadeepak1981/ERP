@@ -473,8 +473,8 @@ public class SalesQuotation : Auditable, ITenantScopedEntity, ICompanyScopedEnti
         if (contactId == Guid.Empty)
             throw new ArgumentException("Customer contact ID is required to accept a quotation.", nameof(contactId));
 
-        if (Status != SalesQuotationStatus.Sent)
-            throw new InvalidOperationException($"Cannot accept quotation with status '{Status}'. Only formally issued (Sent) quotations can be accepted.");
+        if (Status != SalesQuotationStatus.Sent && Status != SalesQuotationStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot accept quotation with status '{Status}'. Only formally approved or issued quotations can be accepted.");
 
         if (IsExpired())
             throw new InvalidOperationException("Cannot accept an expired quotation. The validity period has elapsed.");
@@ -516,8 +516,8 @@ public class SalesQuotation : Auditable, ITenantScopedEntity, ICompanyScopedEnti
     /// </summary>
     public void Decline(Guid contactId, string remarks, DateTime? declinedAtUtc = null)
     {
-        if (Status != SalesQuotationStatus.Sent)
-            throw new InvalidOperationException($"Cannot decline quotation with status '{Status}'. Only formally issued (Sent) quotations can be declined.");
+        if (Status != SalesQuotationStatus.Sent && Status != SalesQuotationStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot decline quotation with status '{Status}'. Only formally approved or issued quotations can be declined.");
 
         if (string.IsNullOrWhiteSpace(remarks))
             throw new ArgumentException("Remarks are required when declining a quotation.", nameof(remarks));

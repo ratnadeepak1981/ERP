@@ -318,6 +318,69 @@ public class EcommerceCartServiceTests
         Assert.Equal("Acme Corp", cart.CustomerName);
         Assert.Single(cart.Lines);
     }
+
+    [Fact]
+    public async Task GetCart_CorporateCustomerMissingPriceCardItem_MarksLineUnavailableAndUnitPriceZero()
+    {
+        // Arrange: Corporate customer with contracted Price Card, but product is not on it
+        var customerId = Guid.NewGuid();
+        var customer = Customer.Create(_tenantId, "CUST-CORP-CART", "Mega Corp", customerId: customerId);
+        var priceCardId = Guid.NewGuid();
+        customer.SetDefaultSalesPriceCard(priceCardId);
+        _context.Customers.Add(customer);
+
+        var product = CreateProduct("PROD-CORP-NO-PRICE", "Specialty Cable", sellingPrice: 45.00m);
+        PublishProduct(product.ProductId, isPublished: true);
+
+        // Add to cart with no price in FakePricingResolutionService
+        await _cartService.AddToCartAsync(_tenantId, _companyId, new AddToCartRequest
+        {
+            ProductId = product.ProductId,
+            Quantity = 2,
+            SessionId = "session-corp-noprice"
+        }, customerId: customerId);
+
+        // Act
+        var cart = await _cartService.GetCartAsync(_tenantId, _companyId, customerId: customerId, sessionId: "session-corp-noprice");
+
+        // Assert: Line is unavailable, unit price is 0, and clear validation message returned without falling back to 45.00m
+        Assert.Single(cart.Lines);
+        var line = cart.Lines[0];
+        Assert.False(line.IsAvailable);
+        Assert.Equal(0m, line.UnitPrice);
+        Assert.Equal(0m, line.LineTotal);
+        Assert.NotNull(line.ValidationMessage);
+        Assert.Contains("Price Card", line.ValidationMessage);
+    }
+
+    [Fact]
+    public async Task GetCart_RetailCustomer_UsesSellingPriceAndMarksLineAvailable()
+    {
+        // Arrange: Retail individual customer (CUST-IND)
+        var customerId = Guid.NewGuid();
+        var customer = Customer.Create(_tenantId, "CUST-IND-CART", "Jane Doe", customerId: customerId);
+        _context.Customers.Add(customer);
+
+        var product = CreateProduct("PROD-RETAIL-01", "Coffee Maker", sellingPrice: 89.99m);
+        PublishProduct(product.ProductId, isPublished: true);
+
+        await _cartService.AddToCartAsync(_tenantId, _companyId, new AddToCartRequest
+        {
+            ProductId = product.ProductId,
+            Quantity = 1,
+            SessionId = "session-retail-cart"
+        }, customerId: customerId);
+
+        // Act
+        var cart = await _cartService.GetCartAsync(_tenantId, _companyId, customerId: customerId, sessionId: "session-retail-cart");
+
+        // Assert: Line is available and uses Product.SellingPrice
+        Assert.Single(cart.Lines);
+        var line = cart.Lines[0];
+        Assert.True(line.IsAvailable);
+        Assert.Equal(89.99m, line.UnitPrice);
+        Assert.Null(line.ValidationMessage);
+    }
 }
 
 public class FakePricingResolutionService : IPricingResolutionService

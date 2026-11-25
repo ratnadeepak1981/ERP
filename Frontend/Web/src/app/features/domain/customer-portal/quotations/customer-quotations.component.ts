@@ -180,7 +180,7 @@ import { DataTableColumn, DataTableAction } from '../../../../shared/models/data
                   [class.active]="activeStatusFilter() === 'declined'"
                   (click)="activeStatusFilter.set('declined')"
                 >
-                  <i class="pi pi-times-circle pill-icon"></i> Declined
+                  <i class="pi pi-times-circle pill-icon"></i> Rejected
                 </button>
                 <button
                   type="button"

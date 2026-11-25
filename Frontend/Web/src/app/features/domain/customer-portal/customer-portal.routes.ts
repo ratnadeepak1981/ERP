@@ -43,6 +43,20 @@ export const customerPortalRoutes: Routes = [
           )
       },
       {
+        path: 'checkout',
+        loadComponent: () =>
+          import('./checkout/customer-checkout.component').then(
+            m => m.CustomerCheckoutComponent
+          )
+      },
+      {
+        path: 'checkout/confirmation',
+        loadComponent: () =>
+          import('./checkout/confirmation/customer-order-confirmation.component').then(
+            m => m.CustomerOrderConfirmationComponent
+          )
+      },
+      {
         path: 'orders',
         loadComponent: () =>
           import('./orders/customer-orders.component').then(

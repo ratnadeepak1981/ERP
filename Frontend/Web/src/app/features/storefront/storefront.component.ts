@@ -6,9 +6,12 @@ import { ButtonModule } from 'primeng/button';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { EcommerceCatalogueService } from '../../core/services/ecommerce-catalogue.service';
+import { EcommerceCartService } from '../../core/services/ecommerce-cart.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { TenantContextService } from '../../core/services/tenant-context.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { PublicEcommerceProductDto } from '../../core/models/ecommerce-catalogue.models';
+import { AddToCartRequest } from '../../core/models/ecommerce-cart.models';
 
 export interface CategoryFilterOption {
   name: string;
@@ -77,6 +80,8 @@ export const KNOWN_STOREFRONTS: StorefrontOption[] = [
 })
 export class StorefrontComponent implements OnInit {
   private readonly catalogueService = inject(EcommerceCatalogueService);
+  readonly cartService = inject(EcommerceCartService);
+  readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly tenantContext = inject(TenantContextService);
@@ -91,6 +96,10 @@ export class StorefrontComponent implements OnInit {
   readonly sortBy = signal<'name' | 'price-asc' | 'price-desc'>('name');
   readonly loading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
+
+  // Add-to-cart in-flight tracking & feedback
+  readonly addingProductId = signal<string | null>(null);
+  readonly actionFeedback = signal<{ productId: string; success: boolean; message: string } | null>(null);
 
   readonly isStandaloneDemo = computed(() => {
     return !this.tenantContext.isTenantDomain();
@@ -163,7 +172,106 @@ export class StorefrontComponent implements OnInit {
         }
       }
       this.loadCatalogue();
+      this.initCartAndCheckPendingAction();
     });
+  }
+
+  private initCartAndCheckPendingAction(): void {
+    const resolvedCompanyId = this.tenantContext.currentTenant()?.tenantId || this.activeOption().companyId;
+    this.cartService.setCompanyContext(resolvedCompanyId);
+
+    if (this.authService.isAuthenticated()) {
+      // Check if there is an intended Add-to-Cart action pending after login
+      const pending = this.cartService.getPendingAction();
+      if (pending) {
+        this.cartService.resumePendingAction().subscribe({
+          next: () => {
+            this.actionFeedback.set({
+              productId: pending.productId,
+              success: true,
+              message: 'Product added to your cart.'
+            });
+            setTimeout(() => this.clearFeedback(), 4000);
+          },
+          error: (err) => {
+            this.actionFeedback.set({
+              productId: pending.productId,
+              success: false,
+              message: err?.message || 'Failed to add pending product to cart.'
+            });
+            setTimeout(() => this.clearFeedback(), 4000);
+          }
+        });
+      } else {
+        // Load initial active cart if authenticated
+        this.cartService.getCart(resolvedCompanyId).subscribe({
+          error: () => {
+            // Cart loading error handled quietly in background
+          }
+        });
+      }
+    }
+  }
+
+  addToCart(product: PublicEcommerceProductDto, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    // Prevent repeated clicks while an operation is already pending
+    if (this.addingProductId()) {
+      return;
+    }
+
+    const resolvedCompanyId = this.tenantContext.currentTenant()?.tenantId || this.activeOption().companyId;
+
+    // If anonymous, redirect to login with returnUrl and preserve the intended action
+    if (!this.authService.isAuthenticated()) {
+      this.cartService.storePendingAction({
+        productId: product.productId,
+        quantity: 1,
+        companyId: resolvedCompanyId
+      });
+
+      const currentUrl = this.router.url;
+      this.router.navigate(['/login'], { queryParams: { returnUrl: currentUrl } });
+      return;
+    }
+
+    // Authenticated customer: Add to cart via EcommerceCartService
+    this.addingProductId.set(product.productId);
+    this.actionFeedback.set(null);
+
+    // Strictly limit payload: no pricing or tax fields
+    const request: AddToCartRequest = {
+      productId: product.productId,
+      quantity: 1
+    };
+
+    this.cartService.addToCart(request, resolvedCompanyId).subscribe({
+      next: () => {
+        this.addingProductId.set(null);
+        this.actionFeedback.set({
+          productId: product.productId,
+          success: true,
+          message: `${product.productName} added to cart.`
+        });
+        setTimeout(() => this.clearFeedback(), 4000);
+      },
+      error: (err) => {
+        this.addingProductId.set(null);
+        this.actionFeedback.set({
+          productId: product.productId,
+          success: false,
+          message: err?.message || 'Unable to add product to cart.'
+        });
+        setTimeout(() => this.clearFeedback(), 5000);
+      }
+    });
+  }
+
+  clearFeedback(): void {
+    this.actionFeedback.set(null);
   }
 
   loadCatalogue(): void {

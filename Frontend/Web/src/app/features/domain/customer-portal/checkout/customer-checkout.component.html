@@ -1,0 +1,325 @@
+<div class="customer-checkout-page">
+  <!-- Page Header -->
+  <app-page-header
+    title="Checkout"
+    subtitle="Review your order, select delivery destination, and prepare for order placement."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="page-header-actions">
+      <a routerLink="/customer-portal/cart" class="erp-button erp-button-secondary erp-button-sm">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to Cart</span>
+      </a>
+    </div>
+  </app-page-header>
+
+  <!-- Inline Feedback Alert -->
+  @if (actionFeedback(); as feedback) {
+    <div class="action-feedback-banner" [class.success]="feedback.success" [class.error]="!feedback.success">
+      <i [class]="feedback.success ? 'pi pi-check-circle' : 'pi pi-exclamation-triangle'"></i>
+      <span>{{ feedback.message }}</span>
+      <button type="button" class="close-feedback-btn" (click)="clearFeedback()" aria-label="Dismiss feedback">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+  }
+
+  <!-- Loading State -->
+  @if (loadingCart() || loadingAddresses()) {
+    <div class="erp-card state-card">
+      <app-loading-state message="Preparing checkout details..."></app-loading-state>
+    </div>
+  } @else if (errorState()) {
+    <!-- Error State -->
+    <div class="checkout-alert-card error-card erp-card">
+      <div class="alert-icon">
+        <i class="pi pi-exclamation-triangle"></i>
+      </div>
+      <div class="alert-body">
+        <h4>Checkout Initialization Issue</h4>
+        <p>{{ errorState() }}</p>
+      </div>
+      <div class="alert-actions">
+        <a routerLink="/customer-portal/cart" class="erp-button erp-button-secondary erp-button-sm">
+          <i class="pi pi-arrow-left"></i>
+          <span>Return to Cart</span>
+        </a>
+        <button type="button" class="erp-button erp-button-primary erp-button-sm" (click)="reloadAll()">
+          <i class="pi pi-refresh"></i>
+          <span>Retry</span>
+        </button>
+      </div>
+    </div>
+  } @else if (!cart() || cart()!.lines.length === 0) {
+    <!-- Empty Cart Redirect / Fallback State -->
+    <div class="checkout-empty-wrap erp-card">
+      <app-empty-state
+        title="Your Cart is Empty"
+        description="You do not have any items in your shopping cart to check out."
+        icon="pi-shopping-bag"
+        actionLabel="Browse Product Catalogue"
+        actionIcon="pi pi-search"
+        (action)="goToCatalog()"
+      ></app-empty-state>
+    </div>
+  } @else {
+    <!-- Populated Checkout Form Layout: 2 Columns -->
+    <div class="checkout-layout-grid">
+      <!-- Left Column: Checkout Options & Address Selection -->
+      <div class="checkout-form-column">
+        <!-- Section 1: Delivery Address Selection -->
+        <div class="erp-card checkout-card">
+          <div class="card-header-row">
+            <h3 class="section-title">
+              <i class="pi pi-map-marker text-primary"></i>
+              <span>1. Delivery Destination</span>
+            </h3>
+            <a routerLink="/customer-portal/addresses" class="address-manage-link" title="Manage saved addresses">
+              <i class="pi pi-cog"></i> Manage Addresses
+            </a>
+          </div>
+
+          @if (addresses().length === 0) {
+            <div class="no-address-box">
+              <div class="no-address-info">
+                <i class="pi pi-exclamation-circle text-warning"></i>
+                <div>
+                  <strong>No saved delivery addresses found.</strong>
+                  <p>You need at least one saved delivery address in your account to complete checkout.</p>
+                </div>
+              </div>
+              <a routerLink="/customer-portal/addresses" class="erp-button erp-button-primary erp-button-sm">
+                <i class="pi pi-plus"></i>
+                <span>Add Delivery Address</span>
+              </a>
+            </div>
+          } @else {
+            <p class="section-desc">Select an authorized delivery address registered to your account:</p>
+            <div class="address-grid">
+              @for (addr of addresses(); track addr.customerAddressId) {
+                <label
+                  class="address-option-card"
+                  [class.selected]="selectedAddressId() === addr.addressId"
+                >
+                  <div class="radio-col">
+                    <input
+                      type="radio"
+                      name="deliveryAddress"
+                      [value]="addr.addressId"
+                      [checked]="selectedAddressId() === addr.addressId"
+                      (change)="selectAddress(addr.addressId)"
+                      aria-label="Select delivery address"
+                    />
+                  </div>
+                  <div class="address-details">
+                    <div class="address-title-row">
+                      <span class="addr-name font-bold">{{ addr.addressName || 'Delivery Location' }}</span>
+                      @if (addr.isDefault) {
+                        <span class="badge default-badge"><i class="pi pi-star-fill"></i> Default</span>
+                      }
+                      @if (addr.addressTypeName) {
+                        <span class="badge type-badge">{{ addr.addressTypeName }}</span>
+                      }
+                    </div>
+                    <div class="addr-line">{{ addr.addressLine1 }}</div>
+                    @if (addr.addressLine2) {
+                      <div class="addr-line sub">{{ addr.addressLine2 }}</div>
+                    }
+                    <div class="addr-line location font-medium">
+                      {{ addr.city }}@if (addr.stateProvince) {, {{ addr.stateProvince }} }@if (addr.postalCode) { {{ addr.postalCode }} }
+                    </div>
+                    @if (addr.country) {
+                      <div class="addr-line country text-secondary">{{ addr.country }}</div>
+                    }
+                  </div>
+                </label>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Section 2: Order Schedule & Customer Instructions -->
+        <div class="erp-card checkout-card">
+          <h3 class="section-title">
+            <i class="pi pi-calendar text-primary"></i>
+            <span>2. Delivery Schedule &amp; Order Notes</span>
+          </h3>
+
+          <div class="form-fields-grid">
+            <!-- Requested Delivery Date -->
+            <div class="form-field">
+              <label for="requestedDeliveryDate" class="field-label">
+                Requested Delivery Date <span class="optional-tag">(Optional)</span>
+              </label>
+              <input
+                id="requestedDeliveryDate"
+                type="date"
+                class="erp-input date-input"
+                [min]="minDeliveryDate"
+                [value]="requestedDeliveryDate()"
+                (input)="onDeliveryDateChange($event)"
+              />
+              <span class="field-hint">Specify an earliest acceptable delivery date. Must be today or a future date.</span>
+            </div>
+
+            <!-- Customer Notes -->
+            <div class="form-field full-width">
+              <label for="customerNotes" class="field-label">
+                Customer Notes / Special Handling <span class="optional-tag">(Optional)</span>
+              </label>
+              <textarea
+                id="customerNotes"
+                class="erp-textarea"
+                rows="3"
+                maxlength="500"
+                placeholder="Include any dock hours, packaging instructions, PO references, or specific receiving notes..."
+                [value]="customerNotes()"
+                (input)="onCustomerNotesChange($event)"
+              ></textarea>
+              <div class="textarea-counter">
+                <span>{{ customerNotes().length }} / 500 characters</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Commercial & Billing Context Information -->
+        <div class="erp-card checkout-card">
+          <h3 class="section-title">
+            <i class="pi pi-briefcase text-primary"></i>
+            <span>3. Commercial &amp; Invoicing Details</span>
+          </h3>
+          <div class="commercial-info-box">
+            <div class="info-row">
+              <span class="info-lbl">Selling Entity:</span>
+              <span class="info-val font-bold">{{ cart()!.companyName || 'Operating Entity' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-lbl">Customer Account:</span>
+              <span class="info-val">{{ authService.currentUser()?.email || 'Authenticated Customer' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-lbl">Account Classification:</span>
+              <span class="info-val">
+                <span class="tier-pill" [class.corporate]="authService.isCustomerCompany()">
+                  {{ authService.isCustomerCompany() ? 'Corporate Negotiated Price Card' : 'Individual Retail Terms' }}
+                </span>
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="info-lbl">Payment &amp; Invoicing:</span>
+              <span class="info-val">Draft Sales Order will be created for order processing &amp; commercial invoicing.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Final Order Review & Authoritative Totals -->
+      <div class="checkout-summary-column">
+        <div class="erp-card summary-card">
+          <div class="summary-header">
+            <h3 class="section-title">Order Review</h3>
+            <span class="count-pill">{{ cart()!.totalItems }} {{ cart()!.totalItems === 1 ? 'item' : 'items' }}</span>
+          </div>
+
+          <!-- Items Accordion / Summary List -->
+          <div class="review-items-list">
+            @for (item of cart()!.lines; track item.lineId) {
+              <div class="review-item-row">
+                <div class="item-main">
+                  <span class="item-name font-medium">{{ item.productName }}</span>
+                  <div class="item-meta">
+                    <code>{{ item.productCode }}</code>
+                    <span class="meta-sep">•</span>
+                    <span class="qty-uom">Qty: {{ item.quantity }} {{ item.unitOfMeasureCode || 'EA' }}</span>
+                    @if (item.packagingName) {
+                      <span class="meta-sep">•</span>
+                      <span class="pkg-name">{{ item.packagingName }}</span>
+                    }
+                  </div>
+                </div>
+                <div class="item-price text-right tabular-nums">
+                  <span class="line-total font-bold">{{ item.lineTotal | currency:item.currency:'symbol':'1.2-2' }}</span>
+                  <span class="unit-subtext text-secondary">
+                    {{ item.unitPrice | currency:item.currency:'symbol':'1.2-2' }} / {{ item.unitOfMeasureCode || 'EA' }}
+                  </span>
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="summary-divider"></div>
+
+          <!-- Authoritative Backend Totals -->
+          <div class="summary-breakdown">
+            <div class="summary-row">
+              <span class="label">Subtotal</span>
+              <span class="value tabular-nums">{{ cart()!.subTotal | currency:cart()!.currency:'symbol':'1.2-2' }}</span>
+            </div>
+
+            @if (cart()!.totalDiscount > 0) {
+              <div class="summary-row discount-row">
+                <span class="label">Total Discount</span>
+                <span class="value tabular-nums text-success">
+                  -{{ cart()!.totalDiscount | currency:cart()!.currency:'symbol':'1.2-2' }}
+                </span>
+              </div>
+            }
+
+            <div class="summary-row">
+              <span class="label">Estimated Sales Tax</span>
+              <span class="value tabular-nums">{{ cart()!.totalTax | currency:cart()!.currency:'symbol':'1.2-2' }}</span>
+            </div>
+
+            <div class="summary-divider"></div>
+
+            <div class="summary-row grand-total-row">
+              <span class="label">Grand Total</span>
+              <span class="value grand-total-val tabular-nums text-primary">
+                {{ cart()!.grandTotal | currency:cart()!.currency:'symbol':'1.2-2' }}
+              </span>
+            </div>
+            <div class="currency-note">
+              <span>Authoritative total computed in <strong>{{ cart()!.currency }}</strong></span>
+            </div>
+          </div>
+
+          <!-- Stage 4A Controlled Integration Point Box -->
+          <div class="stage-gate-box">
+            <div class="gate-header">
+              <i class="pi pi-check-circle text-primary"></i>
+              <span class="font-bold">Stage 4A Review Complete</span>
+            </div>
+            <p class="gate-desc">
+              Destination address and order options validated. Final order placement will activate in Stage 4B upon explicit approval.
+            </p>
+          </div>
+
+          <!-- Actions -->
+          <div class="summary-actions">
+            <button
+              type="button"
+              class="erp-button erp-button-primary erp-button-lg full-width-btn place-order-btn"
+              (click)="onPlaceOrderClick()"
+              [disabled]="!canProceedToOrder() || isSubmitting()"
+              title="Proceed to Stage 4B Order Placement"
+            >
+              @if (isSubmitting()) {
+                <i class="pi pi-spin pi-spinner"></i>
+                <span>Processing...</span>
+              } @else {
+                <i class="pi pi-send"></i>
+                <span>Place Order (Stage 4B)</span>
+              }
+            </button>
+
+            <a routerLink="/customer-portal/cart" class="erp-button erp-button-secondary full-width-btn">
+              <i class="pi pi-arrow-left"></i>
+              <span>Back to Cart</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

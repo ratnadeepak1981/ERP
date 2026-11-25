@@ -175,25 +175,30 @@
               <table class="erp-table original-table">
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th class="text-right">Requested Quantity</th>
-                    <th class="text-right">Customer Target Price</th>
-                    <th>Customer Remarks / Notes</th>
+                    <th style="width: 48px;" class="text-center">#</th>
+                    <th style="width: 140px;">Product Code</th>
+                    <th style="min-width: 220px;">Product Description</th>
+                    <th style="width: 80px;" class="text-center">UOM</th>
+                    <th style="width: 120px;" class="text-right">Requested Qty</th>
+                    <th style="width: 160px;" class="text-right">Customer Target Price</th>
+                    <th style="min-width: 180px;">Customer Remarks / Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (item of (currentQuotation()?.originalRequest?.items || []); track $index) {
                     <tr>
+                      <td class="text-secondary text-center">{{ $index + 1 }}</td>
+                      <td><code>{{ item.productCode || '—' }}</code></td>
                       <td>
-                        <span class="font-bold">{{ item.productCode || 'Product' }}</span>
-                        @if (item.productName) {
-                          <span class="sub-name"> - {{ item.productName }}</span>
-                        }
+                        <div class="item-name font-medium">{{ item.productName || 'Product Line' }}</div>
                       </td>
-                      <td class="text-right font-medium">
-                        {{ item.requestedQuantity }} {{ item.unitOfMeasureCode || '' }}
+                      <td class="text-center">
+                        <span class="uom-pill">{{ item.unitOfMeasureCode || 'EA' }}</span>
                       </td>
-                      <td class="text-right">
+                      <td class="text-right font-bold tabular-nums">
+                        {{ item.requestedQuantity }}
+                      </td>
+                      <td class="text-right tabular-nums">
                         {{ (item.targetUnitPrice !== null && item.targetUnitPrice !== undefined) ? (item.targetUnitPrice | currency:currentQuotation()?.currency:'symbol':'1.2-2') : 'Target not specified' }}
                       </td>
                       <td>{{ item.notes || '—' }}</td>
@@ -798,10 +803,14 @@
                     <button
                       type="button"
                       class="erp-button erp-button-primary"
-                      (click)="openApproveDialog()"
+                      (click)="approveCommercialOffer()"
                       [disabled]="actionInProgress()"
                     >
-                      <i class="pi pi-check"></i>
+                      @if (actionInProgress()) {
+                        <i class="pi pi-spin pi-spinner"></i>
+                      } @else {
+                        <i class="pi pi-check"></i>
+                      }
                       <span>Approve Commercial Offer</span>
                     </button>
                   }
@@ -810,7 +819,7 @@
 
               <!-- Confirmed / Approved Mode -->
               @if (currentQuotation()?.status === 3) {
-                @if (canEdit()) {
+                @if (canEdit() || canApprove()) {
                   <button
                     type="button"
                     class="erp-button erp-button-primary"
@@ -875,7 +884,7 @@
               <span class="section-step-badge">Customer Access</span>
               <h3 class="section-title">Customer Notification & Portal Workspace Access</h3>
             </div>
-            @if (currentQuotation()!.status === 3 && canEdit()) {
+            @if (currentQuotation()!.status === 3 && (canEdit() || canApprove())) {
               <button
                 type="button"
                 class="erp-button erp-button-primary"
@@ -885,7 +894,7 @@
                 <i class="pi pi-envelope"></i>
                 <span>Send Quotation Email</span>
               </button>
-            } @else if (currentQuotation()!.emailStatus === 'Failed' && canEdit()) {
+            } @else if (currentQuotation()!.emailStatus === 'Failed' && (canEdit() || canApprove())) {
               <button
                 type="button"
                 class="erp-button erp-button-danger"
@@ -990,13 +999,11 @@
   }
 
   <!-- Confirmation Dialog -->
-  @if (confirmDialogVisible() && confirmDialogConfig()) {
-    <app-confirmation-dialog
-      [visible]="confirmDialogVisible()"
-      [config]="confirmDialogConfig()!"
-      [loading]="actionInProgress()"
-      (confirmed)="handleConfirmDialogResult($event)"
-      (cancelled)="confirmDialogVisible.set(false)"
-    ></app-confirmation-dialog>
-  }
+  <app-confirmation-dialog
+    [(visible)]="confirmDialogVisible"
+    [config]="confirmDialogConfig()"
+    [loading]="actionInProgress()"
+    (confirmed)="handleConfirmDialogResult($event)"
+    (cancelled)="confirmDialogVisible.set(false)"
+  ></app-confirmation-dialog>
 </div>

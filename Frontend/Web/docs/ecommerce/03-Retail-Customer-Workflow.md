@@ -107,8 +107,8 @@ flowchart TD
 - **API Interactions:**
   - `GET /api/ecommerce/cart?companyId={companyId}`
   - `POST /api/ecommerce/cart/items?companyId={companyId}`
-  - `PUT /api/ecommerce/cart/lines/{lineId}?companyId={companyId}`
-  - `DELETE /api/ecommerce/cart/lines/{lineId}?companyId={companyId}`
+  - `PUT /api/ecommerce/cart/items/{lineId}?companyId={companyId}`
+  - `DELETE /api/ecommerce/cart/items/{lineId}?companyId={companyId}`
   - `DELETE /api/ecommerce/cart?companyId={companyId}` (Clear Cart)
 
 ### Step 4: Checkout Workflow (`RetailCheckoutComponent`)

@@ -49,10 +49,10 @@
             class="erp-button erp-button-danger erp-button-sm"
             [disabled]="actionInProgress()"
             (click)="openDeclineDialog()"
-            title="Decline this proposal with remarks"
+            title="Reject this quotation"
           >
             <i class="pi pi-times"></i>
-            <span>Decline</span>
+            <span>Reject Quotation</span>
           </button>
 
           <button
@@ -60,10 +60,10 @@
             class="erp-button erp-button-success erp-button-sm"
             [disabled]="actionInProgress()"
             (click)="openAcceptDialog()"
-            title="Accept commercial terms and generate Sales Order Draft"
+            title="Accept commercial terms"
           >
             <i class="pi pi-check"></i>
-            <span>Accept Proposal</span>
+            <span>Accept Quotation</span>
           </button>
         }
 
@@ -113,8 +113,8 @@
           </div>
         } @else if (quotation()!.status === 3) {
           <div class="status-hint">
-            <i class="pi pi-clock text-info"></i>
-            <span>The formal quotation has been approved internally and is being scheduled for formal delivery to your corporate account.</span>
+            <i class="pi pi-check-circle text-primary"></i>
+            <span>The formal commercial proposal has been approved. You can review the agreed items and commercial terms below and Accept or Reject this offer.</span>
           </div>
         } @else if (quotation()!.status === 5) {
           @if (isExpired()) {
@@ -131,12 +131,12 @@
         } @else if (quotation()!.status === 6) {
           <div class="status-hint">
             <i class="pi pi-check-circle text-success"></i>
-            <span>You formally accepted this commercial proposal on <strong>{{ quotation()!.acceptedAtUtc | date:'medium' }}</strong>. Processing order creation...</span>
+            <span>You formally accepted this commercial proposal on <strong>{{ quotation()!.acceptedAtUtc | date:'medium' }}</strong>. The sales team will proceed with Sales Order preparation.</span>
           </div>
         } @else if (quotation()!.status === 7) {
           <div class="status-hint">
             <i class="pi pi-times-circle text-danger"></i>
-            <span>You declined this proposal on <strong>{{ quotation()!.declinedAtUtc | date:'medium' }}</strong>. Reason: <em>"{{ quotation()!.declinedRemarks }}"</em></span>
+            <span>You rejected this proposal on <strong>{{ quotation()!.declinedAtUtc | date:'medium' }}</strong>. Reason: <em>"{{ quotation()!.declinedRemarks }}"</em></span>
           </div>
         } @else if (quotation()!.status === 8) {
           <div class="status-hint status-hint-converted">
@@ -258,32 +258,32 @@
           <table class="erp-table detail-table">
             <thead>
               <tr>
-                <th style="width: 40px;">#</th>
-                <th style="width: 130px;">Product Code</th>
-                <th>Product Description</th>
-                <th style="width: 80px;">UOM</th>
-                <th style="width: 100px;" class="text-right">Quantity</th>
-                <th style="width: 120px;" class="text-right">Unit Price</th>
+                <th style="width: 48px;" class="text-center">#</th>
+                <th style="width: 140px;">Product Code</th>
+                <th style="min-width: 220px;">Product Description</th>
+                <th style="width: 80px;" class="text-center">UOM</th>
+                <th style="width: 110px;" class="text-right">Quantity</th>
+                <th style="width: 130px;" class="text-right">Unit Price</th>
                 <th style="width: 100px;" class="text-right">Discount</th>
-                <th style="width: 130px;" class="text-right">Line Total</th>
+                <th style="width: 140px;" class="text-right">Line Total</th>
               </tr>
             </thead>
             <tbody>
               @for (item of quotation()!.items; track item.id; let idx = $index) {
                 <tr>
                   <td class="text-secondary text-center">{{ idx + 1 }}</td>
-                  <td><code>{{ item.productCode }}</code></td>
+                  <td><code>{{ item.productCode || '—' }}</code></td>
                   <td>
-                    <div class="item-name">{{ item.productName }}</div>
+                    <div class="item-name font-medium">{{ item.productName || 'Product Line' }}</div>
                     @if (item.notes) {
                       <div class="item-notes"><i class="pi pi-tag"></i> {{ item.notes }}</div>
                     }
                   </td>
-                  <td><span class="uom-pill">{{ item.unitOfMeasureCode || 'EA' }}</span></td>
-                  <td class="text-right font-bold">{{ item.quantity }}</td>
-                  <td class="text-right">{{ item.unitPrice | currency:quotation()!.currency:'symbol':'1.2-2' }}</td>
-                  <td class="text-right text-secondary">{{ item.discountRate ? item.discountRate + '%' : '—' }}</td>
-                  <td class="text-right font-bold text-main">{{ item.lineTotal | currency:quotation()!.currency:'symbol':'1.2-2' }}</td>
+                  <td class="text-center"><span class="uom-pill">{{ item.unitOfMeasureCode || 'EA' }}</span></td>
+                  <td class="text-right font-bold tabular-nums">{{ item.quantity }}</td>
+                  <td class="text-right tabular-nums">{{ item.unitPrice | currency:quotation()!.currency:'symbol':'1.2-2' }}</td>
+                  <td class="text-right text-secondary tabular-nums">{{ item.discountRate ? item.discountRate + '%' : '—' }}</td>
+                  <td class="text-right font-bold text-main tabular-nums">{{ item.lineTotal | currency:quotation()!.currency:'symbol':'1.2-2' }}</td>
                 </tr>
               }
             </tbody>

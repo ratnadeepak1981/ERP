@@ -153,10 +153,29 @@
     cursor: pointer;
     text-decoration: none;
     transition: all 0.15s ease;
+    position: relative;
 
     &:hover {
       background-color: var(--erp-bg-subtle);
       color: var(--erp-text-main);
+    }
+
+    &.cart-btn {
+      .cart-badge-count {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background-color: var(--erp-primary);
+        color: #ffffff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: var(--erp-radius-full, 9999px);
+        min-width: 18px;
+        text-align: center;
+        line-height: 1.2;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
     }
   }
 

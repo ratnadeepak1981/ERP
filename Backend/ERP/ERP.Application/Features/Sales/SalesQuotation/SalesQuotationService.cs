@@ -557,10 +557,9 @@ public class SalesQuotationService : ISalesQuotationService
             throw new InvalidOperationException("Customer Requests cannot be approved as commercial offers. Please prepare a formal Commercial Quotation first.");
         }
 
-        // Submitter / Creator cannot approve their own quotation
-        if (approverUserId != Guid.Empty &&
-            ((quotation.CreatedByUserId.HasValue && approverUserId == quotation.CreatedByUserId.Value) ||
-             (quotation.SubmittedByUserId.HasValue && approverUserId == quotation.SubmittedByUserId.Value)))
+        // Segregation of duties: The user who submitted the transaction cannot approve it
+        var submitterUserId = quotation.SubmittedByUserId ?? quotation.CreatedByUserId;
+        if (approverUserId != Guid.Empty && submitterUserId.HasValue && approverUserId == submitterUserId.Value)
         {
             throw new InvalidOperationException("Users are not permitted to approve their own transactions.");
         }
@@ -885,6 +884,90 @@ public class SalesQuotationService : ISalesQuotationService
         return dto;
     }
 
+    public async Task<SalesQuotationDto> AcceptQuotationAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid quotationId,
+        AcceptQuotationRequest? request = null)
+    {
+        var customer = await _customerRepository.GetCustomerByIdAsync(tenantId, customerId)
+            ?? throw new InvalidOperationException("Customer account is inactive or not found.");
+
+        if (!customer.IsActive)
+            throw new InvalidOperationException($"Customer '{customer.CustomerCode}' is inactive.");
+
+        var quotation = await _repository.GetByIdUnscopedAsync(tenantId, quotationId)
+            ?? throw new KeyNotFoundException("Quotation not found in authorized customer account.");
+
+        if (quotation.CustomerId != customerId)
+            throw new UnauthorizedAccessException("You are not authorized to accept quotations belonging to another customer.");
+
+        // Idempotency: If already accepted (and not yet converted), return existing accepted quotation
+        if (quotation.Status == SalesQuotationStatus.Accepted)
+        {
+            var acceptedDto = MapToDto(quotation);
+            await EnrichQuotationDtoAsync(acceptedDto, tenantId);
+            return acceptedDto;
+        }
+
+        if (quotation.ConvertedSalesOrderId.HasValue || quotation.Status == SalesQuotationStatus.Converted)
+            throw new InvalidOperationException("This quotation has already been converted into a Sales Order.");
+
+        if (quotation.Status != SalesQuotationStatus.Sent && quotation.Status != SalesQuotationStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot accept quotation with status '{quotation.Status}'. Only formally approved or issued quotations can be accepted.");
+
+        if (quotation.IsExpired())
+            throw new InvalidOperationException("Quotation has expired and cannot be accepted. Please request a formal quotation revision.");
+
+        var now = DateTime.UtcNow;
+
+        // Delivery address preference
+        if (request?.DeliveryAddressId.HasValue == true && request.DeliveryAddressId.Value != Guid.Empty)
+        {
+            if (_dbContext != null)
+            {
+                var isLinked = await _dbContext.CustomerAddresses
+                    .AnyAsync(ca => ca.TenantId == tenantId && ca.CustomerId == customerId && ca.AddressId == request.DeliveryAddressId.Value && ca.IsActive);
+
+                if (!isLinked)
+                {
+                    throw new InvalidOperationException($"The specified delivery address '{request.DeliveryAddressId.Value}' does not belong to this customer account or is inactive.");
+                }
+
+                var addr = await _dbContext.Addresses
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.TenantId == tenantId && a.AddressId == request.DeliveryAddressId.Value && a.IsActive);
+
+                if (addr != null)
+                {
+                    quotation.DeliveryAddressSnapshot = $"{addr.AddressLine1}, {addr.City}".Trim(',', ' ');
+                }
+            }
+
+            quotation.DeliveryAddressId = request.DeliveryAddressId.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request?.CustomerRemarks))
+        {
+            string cleanRemarks = CleanCustomerRemarks(request.CustomerRemarks) ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(cleanRemarks))
+            {
+                quotation.CustomerRemarks = string.IsNullOrWhiteSpace(quotation.CustomerRemarks)
+                    ? cleanRemarks
+                    : $"{quotation.CustomerRemarks} | {cleanRemarks}";
+            }
+        }
+
+        // Record customer acceptance only (NO Sales Order creation!)
+        quotation.Accept(customerContactId, now);
+
+        await _repository.SaveChangesAsync();
+        var dto = MapToDto(quotation);
+        await EnrichQuotationDtoAsync(dto, tenantId);
+        return dto;
+    }
+
     public async Task<SalesQuotationDto> AcceptQuotationAndConvertAtomicAsync(
         Guid tenantId,
         Guid customerId,
@@ -904,8 +987,8 @@ public class SalesQuotationService : ISalesQuotationService
         if (quotation.CustomerId != customerId)
             throw new UnauthorizedAccessException("You are not authorized to accept quotations belonging to another customer.");
 
-        if (quotation.Status != SalesQuotationStatus.Sent)
-            throw new InvalidOperationException($"Cannot accept quotation with status '{quotation.Status}'. Only formally issued (Sent) quotations can be accepted.");
+        if (quotation.Status != SalesQuotationStatus.Sent && quotation.Status != SalesQuotationStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot accept quotation with status '{quotation.Status}'. Only formally approved or issued quotations can be accepted.");
 
         if (quotation.IsExpired())
             throw new InvalidOperationException("Quotation has expired and cannot be accepted. Please request a formal quotation revision.");
@@ -1078,7 +1161,10 @@ public class SalesQuotationService : ISalesQuotationService
 
         if (quotation.ConvertedSalesOrderId.HasValue || quotation.Status == SalesQuotationStatus.Converted)
         {
-            throw new InvalidOperationException("This quotation has already been converted into a Sales Order.");
+            // Idempotent safe handling: if already converted, return existing mapped DTO
+            var alreadyConvertedDto = MapToDto(quotation);
+            await EnrichQuotationDtoAsync(alreadyConvertedDto, tenantId);
+            return alreadyConvertedDto;
         }
 
         var customer = await _customerRepository.GetCustomerByIdAsync(tenantId, quotation.CustomerId)
@@ -1573,7 +1659,7 @@ public class SalesQuotationService : ISalesQuotationService
             }
         }
 
-        return new CustomerSalesQuotationDto
+        var customerDto = new CustomerSalesQuotationDto
         {
             Id = quotation.Id,
             TenantId = quotation.TenantId,
@@ -1611,6 +1697,39 @@ public class SalesQuotationService : ISalesQuotationService
             RequestReviewStatus = requestReviewStatus,
             Items = quotation.Items.Where(i => i.IsActive).Select(MapItemToDto).ToList()
         };
+
+        if (_dbContext != null && customerDto.Items.Count > 0)
+        {
+            var productIds = customerDto.Items.Select(i => i.ProductId).Distinct().ToList();
+            var uomIds = customerDto.Items.Where(i => i.UnitOfMeasureId.HasValue).Select(i => i.UnitOfMeasureId!.Value).Distinct().ToList();
+
+            var products = await _dbContext.Products
+                .Where(p => p.TenantId == tenantId && productIds.Contains(p.ProductId))
+                .ToDictionaryAsync(p => p.ProductId);
+
+            var uoms = await _dbContext.UnitsOfMeasure
+                .Where(u => u.TenantId == tenantId && uomIds.Contains(u.UnitOfMeasureId))
+                .ToDictionaryAsync(u => u.UnitOfMeasureId);
+
+            foreach (var item in customerDto.Items)
+            {
+                if (products.TryGetValue(item.ProductId, out var prod))
+                {
+                    item.ProductCode = prod.ProductCode;
+                    item.ProductName = prod.ProductName;
+                }
+                if (item.UnitOfMeasureId.HasValue && uoms.TryGetValue(item.UnitOfMeasureId.Value, out var uom))
+                {
+                    item.UnitOfMeasureCode = uom.Code;
+                }
+                else if (string.IsNullOrWhiteSpace(item.UnitOfMeasureCode))
+                {
+                    item.UnitOfMeasureCode = prod != null && !string.IsNullOrWhiteSpace(prod.UnitOfMeasure) ? prod.UnitOfMeasure : "EA";
+                }
+            }
+        }
+
+        return customerDto;
     }
 
     public async Task<byte[]> GenerateQuotationPdfAsync(Guid tenantId, Guid quotationId)
@@ -1823,6 +1942,10 @@ public class SalesQuotationService : ISalesQuotationService
                     {
                         origItem.ProductCode = p.ProductCode;
                         origItem.ProductName = p.ProductName;
+                        if (string.IsNullOrWhiteSpace(origItem.UnitOfMeasureCode))
+                        {
+                            origItem.UnitOfMeasureCode = !string.IsNullOrWhiteSpace(p.UnitOfMeasure) ? p.UnitOfMeasure : "EA";
+                        }
                     }
                 }
             }
@@ -1854,6 +1977,10 @@ public class SalesQuotationService : ISalesQuotationService
                     {
                         var json = quotation.InternalNotes.Substring(jsonStart, endIdx - jsonStart);
                         originalRequest = System.Text.Json.JsonSerializer.Deserialize<OriginalCustomerRequestDto>(json);
+                        if (originalRequest != null)
+                        {
+                            originalRequest.CustomerRemarks = CleanCustomerRemarks(originalRequest.CustomerRemarks);
+                        }
                     }
                 }
             }
@@ -1867,7 +1994,7 @@ public class SalesQuotationService : ISalesQuotationService
         {
             originalRequest = new OriginalCustomerRequestDto
             {
-                CustomerRemarks = quotation.CustomerRemarks,
+                CustomerRemarks = CleanCustomerRemarks(quotation.CustomerRemarks),
                 DeliveryAddressSnapshot = quotation.DeliveryAddressSnapshot,
                 RequiredDeliveryDate = quotation.DeliveryDate,
                 Items = quotation.Items.Where(i => i.IsActive).Select(i => new OriginalCustomerRequestItemDto

@@ -4,6 +4,7 @@ import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/rou
 import { ThemeService } from '../../../../core/services/theme.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { TenantContextService } from '../../../../core/services/tenant-context.service';
+import { EcommerceCartService } from '../../../../core/services/ecommerce-cart.service';
 
 export interface CustomerNavItem {
   label: string;
@@ -33,6 +34,7 @@ export class CustomerWorkspaceLayoutComponent {
   readonly themeService = inject(ThemeService);
   readonly authService = inject(AuthService);
   readonly tenantContext = inject(TenantContextService);
+  readonly cartService = inject(EcommerceCartService);
   private readonly router = inject(Router);
 
   readonly sidebarCollapsed = signal<boolean>(false);

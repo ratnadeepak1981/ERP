@@ -71,7 +71,9 @@ export class CustomerQuotationDetailComponent implements OnInit {
   readonly isProposalActive = computed<boolean>(() => {
     const q = this.quotation();
     if (!q) return false;
-    return Number(q.documentType) !== 2 && q.status === CustomerSalesQuotationStatus.Sent && !q.isExpired;
+    return Number(q.documentType) !== 2 
+      && (q.status === CustomerSalesQuotationStatus.Sent || q.status === CustomerSalesQuotationStatus.Confirmed)
+      && !q.isExpired;
   });
 
   readonly isConverted = computed<boolean>(() => {
@@ -91,14 +93,16 @@ export class CustomerQuotationDetailComponent implements OnInit {
 
   readonly isExpired = computed<boolean>(() => {
     const q = this.quotation();
-    return q ? q.isExpired || (q.daysUntilExpiry <= 0 && q.status === CustomerSalesQuotationStatus.Sent) : false;
+    return q ? q.isExpired || (q.daysUntilExpiry <= 0 && (q.status === CustomerSalesQuotationStatus.Sent || q.status === CustomerSalesQuotationStatus.Confirmed)) : false;
   });
 
   readonly canAct = computed<boolean>(() => {
     return this.authService.hasPermission('PORTAL_QUOTATION.ACCEPT')
       || this.authService.hasPermission('PORTAL.QUOTATION.ACCEPT')
       || this.authService.hasRole('CUSTOMER_COMPANY_ADMIN')
-      || this.authService.hasRole('Company Administrator');
+      || this.authService.hasRole('Company Administrator')
+      || this.authService.isCustomerCompany()
+      || this.authService.isCustomer();
   });
 
   ngOnInit(): void {
@@ -139,13 +143,13 @@ export class CustomerQuotationDetailComponent implements OnInit {
     this.confirmDialogError.set(null);
     this.confirmDialogConfig.set({
       action: 'accept',
-      title: `Accept Proposal ${q.quotationNumber}`,
-      message: `Accept formal quotation ${q.quotationNumber} (${q.currency} ${q.totalAmount.toFixed(2)})? This will confirm your agreement to the commercial terms and generate an official Sales Order Draft.`,
+      title: `Accept Quotation ${q.quotationNumber}`,
+      message: `Accept formal quotation ${q.quotationNumber} (${q.currency} ${q.totalAmount.toFixed(2)})? This will confirm your acceptance of the commercial proposal.`,
       subMessage: `Validity: ${q.daysUntilExpiry} days remaining. Once accepted, line prices and terms are locked.`,
       commentLabel: 'Customer Purchase Order Ref / Remarks (Optional)',
       commentPlaceholder: 'e.g. PO-2026-9042 or billing department notes',
       commentRequired: false,
-      confirmLabel: 'Accept Commercial Proposal',
+      confirmLabel: 'Accept Quotation',
       confirmIcon: 'pi pi-check',
       confirmSeverity: 'success',
       cancelLabel: 'Keep Reviewing'
@@ -160,13 +164,13 @@ export class CustomerQuotationDetailComponent implements OnInit {
     this.confirmDialogError.set(null);
     this.confirmDialogConfig.set({
       action: 'decline',
-      title: `Decline Proposal ${q.quotationNumber}`,
-      message: `Please specify the reason for declining quotation ${q.quotationNumber}. Your feedback will be shared with the commercial sales team.`,
-      commentLabel: 'Reason for declining',
+      title: `Reject Quotation ${q.quotationNumber}`,
+      message: `Please specify the reason for rejecting quotation ${q.quotationNumber}. Your feedback will be shared with the commercial sales team.`,
+      commentLabel: 'Reason for rejecting',
       commentPlaceholder: 'e.g. Quoted unit prices exceed current project budget; lead time too long...',
       commentRequired: true,
       commentMinLength: 3,
-      confirmLabel: 'Decline Proposal',
+      confirmLabel: 'Reject Quotation',
       confirmIcon: 'pi pi-times',
       confirmSeverity: 'danger',
       cancelLabel: 'Keep Reviewing'
@@ -198,7 +202,7 @@ export class CustomerQuotationDetailComponent implements OnInit {
             this.quotation.set(updated);
           }
           this.successMessage.set(
-            `Quotation ${q.quotationNumber} accepted successfully! An official Sales Order Draft has been established.`
+            `Quotation ${q.quotationNumber} accepted successfully! The commercial sales team has been notified.`
           );
           this.loadDetails(q.id);
         },
@@ -223,7 +227,7 @@ export class CustomerQuotationDetailComponent implements OnInit {
           if (updated) {
             this.quotation.set(updated);
           }
-          this.successMessage.set(`Quotation ${q.quotationNumber} has been declined.`);
+          this.successMessage.set(`Quotation ${q.quotationNumber} has been rejected.`);
           this.loadDetails(q.id);
         },
         error: (err) => {

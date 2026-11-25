@@ -125,11 +125,11 @@ Every backend capability investigated in `Backend/ERP/` is categorized into one 
 - **Payload:** `AddToCartRequest` (`ProductId`, `Quantity`, `UnitOfMeasureId`, `ProductPackagingId`, `SessionId`)
 - **Response:** `ApiResponse<CartDto>`
 
-#### `PUT /api/ecommerce/cart/lines/{lineId}?companyId={companyId}`
+#### `PUT /api/ecommerce/cart/items/{lineId}?companyId={companyId}`
 - **Payload:** `UpdateCartLineRequest` (`Quantity`, `SessionId`)
 - **Response:** `ApiResponse<CartDto>`
 
-#### `DELETE /api/ecommerce/cart/lines/{lineId}?companyId={companyId}`
+#### `DELETE /api/ecommerce/cart/items/{lineId}?companyId={companyId}`
 - **Response:** `ApiResponse<CartDto>`
 
 #### `POST /api/ecommerce/cart/checkout?companyId={companyId}`

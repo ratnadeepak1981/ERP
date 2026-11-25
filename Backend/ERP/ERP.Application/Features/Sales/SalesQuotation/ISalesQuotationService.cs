@@ -132,6 +132,13 @@ public interface ISalesQuotationService
         string actorUserName,
         bool isRetry = false);
 
+    Task<SalesQuotationDto> AcceptQuotationAsync(
+        Guid tenantId,
+        Guid customerId,
+        Guid customerContactId,
+        Guid quotationId,
+        AcceptQuotationRequest? request = null);
+
     Task<SalesQuotationDto> AcceptQuotationAndConvertAtomicAsync(
         Guid tenantId,
         Guid customerId,

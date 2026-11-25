@@ -1,0 +1,146 @@
+<div class="order-confirmation-container">
+  <app-page-header
+    title="Order Confirmation"
+    subtitle="Your e-commerce sales order has been received and registered in Draft status."
+    [breadcrumbs]="breadcrumbs"
+  >
+    <div actions class="header-actions" *ngIf="hasOrder()">
+      <button type="button" class="erp-button erp-button-secondary" (click)="printConfirmation()">
+        <i class="pi pi-print"></i>
+        <span>Print Summary</span>
+      </button>
+      <button type="button" class="erp-button erp-button-primary" (click)="goToOrders()">
+        <i class="pi pi-list"></i>
+        <span>View My Orders</span>
+      </button>
+    </div>
+  </app-page-header>
+
+  <div class="confirmation-content" *ngIf="hasOrder(); else noOrderTemplate">
+    <!-- Success Hero Section -->
+    <div class="success-hero erp-card">
+      <div class="hero-icon-wrapper">
+        <i class="pi pi-check-circle hero-icon"></i>
+      </div>
+      <div class="hero-details">
+        <div class="hero-title-row">
+          <h2 class="hero-title">Order Placed Successfully!</h2>
+          <app-status-badge
+            [label]="statusLabel()"
+            severity="info"
+            size="medium"
+          ></app-status-badge>
+        </div>
+        <p class="hero-subtitle">
+          Thank you for your business. Sales Order reference
+          <strong class="order-ref-highlight">{{ order()?.orderNumber }}</strong>
+          has been generated in <strong>{{ statusLabel() }}</strong> status and queued for commercial review.
+        </p>
+      </div>
+    </div>
+
+    <!-- Summary Details Cards Grid -->
+    <div class="confirmation-grid">
+      <!-- Order Metrics Card -->
+      <div class="details-card erp-card">
+        <div class="card-header">
+          <i class="pi pi-receipt card-icon"></i>
+          <h3 class="card-title">Order Summary</h3>
+        </div>
+        <div class="card-body">
+          <div class="detail-row">
+            <span class="detail-label">Sales Order Reference</span>
+            <span class="detail-value font-mono font-bold">{{ order()?.orderNumber }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Order Status</span>
+            <span class="detail-value">
+              <span class="status-pill status-draft">{{ statusLabel() }} (Awaiting Commercial Review)</span>
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Order Reference ID</span>
+            <span class="detail-value font-mono">{{ order()?.salesOrderId }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Order Date</span>
+            <span class="detail-value">{{ confirmationDate | date:'medium' }}</span>
+          </div>
+          <div class="detail-row total-row">
+            <span class="detail-label">Order Grand Total</span>
+            <span class="detail-value total-highlight">
+              {{ order()?.currency }} {{ order()?.totalAmount | number:'1.2-2' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fulfillment & Commercial Notice Card -->
+      <div class="policy-card erp-card">
+        <div class="card-header">
+          <i class="pi pi-shield card-icon"></i>
+          <h3 class="card-title">Commercial &amp; Fulfillment Next Steps</h3>
+        </div>
+        <div class="card-body">
+          <div class="policy-step">
+            <div class="step-badge">1</div>
+            <div class="step-content">
+              <h4>Draft Order Registration</h4>
+              <p>Your order is safely recorded in the central ERP system with locked commercial pricing and address snapshots.</p>
+            </div>
+          </div>
+          <div class="policy-step">
+            <div class="step-badge">2</div>
+            <div class="step-content">
+              <h4>Inventory Allocation &amp; Warehouse Review</h4>
+              <p>Our sales and dispatch coordinators will review inventory balances, verify warehouse pick locations, and approve the order.</p>
+            </div>
+          </div>
+          <div class="policy-step">
+            <div class="step-badge">3</div>
+            <div class="step-content">
+              <h4>Delivery &amp; On-Account Settlement</h4>
+              <p>Fulfillment dispatch notes and tax invoices will be issued in accordance with your account's commercial settlement terms. No online payment was charged.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Actions Row -->
+    <div class="bottom-actions-row">
+      <button type="button" class="erp-button erp-button-secondary" (click)="goToCatalog()">
+        <i class="pi pi-shopping-bag"></i>
+        <span>Continue Shopping</span>
+      </button>
+      <button type="button" class="erp-button erp-button-primary" (click)="goToOrders()">
+        <i class="pi pi-arrow-right"></i>
+        <span>Go to Order History</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Fallback When Visited Without Order Data -->
+  <ng-template #noOrderTemplate>
+    <div class="no-order-card erp-card">
+      <div class="no-order-icon">
+        <i class="pi pi-inbox"></i>
+      </div>
+      <h2>No Active Order Information</h2>
+      <p>
+        No recent order confirmation details were found in this browser session. If you recently placed an order,
+        you can track it under your order history.
+      </p>
+      <div class="no-order-actions">
+        <button type="button" class="erp-button erp-button-primary" (click)="goToOrders()">
+          <i class="pi pi-list"></i>
+          <span>View My Orders</span>
+        </button>
+        <button type="button" class="erp-button erp-button-secondary" (click)="goToCatalog()">
+          <i class="pi pi-shopping-bag"></i>
+          <span>Browse Catalogue</span>
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</div>
