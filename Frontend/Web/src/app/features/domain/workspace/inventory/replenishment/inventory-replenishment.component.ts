@@ -108,6 +108,12 @@ export class InventoryReplenishmentComponent implements OnInit, OnDestroy {
     return perms.includes('INVENTORY.VIEW') || perms.includes('INVENTORY.REPLENISH.CREATE');
   });
 
+  readonly canRunAssessment = computed(() => {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) return true;
+    const perms = this.authService.permissions();
+    return perms.includes('INVENTORY.REPLENISH.CREATE');
+  });
+
   readonly canCreatePr = computed(() => {
     if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin()) return true;
     const perms = this.authService.permissions();
@@ -177,6 +183,11 @@ export class InventoryReplenishmentComponent implements OnInit, OnDestroy {
   }
 
   runAssessment(): void {
+    if (!this.canRunAssessment()) {
+      this.setError('Authorization', 'Assessment Execution Prohibited', 'You have view-only access. Running replenishment assessments requires INVENTORY.REPLENISH.CREATE permission.', 'Contact your administrator for replenishment execution permissions.', false);
+      return;
+    }
+
     const comp = this.scopeService.selectedCompany();
     const branch = this.scopeService.selectedBranch();
     const whId = this.selectedWarehouseId();
@@ -288,6 +299,11 @@ export class InventoryReplenishmentComponent implements OnInit, OnDestroy {
   }
 
   openConfirmDialog(): void {
+    if (!this.canCreatePr()) {
+      this.setError('Authorization', 'Draft PR Creation Prohibited', 'Creating replenishment Draft Purchase Requisitions requires INVENTORY.REPLENISH.CREATE permission.', 'Contact your administrator for replenishment execution permissions.', false);
+      return;
+    }
+
     const selected = this.selectedLines();
     if (selected.length === 0) {
       this.setError('Validation', 'No Lines Selected', 'Please select at least one item line to create a purchase requisition.', 'Check the checkbox for one or more items.', false);

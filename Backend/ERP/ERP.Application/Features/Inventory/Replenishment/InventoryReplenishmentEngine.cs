@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
 using Domain.Features.Procurement.PurchaseOrder;
 using Domain.Features.Procurement.PurchaseRequisition;
+using Domain.Features.Sales.SalesOrder;
+using Domain.Features.Sales.Shipment;
 using Domain.Infrastructure.Persistence;
 using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
@@ -63,30 +65,201 @@ public class InventoryReplenishmentEngine : IInventoryReplenishmentEngine
 
         var result = new ReplenishmentAssessmentResult
         {
+            TenantId = tenantId,
+            CompanyId = companyId,
+            BranchId = branchId,
             WarehouseId = warehouse.WarehouseId,
             WarehouseCode = warehouse.WarehouseCode,
             WarehouseName = warehouse.WarehouseName,
-            CompanyId = companyId
+            AssessedAt = DateTime.UtcNow,
+            Method = request.Method
         };
 
-        if (request.Items == null || request.Items.Count == 0)
+        var method = request.Method ?? ReplenishmentAssessmentMethod.Manual;
+
+        List<Guid> targetProductIds = new();
+        Dictionary<Guid, (decimal DemandQty, Guid? UomId)> demandByProduct = new();
+
+        if (method == ReplenishmentAssessmentMethod.ConfirmedSalesOrder)
+        {
+            if (request.SalesOrderId.HasValue && request.SalesOrderId.Value != Guid.Empty)
+            {
+                var so = await _context.SalesOrders
+                    .Include(s => s.Items)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Id == request.SalesOrderId.Value && s.IsActive);
+
+                if (so == null)
+                {
+                    throw new KeyNotFoundException($"Sales Order '{request.SalesOrderId.Value}' was not found, is inactive, or does not belong to this tenant.");
+                }
+
+                if (so.CompanyId != companyId)
+                {
+                    throw new InvalidOperationException(
+                        $"Sales Order '{so.OrderNumber}' belongs to company '{so.CompanyId}', not authorized company '{companyId}'.");
+                }
+
+                if (warehouse.BranchId.HasValue && so.BranchId != warehouse.BranchId.Value)
+                {
+                    throw new InvalidOperationException(
+                        $"Sales Order '{so.OrderNumber}' belongs to branch '{so.BranchId}', which does not match warehouse branch '{warehouse.BranchId.Value}'.");
+                }
+
+                if (so.Status != SalesOrderStatus.Confirmed)
+                {
+                    throw new InvalidOperationException(
+                        $"Sales Order '{so.OrderNumber}' is in status '{so.Status}'. Only Confirmed orders can be assessed for replenishment demand.");
+                }
+
+                var completedShipmentItems = await _context.SalesShipments
+                    .AsNoTracking()
+                    .Where(s => s.TenantId == tenantId
+                             && s.SalesOrderId == so.Id
+                             && (s.Status == SalesShipmentStatus.Dispatched || s.Status == SalesShipmentStatus.Delivered)
+                             && s.IsActive)
+                    .SelectMany(s => s.Items.Where(i => i.IsActive), (s, item) => new { item.SalesOrderItemId, item.QuantityDispatched })
+                    .ToListAsync();
+
+                var dispatchedByLine = completedShipmentItems
+                    .GroupBy(x => x.SalesOrderItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.QuantityDispatched));
+
+                foreach (var item in so.Items.Where(i => i.IsActive))
+                {
+                    dispatchedByLine.TryGetValue(item.Id, out decimal dispatched);
+                    decimal remaining = Math.Max(0m, item.Quantity - dispatched);
+                    if (remaining > 0m)
+                    {
+                        if (demandByProduct.TryGetValue(item.ProductId, out var existing))
+                        {
+                            demandByProduct[item.ProductId] = (existing.DemandQty + remaining, existing.UomId ?? item.UnitOfMeasureId);
+                        }
+                        else
+                        {
+                            demandByProduct[item.ProductId] = (remaining, item.UnitOfMeasureId);
+                        }
+                    }
+                }
+
+                targetProductIds = demandByProduct.Keys.ToList();
+            }
+            else
+            {
+                var soQuery = _context.SalesOrders
+                    .Include(s => s.Items)
+                    .AsNoTracking()
+                    .Where(s => s.TenantId == tenantId
+                             && s.CompanyId == companyId
+                             && s.Status == SalesOrderStatus.Confirmed
+                             && s.IsActive);
+
+                if (warehouse.BranchId.HasValue)
+                {
+                    soQuery = soQuery.Where(s => s.BranchId == warehouse.BranchId.Value);
+                }
+
+                var confirmedOrders = await soQuery.ToListAsync();
+                var confirmedOrderIds = confirmedOrders.Select(o => o.Id).ToList();
+
+                var completedShipmentItems = await _context.SalesShipments
+                    .AsNoTracking()
+                    .Where(s => s.TenantId == tenantId
+                             && confirmedOrderIds.Contains(s.SalesOrderId)
+                             && (s.Status == SalesShipmentStatus.Dispatched || s.Status == SalesShipmentStatus.Delivered)
+                             && s.IsActive)
+                    .SelectMany(s => s.Items.Where(i => i.IsActive), (s, item) => new { item.SalesOrderItemId, item.QuantityDispatched })
+                    .ToListAsync();
+
+                var dispatchedByLine = completedShipmentItems
+                    .GroupBy(x => x.SalesOrderItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.QuantityDispatched));
+
+                var filterProductIds = request.Items != null && request.Items.Count > 0
+                    ? request.Items.Select(i => i.ProductId).ToHashSet()
+                    : null;
+
+                foreach (var order in confirmedOrders)
+                {
+                    foreach (var item in order.Items.Where(i => i.IsActive))
+                    {
+                        if (filterProductIds != null && !filterProductIds.Contains(item.ProductId))
+                        {
+                            continue;
+                        }
+
+                        dispatchedByLine.TryGetValue(item.Id, out decimal dispatched);
+                        decimal remaining = Math.Max(0m, item.Quantity - dispatched);
+                        if (remaining > 0m)
+                        {
+                            if (demandByProduct.TryGetValue(item.ProductId, out var existing))
+                            {
+                                demandByProduct[item.ProductId] = (existing.DemandQty + remaining, existing.UomId ?? item.UnitOfMeasureId);
+                            }
+                            else
+                            {
+                                demandByProduct[item.ProductId] = (remaining, item.UnitOfMeasureId);
+                            }
+                        }
+                    }
+                }
+
+                if (filterProductIds != null && filterProductIds.Count > 0)
+                {
+                    targetProductIds = filterProductIds.ToList();
+                }
+                else
+                {
+                    targetProductIds = demandByProduct.Keys.ToList();
+                }
+            }
+        }
+        else if (method == ReplenishmentAssessmentMethod.ReorderLevel
+                 || method == ReplenishmentAssessmentMethod.MinimumStock
+                 || method == ReplenishmentAssessmentMethod.MaximumStock)
+        {
+            if (request.Items != null && request.Items.Count > 0)
+            {
+                targetProductIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+            }
+            else
+            {
+                targetProductIds = await _context.Products
+                    .AsNoTracking()
+                    .Where(p => p.TenantId == tenantId && p.IsActive && p.ProductType != ProductType.Service)
+                    .Select(p => p.ProductId)
+                    .ToListAsync();
+            }
+        }
+        else
+        {
+            // Manual method: evaluates request.Items
+            if (request.Items == null || request.Items.Count == 0)
+            {
+                return result;
+            }
+            targetProductIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+        }
+
+        if (targetProductIds.Count == 0)
         {
             return result;
         }
 
-        var requestedProductIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
-
         // 2. Query target products
         var products = await _context.Products
             .AsNoTracking()
-            .Where(p => p.TenantId == tenantId && requestedProductIds.Contains(p.ProductId) && p.IsActive)
+            .Where(p => p.TenantId == tenantId && targetProductIds.Contains(p.ProductId) && p.IsActive)
             .ToDictionaryAsync(p => p.ProductId);
 
-        foreach (var reqItem in request.Items)
+        if (request.Items != null && request.Items.Count > 0)
         {
-            if (!products.ContainsKey(reqItem.ProductId))
+            foreach (var reqItem in request.Items)
             {
-                throw new KeyNotFoundException($"Product '{reqItem.ProductId}' was not found, is inactive, or does not belong to this tenant.");
+                if (!products.ContainsKey(reqItem.ProductId))
+                {
+                    throw new KeyNotFoundException($"Product '{reqItem.ProductId}' was not found, is inactive, or does not belong to this tenant.");
+                }
             }
         }
 
@@ -95,14 +268,14 @@ public class InventoryReplenishmentEngine : IInventoryReplenishmentEngine
             .AsNoTracking()
             .Where(b => b.TenantId == tenantId
                      && b.WarehouseId == warehouse.WarehouseId
-                     && requestedProductIds.Contains(b.ProductId))
+                     && targetProductIds.Contains(b.ProductId))
             .ToListAsync();
 
         var balancesByProduct = balances
             .GroupBy(b => b.ProductId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // 4. Batch expiry identification
+        // 4. Batch expiry identification (inclusive <= effectiveDate)
         var batchTrackedProductIds = products.Values
             .Where(p => p.TrackingMode == TrackingMode.Batch || p.TrackingMode == TrackingMode.BatchAndSerial)
             .Select(p => p.ProductId)
@@ -136,22 +309,43 @@ public class InventoryReplenishmentEngine : IInventoryReplenishmentEngine
                 item.ProductId,
                 OutstandingQty = item.Quantity - item.ReceivedQuantity
             })
-            .Where(x => requestedProductIds.Contains(x.ProductId))
+            .Where(x => targetProductIds.Contains(x.ProductId))
             .ToListAsync();
 
         // 6. Preferred supplier pricing for estimated unit price resolution
         var preferredPrices = await _context.SupplierProductPrices
             .AsNoTracking()
             .Where(s => s.TenantId == tenantId
-                     && requestedProductIds.Contains(s.ProductId)
+                     && targetProductIds.Contains(s.ProductId)
                      && s.IsPreferred
                      && s.IsActive)
             .GroupBy(s => s.ProductId)
             .ToDictionaryAsync(g => g.Key, g => g.First().UnitPrice);
 
-        foreach (var reqItem in request.Items)
+        // 7. Warehouse planning settings for planning methods
+        Dictionary<Guid, ProductWarehouseSetting> warehouseSettingsDict = new();
+        if (method == ReplenishmentAssessmentMethod.ReorderLevel
+            || method == ReplenishmentAssessmentMethod.MinimumStock
+            || method == ReplenishmentAssessmentMethod.MaximumStock)
         {
-            var product = products[reqItem.ProductId];
+            var whSettings = await _context.ProductWarehouseSettings
+                .AsNoTracking()
+                .Where(pws => pws.TenantId == tenantId
+                           && pws.WarehouseId == warehouse.WarehouseId
+                           && targetProductIds.Contains(pws.ProductId)
+                           && pws.IsActive)
+                .ToListAsync();
+
+            warehouseSettingsDict = whSettings.ToDictionary(s => s.ProductId);
+        }
+
+        foreach (var productId in targetProductIds)
+        {
+            if (!products.TryGetValue(productId, out var product))
+            {
+                continue;
+            }
+
             balancesByProduct.TryGetValue(product.ProductId, out var whBalances);
             whBalances ??= new List<InventoryBalance>();
 
@@ -172,7 +366,7 @@ public class InventoryReplenishmentEngine : IInventoryReplenishmentEngine
                 {
                     if (batchExpiryDict.TryGetValue((product.ProductId, b.BatchNumber), out var expDate) && expDate.HasValue)
                     {
-                        if (expDate.Value.Date < effectiveDate)
+                        if (expDate.Value.Date <= effectiveDate)
                         {
                             expiredQuantity += b.QuantityOnHand;
                         }
@@ -181,10 +375,11 @@ public class InventoryReplenishmentEngine : IInventoryReplenishmentEngine
             }
 
             decimal eligibleOnHand = Math.Max(0m, totalOnHand - expiredQuantity);
+            decimal uncommittedStock = Math.Max(0m, eligibleOnHand - totalAllocated - totalQuarantine);
 
             // Inbound supply: from maintained balance or PO lines
             decimal balanceOnOrder = whBalances.Sum(b => b.QuantityOnOrder);
-            decimal poLineOutstanding = 0m;
+            decimal poLineOutstanding;
             if (warehouse.BranchId.HasValue)
             {
                 poLineOutstanding = approvedPoLines
@@ -200,32 +395,162 @@ public class InventoryReplenishmentEngine : IInventoryReplenishmentEngine
             }
 
             decimal quantityOnOrder = Math.Max(balanceOnOrder, poLineOutstanding);
-            decimal netAvailable = eligibleOnHand - totalAllocated - totalQuarantine + quantityOnOrder;
-
-            decimal reqQty = Math.Max(0m, reqItem.RequiredQuantity);
-            decimal shortage = Math.Max(0m, reqQty - netAvailable);
-            bool hasShortage = shortage > 0m;
+            decimal netAvailable = uncommittedStock + quantityOnOrder;
+            decimal stockPosition = netAvailable; // Consistent across all planning methods
 
             decimal? estPrice = preferredPrices.TryGetValue(product.ProductId, out decimal prefPrice)
                 ? prefPrice
                 : (product.StandardCost > 0 ? product.StandardCost : null);
+
+            decimal requiredQty = 0m;
+            decimal shortage = 0m;
+            bool hasShortage = false;
+            bool isTriggered = false;
+            decimal? reorderLevel = null;
+            decimal? reorderQty = null;
+            decimal? minStockLevel = null;
+            decimal? maxStockLevel = null;
+            string? calcDetails = null;
+            string? warningMessage = null;
+            Guid? uomId = product.UnitOfMeasureId;
+
+            switch (method)
+            {
+                case ReplenishmentAssessmentMethod.ConfirmedSalesOrder:
+                {
+                    demandByProduct.TryGetValue(product.ProductId, out var dem);
+                    requiredQty = dem.DemandQty;
+                    uomId = dem.UomId ?? product.UnitOfMeasureId;
+                    shortage = Math.Max(0m, requiredQty - netAvailable);
+                    hasShortage = shortage > 0m;
+                    isTriggered = hasShortage;
+                    calcDetails = $"Outstanding Confirmed SO Demand: {requiredQty}, Net Available Stock: {netAvailable}, Shortage: {shortage}.";
+                    break;
+                }
+
+                case ReplenishmentAssessmentMethod.ReorderLevel:
+                {
+                    warehouseSettingsDict.TryGetValue(product.ProductId, out var whSetting);
+                    var planning = product.GetEffectivePlanningSettings(whSetting);
+                    reorderLevel = planning.ReorderLevel;
+                    reorderQty = planning.ReorderQuantity;
+                    minStockLevel = planning.MinStockQuantity;
+                    maxStockLevel = planning.MaxStockQuantity;
+
+                    isTriggered = stockPosition <= planning.ReorderLevel;
+                    if (isTriggered)
+                    {
+                        if (planning.MaxStockQuantity.HasValue && planning.MaxStockQuantity.Value > 0m)
+                        {
+                            shortage = Math.Max(planning.MaxStockQuantity.Value - stockPosition, planning.ReorderQuantity);
+                        }
+                        else if (planning.ReorderQuantity > 0m)
+                        {
+                            shortage = planning.ReorderQuantity;
+                        }
+                        else
+                        {
+                            shortage = Math.Max(0m, planning.ReorderLevel - stockPosition);
+                        }
+                        shortage = Math.Max(0m, shortage);
+                        hasShortage = shortage > 0m;
+                        calcDetails = $"StockPosition ({stockPosition}) <= ReorderLevel ({planning.ReorderLevel}). Trigger met. Replenishment Quantity: {shortage} (ReorderQty={planning.ReorderQuantity}, MaxStock={planning.MaxStockQuantity?.ToString() ?? "N/A"}).";
+                    }
+                    else
+                    {
+                        shortage = 0m;
+                        hasShortage = false;
+                        calcDetails = $"StockPosition ({stockPosition}) > ReorderLevel ({planning.ReorderLevel}). Trigger not reached.";
+                    }
+                    requiredQty = shortage;
+                    break;
+                }
+
+                case ReplenishmentAssessmentMethod.MinimumStock:
+                {
+                    warehouseSettingsDict.TryGetValue(product.ProductId, out var whSetting);
+                    var planning = product.GetEffectivePlanningSettings(whSetting);
+                    reorderLevel = planning.ReorderLevel;
+                    reorderQty = planning.ReorderQuantity;
+                    minStockLevel = planning.MinStockQuantity;
+                    maxStockLevel = planning.MaxStockQuantity;
+
+                    decimal minStock = planning.MinStockQuantity ?? 0m;
+                    requiredQty = minStock;
+                    isTriggered = minStock > 0m && stockPosition < minStock;
+                    shortage = isTriggered ? Math.Max(0m, minStock - stockPosition) : 0m;
+                    hasShortage = shortage > 0m;
+                    calcDetails = isTriggered
+                        ? $"StockPosition ({stockPosition}) < MinStock ({minStock}). Deficit to restore minimum level: {shortage}."
+                        : $"StockPosition ({stockPosition}) >= MinStock ({minStock}). Minimum stock satisfied.";
+                    break;
+                }
+
+                case ReplenishmentAssessmentMethod.MaximumStock:
+                {
+                    warehouseSettingsDict.TryGetValue(product.ProductId, out var whSetting);
+                    var planning = product.GetEffectivePlanningSettings(whSetting);
+                    reorderLevel = planning.ReorderLevel;
+                    reorderQty = planning.ReorderQuantity;
+                    minStockLevel = planning.MinStockQuantity;
+                    maxStockLevel = planning.MaxStockQuantity;
+
+                    decimal minStock = planning.MinStockQuantity ?? 0m;
+                    decimal maxStock = planning.MaxStockQuantity ?? 0m;
+                    requiredQty = maxStock;
+
+                    if (minStock > 0m && maxStock > 0m && minStock > maxStock)
+                    {
+                        warningMessage = $"Inconsistent planning configuration: MinStockQuantity ({minStock}) is greater than MaxStockQuantity ({maxStock}).";
+                    }
+
+                    isTriggered = maxStock > 0m && stockPosition < maxStock;
+                    shortage = isTriggered ? Math.Max(0m, maxStock - stockPosition) : 0m;
+                    hasShortage = shortage > 0m;
+                    calcDetails = isTriggered
+                        ? $"StockPosition ({stockPosition}) < MaxStock ({maxStock}). Quantity required to reach maximum level: {shortage}."
+                        : $"StockPosition ({stockPosition}) >= MaxStock ({maxStock}). Maximum stock satisfied.";
+                    break;
+                }
+
+                default: // Manual
+                {
+                    var reqItem = request.Items?.FirstOrDefault(i => i.ProductId == product.ProductId);
+                    requiredQty = Math.Max(0m, reqItem?.RequiredQuantity ?? 0m);
+                    uomId = reqItem?.UnitOfMeasureId ?? product.UnitOfMeasureId;
+                    shortage = Math.Max(0m, requiredQty - netAvailable);
+                    hasShortage = shortage > 0m;
+                    isTriggered = hasShortage;
+                    calcDetails = $"Manual requirement: {requiredQty}, Net Available Stock: {netAvailable}, Shortage: {shortage}.";
+                    break;
+                }
+            }
 
             result.Lines.Add(new ReplenishmentLineAssessmentDto
             {
                 ProductId = product.ProductId,
                 ProductCode = product.ProductCode,
                 ProductName = product.ProductName,
-                RequiredQuantity = reqQty,
+                RequiredQuantity = requiredQty,
                 QuantityOnHand = totalOnHand,
                 ExpiredQuantity = expiredQuantity,
                 EligibleOnHandQuantity = eligibleOnHand,
                 QuantityAllocated = totalAllocated,
                 QuantityQuarantine = totalQuarantine,
+                UncommittedStockQuantity = uncommittedStock,
                 QuantityOnOrder = quantityOnOrder,
                 NetAvailableStock = netAvailable,
+                StockPosition = stockPosition,
                 ShortageQuantity = shortage,
                 HasShortage = hasShortage,
-                UnitOfMeasureId = reqItem.UnitOfMeasureId ?? product.UnitOfMeasureId,
+                ReorderLevel = reorderLevel,
+                ReorderQuantity = reorderQty,
+                MinStockLevel = minStockLevel,
+                MaxStockLevel = maxStockLevel,
+                IsTriggered = isTriggered,
+                CalculationDetails = calcDetails,
+                WarningMessage = warningMessage,
+                UnitOfMeasureId = uomId,
                 UnitOfMeasure = product.UnitOfMeasure,
                 EstimatedUnitPrice = estPrice
             });

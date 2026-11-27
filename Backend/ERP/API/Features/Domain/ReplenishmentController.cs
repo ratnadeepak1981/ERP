@@ -33,9 +33,10 @@ public class ReplenishmentController : BaseApiController
     /// <summary>
     /// Evaluates eligible on-hand stock, active allocations, quarantine, expired batches,
     /// and approved open purchase order supply to calculate line shortages.
+    /// Requires INVENTORY.REPLENISH.CREATE permission.
     /// </summary>
     [HttpPost("assess")]
-    [RequirePermission("INVENTORY.VIEW")]
+    [RequirePermission("INVENTORY.REPLENISH.CREATE")]
     public async Task<IActionResult> AssessStock(
         Guid companyId,
         Guid branchId,

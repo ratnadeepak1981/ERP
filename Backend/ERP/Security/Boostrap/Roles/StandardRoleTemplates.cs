@@ -243,7 +243,7 @@ public static class StandardRoleTemplates
                     {
                         "PROCUREMENT.SETTINGS.VIEW", "PROCUREMENT.SETTINGS.EDIT",
                         "SUPPLIER.VIEW", "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW",
-                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "INVENTORY.REPLENISH.CREATE", "BATCH.VIEW",
+                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "BATCH.VIEW",
                         "PRICE_CARD.VIEW"
                     })),
 
@@ -264,7 +264,7 @@ public static class StandardRoleTemplates
                         "GRN.CONFIRM", "GRN.CANCEL",
                         "PROCUREMENT.SETTINGS.VIEW",
                         "SUPPLIER.VIEW", "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW",
-                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "INVENTORY.REPLENISH.CREATE",
+                        "WAREHOUSE.VIEW", "INVENTORY.VIEW",
                         "PRICE_CARD.VIEW"
                     },
                     RfqOfficerPermissions())),

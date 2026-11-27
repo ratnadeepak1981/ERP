@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ERP.Application.Features.Inventory.Replenishment;
 
@@ -9,6 +10,15 @@ public enum ReplenishmentSourceType
     SalesOrder = 1,
     SalesShipment = 2,
     InventoryPlanning = 3
+}
+
+public enum ReplenishmentAssessmentMethod
+{
+    Manual = 0,
+    ConfirmedSalesOrder = 1,
+    ReorderLevel = 2,
+    MinimumStock = 3,
+    MaximumStock = 4
 }
 
 public class ReplenishmentItemDemandDto
@@ -23,6 +33,8 @@ public class ReplenishmentAssessmentRequest
 {
     public Guid WarehouseId { get; set; }
     public DateTime? AsOfDate { get; set; }
+    public ReplenishmentAssessmentMethod? Method { get; set; }
+    public Guid? SalesOrderId { get; set; }
     public List<ReplenishmentItemDemandDto> Items { get; set; } = new();
 }
 
@@ -37,10 +49,19 @@ public class ReplenishmentLineAssessmentDto
     public decimal EligibleOnHandQuantity { get; set; }
     public decimal QuantityAllocated { get; set; }
     public decimal QuantityQuarantine { get; set; }
+    public decimal UncommittedStockQuantity { get; set; }
     public decimal QuantityOnOrder { get; set; }
     public decimal NetAvailableStock { get; set; }
+    public decimal StockPosition { get; set; }
     public decimal ShortageQuantity { get; set; }
     public bool HasShortage { get; set; }
+    public decimal? ReorderLevel { get; set; }
+    public decimal? ReorderQuantity { get; set; }
+    public decimal? MinStockLevel { get; set; }
+    public decimal? MaxStockLevel { get; set; }
+    public bool IsTriggered { get; set; }
+    public string? CalculationDetails { get; set; }
+    public string? WarningMessage { get; set; }
     public Guid? UnitOfMeasureId { get; set; }
     public string UnitOfMeasure { get; set; } = string.Empty;
     public decimal? EstimatedUnitPrice { get; set; }
@@ -48,13 +69,19 @@ public class ReplenishmentLineAssessmentDto
 
 public class ReplenishmentAssessmentResult
 {
+    public Guid TenantId { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid WarehouseId { get; set; }
     public string WarehouseCode { get; set; } = string.Empty;
     public string WarehouseName { get; set; } = string.Empty;
-    public Guid CompanyId { get; set; }
+    public DateTime AssessedAt { get; set; } = DateTime.UtcNow;
+    public ReplenishmentAssessmentMethod? Method { get; set; }
     public List<ReplenishmentLineAssessmentDto> Lines { get; set; } = new();
     public bool HasAnyShortage { get; set; }
-    public int TotalLinesWithShortage { get; set; }
+    public int TotalLinesAssessed => Lines.Count;
+    public int LinesWithShortage => Lines.Count(l => l.HasShortage);
+    public int TotalLinesWithShortage { get => LinesWithShortage; set { } }
 }
 
 public class ReplenishmentPrLineRequest

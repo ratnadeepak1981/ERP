@@ -540,6 +540,14 @@ export enum ReplenishmentSourceType {
   InventoryPlanning = 3
 }
 
+export enum ReplenishmentAssessmentMethod {
+  Manual = 0,
+  ConfirmedSalesOrder = 1,
+  ReorderLevel = 2,
+  MinimumStock = 3,
+  MaximumStock = 4
+}
+
 export interface ReplenishmentItemDemandDto {
   productId: string;
   requiredQuantity: number;
@@ -550,6 +558,8 @@ export interface ReplenishmentItemDemandDto {
 export interface ReplenishmentAssessmentRequest {
   warehouseId: string;
   asOfDate?: string | null;
+  method?: ReplenishmentAssessmentMethod | null;
+  salesOrderId?: string | null;
   items: ReplenishmentItemDemandDto[];
 }
 
@@ -563,25 +573,36 @@ export interface ReplenishmentLineAssessmentDto {
   eligibleOnHandQuantity: number;
   quantityAllocated: number;
   quantityQuarantine: number;
+  uncommittedStockQuantity?: number;
   quantityOnOrder: number;
   netAvailableStock: number;
+  stockPosition?: number;
   shortageQuantity: number;
   hasShortage: boolean;
+  reorderLevel?: number | null;
+  reorderQuantity?: number | null;
+  minStockLevel?: number | null;
+  maxStockLevel?: number | null;
+  isTriggered?: boolean;
+  calculationDetails?: string | null;
+  warningMessage?: string | null;
   unitOfMeasureId?: string | null;
   unitOfMeasure: string;
   estimatedUnitPrice?: number | null;
 }
 
 export interface ReplenishmentAssessmentResult {
-  tenantId: string;
-  companyId: string;
-  branchId: string;
+  tenantId?: string;
+  companyId?: string;
+  branchId?: string | null;
   warehouseId: string;
   warehouseCode: string;
   warehouseName: string;
   assessedAt: string;
+  method?: ReplenishmentAssessmentMethod | null;
   totalLinesAssessed: number;
   linesWithShortage: number;
+  totalLinesWithShortage?: number;
   hasAnyShortage: boolean;
   lines: ReplenishmentLineAssessmentDto[];
 }

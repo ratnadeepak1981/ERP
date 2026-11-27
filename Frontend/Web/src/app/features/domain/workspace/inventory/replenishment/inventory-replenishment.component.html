@@ -30,15 +30,17 @@
             <span>Inspect PR in Procurement</span>
           </button>
         } @else if (assessmentResult() && lineRows().length > 0) {
-          <button
-            type="button"
-            class="erp-button erp-button-secondary"
-            (click)="runAssessment()"
-            [disabled]="isAssessing() || isSubmitting()"
-          >
-            <i class="pi pi-refresh"></i>
-            <span>Re-Assess</span>
-          </button>
+          @if (canRunAssessment()) {
+            <button
+              type="button"
+              class="erp-button erp-button-secondary"
+              (click)="runAssessment()"
+              [disabled]="isAssessing() || isSubmitting()"
+            >
+              <i class="pi pi-refresh"></i>
+              <span>Re-Assess</span>
+            </button>
+          }
           @if (canCreatePr()) {
             <button
               type="button"
@@ -186,20 +188,32 @@
             </select>
           </div>
           <div class="filter-actions">
-            <button
-              type="button"
-              class="erp-button erp-button-primary"
-              [disabled]="!selectedWarehouseId() || isAssessing() || isSubmitting()"
-              (click)="runAssessment()"
-            >
-              @if (isAssessing()) {
-                <i class="pi pi-spin pi-spinner"></i>
-                <span>Assessing...</span>
-              } @else {
-                <i class="pi pi-search"></i>
-                <span>Assess Shortages</span>
-              }
-            </button>
+            @if (canRunAssessment()) {
+              <button
+                type="button"
+                class="erp-button erp-button-primary"
+                [disabled]="!selectedWarehouseId() || isAssessing() || isSubmitting()"
+                (click)="runAssessment()"
+              >
+                @if (isAssessing()) {
+                  <i class="pi pi-spin pi-spinner"></i>
+                  <span>Assessing...</span>
+                } @else {
+                  <i class="pi pi-search"></i>
+                  <span>Assess Shortages</span>
+                }
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="erp-button erp-button-primary"
+                [disabled]="true"
+                title="Running assessments requires INVENTORY.REPLENISH.CREATE permission"
+              >
+                <i class="pi pi-lock"></i>
+                <span>Assess Shortages (View Only)</span>
+              </button>
+            }
           </div>
         </div>
       </div>
