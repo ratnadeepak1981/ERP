@@ -1,0 +1,406 @@
+<div class="workspace-page replenishment-page">
+  <!-- Access Control Check -->
+  @if (!hasPermission()) {
+    <app-access-denied
+      title="Access Restricted"
+      message="You do not have permission to view or manage inventory replenishment."
+    ></app-access-denied>
+  } @else {
+    <!-- Page Header -->
+    <app-page-header
+      title="Inventory Replenishment"
+      subtitle="Assess stock shortages across physical on-hand, allocations, quarantine holdings, and open PO supply to prepare persistent Draft Purchase Requisitions."
+    >
+      <div actions class="header-actions-wrap">
+        @if (createdRequisition()) {
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="resetWorkflow()"
+          >
+            <i class="pi pi-refresh"></i>
+            <span>New Assessment</span>
+          </button>
+          <button
+            type="button"
+            class="erp-button erp-button-primary"
+            (click)="inspectRequisition()"
+          >
+            <i class="pi pi-external-link"></i>
+            <span>Inspect PR in Procurement</span>
+          </button>
+        } @else if (assessmentResult() && lineRows().length > 0) {
+          <button
+            type="button"
+            class="erp-button erp-button-secondary"
+            (click)="runAssessment()"
+            [disabled]="isAssessing() || isSubmitting()"
+          >
+            <i class="pi pi-refresh"></i>
+            <span>Re-Assess</span>
+          </button>
+          @if (canCreatePr()) {
+            <button
+              type="button"
+              class="erp-button erp-button-primary"
+              [disabled]="selectedLinesCount() === 0 || isAssessing() || isSubmitting()"
+              (click)="openConfirmDialog()"
+            >
+              <i class="pi pi-shopping-cart"></i>
+              <span>Create Draft PR ({{ selectedLinesCount() }} Selected)</span>
+            </button>
+          }
+        }
+      </div>
+    </app-page-header>
+
+    <!-- Indeterminate Progress Indicator (Server Progress Not Arbitrarily Fabricated) -->
+    @if (isAssessing()) {
+      <div class="replenish-progress-card erp-card">
+        <div class="erp-progress-bar-indeterminate"></div>
+        <div class="progress-label-wrap">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>Evaluating eligible on-hand stock, active allocations, quarantine holdings, and approved PO supply...</span>
+        </div>
+      </div>
+    }
+
+    @if (isSubmitting()) {
+      <div class="replenish-progress-card erp-card">
+        <div class="erp-progress-bar-indeterminate"></div>
+        <div class="progress-label-wrap">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>Submitting replenishment batch to Procurement module (Status: Draft, Zero stock allocated)...</span>
+        </div>
+      </div>
+    }
+
+    <!-- Structured Error State with Safe Retry -->
+    @if (error(); as err) {
+      <div class="replenish-error-banner erp-card" [class.error-validation]="err.category === 'Validation'" [class.error-network]="err.category === 'Network'">
+        <div class="error-header">
+          <div class="error-icon-wrap">
+            <i class="pi" [ngClass]="{
+              'pi-exclamation-triangle': err.category === 'Validation' || err.category === 'Conflict',
+              'pi-wifi': err.category === 'Network',
+              'pi-lock': err.category === 'Authorization',
+              'pi-times-circle': err.category === 'Server'
+            }"></i>
+          </div>
+          <div class="error-content">
+            <div class="error-tag-wrap">
+              <span class="error-category-badge">{{ err.category }} Error</span>
+              @if (err.affectedItem) {
+                <span class="error-item-badge">Item: {{ err.affectedItem }}</span>
+              }
+            </div>
+            <h4 class="error-title">{{ err.title }}</h4>
+            <p class="error-message">{{ err.message }}</p>
+            <p class="error-action"><i class="pi pi-info-circle"></i> {{ err.suggestedAction }}</p>
+          </div>
+          @if (err.canRetry && !isSubmitting() && !isAssessing()) {
+            <div class="error-actions">
+              <button
+                type="button"
+                class="erp-button erp-button-secondary retry-btn"
+                (click)="retrySubmission()"
+                title="Retry using the same idempotency key"
+              >
+                <i class="pi pi-replay"></i>
+                <span>Retry</span>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Success Outcome Banner -->
+    @if (createdRequisition(); as pr) {
+      <div class="replenish-success-card erp-card">
+        <div class="success-header">
+          <div class="success-icon-wrap">
+            <i class="pi pi-check-circle"></i>
+          </div>
+          <div class="success-content">
+            <div class="success-tag-wrap">
+              <span class="status-badge status-draft">{{ pr.status }}</span>
+              @if (pr.isReused) {
+                <span class="badge-reused"><i class="pi pi-history"></i> Existing Requisition Reconciled</span>
+              }
+            </div>
+            <h3 class="success-title">
+              Purchase Requisition <code>{{ pr.requisitionNumber }}</code> Ready
+            </h3>
+            <p class="success-desc">{{ pr.message }}</p>
+            <div class="success-meta-grid">
+              <div class="meta-item">
+                <span class="meta-label">Total Items</span>
+                <span class="meta-val">{{ pr.lineCount || pr.itemCount }} line(s)</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Est. Requisition Spend</span>
+                <span class="meta-val">{{ totalEstimatedSpend() | currency }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Inventory Balance Movement</span>
+                <span class="meta-val meta-zero">0.00 (Zero Movement)</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Inventory Allocation</span>
+                <span class="meta-val meta-zero">0.00 (Zero Allocation)</span>
+              </div>
+            </div>
+          </div>
+          <div class="success-actions">
+            <button
+              type="button"
+              class="erp-button erp-button-primary"
+              (click)="inspectRequisition(pr.requisitionId)"
+            >
+              <i class="pi pi-arrow-right"></i>
+              <span>View in Procurement</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Warehouse & Assessment Filter Card -->
+    @if (!createdRequisition()) {
+      <div class="erp-card filter-card">
+        <div class="filter-grid">
+          <div class="form-field">
+            <label for="whSelect" class="field-label">Target Warehouse Facility</label>
+            <select
+              id="whSelect"
+              class="fluent-select full-width"
+              [ngModel]="selectedWarehouseId()"
+              (ngModelChange)="onWarehouseChange($event)"
+              [disabled]="isAssessing() || isSubmitting()"
+            >
+              <option value="">-- Select Facility --</option>
+              @for (opt of warehouseOptions(); track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="filter-actions">
+            <button
+              type="button"
+              class="erp-button erp-button-primary"
+              [disabled]="!selectedWarehouseId() || isAssessing() || isSubmitting()"
+              (click)="runAssessment()"
+            >
+              @if (isAssessing()) {
+                <i class="pi pi-spin pi-spinner"></i>
+                <span>Assessing...</span>
+              } @else {
+                <i class="pi pi-search"></i>
+                <span>Assess Shortages</span>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Assessment Results Grid -->
+    @if (!createdRequisition() && assessmentResult()) {
+      <div class="erp-card grid-card">
+        <div class="grid-card-header">
+          <div class="header-summary">
+            <h3 class="grid-title">Assessment Results</h3>
+            <p class="grid-subtitle">
+              Warehouse: <strong>{{ assessmentResult()!.warehouseName }}</strong> |
+              Deficit Lines: <strong>{{ assessmentResult()!.linesWithShortage }}</strong> of {{ lineRows().length }}
+            </p>
+          </div>
+          @if (selectedLinesCount() > 0) {
+            <div class="batch-selection-pill">
+              <span class="pill-text">{{ selectedLinesCount() }} product(s) selected | Total Spend: <strong>{{ totalEstimatedSpend() | currency }}</strong></span>
+            </div>
+          }
+        </div>
+
+        @if (lineRows().length === 0) {
+          <app-empty-state
+            title="No Products Found"
+            message="No active stock-tracked products found for assessment in this warehouse."
+          ></app-empty-state>
+        } @else {
+          <div class="table-responsive">
+            <table class="erp-table replenishment-table">
+              <thead>
+                <tr>
+                  <th class="col-check">
+                    <p-checkbox
+                      [binary]="true"
+                      [ngModel]="isAllSelected()"
+                      (ngModelChange)="toggleSelectAll()"
+                      [disabled]="isSubmitting()"
+                    ></p-checkbox>
+                  </th>
+                  <th>Product</th>
+                  <th class="num-col">Demand / Min</th>
+                  <th class="num-col">Physical On-Hand</th>
+                  <th class="num-col">Allocated</th>
+                  <th class="num-col">Quarantine</th>
+                  <th class="num-col">Approved PO Supply</th>
+                  <th class="num-col">Net Available</th>
+                  <th class="num-col highlight-col">Shortage</th>
+                  <th class="num-col input-col">Requisition Qty</th>
+                  <th class="num-col">Est. Unit Price</th>
+                  <th class="num-col">Est. Total</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of lineRows(); track row.productId; let idx = $index) {
+                  <tr [class.row-selected]="row.selected" [class.row-shortage]="row.hasShortage" [class.row-error]="row.hasValidationError">
+                    <td class="col-check">
+                      <p-checkbox
+                        [binary]="true"
+                        [ngModel]="row.selected"
+                        (ngModelChange)="toggleRow(idx)"
+                        [disabled]="isSubmitting()"
+                      ></p-checkbox>
+                    </td>
+                    <td class="col-product">
+                      <span class="prod-code">{{ row.productCode }}</span>
+                      <span class="prod-name">{{ row.productName }}</span>
+                      @if (row.expiredQuantity > 0) {
+                        <span class="badge-expired" title="Expired batch stock deducted from eligible inventory">
+                          <i class="pi pi-clock"></i> {{ row.expiredQuantity | number:'1.2-2' }} Expired
+                        </span>
+                      }
+                    </td>
+                    <td class="num-col">{{ row.requiredQuantity | number:'1.2-2' }} {{ row.unitOfMeasure }}</td>
+                    <td class="num-col">{{ row.quantityOnHand | number:'1.2-2' }}</td>
+                    <td class="num-col">{{ row.quantityAllocated | number:'1.2-2' }}</td>
+                    <td class="num-col">{{ row.quantityQuarantine | number:'1.2-2' }}</td>
+                    <td class="num-col po-supply-col">
+                      @if (row.quantityOnOrder > 0) {
+                        <span class="po-supply-val">{{ row.quantityOnOrder | number:'1.2-2' }}</span>
+                      } @else {
+                        <span class="zero-dim">0.00</span>
+                      }
+                    </td>
+                    <td class="num-col" [class.net-negative]="row.netAvailableStock <= 0">
+                      {{ row.netAvailableStock | number:'1.2-2' }}
+                    </td>
+                    <td class="num-col highlight-col" [class.val-shortage]="row.shortageQuantity > 0">
+                      {{ row.shortageQuantity | number:'1.2-2' }}
+                    </td>
+                    <td class="num-col input-col">
+                      <input
+                        type="number"
+                        class="fluent-input p-inputtext-sm order-qty-input"
+                        [ngModel]="row.orderQuantity"
+                        (ngModelChange)="onQuantityChange(idx, $event)"
+                        min="0"
+                        step="0.01"
+                        [disabled]="isSubmitting()"
+                      />
+                      @if (row.hasValidationError) {
+                        <span class="cell-err-msg">{{ row.validationMessage }}</span>
+                      }
+                    </td>
+                    <td class="num-col">{{ (row.estimatedUnitPrice || 0) | currency }}</td>
+                    <td class="num-col font-bold">{{ row.lineTotal | currency }}</td>
+                    <td>
+                      @if (row.hasShortage) {
+                        <span class="badge badge-deficit">Shortage</span>
+                      } @else {
+                        <span class="badge badge-adequate">Adequate</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Confirmation Dialog: Batch PR Creation -->
+    <p-dialog
+      header="Confirm Draft Purchase Requisition"
+      [visible]="confirmDialogVisible()"
+      (visibleChange)="confirmDialogVisible.set($event)"
+      [modal]="true"
+      [closable]="!isSubmitting()"
+      [style]="{ width: '560px' }"
+    >
+      <div class="confirm-modal-body">
+        <div class="confirm-summary-box">
+          <div class="summary-line">
+            <span class="sum-label">Selected Products:</span>
+            <span class="sum-val font-bold">{{ selectedLinesCount() }} item(s)</span>
+          </div>
+          <div class="summary-line">
+            <span class="sum-label">Total Units to Order:</span>
+            <span class="sum-val font-bold">{{ totalSelectedQuantity() | number:'1.2-2' }} units</span>
+          </div>
+          <div class="summary-line">
+            <span class="sum-label">Estimated Total Spend:</span>
+            <span class="sum-val font-bold highlight-spend">{{ totalEstimatedSpend() | currency }}</span>
+          </div>
+        </div>
+
+        <form [formGroup]="confirmForm" class="modal-form">
+          <div class="form-field">
+            <label for="reqDate" class="field-label">Required Delivery Date <span class="req-star">*</span></label>
+            <input
+              id="reqDate"
+              type="date"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="requiredDate"
+            />
+          </div>
+          <div class="form-field">
+            <label for="reqNotes" class="field-label">Procurement Notes / Justification</label>
+            <textarea
+              id="reqNotes"
+              rows="3"
+              class="p-inputtext p-inputtext-sm full-width"
+              formControlName="notes"
+              placeholder="e.g. Replenishment against minimum warehouse inventory thresholds"
+            ></textarea>
+          </div>
+        </form>
+
+        <div class="dialog-notice">
+          <i class="pi pi-info-circle"></i>
+          <span>This creates a persistent Draft Purchase Requisition in the Procurement module with status <strong>Draft</strong>. Zero stock will be deducted or allocated.</span>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button
+          type="button"
+          class="erp-button erp-button-secondary"
+          (click)="confirmDialogVisible.set(false)"
+          [disabled]="isSubmitting()"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="erp-button erp-button-primary"
+          [disabled]="confirmForm.invalid || isSubmitting() || selectedLinesCount() === 0"
+          (click)="submitBatchPurchaseRequisition()"
+        >
+          @if (isSubmitting()) {
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Creating Requisition...</span>
+          } @else {
+            <i class="pi pi-check"></i>
+            <span>Confirm & Create Draft PR</span>
+          }
+        </button>
+      </div>
+    </p-dialog>
+  }
+</div>

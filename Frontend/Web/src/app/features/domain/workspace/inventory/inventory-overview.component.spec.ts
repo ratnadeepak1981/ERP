@@ -136,7 +136,7 @@ describe('InventoryOverviewComponent', () => {
 
     const config = component.overviewConfig();
     expect(config.processFlow).toBeDefined();
-    expect(config.processFlow?.stages.length).toBe(6);
+    expect(config.processFlow?.stages.length).toBe(7);
 
     const grnStage = config.processFlow?.stages.find(s => s.id === 'inbound-grn');
     expect(grnStage?.label).toBe('Goods Receiving (GRN)');
@@ -156,6 +156,10 @@ describe('InventoryOverviewComponent', () => {
     const transferStage = config.processFlow?.stages.find(s => s.id === 'transfer-stock');
     expect(transferStage?.label).toBe('Stock Transfers');
     expect(transferStage?.route).toBe('/app/inventory/transfers');
+
+    const replenishStage = config.processFlow?.stages.find(s => s.id === 'replenish-stock');
+    expect(replenishStage?.label).toBe('Stock Replenishment');
+    expect(replenishStage?.route).toBe('/app/inventory/replenishment');
 
     const countStage = config.processFlow?.stages.find(s => s.id === 'count-adjust');
     expect(countStage?.label).toBe('Stock Count & Adjustment');

@@ -505,6 +505,14 @@ export const workspaceRoutes: Routes = [
           )
       },
       {
+        path: 'replenishment',
+        canActivate: [permissionGuard(['INVENTORY.VIEW'])],
+        loadComponent: () =>
+          import('./inventory/replenishment/inventory-replenishment.component').then(
+            m => m.InventoryReplenishmentComponent
+          )
+      },
+      {
         path: 'count-adjust',
         loadComponent: () =>
           import('./inventory/count-adjust/count-adjust.component').then(

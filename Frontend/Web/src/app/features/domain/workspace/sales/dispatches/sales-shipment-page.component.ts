@@ -171,6 +171,7 @@ export class SalesShipmentPageComponent implements OnInit, AfterViewInit, OnDest
 
   readonly requisitionDialogVisible = signal<boolean>(false);
   readonly selectedRequisitionLine = signal<SalesOrderDispatchLineAvailabilityDto | null>(null);
+  readonly currentReplenishmentIdempotencyKey = signal<string | null>(null);
   readonly requisitionForm = new FormGroup({
     requiredDate: new FormControl<string>(new Date(Date.now() + 3 * 86400000).toISOString().substring(0, 10), {
       nonNullable: true,
@@ -1189,8 +1190,15 @@ export class SalesShipmentPageComponent implements OnInit, AfterViewInit, OnDest
     });
   }
 
+  viewPendingRequisition(prId: string): void {
+    if (!prId) return;
+    this.router.navigate(['/app/procurement/purchase-requisitions', prId]);
+  }
+
   openReplenishmentRequisition(line: SalesOrderDispatchLineAvailabilityDto): void {
     this.selectedRequisitionLine.set(line);
+    const orderId = this.sourceOrderId() || this.currentShipment()?.salesOrderId || 'ORD';
+    this.currentReplenishmentIdempotencyKey.set(`DSP-REPL-${orderId}-${line.productId}-${Date.now()}`);
     this.requisitionForm.patchValue({
       requiredDate: new Date(Date.now() + 3 * 86400000).toISOString().substring(0, 10),
       quantity: line.shortageQuantity > 0 ? line.shortageQuantity : 1,
@@ -1217,6 +1225,7 @@ export class SalesShipmentPageComponent implements OnInit, AfterViewInit, OnDest
 
     const req: CreateReplenishmentRequisitionRequest = {
       salesOrderId: orderId,
+      idempotencyKey: this.currentReplenishmentIdempotencyKey(),
       requiredDate: formVal.requiredDate || null,
       notes: formVal.notes || null,
       items: [
@@ -1234,10 +1243,16 @@ export class SalesShipmentPageComponent implements OnInit, AfterViewInit, OnDest
       next: res => {
         this.actionInProgress.set(false);
         this.requisitionDialogVisible.set(false);
+        this.currentReplenishmentIdempotencyKey.set(null);
         this.showMessage(
           `Purchase Requisition draft ${res.requisitionNumber} created with ${res.itemCount} items!`,
           'success'
         );
+        if (comp?.id && branch?.id && orderId) {
+          this.shipmentService.getOrderDispatchAvailability(comp.id, branch.id, orderId).subscribe({
+            next: avail => this.availability.set(avail)
+          });
+        }
       },
       error: err => {
         this.actionInProgress.set(false);

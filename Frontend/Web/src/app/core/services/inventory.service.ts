@@ -17,7 +17,11 @@ import {
   StockByLocationReportQuery,
   StockByLocationReportDto,
   StockLedgerReportQuery,
-  StockLedgerReportDto
+  StockLedgerReportDto,
+  ReplenishmentAssessmentRequest,
+  ReplenishmentAssessmentResult,
+  CreateReplenishmentPrRequest,
+  DraftPurchaseRequisitionResult
 } from '../models/inventory.models';
 
 export interface StockIssueQueryParams {
@@ -370,6 +374,46 @@ export class InventoryService {
             page: 1,
             pageSize: 25
           };
+        }
+        return res.data;
+      })
+    );
+  }
+
+  /**
+   * Assesses eligible stock, allocations, quarantine, expired batches, and open PO supply
+   * to determine stock shortages within authorized company/branch scope.
+   */
+  assessReplenishment(
+    companyId: string,
+    branchId: string,
+    request: ReplenishmentAssessmentRequest
+  ): Observable<ReplenishmentAssessmentResult> {
+    const url = buildApiUrl(`/companies/${companyId}/branches/${branchId}/inventory/replenishment/assess`);
+    return this.http.post<ApiResponse<ReplenishmentAssessmentResult>>(url, request).pipe(
+      map(res => {
+        if (!res?.data) {
+          throw new Error(res?.message || 'Failed to assess inventory replenishment.');
+        }
+        return res.data;
+      })
+    );
+  }
+
+  /**
+   * Generates a genuine persistent Draft Purchase Requisition for identified shortages
+   * within authorized company/branch scope. Zero stock is allocated or deducted.
+   */
+  createReplenishmentPurchaseRequisition(
+    companyId: string,
+    branchId: string,
+    request: CreateReplenishmentPrRequest
+  ): Observable<DraftPurchaseRequisitionResult> {
+    const url = buildApiUrl(`/companies/${companyId}/branches/${branchId}/inventory/replenishment/draft-purchase-requisition`);
+    return this.http.post<ApiResponse<DraftPurchaseRequisitionResult>>(url, request).pipe(
+      map(res => {
+        if (!res?.data) {
+          throw new Error(res?.message || 'Failed to create replenishment draft purchase requisition.');
         }
         return res.data;
       })

@@ -414,6 +414,8 @@ public static class PermissionCatalogue
         // =========================
         AddTenant(permissions, "INVENTORY.VIEW", "View Inventory", "Inventory",
             "Allows viewing inventory balances and stock transactions.");
+        AddTenant(permissions, "INVENTORY.REPLENISH.CREATE", "Create Inventory Replenishment Draft PR", "Inventory",
+            "Allows assessing inventory shortages and generating draft purchase requisitions.");
         AddTenant(permissions, "STOCK_RECEIPT.POST", "Post Stock Receipt", "StockReceipt",
             "Allows posting stock receipts.");
         AddTenant(permissions, "STOCK_ISSUE.POST", "Post Stock Issue", "StockIssue",

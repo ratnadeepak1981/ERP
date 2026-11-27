@@ -304,6 +304,12 @@
               <p class="section-desc">Live stock balances discovered across authorized facilities, bins, and staging locations.</p>
             </div>
             <div class="header-badges">
+              @if (availability()?.hasPendingPurchaseRequisitions) {
+                <span class="badge badge-warning" title="Pending Draft Purchase Requisitions exist for this order">
+                  <i class="pi pi-clock"></i>
+                  PR Pending ({{ availability()?.totalPendingPurchaseRequisitions }})
+                </span>
+              }
               @if (shortageCount() > 0) {
                 <span class="badge badge-warning">
                   <i class="pi pi-exclamation-triangle"></i>
@@ -320,6 +326,20 @@
               </span>
             </div>
           </div>
+
+          @if (availability()?.hasPendingPurchaseRequisitions) {
+            <div class="pending-pr-alert-box">
+              <div class="alert-icon-wrap">
+                <i class="pi pi-info-circle"></i>
+              </div>
+              <div class="alert-content">
+                <div class="alert-title">Active Purchase Requisitions in Progress</div>
+                <div class="alert-desc">
+                  One or more items already have pending Draft Purchase Requisitions awaiting procurement approval. Quantities remain uncounted as available stock until Purchase Orders are received.
+                </div>
+              </div>
+            </div>
+          }
 
           @if (shortageCount() > 0) {
             <div class="shortage-alert-box">
@@ -371,26 +391,44 @@
 
                       <!-- Replenishment Actions -->
                       <div class="replenishment-actions">
-                        @if (al.alternativeWarehouses && al.alternativeWarehouses.length > 0) {
+                        @if (al.hasPendingPurchaseRequisition) {
+                          <span class="badge badge-warning pr-pending-badge" [title]="'Draft PR ' + al.pendingPurchaseRequisitionNumber + ' (' + (al.pendingPurchaseRequisitionStatus || 'Draft') + ') is active'">
+                            <i class="pi pi-clock"></i>
+                            <span>PR Pending: {{ al.pendingPurchaseRequisitionNumber }}</span>
+                          </span>
+                          @if (al.pendingPurchaseRequisitionId) {
+                            <button
+                              type="button"
+                              class="erp-button erp-button-secondary action-btn-sm"
+                              (click)="viewPendingRequisition(al.pendingPurchaseRequisitionId)"
+                              title="Inspect existing Purchase Requisition"
+                            >
+                              <i class="pi pi-external-link"></i>
+                              <span>Inspect PR</span>
+                            </button>
+                          }
+                        } @else {
+                          @if (al.alternativeWarehouses && al.alternativeWarehouses.length > 0) {
+                            <button
+                              type="button"
+                              class="erp-button erp-button-secondary action-btn-sm"
+                              (click)="openReplenishmentTransfer(al)"
+                              title="Initiate Inter-Warehouse Transfer Draft"
+                            >
+                              <i class="pi pi-arrow-right-arrow-left"></i>
+                              <span>Transfer Stock</span>
+                            </button>
+                          }
                           <button
                             type="button"
                             class="erp-button erp-button-secondary action-btn-sm"
-                            (click)="openReplenishmentTransfer(al)"
-                            title="Initiate Inter-Warehouse Transfer Draft"
+                            (click)="openReplenishmentRequisition(al)"
+                            title="Generate Purchase Requisition Draft"
                           >
-                            <i class="pi pi-arrow-right-arrow-left"></i>
-                            <span>Transfer Stock</span>
+                            <i class="pi pi-shopping-cart"></i>
+                            <span>Requisition Stock</span>
                           </button>
                         }
-                        <button
-                          type="button"
-                          class="erp-button erp-button-secondary action-btn-sm"
-                          (click)="openReplenishmentRequisition(al)"
-                          title="Generate Purchase Requisition Draft"
-                        >
-                          <i class="pi pi-shopping-cart"></i>
-                          <span>Requisition Stock</span>
-                        </button>
                       </div>
                     </div>
                   </div>

@@ -199,6 +199,8 @@ public class SalesOrderDispatchAvailabilityDto
     public bool CanFulfil { get; set; }
     public bool HasShortages { get; set; }
     public int TotalShortageLines { get; set; }
+    public bool HasPendingPurchaseRequisitions { get; set; }
+    public int TotalPendingPurchaseRequisitions { get; set; }
     public List<EligibleLocationDto> EligibleLocations { get; set; } = new();
     public List<WarehouseStockSummaryDto> EligibleWarehouses { get; set; } = new();
     public List<SalesOrderDispatchLineAvailabilityDto> Lines { get; set; } = new();
@@ -289,6 +291,12 @@ public class SalesOrderDispatchLineAvailabilityDto
 
     // Other authorized warehouses holding available stock
     public List<WarehouseStockSummaryDto> AlternativeWarehouses { get; set; } = new();
+
+    // Replenishment Draft PR tracking
+    public bool HasPendingPurchaseRequisition { get; set; }
+    public Guid? PendingPurchaseRequisitionId { get; set; }
+    public string? PendingPurchaseRequisitionNumber { get; set; }
+    public string? PendingPurchaseRequisitionStatus { get; set; }
 }
 
 public class CreateReplenishmentTransferRequest
@@ -316,6 +324,7 @@ public class ReplenishmentTransferResult
 public class CreateReplenishmentRequisitionRequest
 {
     public Guid SalesOrderId { get; set; }
+    public string? IdempotencyKey { get; set; }
     public DateTime? RequiredDate { get; set; }
     public string? Notes { get; set; }
     public List<CreateReplenishmentRequisitionItemRequest> Items { get; set; } = new();

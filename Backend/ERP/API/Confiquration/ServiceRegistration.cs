@@ -140,6 +140,7 @@ public static class ServiceRegistration
         services.AddScoped<ERP.Domain.Features.Inventory.Planning.IInventoryPlanningService, ERP.Application.Features.Inventory.Planning.InventoryPlanningService>();
         services.AddScoped<ERP.Domain.Features.Inventory.Batch.IBatchService, ERP.Application.Features.Inventory.Batch.BatchService>();
         services.AddScoped<Domain.Features.Inventory.Putaway.IPutawayService, ERP.Application.Features.Inventory.Putaway.PutawayService>();
+        services.AddScoped<ERP.Application.Features.Inventory.Replenishment.IInventoryReplenishmentEngine, ERP.Application.Features.Inventory.Replenishment.InventoryReplenishmentEngine>();
         services.AddScoped<Domain.Features.Procurement.GoodsReceiptNote.IGoodsReceiptNoteService, ERP.Application.Features.Procurement.GoodsReceiptNoteFeature.GoodsReceiptNoteService>();
 
         // Inventory Valuation Strategies & Service

@@ -263,6 +263,7 @@ export class TenantLayoutComponent implements OnInit {
 
     inventoryChildren.push(
       { label: 'Stock Transfers', icon: 'pi pi-arrow-right-arrow-left', route: '/app/inventory/transfers' },
+      { label: 'Stock Replenishment', icon: 'pi pi-sync', route: '/app/inventory/replenishment' },
       { label: 'Stock Count & Adjustment', icon: 'pi pi-check-square', route: '/app/inventory/count-adjust' },
       { label: 'Stock Issue', icon: 'pi pi-arrow-circle-up', route: '/app/inventory/issue-stock' },
       { label: 'Stock by Storage Location', icon: 'pi pi-table', route: '/app/inventory/reports/stock-by-storage-location' },
@@ -383,6 +384,17 @@ export class TenantLayoutComponent implements OnInit {
     }
     const perms = this.authService.permissions();
     if (perms && perms.length > 0 && !perms.includes('INVENTORY.VIEW')) {
+      return false;
+    }
+    return true;
+  }
+
+  canReplenishInventory(): boolean {
+    if (this.authService.isTenantAdmin() || this.authService.isPlatformAdmin() || this.authService.isPlatformStaff()) {
+      return true;
+    }
+    const perms = this.authService.permissions();
+    if (perms && perms.length > 0 && !perms.includes('INVENTORY.REPLENISH.CREATE') && !perms.includes('INVENTORY.VIEW')) {
       return false;
     }
     return true;

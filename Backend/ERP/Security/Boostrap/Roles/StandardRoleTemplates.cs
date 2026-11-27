@@ -243,7 +243,7 @@ public static class StandardRoleTemplates
                     {
                         "PROCUREMENT.SETTINGS.VIEW", "PROCUREMENT.SETTINGS.EDIT",
                         "SUPPLIER.VIEW", "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW",
-                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "BATCH.VIEW",
+                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "INVENTORY.REPLENISH.CREATE", "BATCH.VIEW",
                         "PRICE_CARD.VIEW"
                     })),
 
@@ -264,7 +264,7 @@ public static class StandardRoleTemplates
                         "GRN.CONFIRM", "GRN.CANCEL",
                         "PROCUREMENT.SETTINGS.VIEW",
                         "SUPPLIER.VIEW", "SUPPLIER_PRICE.VIEW", "PRODUCT.VIEW",
-                        "WAREHOUSE.VIEW", "INVENTORY.VIEW",
+                        "WAREHOUSE.VIEW", "INVENTORY.VIEW", "INVENTORY.REPLENISH.CREATE",
                         "PRICE_CARD.VIEW"
                     },
                     RfqOfficerPermissions())),
@@ -290,7 +290,7 @@ public static class StandardRoleTemplates
                 Combine(
                     new[]
                     {
-                        "INVENTORY.VIEW", "STOCK_RECEIPT.POST", "STOCK_ISSUE.POST",
+                        "INVENTORY.VIEW", "INVENTORY.REPLENISH.CREATE", "STOCK_RECEIPT.POST", "STOCK_ISSUE.POST",
                         "PUTAWAY.POST",
                         "STOCK_COUNT.VIEW", "STOCK_COUNT.CREATE", "STOCK_COUNT.EDIT",
                         "STOCK_COUNT.SUBMIT", "STOCK_COUNT.APPROVE", "STOCK_COUNT.POST",
@@ -307,7 +307,7 @@ public static class StandardRoleTemplates
                 CurrentVersion,
                 new[]
                 {
-                    "INVENTORY.VIEW", "STOCK_RECEIPT.POST", "STOCK_ISSUE.POST", "PUTAWAY.POST",
+                    "INVENTORY.VIEW", "INVENTORY.REPLENISH.CREATE", "STOCK_RECEIPT.POST", "STOCK_ISSUE.POST", "PUTAWAY.POST",
                     "STOCK_COUNT.VIEW", "STOCK_COUNT.CREATE", "STOCK_COUNT.EDIT",
                     "STOCK_COUNT.SUBMIT", "STOCK_COUNT.CANCEL",
                     "BATCH.VIEW", "BATCH.CREATE", "BATCH.EDIT",

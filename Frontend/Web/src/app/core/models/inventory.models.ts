@@ -176,7 +176,6 @@ export function getStockIssuePurposeSeverity(
   }
 }
 
-
 export function getStockIssueStatusSeverity(
   status: StockIssueStatus | number
 ): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
@@ -414,7 +413,6 @@ export function getMovementTypeBadgeSeverity(
   }
 }
 
-
 export enum StockReceiptReason {
   OpeningBalance = 1,
   CustomerReturn = 2,
@@ -534,4 +532,88 @@ export function getStockReceiptStatusSeverity(
       return 'neutral';
   }
 }
+
+export enum ReplenishmentSourceType {
+  Manual = 0,
+  SalesOrder = 1,
+  SalesShipment = 2,
+  InventoryPlanning = 3
+}
+
+export interface ReplenishmentItemDemandDto {
+  productId: string;
+  requiredQuantity: number;
+  unitOfMeasureId?: string | null;
+  remarks?: string | null;
+}
+
+export interface ReplenishmentAssessmentRequest {
+  warehouseId: string;
+  asOfDate?: string | null;
+  items: ReplenishmentItemDemandDto[];
+}
+
+export interface ReplenishmentLineAssessmentDto {
+  productId: string;
+  productCode: string;
+  productName: string;
+  requiredQuantity: number;
+  quantityOnHand: number;
+  expiredQuantity: number;
+  eligibleOnHandQuantity: number;
+  quantityAllocated: number;
+  quantityQuarantine: number;
+  quantityOnOrder: number;
+  netAvailableStock: number;
+  shortageQuantity: number;
+  hasShortage: boolean;
+  unitOfMeasureId?: string | null;
+  unitOfMeasure: string;
+  estimatedUnitPrice?: number | null;
+}
+
+export interface ReplenishmentAssessmentResult {
+  tenantId: string;
+  companyId: string;
+  branchId: string;
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  assessedAt: string;
+  totalLinesAssessed: number;
+  linesWithShortage: number;
+  hasAnyShortage: boolean;
+  lines: ReplenishmentLineAssessmentDto[];
+}
+
+export interface ReplenishmentPrItemRequestDto {
+  productId: string;
+  requestedQuantity: number;
+  unitOfMeasureId?: string | null;
+  estimatedUnitPrice?: number | null;
+  remarks?: string | null;
+}
+
+export interface CreateReplenishmentPrRequest {
+  warehouseId?: string | null;
+  requisitionNumber?: string | null;
+  idempotencyKey?: string | null;
+  sourceType?: ReplenishmentSourceType;
+  sourceEntityId?: string | null;
+  sourceReference?: string | null;
+  requiredDate?: string | null;
+  notes?: string | null;
+  items: ReplenishmentPrItemRequestDto[];
+}
+
+export interface DraftPurchaseRequisitionResult {
+  requisitionId: string;
+  requisitionNumber: string;
+  status: string;
+  lineCount: number;
+  itemCount?: number;
+  isReused?: boolean;
+  message: string;
+}
+
 

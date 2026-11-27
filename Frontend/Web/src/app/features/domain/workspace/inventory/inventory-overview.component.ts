@@ -255,6 +255,17 @@ export class InventoryOverviewComponent implements OnInit, OnDestroy {
           requiredPermissions: ['PRODUCT.VIEW', 'WAREHOUSE.VIEW']
         },
         {
+          id: 'replenish-stock',
+          code: 'Stock Replenishment',
+          label: 'Stock Replenishment',
+          description: 'Inventory: Assess shortages against min/max rules and prepare Draft Purchase Requisitions',
+          icon: 'refresh-cw',
+          status: 'active',
+          statusLabel: 'Procurement Prep',
+          route: '/app/inventory/replenishment',
+          requiredPermissions: ['INVENTORY.VIEW']
+        },
+        {
           id: 'count-adjust',
           code: 'Stock Count & Adjustment',
           label: 'Stock Count & Adjustment',

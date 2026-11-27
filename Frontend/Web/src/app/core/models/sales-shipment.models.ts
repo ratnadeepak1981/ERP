@@ -207,6 +207,10 @@ export interface SalesOrderDispatchLineAvailabilityDto {
   suggestedSplits?: SuggestedLocationSplitDto[];
   eligibleLocations?: LocationStockAvailabilityDto[];
   alternativeWarehouses?: WarehouseStockSummaryDto[];
+  hasPendingPurchaseRequisition?: boolean;
+  pendingPurchaseRequisitionId?: string | null;
+  pendingPurchaseRequisitionNumber?: string | null;
+  pendingPurchaseRequisitionStatus?: string | null;
 }
 
 export interface SalesOrderDispatchAvailabilityDto {
@@ -226,6 +230,8 @@ export interface SalesOrderDispatchAvailabilityDto {
   canFulfil: boolean;
   hasShortages: boolean;
   totalShortageLines?: number;
+  hasPendingPurchaseRequisitions?: boolean;
+  totalPendingPurchaseRequisitions?: number;
   eligibleLocations: EligibleLocationDto[];
   eligibleWarehouses?: WarehouseStockSummaryDto[];
   lines: SalesOrderDispatchLineAvailabilityDto[];
@@ -253,6 +259,7 @@ export interface ReplenishmentTransferResult {
 
 export interface CreateReplenishmentRequisitionRequest {
   salesOrderId: string;
+  idempotencyKey?: string | null;
   requiredDate?: string | null;
   notes?: string | null;
   items: CreateReplenishmentRequisitionItemRequest[];

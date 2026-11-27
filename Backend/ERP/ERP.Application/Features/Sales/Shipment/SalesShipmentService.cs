@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Domain.Features.MasterData.Product;
+using Domain.Features.Procurement.PurchaseRequisition;
 using Domain.Features.Sales.Invoice;
 using Domain.Features.Sales.SalesOrder;
 using Domain.Features.Sales.Shipment;
 using ERP.Domain.Features.Inventory;
 using ERP.Domain.Features.MasterData.Warehouse;
 using global::Domain.Features.MasterData.UnitOfMeasure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ERP.Application.Features.Sales.Shipment;
@@ -25,6 +27,7 @@ public class SalesShipmentService : ISalesShipmentService
     private readonly ISalesInvoiceService? _invoiceService;
     private readonly IUnitOfMeasureService? _uomService;
     private readonly IServiceProvider? _serviceProvider;
+    private readonly ERP.Application.Features.Inventory.Replenishment.IInventoryReplenishmentEngine? _replenishmentEngine;
 
     public SalesShipmentService(
         ISalesShipmentRepository shipmentRepository,
@@ -36,7 +39,8 @@ public class SalesShipmentService : ISalesShipmentService
         IInventoryRepository inventoryRepository,
         ISalesInvoiceService? invoiceService = null,
         IUnitOfMeasureService? uomService = null,
-        IServiceProvider? serviceProvider = null)
+        IServiceProvider? serviceProvider = null,
+        ERP.Application.Features.Inventory.Replenishment.IInventoryReplenishmentEngine? replenishmentEngine = null)
     {
         _shipmentRepository = shipmentRepository ?? throw new ArgumentNullException(nameof(shipmentRepository));
         _salesOrderRepository = salesOrderRepository ?? throw new ArgumentNullException(nameof(salesOrderRepository));
@@ -48,6 +52,7 @@ public class SalesShipmentService : ISalesShipmentService
         _invoiceService = invoiceService;
         _uomService = uomService;
         _serviceProvider = serviceProvider;
+        _replenishmentEngine = replenishmentEngine;
     }
 
     public async Task<List<SalesShipmentDto>> GetShipmentsAsync(
@@ -1480,6 +1485,46 @@ public class SalesShipmentService : ISalesShipmentService
             };
         }).Where(w => w.TotalAvailableStock > 0).ToList();
 
+        // Identify existing active Draft Purchase Requisitions for this Sales Order
+        var db = _serviceProvider?.GetService<global::Domain.Infrastructure.Persistence.DomainDbContext>();
+        if (db != null)
+        {
+            var orderIdTag1 = $"[Source:SalesShipment:{order.Id}]";
+            var orderIdTag2 = $"[Source:SalesOrder:{order.Id}]";
+            var orderIdTag3 = $"[SalesShipment {order.OrderNumber}]";
+            var orderIdTag4 = $"SO-REPL-{order.Id:N}";
+
+            var activePrs = await db.PurchaseRequisitions
+                .Include(pr => pr.Items)
+                .AsNoTracking()
+                .Where(pr => pr.TenantId == tenantId
+                          && pr.CompanyId == companyId
+                          && pr.IsActive
+                          && pr.Status != global::Domain.Features.Procurement.PurchaseRequisition.PurchaseRequisitionStatus.Cancelled
+                          && pr.Notes != null
+                          && (pr.Notes.Contains(orderIdTag1)
+                              || pr.Notes.Contains(orderIdTag2)
+                              || pr.Notes.Contains(orderIdTag3)
+                              || pr.Notes.Contains(orderIdTag4)))
+                .OrderByDescending(pr => pr.RequisitionDate)
+                .ToListAsync();
+
+            if (activePrs.Count > 0)
+            {
+                foreach (var line in lineAvailabilities)
+                {
+                    var matchingPr = activePrs.FirstOrDefault(pr => pr.Items.Any(i => i.ProductId == line.ProductId));
+                    if (matchingPr != null)
+                    {
+                        line.HasPendingPurchaseRequisition = true;
+                        line.PendingPurchaseRequisitionId = matchingPr.Id;
+                        line.PendingPurchaseRequisitionNumber = matchingPr.RequisitionNumber;
+                        line.PendingPurchaseRequisitionStatus = matchingPr.Status.ToString();
+                    }
+                }
+            }
+        }
+
         return new SalesOrderDispatchAvailabilityDto
         {
             SalesOrderId = order.Id,
@@ -1498,6 +1543,8 @@ public class SalesShipmentService : ISalesShipmentService
             CanFulfil = canSelectedFulfil,
             HasShortages = !canSelectedFulfil,
             TotalShortageLines = lineAvailabilities.Count(l => l.ShortageQuantity > 0),
+            HasPendingPurchaseRequisitions = lineAvailabilities.Any(l => l.HasPendingPurchaseRequisition),
+            TotalPendingPurchaseRequisitions = lineAvailabilities.Count(l => l.HasPendingPurchaseRequisition),
             EligibleLocations = singleEligibleLocations,
             EligibleWarehouses = eligibleWarehousesSummary,
             Lines = lineAvailabilities
@@ -2074,6 +2121,45 @@ public class SalesShipmentService : ISalesShipmentService
         if (request.Items == null || request.Items.Count == 0)
         {
             throw new InvalidOperationException("At least one line item is required to create a purchase requisition.");
+        }
+
+        var engine = _replenishmentEngine ?? _serviceProvider?.GetService<ERP.Application.Features.Inventory.Replenishment.IInventoryReplenishmentEngine>();
+        if (engine != null)
+        {
+            var engineReq = new ERP.Application.Features.Inventory.Replenishment.CreateReplenishmentPrRequest
+            {
+                IdempotencyKey = !string.IsNullOrWhiteSpace(request.IdempotencyKey) ? request.IdempotencyKey : $"SO-REPL-{order.Id:N}",
+                SourceType = ERP.Application.Features.Inventory.Replenishment.ReplenishmentSourceType.SalesShipment,
+                SourceEntityId = order.Id,
+                SourceReference = order.OrderNumber,
+                RequiredDate = request.RequiredDate,
+                Notes = $"Sales Order replenishment for {order.OrderNumber}. {request.Notes}".Trim(),
+                Items = request.Items.Select(i => new ERP.Application.Features.Inventory.Replenishment.ReplenishmentPrLineRequest
+                {
+                    ProductId = i.ProductId,
+                    RequestedQuantity = i.Quantity,
+                    UnitOfMeasureId = i.UnitOfMeasureId,
+                    EstimatedUnitPrice = i.EstimatedUnitPrice,
+                    Remarks = i.Remarks ?? $"Replenishment for SO {order.OrderNumber}"
+                }).ToList()
+            };
+
+            var prResult = await engine.CreateDraftPurchaseRequisitionAsync(
+                tenantId,
+                companyId,
+                branchId,
+                engineReq,
+                actorUserId,
+                actorUserName);
+
+            return new ReplenishmentRequisitionResult
+            {
+                RequisitionId = prResult.RequisitionId,
+                RequisitionNumber = prResult.RequisitionNumber,
+                Status = prResult.Status,
+                ItemCount = prResult.LineCount,
+                Message = prResult.Message
+            };
         }
 
         var prItems = new List<global::Domain.Features.Procurement.PurchaseRequisition.CreatePurchaseRequisitionItemRequest>();
